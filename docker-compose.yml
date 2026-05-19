@@ -1,0 +1,37 @@
+# Local development stack — postgres + pgvector + app placeholder
+# Production uses docker-compose.prod.yml on the DO droplet
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: trading_intel_postgres
+    environment:
+      POSTGRES_USER: intel
+      POSTGRES_PASSWORD: intel
+      POSTGRES_DB: trading_intel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intel -d trading_intel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # App container — uncomment once Phase 0 is done and you want to run app in a container locally
+  # app:
+  #   build: .
+  #   container_name: trading_intel_app
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8501:8501"
+  #   volumes:
+  #     - ./data:/app/data
+  #   command: streamlit run trading_intel/dashboard/Home.py --server.port=8501 --server.address=0.0.0.0
+
+volumes:
+  postgres_data:

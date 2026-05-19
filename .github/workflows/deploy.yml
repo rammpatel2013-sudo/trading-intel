@@ -1,0 +1,47 @@
+name: Deploy to Digital Ocean
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:    # allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: []           # add 'test' here once CI is wired into a reusable workflow
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DO_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DO_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DO_SSH_USER }}@${{ secrets.DO_SSH_HOST }} bash <<EOF
+            set -e
+            cd ${{ secrets.DO_DEPLOY_PATH }}
+            git fetch --all
+            git reset --hard origin/main
+            docker compose -f docker-compose.prod.yml build
+            docker compose -f docker-compose.prod.yml run --rm app alembic upgrade head
+            docker compose -f docker-compose.prod.yml up -d
+            sudo systemctl restart trading-intel-scheduler
+          EOF
+
+      - name: Notify Discord on success
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.DISCORD_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d "{\"content\": \"✅ Deploy of \`${GITHUB_SHA:0:7}\` to DO complete\"}"
+
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.DISCORD_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d "{\"content\": \"🚨 Deploy of \`${GITHUB_SHA:0:7}\` to DO FAILED — check GitHub Actions\"}"

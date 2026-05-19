@@ -1,0 +1,28 @@
+# Production stack on Digital Ocean droplet
+# DB lives in DO managed Postgres — not in this file
+# Run as: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  app:
+    build: .
+    container_name: trading_intel_app
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8501:8501"   # only bind localhost; nginx fronts it
+    volumes:
+      - ./data:/app/data
+    command: >
+      streamlit run trading_intel/dashboard/Home.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --server.headless=true
+
+  scheduler:
+    build: .
+    container_name: trading_intel_scheduler
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    command: python -m trading_intel.scheduler.runner

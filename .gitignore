@@ -1,0 +1,64 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+token.json
+config.py            # legacy convex artifact — must stay untracked
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Data — large/sensitive, never commit
+data/pdfs/*.pdf
+data/snapshots/
+data/cache/
+data/token.json
+
+# Logs
+*.log
+logs/
+
+# DB
+*.sqlite
+*.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Backups
+backups/
+*.sql
+*.dump
+
+# Allow .gitkeep so empty folders are tracked
+!**/.gitkeep
