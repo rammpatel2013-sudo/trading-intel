@@ -1,14 +1,13 @@
 """Application configuration loaded from .env via pydantic-settings.
 
-Single source of truth for all environment-derived values. Importable from
-anywhere in the codebase, but instantiate Settings() once at the composition
-root (scheduler/runner.py or dashboard/Home.py) and inject downstream.
+Single source of truth. Instantiate Settings() once at the composition root
+(scheduler/runner.py or dashboard/Home.py) and inject downstream.
 """
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,20 +31,26 @@ class Settings(BaseSettings):
     CONVEX_PASSWORD: SecretStr
     CONVEX_ACCOUNT_TYPE: Literal["pro", "live"] = "pro"
 
-    # ── Anthropic ──────────────────────────────────────────────────────
-    ANTHROPIC_API_KEY: SecretStr
-    CLAUDE_DAILY_MODEL: str = "claude-sonnet-4-6"
-    CLAUDE_WEEKLY_MODEL: str = "claude-opus-4-6"
-
-    # ── Voyage embeddings ──────────────────────────────────────────────
-    VOYAGE_API_KEY: SecretStr
-    VOYAGE_MODEL: str = "voyage-3"
+    # ── Local LLM via Ollama (free; replaces Anthropic + Voyage) ───────
+    OLLAMA_HOST: str = "http://localhost:11434"
+    LLM_DAILY_MODEL: str = "qwen2.5:14b"
+    LLM_WEEKLY_MODEL: str = "qwen2.5:32b"
+    LLM_TAGGING_MODEL: str = "qwen2.5:7b"
+    EMBEDDING_MODEL: str = "nomic-embed-text"
+    EMBEDDING_DIM: int = 768
 
     # ── Free data sources ──────────────────────────────────────────────
     FRED_API_KEY: SecretStr
 
-    # ── Discord ────────────────────────────────────────────────────────
-    DISCORD_WEBHOOK_URL: SecretStr
+    # ── Discord webhooks (multiple channels) ───────────────────────────
+    DISCORD_WEBHOOK_URL: SecretStr                       # general / AM summary
+    DISCORD_FLOW_WEBHOOK_URL: SecretStr = SecretStr("")
+    DISCORD_IV_WEBHOOK_URL: SecretStr = SecretStr("")
+    DISCORD_VEX_WEBHOOK_URL: SecretStr = SecretStr("")
+    DISCORD_SIGNALS_WEBHOOK_URL: SecretStr = SecretStr("")
+    DISCORD_INTERNALS_WEBHOOK_URL: SecretStr = SecretStr("")
+    DISCORD_TRENDS_WEBHOOK_URL: SecretStr = SecretStr("")
+    FLOW_ALERT_THRESHOLD: int = 10
 
     # ── Database ───────────────────────────────────────────────────────
     DATABASE_URL: str
@@ -59,17 +64,11 @@ class Settings(BaseSettings):
     SCHWAB_CALLBACK_URL: str = "https://127.0.0.1"
     SCHWAB_TOKEN_PATH: str = "data/token.json"
 
-    # ── Optional future vendors ────────────────────────────────────────
-    BARCHART_API_KEY: SecretStr = SecretStr("")
-    TRADIER_TOKEN: SecretStr = SecretStr("")
-
     @property
     def watchlist_symbols(self) -> list[str]:
         return [s.strip().upper() for s in self.WATCHLIST.split(",") if s.strip()]
 
 
-# Lazy singleton — callers should `from trading_intel.config import get_settings`
-# rather than module-level instantiation, to keep import side-effects clean.
 _settings: Settings | None = None
 
 

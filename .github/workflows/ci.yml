@@ -54,8 +54,7 @@ jobs:
           # Stubs so config validation passes — never use these in real code
           CONVEX_EMAIL: ci@example.com
           CONVEX_PASSWORD: ci-stub
-          ANTHROPIC_API_KEY: ci-stub
-          VOYAGE_API_KEY: ci-stub
+          OLLAMA_HOST: http://localhost:11434
           FRED_API_KEY: ci-stub
           DISCORD_WEBHOOK_URL: https://example.com/webhook
         run: pytest -q --cov=trading_intel --cov-report=term-missing

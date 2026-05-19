@@ -24,18 +24,20 @@ Living document. Update at the end of every working session. Tells future-you (a
 
 ## What's next (Phase 0 remaining)
 
-- [ ] Initialize git repo, first commit
-- [ ] Create private GitHub repo `trading-intel`, push
-- [ ] Write `pyproject.toml` with dependency list
-- [ ] Write `docker-compose.yml` (postgres + pgvector + app placeholder)
-- [ ] Write `Dockerfile`
-- [ ] Write `alembic.ini` + `alembic/env.py`
-- [ ] Write first Alembic migration with full schema (see MASTER_PLAN.md §2)
+- [x] Initialize git repo, first commit
+- [x] Create private GitHub repo (rammpatel2013-sudo/trading-intel)
+- [x] Write `pyproject.toml`, `docker-compose.yml`, `Dockerfile`, `alembic.ini`, `alembic/env.py`
+- [x] Set up GitHub Actions CI workflow
+- [x] Switched LLM stack to **Ollama local** (free, no API costs)
+- [x] Copied Discord webhooks (7 channels) from schwab1/.env into trading-intel/.env
+- [x] DO droplet provisioned
+- [ ] **Rotate Convex password** (still exposed in `convex/config_template.py`)
+- [ ] Fill `.env` with CONVEX_EMAIL, CONVEX_PASSWORD, FRED_API_KEY (rest already populated)
+- [ ] Install Ollama from https://ollama.com (see `docs/learning/local-llm-setup.md`)
+- [ ] Pull models: `ollama pull qwen2.5:14b`, `qwen2.5:7b`, `nomic-embed-text`
+- [ ] **NEXT BUILD STEP:** Write first Alembic migration with the 14-table schema
 - [ ] `docker compose up postgres` + `alembic upgrade head` smoke test
-- [ ] Set up GitHub Actions CI (`.github/workflows/ci.yml`) — pytest + ruff + black --check
-- [ ] **Rotate Convex password** (currently exposed in `convex/config_template.py`)
-- [ ] Move all secrets into local `.env`
-- [ ] First trivial test in `tests/` to verify CI runs green
+- [ ] Verify CI runs green on next push
 
 ## Phase 0 done-criteria (go/no-go)
 - Can a fresh clone come up in <5 min on a new machine?
@@ -51,7 +53,8 @@ Living document. Update at the end of every working session. Tells future-you (a
 |---|---|---|---|
 | 1 | Local-first 12wk → DO Phase 7, or DO from week 2? | Local-first | ? |
 | 2 | DO Postgres: managed ($15/mo) or self-hosted on droplet? | Managed | ? |
-| 3 | Embedding provider | Voyage-3 | ✅ Voyage-3 |
+| 3 | Embedding provider | nomic-embed-text via Ollama (local, free) | ✅ Ollama / nomic-embed-text |
+| 3b | LLM provider | Ollama local (qwen2.5:14b daily) | ✅ Ollama (no Claude API budget) |
 | 4 | Schwab retention | Fully retire | ✅ Retire |
 | 5 | Watchlist scope (10 vs 50 vs dynamic) | Mag-7 + indexes (~10) | ? |
 | 6 | AM summary delivery | Discord only | ? |
