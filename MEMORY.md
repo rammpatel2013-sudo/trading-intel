@@ -158,6 +158,7 @@ Living document. Update at the end of every working session. Tells future-you (a
 - Convex pro tier chosen over Schwab as primary data source. Rationale: no 7-day token refresh; pre-computed vanna/charm; cleaner data shape. Trade-off: vendor lock-in (mitigated by `OptionsDataSource` Protocol).
 - Schwab fully retired from daily path. Existing `schwab1/token.json` + `.env` kept in case of later portfolio-integration need.
 - Scaffolding created inside `schwab1/trading-intel/` as starter. To be moved to its own folder at `C:\Users\drmit\PycharmProjects\trading-intel\` once Phase 0 begins.
+- **Kalman Filter research captured.** Article by @phosphenq on hedge-fund use of Kalman for vol tracking, dynamic beta, and order-book imbalance. Full notes at `docs/learning/kalman-filter.md`. Decision: NOT to implement now — too early. Apply in Phase 4 (JD pair-trading β sizing), Phase 5 (Thrasher signal, GEX:RVOL ratio denominator, Spot Up + Vol Up anomaly detection), Phase 6 (earnings-ripple dynamic correlations). Concrete tasks listed in the learning note.
 
 **2026-05-19 (earlier)**
 - Schwab token re-auth completed (was expired since March). SPY API call verified at $738.89.
