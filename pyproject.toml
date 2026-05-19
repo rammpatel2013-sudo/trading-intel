@@ -15,6 +15,7 @@ dependencies = [
     # Data source clients
     #"convexlib",                    # ConvexValue Python SDK
     "ollama>=0.3.0",                # Local LLM + embeddings (free; replaces Anthropic/Voyage)
+    "convexlib @ git+https://github.com/convexvalue/convexlib.git",
     "fredapi>=0.5.0",               # FRED macro data
     "sec-api>=1.0.0",               # SEC EDGAR (optional, free SDK)
     "yfinance>=0.2.40",             # price fallback
