@@ -64,14 +64,37 @@ Living document. Update at the end of every working session. Tells future-you (a
 - `pytest` still green
 - No vendor-specific code outside `clients/convex.py`
 
+## Phase 1.5 (NEW — deploy collector to DO droplet for 24/7 data continuity)
+
+**Decision recorded in `docs/decisions/ADR-001-split-collector-architecture.md`.** Splits the system: minimal data-collector container runs on DO droplet 24/7 ($12/mo); Ollama and dashboard stay on laptop.
+
+**Cadence (locked):** every 30 min during US RTH only (9:30–16:00 ET), plus EOD snapshot 16:30 + VIX/VVIX pull 16:45 + AM check 06:45. ~182 snapshot rows per ticker per market day; ~46K rows/year/ticker. Comfortably under Supabase free tier.
+
+- [ ] Write `docker-compose.collector.yml` (collector-only stack, no Ollama, no dashboard)
+- [ ] Write `Dockerfile.collector` (slim image, ~200 MB)
+- [ ] Write `trading_intel/scheduler/runner_collector.py` (registers data-pull jobs only)
+- [ ] Provision DO droplet (Ubuntu 24.04, non-root user, firewall, Docker) — droplet already exists, harden it
+- [ ] Set up systemd unit `trading-intel-collector.service`
+- [ ] Configure `.env` on droplet (CONVEX_*, DATABASE_URL, DISCORD_*) — NO Ollama, NO Anthropic key
+- [ ] Write `.github/workflows/deploy-collector.yml` (auto-deploy on push to main)
+- [ ] First deploy + verify via `journalctl -u trading-intel-collector -f`
+- [ ] Add weekly Mon 09:00 ET Discord ping "collector alive"
+
+## Phase 1.5 done-criteria
+- 24 hours of uptime confirmed
+- ~182 new `greeks_snapshots` rows per market day appearing in Supabase
+- No alerts firing yet (per FlashAlpha rule — collector is data-only)
+- Discord weekly alive-ping working
+- Total monthly cost: $12 (DO droplet only)
+
 ---
 
 ## Open decisions (need answers before relevant phase)
 
 | # | Decision | Default | Mithil's pick |
 |---|---|---|---|
-| 1 | Local-first 12wk → DO Phase 7, or DO from week 2? | Local-first | ? |
-| 2 | DO Postgres: managed ($15/mo) or self-hosted on droplet? | Managed | ? |
+| 1 | Local-first 12wk → DO Phase 7, or DO from week 2? | Local-first | ✅ **Hybrid: collector to DO at Phase 1.5, dashboard local until Phase 7** (ADR-001) |
+| 2 | DO Postgres: managed ($15/mo) or self-hosted on droplet? | Managed | ✅ **Neither — Supabase handles persistence**; collector droplet runs app only |
 | 3 | Embedding provider | nomic-embed-text via Ollama (local, free) | ✅ Ollama / nomic-embed-text |
 | 3b | LLM provider | Ollama local | ✅ `qwen2.5:3b` (RAM-constrained from 14b → 3b) |
 | 4 | Schwab retention | Fully retire | ✅ Retire |
