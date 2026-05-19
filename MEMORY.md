@@ -6,7 +6,14 @@ Living document. Update at the end of every working session. Tells future-you (a
 
 ## Current phase
 
-**Phase 0 — Foundation** (Week 1 of 12). Just scaffolded the empty repo.
+**Phase 1 day 1 done — moving to Phase 1 day 2.** Foundation complete, all external dependencies verified end-to-end.
+
+**Status as of 2026-05-19 evening:**
+- Supabase database live with 14-table schema (project: `wrjizvhwsotoeymyjrcu`)
+- Ollama running locally with `qwen2.5:3b` + `nomic-embed-text` pulled
+- Convex API verified working (`api.get_und(['SPY'])` returns price)
+- GitHub repo `rammpatel2013-sudo/trading-intel` synced with main branch
+- DO droplet provisioned (not yet deployed to — Phase 7)
 
 ---
 
@@ -22,28 +29,40 @@ Living document. Update at the end of every working session. Tells future-you (a
 - ✅ Decision: Schwab fully retired from daily path (parked credentials only)
 - ✅ Schwab daily token-health check task: pending deletion (Mithil to decide)
 
-## What's next (Phase 0 remaining)
+## What's done (Phase 0 + Phase 1 day 1)
 
-- [x] Initialize git repo, first commit
-- [x] Create private GitHub repo (rammpatel2013-sudo/trading-intel)
-- [x] Write `pyproject.toml`, `docker-compose.yml`, `Dockerfile`, `alembic.ini`, `alembic/env.py`
-- [x] Set up GitHub Actions CI workflow
-- [x] Switched LLM stack to **Ollama local** (free, no API costs)
-- [x] Copied Discord webhooks (7 channels) from schwab1/.env into trading-intel/.env
-- [x] DO droplet provisioned
-- [ ] **Rotate Convex password** (still exposed in `convex/config_template.py`)
-- [ ] Fill `.env` with CONVEX_EMAIL, CONVEX_PASSWORD, FRED_API_KEY (rest already populated)
-- [ ] Install Ollama from https://ollama.com (see `docs/learning/local-llm-setup.md`)
-- [ ] Pull models: `ollama pull qwen2.5:14b`, `qwen2.5:7b`, `nomic-embed-text`
-- [ ] **NEXT BUILD STEP:** Write first Alembic migration with the 14-table schema
-- [ ] `docker compose up postgres` + `alembic upgrade head` smoke test
-- [ ] Verify CI runs green on next push
+- [x] Repo created on GitHub, initial scaffolding pushed (36 files)
+- [x] `pyproject.toml`, `docker-compose.yml`, `Dockerfile`, `alembic.ini`, `alembic/env.py` all in place
+- [x] GitHub Actions CI workflow wired
+- [x] LLM stack switched to **Ollama local** (free)
+- [x] 7 Discord webhooks copied from schwab1 → trading-intel/.env
+- [x] DO droplet provisioned (idle, awaits Phase 7)
+- [x] Supabase project created (`wrjizvhwsotoeymyjrcu`) with pgvector extension enabled
+- [x] DATABASE_URL points at Supabase Direct connection (`?sslmode=require`)
+- [x] Alembic migration `0001_initial_schema.py` written and applied — 14 tables exist in Supabase
+- [x] Python venv created, dependencies installed (`pip install -e ".[dev]"`)
+- [x] `convexlib` installed via `pip install git+https://github.com/convexvalue/convexlib.git`
+- [x] Ollama installed (v0.24.0); `qwen2.5:3b` + `nomic-embed-text` pulled
+- [x] `LLM_DAILY_MODEL=qwen2.5:3b` set in `.env` (RAM constraint at 16 GB total)
+- [x] **Smoke test passed:** `api.get_und(['SPY'])` returned `[['SPY', 734.29]]`
+- [x] Convex password rotated post-leak (clean credentials in `.env`)
+- [x] FRED_API_KEY filled in `.env`
 
-## Phase 0 done-criteria (go/no-go)
-- Can a fresh clone come up in <5 min on a new machine?
-- `pytest` passes a trivial smoke test
-- `alembic upgrade head` creates all 14 tables successfully
-- GitHub Actions runs green on the first PR
+## What's next (Phase 1 day 2)
+
+- [ ] Build proper `trading_intel/clients/convex.py` — `ConvexClient` class implementing `OptionsDataSource` protocol with methods: `chain()`, `underlying()`, `exposures()`, `health()`. Replace the existing skeleton with a working implementation.
+- [ ] Write `trading_intel/greeks/exposures.py` — compute GEX/DEX/VEX/CHEX from a chain DataFrame using locked formulas (see "Key facts" section below).
+- [ ] Write `trading_intel/greeks/flip_point.py` — find price where net GEX crosses zero using scipy.optimize.brentq.
+- [ ] Write `trading_intel/scheduler/jobs/greeks_snapshot.py` — pulls watchlist Greeks from Convex, aggregates, writes to `greeks_snapshots` table. Idempotent: `INSERT ... ON CONFLICT DO NOTHING` on `(symbol, ts, source)`.
+- [ ] Manually trigger the job once: `python -m trading_intel.scheduler.jobs.greeks_snapshot` — verify rows appear in Supabase Table Editor.
+- [ ] Add basic test: `tests/clients/test_convex.py` — mocked test of the `OptionsDataSource` interface.
+- [ ] Commit + push.
+
+## Phase 1 day 2 done-criteria (go/no-go)
+- Manually run the greeks_snapshot job → 13 new rows in `greeks_snapshots` (one per watchlist ticker)
+- Spot check: SPY's gex_total should be in the billions (positive or negative — both valid regimes)
+- `pytest` still green
+- No vendor-specific code outside `clients/convex.py`
 
 ---
 
@@ -54,8 +73,9 @@ Living document. Update at the end of every working session. Tells future-you (a
 | 1 | Local-first 12wk → DO Phase 7, or DO from week 2? | Local-first | ? |
 | 2 | DO Postgres: managed ($15/mo) or self-hosted on droplet? | Managed | ? |
 | 3 | Embedding provider | nomic-embed-text via Ollama (local, free) | ✅ Ollama / nomic-embed-text |
-| 3b | LLM provider | Ollama local (qwen2.5:14b daily) | ✅ Ollama (no Claude API budget) |
+| 3b | LLM provider | Ollama local | ✅ `qwen2.5:3b` (RAM-constrained from 14b → 3b) |
 | 4 | Schwab retention | Fully retire | ✅ Retire |
+| 12 | Database hosting (local dev) | Supabase free tier | ✅ Supabase (free, no Docker overhead) |
 | 5 | Watchlist scope (10 vs 50 vs dynamic) | Mag-7 + indexes (~10) | ? |
 | 6 | AM summary delivery | Discord only | ? |
 | 7 | FastAPI Phase 6 vs Streamlit-only | FastAPI Phase 6 | ? |
