@@ -62,3 +62,6 @@ backups/
 
 # Allow .gitkeep so empty folders are tracked
 !**/.gitkeep
+
+# Generated knowledge-base notes (kept local; Supabase rows are the durable record)
+docs/playbooks/*.md

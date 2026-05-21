@@ -9,6 +9,7 @@ When adding a new model:
 3. Review and edit the generated migration
 4. Apply: `alembic upgrade head`
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -28,7 +29,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
@@ -133,7 +134,7 @@ class FlowBucket(Base):
 class GexRolling(Base):
     """Long-dated (rolling) total GEX per symbol — EOD cadence.
 
-    ``gex_total`` is net signed gxoi (calls +, puts −) summed across every
+    ``gex_total`` is net signed gxoi (calls +, puts -) summed across every
     expiration within ``window_days`` (default ~180 / 6 months). Tracks
     directional positioning drift over time. Paired with per-expiration detail
     in ``gex_term``.
@@ -160,9 +161,7 @@ class GexTerm(Base):
     """
 
     __tablename__ = "gex_term"
-    __table_args__ = (
-        UniqueConstraint("symbol", "ts", "source", "expiration", name="uq_gex_term"),
-    )
+    __table_args__ = (UniqueConstraint("symbol", "ts", "source", "expiration", name="uq_gex_term"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     symbol: Mapped[str] = mapped_column(String(16))
@@ -238,7 +237,10 @@ class Document(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     path: Mapped[str] = mapped_column(String(512))
     source: Mapped[str | None] = mapped_column(String(32))  # internal, broker, sec, etc.
-    type: Mapped[str | None] = mapped_column(String(32))    # pdf, transcript, etc.
+    type: Mapped[str | None] = mapped_column(String(32))  # pdf, transcript, etc.
+    kind: Mapped[str] = mapped_column(
+        String(16), server_default="methodology", default="methodology", nullable=False
+    )  # methodology (LLM reasoning) | research (company/theme RAG)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     sha256: Mapped[str] = mapped_column(String(64), unique=True)
     page_count: Mapped[int | None] = mapped_column(Integer)

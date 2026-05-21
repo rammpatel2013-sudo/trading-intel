@@ -94,6 +94,28 @@ Living document. Update at the end of every working session. Tells future-you (a
 - Discord weekly alive-ping working
 - Total monthly cost: $12 (DO droplet only)
 
+## Phase 1.5b — Research knowledge pipeline (NEW 2026-05-21)
+
+**Built the Type-1 "methodology" knowledge layer** (extraction + tagging; embeddings/RAG deferred). Pivoted here from the 24/7 collector at Mithil's direction (knowledge eval + AM summary + live price ranked higher). Collector still wanted, just deferred.
+
+- `memory/pdf_pipeline.py` — walks `research/`, extracts PDF (pypdf -> pdfplumber fallback) + docx (python-docx incl. tables), SHA-256 dedupe vs `documents`, idempotent. CLI: `python -m trading_intel.memory.pdf_pipeline [--limit N] [--kind methodology|research] [--model M]`.
+- `synthesis/prompts.py` + `synthesis/tagging.py` — Ollama (LLMProvider) framework extraction -> `docs/playbooks/<slug>.md`; theme tagging -> `themes` + `theme_observations`. Defensive JSON parse + value clamping.
+- Migration `0003` — `documents.kind` (`methodology` | `research`) + check + index; existing rows backfill `methodology`.
+- Full ingestion run: **13/13 research docs** (9 PDF + 4 docx), 0 empty, 0 failed, on `qwen2.5:3b`. Long books (>14k chars) truncated to opening section (noted in each playbook).
+- Playbooks are **local-only** (gitignored); Supabase `documents`/`themes`/`theme_observations` are the durable record.
+- 25 tests green (11 new); ruff/black clean.
+
+**Two knowledge types (locked 2026-05-21):**
+- **Type-1 methodology** = knowledge FOR the LLM: frameworks applied to live Convex/vol data to find/interpret trades. <- this layer, now seeded.
+- **Type-2 company research** = knowledge ABOUT companies/themes: symbol/theme material for deep research, watchlists, Q&A. Needs embeddings/RAG + symbol-keyed ingestion + a Q&A interface. NOT built; needs company source docs.
+
+**Deferred / connected pieces (the supplementing roadmap):**
+- 24/7 collector to DO droplet (ADR-001) — still wanted; series gaps accumulate until deployed. (runner_collector + Dockerfile.collector + deploy-collector.yml + gate old deploy.yml.)
+- Type-2 RAG/Q&A/watchlist layer (embeddings into `chunks` pgvector).
+- Convex-style dashboard view (joy-plot / gxoi-by-expiration) — Mithil's stated dashboard preference.
+- AM summary (ties methodology + data + live price together).
+
+
 ---
 
 ## Open decisions (need answers before relevant phase)
@@ -197,6 +219,13 @@ Both idempotent (ON CONFLICT), ts floored to the day. **Requires migration `0002
 ## Recent decisions / decision log
 
 (Move to `docs/decisions/ADR-N-name.md` once an ADR is written. This is the short-form trail.)
+
+**2026-05-21 (Phase 1.5b — research knowledge pipeline)**
+- Pivoted from the 24/7 collector to the research knowledge pipeline (Mithil's priority). Collector still wanted; deferred.
+- Split the KB into two kinds: methodology (knowledge FOR the LLM, applied to live data to find/interpret trades) vs research (knowledge ABOUT companies/themes: deep research, watchlists, Q&A). Encoded as `documents.kind` (migration 0003).
+- Built the methodology layer only: frameworks -> `docs/playbooks/*.md` + theme tagging -> DB. Embeddings/RAG deferred (it is the substrate for the Type-2 research layer).
+- Playbooks kept local-only (gitignored); Supabase rows are the durable record.
+- LLM: Ollama `qwen2.5:3b` (LLM_DAILY_MODEL); quality good. 13/13 docs ingested, 0 failed.
 
 **2026-05-21 (Phase 1 day 2 build)**
 - Flip-point method: chose **BS repricing** (recompute each strike's Black-Scholes gamma at candidate spot, sum sign-weighted dollar-gamma, brentq for zero) over lightweight strike-profile interpolation. More accurate; matches the "±10% range" intent.
