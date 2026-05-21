@@ -1,9 +1,9 @@
 name: Deploy to Digital Ocean
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:    # allow manual trigger
+  # Auto-deploy on push is DISABLED until the prod stack is set up (Phase 7 / collector).
+  # Run manually from the Actions tab ("Run workflow") when ready to deploy.
+  workflow_dispatch:
 
 jobs:
   deploy:
