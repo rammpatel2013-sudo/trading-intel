@@ -130,6 +130,49 @@ class FlowBucket(Base):
     flowratio: Mapped[float | None] = mapped_column(Float)
 
 
+class GexRolling(Base):
+    """Long-dated (rolling) total GEX per symbol — EOD cadence.
+
+    ``gex_total`` is net signed gxoi (calls +, puts −) summed across every
+    expiration within ``window_days`` (default ~180 / 6 months). Tracks
+    directional positioning drift over time. Paired with per-expiration detail
+    in ``gex_term``.
+    """
+
+    __tablename__ = "gex_rolling"
+    __table_args__ = (UniqueConstraint("symbol", "ts", "source", name="uq_gex_rolling"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[datetime] = mapped_column(DateTime)
+    spot: Mapped[float | None] = mapped_column(Float)
+    window_days: Mapped[int] = mapped_column(Integer)
+    gex_total: Mapped[float | None] = mapped_column(Float)  # net signed gxoi over window
+    n_expirations: Mapped[int | None] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+
+
+class GexTerm(Base):
+    """Per-expiration net gxoi (term structure) for a rolling snapshot.
+
+    One row per expiration; ties back to a ``gex_rolling`` row by the natural
+    key (symbol, ts, source).
+    """
+
+    __tablename__ = "gex_term"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "source", "expiration", name="uq_gex_term"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[datetime] = mapped_column(DateTime)
+    expiration: Mapped[date] = mapped_column(Date)
+    dte: Mapped[int | None] = mapped_column(Integer)
+    gex: Mapped[float | None] = mapped_column(Float)  # net signed gxoi for this expiration
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+
+
 # ── VIX / macro ────────────────────────────────────────────────────────
 
 

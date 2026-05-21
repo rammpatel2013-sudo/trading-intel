@@ -1,13 +1,16 @@
 """ConvexValue data client — the primary OptionsDataSource implementation.
 
-Wraps `convexlib.api.ConvexApi` with:
-- Pydantic-typed responses
-- Retry on transient failures
-- Normalized chain DataFrame (consistent column names across vendors)
-- Aggregate exposures helper
-
 This module is the ONLY place in the codebase that imports `convexlib`.
 All downstream code consumes data via the OptionsDataSource Protocol.
+
+Field-code reference: https://github.com/convexvalue/convexlib (README lists the
+valid get_und and get_chain params). Two response-shape notes learned against
+the live API (the README is slightly out of date):
+- ``get_chain_as_rows`` returns each option as
+  ``[symbol, expiration, strike, kind, *params]`` — symbol/expiration/strike/
+  kind are structural and must NOT be requested as params.
+- ``get_und`` nests rows one level deeper than the README example:
+  ``{"data": [[ [symbol, *vals], ... ]]}`` — the rows live at ``data[0]``.
 """
 from __future__ import annotations
 
@@ -18,13 +21,16 @@ import pandas as pd
 
 from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings
+from trading_intel.errors import DataSourceError
+from trading_intel.greeks.exposures import compute_exposures
+from trading_intel.greeks.flip_point import gex_flip
 
 
-# Convex API params we want for the chain endpoint
+# Chain DATA params only — symbol/expiration/strike/kind are added structurally
+# by get_chain_as_rows. Every code below is a valid get_chain param per the
+# convexlib README. (There is NO `cxoi`; we recompute charm/vanna exposure from
+# the raw `charm`/`vanna` greeks.)
 _CHAIN_PARAMS = (
-    "strike",
-    "expiration",
-    "opt_kind",
     "delta",
     "gamma",
     "theta",
@@ -37,10 +43,13 @@ _CHAIN_PARAMS = (
     "gxoi",
     "dxoi",
     "vxoi",
-    "cxoi",
+    "multiplier",       # contract multiplier (100 for equities/ETFs/SPX)
 )
 
-# Convex API params for the underlying endpoint
+# Structural columns get_chain_as_rows prepends to every row.
+_CHAIN_STRUCT = ("symbol", "expiration", "strike", "opt_kind")
+
+# get_und params for the full underlying snapshot (all valid per README).
 _UND_PARAMS_BASE = (
     "price",
     "day_volume",
@@ -57,9 +66,6 @@ _UND_PARAMS_BASE = (
     "gxoi",
     "vxoi",
 )
-
-# Time-bucketed flow params (appended dynamically)
-_UND_TIME_PARAMS = ("volm_{b}", "value_{b}", "volmbs_{b}", "valuebs_{b}")
 
 
 @dataclass
@@ -99,54 +105,135 @@ class ConvexClient(OptionsDataSource):
                 rng=strike_range,
             )
         )
+        cols = [*_CHAIN_STRUCT, *_CHAIN_PARAMS]
         if not rows:
-            return pd.DataFrame(columns=["symbol", *_CHAIN_PARAMS])
+            return pd.DataFrame(columns=cols)
 
-        cols = ["symbol", "expiration", "strike", "opt_kind", *_CHAIN_PARAMS]
-        df = pd.DataFrame(rows, columns=cols)
-        # Normalize the IV column name to `iv` to match the Protocol
+        df = pd.DataFrame(rows)
+        if df.shape[1] != len(cols):
+            raise DataSourceError(
+                f"Convex chain for {symbol!r} returned {df.shape[1]} columns; "
+                f"expected {len(cols)} ([symbol, expiration, strike, kind, "
+                f"*{len(_CHAIN_PARAMS)} params])"
+            )
+        df.columns = cols
+        # Normalize names to the OptionsDataSource Protocol vocabulary.
         df = df.rename(columns={"volatility": "iv", "day_volume": "volume"})
+        # Convex returns `expiration` as days since the Unix epoch (e.g. 20595 =
+        # 2026-05-22). Normalize to a real datetime so the greeks layer stays
+        # vendor-agnostic.
+        df["expiration"] = pd.to_datetime(
+            pd.to_numeric(df["expiration"], errors="coerce"),
+            unit="D",
+            origin="unix",
+            errors="coerce",
+        )
         return df
 
+    def chain_long(
+        self,
+        symbol: str,
+        *,
+        max_exps: int = 40,
+        strike_range: float = 0.20,
+    ) -> pd.DataFrame:
+        """Chain spanning many expirations (for long-dated / rolling GEX).
+
+        Convex's ``exps`` are expiration indices; we don't know up front how
+        many a symbol has, so we request a wide range and fall back to fewer if
+        the vendor rejects the request. The caller filters by expiration date.
+        """
+        candidates = (max_exps, 30, 20, 12)
+        last_err: DataSourceError | None = None
+        for n in candidates:
+            try:
+                return self.chain(
+                    symbol, exps=tuple(range(1, n + 1)), strike_range=strike_range
+                )
+            except DataSourceError as exc:
+                last_err = exc
+                continue
+        # Final fallback: the near-term default.
+        if last_err is not None:
+            return self.chain(symbol, strike_range=strike_range)
+        return self.chain(symbol, strike_range=strike_range)
+
     # ── Underlying ─────────────────────────────────────────────────────
+    def _get_und(self, symbols: list[str], params: list[str]) -> pd.DataFrame:
+        """Call get_und and shape the response defensively.
+
+        The live API nests rows one level deeper than the README example
+        (``data == [[ [symbol, *vals], ... ]]``), so we unwrap ``data[0]``. We
+        also never force a fixed column count — Convex may omit a param it does
+        not recognize — so callers that only need ``price``/``symbol`` still work.
+        """
+        response = self._timed(
+            lambda: self._api.get_und(symbols=list(symbols), params=list(params))
+        )
+        raw = response.get("data", []) if isinstance(response, dict) else []
+        if not raw:
+            return pd.DataFrame(columns=["symbol", *params])
+
+        # Unwrap the extra nesting level when present (data[0] holds the rows).
+        rows = raw
+        if isinstance(raw[0], list) and raw[0] and isinstance(raw[0][0], list):
+            rows = raw[0]
+        if not rows:
+            return pd.DataFrame(columns=["symbol", *params])
+
+        df = pd.DataFrame(rows)
+        expected = ["symbol", *params]
+        width = df.shape[1]
+        if width == len(expected):
+            df.columns = expected
+        elif width < len(expected):
+            # Convex omitted some trailing params; name what we got (symbol first).
+            df.columns = expected[:width]
+        else:
+            df.columns = expected + [f"extra_{i}" for i in range(width - len(expected))]
+        return df
+
     def underlying(
         self,
         symbols: list[str],
         *,
-        time_buckets: tuple[str, ...] = ("5m", "15m", "30m"),
+        time_buckets: tuple[str, ...] = (),
     ) -> pd.DataFrame:
-        params = list(_UND_PARAMS_BASE)
-        for bucket in time_buckets:
-            params += [p.format(b=bucket) for p in _UND_TIME_PARAMS]
+        # NOTE: time-bucketed flow (volm_5m, ...) are CHAIN params, not get_und
+        # params, so time_buckets is accepted for Protocol compatibility but is
+        # not used here. Bucketed flow lives on the chain endpoint.
+        return self._get_und(list(symbols), list(_UND_PARAMS_BASE))
 
-        response = self._timed(lambda: self._api.get_und(symbols=symbols, params=params))
-        data = response.get("data", [])
-        if not data:
-            return pd.DataFrame(columns=["symbol", *params])
-
-        df = pd.DataFrame(data, columns=["symbol", *params])
-        return df
+    def _spot(self, symbol: str) -> float:
+        """Fetch the current underlying price (price-only — minimal & proven)."""
+        und = self._get_und([symbol], ["price"])
+        if und.empty or "price" not in und.columns:
+            raise DataSourceError(f"No underlying price returned for {symbol!r}")
+        spot = pd.to_numeric(und["price"].iloc[0], errors="coerce")
+        if not pd.notna(spot) or spot <= 0:
+            raise DataSourceError(f"Invalid spot for {symbol!r}: {spot!r}")
+        return float(spot)
 
     # ── Aggregate exposures ────────────────────────────────────────────
     def exposures(self, symbol: str, exps: tuple[int, ...] = (1, 2, 3)) -> dict:
+        """Aggregate GEX/DEX/VEX/CHEX + flip point for one symbol.
+
+        Delegates the math to ``greeks/`` so the locked formulas live in one
+        place and stay vendor-agnostic. This client only fetches/shapes data.
+        """
         chain_df = self.chain(symbol, exps=exps)
         if chain_df.empty:
             return {}
 
-        # Sign convention: calls positive, puts negative for GEX
-        sign = chain_df["opt_kind"].map({"C": 1, "P": -1})
-        gex_total = (chain_df["gxoi"] * sign).sum()
-        dex_total = chain_df["dxoi"].sum()
-        vex_total = chain_df["vxoi"].sum()
-        cxoi_total = chain_df["cxoi"].sum()
+        spot = self._spot(symbol)
+        result = compute_exposures(chain_df, spot)
+        if not result:
+            return {}
 
-        return {
-            "symbol": symbol,
-            "gex_total": float(gex_total),
-            "dex_total": float(dex_total),
-            "vex_total": float(vex_total),
-            "chex_total": float(cxoi_total),
-        }
+        result["symbol"] = symbol
+        result["spot"] = spot
+        result["gex_flip"] = gex_flip(chain_df, spot)
+        return result
 
     # ── Health ─────────────────────────────────────────────────────────
     def health(self) -> dict:
@@ -166,6 +253,8 @@ class ConvexClient(OptionsDataSource):
             self._health.last_call_at = time.time()
             self._health.consecutive_failures = 0
             return result
-        except Exception:
+        except Exception as exc:
+            # Catch vendor failures at the clients/ boundary and re-raise as a
+            # domain error with the original attached (CLAUDE.md → Errors).
             self._health.consecutive_failures += 1
-            raise
+            raise DataSourceError(f"ConvexValue API call failed: {exc}") from exc

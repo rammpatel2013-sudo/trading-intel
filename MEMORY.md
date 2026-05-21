@@ -6,7 +6,12 @@ Living document. Update at the end of every working session. Tells future-you (a
 
 ## Current phase
 
-**Phase 1 day 1 done — moving to Phase 1 day 2.** Foundation complete, all external dependencies verified end-to-end.
+**Phase 1 day 2 DONE (2026-05-21) — moving to Phase 1.5 / calibration.** First real ingestion pipeline live: watchlist Greeks snapshot pulls from Convex and writes to `greeks_snapshots`. Verified end-to-end (13/13 tickers written, pytest green, flip points populating).
+
+**Status as of 2026-05-21:**
+- `greeks_snapshot` job runs clean: 13 rows/run, GEX/DEX/VEX/CHEX + flip point + ATM IV per ticker
+- Sanity check passed: SPX GEX ~$1.55B, single names $20–190M, SPY net ~$16M (calls/puts near-cancel intraday). Flip points populate for 12/13 (SMCI null — no zero-crossing in ±10%, plausible)
+- See decision log (2026-05-21) for the ConvexValue response-shape gotchas + formula revision
 
 **Status as of 2026-05-19 evening:**
 - Supabase database live with 14-table schema (project: `wrjizvhwsotoeymyjrcu`)
@@ -48,21 +53,23 @@ Living document. Update at the end of every working session. Tells future-you (a
 - [x] Convex password rotated post-leak (clean credentials in `.env`)
 - [x] FRED_API_KEY filled in `.env`
 
-## What's next (Phase 1 day 2)
+## What's done (Phase 1 day 2 — 2026-05-21)
 
-- [ ] Build proper `trading_intel/clients/convex.py` — `ConvexClient` class implementing `OptionsDataSource` protocol with methods: `chain()`, `underlying()`, `exposures()`, `health()`. Replace the existing skeleton with a working implementation.
-- [ ] Write `trading_intel/greeks/exposures.py` — compute GEX/DEX/VEX/CHEX from a chain DataFrame using locked formulas (see "Key facts" section below).
-- [ ] Write `trading_intel/greeks/flip_point.py` — find price where net GEX crosses zero using scipy.optimize.brentq.
-- [ ] Write `trading_intel/scheduler/jobs/greeks_snapshot.py` — pulls watchlist Greeks from Convex, aggregates, writes to `greeks_snapshots` table. Idempotent: `INSERT ... ON CONFLICT DO NOTHING` on `(symbol, ts, source)`.
-- [ ] Manually trigger the job once: `python -m trading_intel.scheduler.jobs.greeks_snapshot` — verify rows appear in Supabase Table Editor.
-- [ ] Add basic test: `tests/clients/test_convex.py` — mocked test of the `OptionsDataSource` interface.
-- [ ] Commit + push.
+- [x] `trading_intel/clients/convex.py` — working `ConvexClient` (`chain`/`underlying`/`exposures`/`health`), only file importing convexlib
+- [x] `trading_intel/greeks/exposures.py` — GEX/DEX/VEX/CHEX + ATM IV (revised formulas, see below)
+- [x] `trading_intel/greeks/flip_point.py` — zero-gamma price via BS repricing + scipy brentq over ±10%
+- [x] `trading_intel/memory/db.py` — `make_session_factory(settings)` DB wiring helper (new)
+- [x] `trading_intel/errors.py` — `TradingIntelError` hierarchy (was referenced in CLAUDE.md but missing)
+- [x] `trading_intel/scheduler/jobs/greeks_snapshot.py` — idempotent snapshot job; registered in `runner.py` at 06:45 ET
+- [x] `tests/clients/test_convex.py` — 11 mocked tests, no network; pytest green
+- [x] Job run verified: 13/13 written, flip points populate, magnitudes sane
+- [ ] **Commit + push** (pending — diagnostic script `scripts/diag_convex.py` is throwaway, delete before commit)
 
-## Phase 1 day 2 done-criteria (go/no-go)
-- Manually run the greeks_snapshot job → 13 new rows in `greeks_snapshots` (one per watchlist ticker)
-- Spot check: SPY's gex_total should be in the billions (positive or negative — both valid regimes)
-- `pytest` still green
-- No vendor-specific code outside `clients/convex.py`
+## Phase 1 day 2 done-criteria — RESULT
+- ✅ 13 rows in `greeks_snapshots` per run
+- ⚠️ "SPY gex in billions" expectation was off — that refers to ALL-expiration/gross GEX. We pull `exps=(1,2,3)` (3 nearest expirations) and report NET (calls−puts), so SPY net ~$16M; SPX ~$1.55B. **Open: confirm net-near-term vs gross + dealer sign convention against ConvexValue's own GEX display.**
+- ✅ pytest green
+- ✅ No vendor code outside `clients/convex.py`
 
 ## Phase 1.5 (NEW — deploy collector to DO droplet for 24/7 data continuity)
 
@@ -132,13 +139,27 @@ Living document. Update at the end of every working session. Tells future-you (a
 - 16:30 — EOD snapshot + VVIX pull
 - Sun 21:00 — weekly theme synthesis (Claude Opus)
 
-### Formulas (locked in)
-- GEX = `gxoi × spot² × 0.01` (calls +, puts −)
-- DEX = `dxoi` (sum)
-- VEX (vanna) = `vanna × oi × spot × IV`
-- CHEX (charm) = `charm × oi × spot × 365`
-- GEX flip point = price where net GEX = 0 (scipy.optimize.brentq)
-- GEX:RVOL ratio = `GEX / 20-day realized vol` (primary regime classifier)
+### Formulas (FINAL as of 2026-05-21 — see decision log)
+**Units decision (validated against the ConvexValue app):** `gex_total` is **raw net signed gxoi** (calls +, puts −) — matches what Mithil sees in Convex's gxoi panels (e.g. AAPL ≈ 3.70k near-term). Convex's `gxoi`/`dxoi`/`vxoi` are already `greek × oi` per-share; we deliberately do NOT apply the contract multiplier or spot² dollar-scaling (we tried that — SpotGamma-style $ GEX — and dropped it to match the source).
+- GEX = `Σ sign × gxoi` (net signed gxoi)
+- DEX = `Σ dxoi` (dxoi already carries call/put sign)
+- VEX (vanna) = `Σ vanna × oi × spot × IV`
+- CHEX (charm) = `Σ charm × oi × spot × 365`
+- GEX flip point = price where net GEX = 0, via BS-repricing each strike's gamma at candidate spot + scipy.optimize.brentq over ±10% of spot (returns None if no sign change in range). Uses Convex's `multiplier` field (constant scale, doesn't move the zero).
+- GEX:RVOL ratio = `GEX / 20-day realized vol` (primary regime classifier — not yet implemented; needs quotes_daily.rv20)
+
+### Rolling / long-dated GEX (NEW 2026-05-21)
+For directional-flow tracking. EOD job `scheduler/jobs/gex_rolling.py` (registered 16:30 ET) pulls a wide chain (`chain_long` — wide exps with fallback) per watchlist symbol, filters to expirations within ~180 days, and stores:
+- `gex_rolling` table — 6-month TOTAL net gxoi per symbol (the directional-flow time series)
+- `gex_term` table — per-expiration net gxoi (term structure)
+Both idempotent (ON CONFLICT), ts floored to the day. **Requires migration `0002_gex_rolling` to be applied (`alembic upgrade head`).** Near-term snapshot stays at exps=(1,2,3), rng=0.15; rolling uses rng=0.20.
+
+### ConvexValue API quirks (learned the hard way 2026-05-21)
+- Valid field codes are in the convexlib README. There is NO `cxoi` — charm×oi is `charmxoi`. One bad param 400s the whole request.
+- `get_chain_as_rows` returns `[symbol, expiration, strike, kind, *params]` — symbol/expiration/strike/kind are STRUCTURAL, do not request them as params. `kind` is the literal `'call'`/`'put'`.
+- `get_und` nests rows one level deeper than the README example: `{"data": [[ [symbol, *vals], ... ]]}` — rows live at `data[0]`.
+- Time-bucketed flow (`volm_5m`, ...) are CHAIN params, NOT get_und params.
+- `expiration` is days since the Unix epoch (e.g. `20595` = 2026-05-22). The convex client normalizes this to a real datetime so the greeks layer stays vendor-agnostic.
 
 ### VEGA/VIX zones
 - Low <22 (carry)
@@ -176,6 +197,12 @@ Living document. Update at the end of every working session. Tells future-you (a
 ## Recent decisions / decision log
 
 (Move to `docs/decisions/ADR-N-name.md` once an ADR is written. This is the short-form trail.)
+
+**2026-05-21 (Phase 1 day 2 build)**
+- Flip-point method: chose **BS repricing** (recompute each strike's Black-Scholes gamma at candidate spot, sum sign-weighted dollar-gamma, brentq for zero) over lightweight strike-profile interpolation. More accurate; matches the "±10% range" intent.
+- Formula revision: discovered `gxoi`/`dxoi`/`vxoi` are per-share (no ×100 multiplier). Added contract multiplier `m` to all dollar exposures. Now use Convex's `multiplier` field per row (default 100). Validated: SPX ~$1.55B, SPY net ~$16M near-term.
+- Added `memory/db.py` (session factory) and `errors.py` (TradingIntelError hierarchy — CLAUDE.md referenced it but it didn't exist).
+- OPEN calibration question: net-near-term GEX (current: `exps=(1,2,3)`, calls−puts) vs all-expiration/gross, and which dealer sign convention. Compare to ConvexValue's own GEX display before trusting absolute magnitudes for signals.
 
 **2026-05-19**
 - Convex pro tier chosen over Schwab as primary data source. Rationale: no 7-day token refresh; pre-computed vanna/charm; cleaner data shape. Trade-off: vendor lock-in (mitigated by `OptionsDataSource` Protocol).
