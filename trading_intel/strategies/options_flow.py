@@ -162,6 +162,64 @@ def _fmt_date(e: object) -> str:
     return str(e)
 
 
+def _is_spread_leg(v: object) -> bool:
+    """True when the feed's ``spread_leg`` flag marks this print as a package leg."""
+    return str(v).strip().lower() in {"true", "1"}
+
+
+def _structure_from_group(root: object, t: object, g: pd.DataFrame) -> Structure:
+    """Build one Structure from a group of prints (collapsing repeat fills)."""
+    total = float(g["premium"].sum())
+    legs: list[dict] = []
+    for (exp, stk, kind), lg in g.groupby(
+        ["expiration", "strike", "opt_kind"], dropna=False, sort=False
+    ):
+        leg = {
+            "expiration": exp,
+            "strike": stk,
+            "opt_kind": kind,
+            "premium": float(lg["premium"].sum()),
+        }
+        if "size" in lg.columns:
+            leg["size"] = float(pd.to_numeric(lg["size"], errors="coerce").fillna(0.0).sum())
+        for c in ("price", "iv", "aggressor_side"):
+            if c in lg.columns:
+                leg[c] = lg[c].iloc[0]
+        legs.append(leg)
+    legs_df = pd.DataFrame(legs)
+    return Structure(
+        time=t,
+        root=str(root),
+        kind=_classify_package(legs_df),
+        n_legs=len(legs_df),
+        total_premium=total,
+        net_premium=float(g["_signed"].sum()),
+        expirations=sorted({_fmt_date(e) for e in legs_df["expiration"].tolist()}),
+        legs=legs,
+    )
+
+
+def _group_packages(df: pd.DataFrame, *, min_premium: float) -> list[Structure]:
+    """Group prints sharing (root, time-ms) into one package each."""
+    out: list[Structure] = []
+    for (root, t), g in df.groupby(["root", "time"], sort=False):
+        if float(g["premium"].sum()) < min_premium:
+            continue
+        out.append(_structure_from_group(root, t, g))
+    return out
+
+
+def _outright_singles(df: pd.DataFrame, *, min_premium: float) -> list[Structure]:
+    """Emit each outright contract-ticket as its own single (no cross-leg grouping)."""
+    out: list[Structure] = []
+    for (root, t), g in df.groupby(["root", "time"], sort=False):
+        for _, cg in g.groupby(["expiration", "strike", "opt_kind"], dropna=False, sort=False):
+            if float(cg["premium"].sum()) < min_premium:
+                continue
+            out.append(_structure_from_group(root, t, cg))
+    return out
+
+
 def detect_structures(tas: pd.DataFrame, *, min_premium: float = 0.0) -> list[Structure]:
     """Group simultaneous per-trade prints into multi-leg packages and classify.
 
@@ -169,9 +227,17 @@ def detect_structures(tas: pd.DataFrame, *, min_premium: float = 0.0) -> list[St
     sharing the same ``root`` and ``time`` (ms) are treated as one ticket;
     repeat fills of the SAME contract (expiration+strike+kind) are collapsed
     into one leg (size/premium summed) so classification reflects the true
-    structure rather than the fill count. Net premium is aggressor-signed
-    (``buy`` adds, ``sell`` subtracts). Returns packages sorted by total premium,
-    descending. Purely descriptive.
+    structure rather than the fill count.
+
+    When the feed's ``spread_leg`` boolean is populated, only prints flagged as
+    spread legs (``True``) are grouped into packages; ``False`` prints are
+    outrights and are emitted as standalone singles, so a coincidental
+    same-millisecond outright can no longer inflate (or cross-expiration-pollute)
+    a package. (``tas_type`` is not populated by the feed, so it is unused.) When
+    ``spread_leg`` is absent/empty, every (root, time) group is treated as a
+    package as before. Net premium is aggressor-signed (``buy`` adds, ``sell``
+    subtracts). Returns packages sorted by total premium, descending. Purely
+    descriptive (CLAUDE.md rule 4).
     """
     if tas is None or tas.empty:
         return []
@@ -190,41 +256,18 @@ def detect_structures(tas: pd.DataFrame, *, min_premium: float = 0.0) -> list[St
         side != "undefined", 0.0
     )
 
+    legmask = (
+        df["spread_leg"].map(_is_spread_leg)
+        if "spread_leg" in df.columns
+        else pd.Series(False, index=df.index)
+    )
+
     out: list[Structure] = []
-    for (root, t), g in df.groupby(["root", "time"], sort=False):
-        total = float(g["premium"].sum())
-        if total < min_premium:
-            continue
-        # Collapse repeat fills of the same contract into a single leg.
-        legs: list[dict] = []
-        for (exp, stk, kind), lg in g.groupby(
-            ["expiration", "strike", "opt_kind"], dropna=False, sort=False
-        ):
-            leg = {
-                "expiration": exp,
-                "strike": stk,
-                "opt_kind": kind,
-                "premium": float(lg["premium"].sum()),
-            }
-            if "size" in lg.columns:
-                leg["size"] = float(pd.to_numeric(lg["size"], errors="coerce").fillna(0.0).sum())
-            for c in ("price", "iv", "aggressor_side"):
-                if c in lg.columns:
-                    leg[c] = lg[c].iloc[0]
-            legs.append(leg)
-        legs_df = pd.DataFrame(legs)
-        out.append(
-            Structure(
-                time=t,
-                root=str(root),
-                kind=_classify_package(legs_df),
-                n_legs=len(legs_df),
-                total_premium=total,
-                net_premium=float(g["_signed"].sum()),
-                expirations=sorted({_fmt_date(e) for e in legs_df["expiration"].tolist()}),
-                legs=legs,
-            )
-        )
+    if legmask.any():
+        out.extend(_group_packages(df[legmask], min_premium=min_premium))
+        out.extend(_outright_singles(df[~legmask], min_premium=min_premium))
+    else:
+        out.extend(_group_packages(df, min_premium=min_premium))
     out.sort(key=lambda s: s.total_premium, reverse=True)
     return out
 
@@ -298,3 +341,37 @@ def flowsum_by_expiry(chain: pd.DataFrame) -> pd.DataFrame:
     if "volm_buy" in out.columns and "volm_sell" in out.columns:
         out["volm_bs"] = out["volm_buy"] - out["volm_sell"]
     return out
+
+
+def format_flowsum_markdown(flowsum: pd.DataFrame, *, top_n: int = 6) -> str:
+    """Render per-expiry greek-OI + flow exposures (flowsum) as a report section.
+
+    Takes the output of ``flowsum_by_expiry`` and shows the per-expiry ``total``
+    rows (net buy-sell volume, open interest, and the net gamma/delta/vanna/charm
+    OI exposures) for the nearest ``top_n`` expiries. Descriptive regime context
+    only — never a signal (CLAUDE.md rule 4).
+    """
+    lines = ["## Greek-OI by expiry (flowsum)"]
+    if flowsum is None or flowsum.empty:
+        lines.append("No flow-summary data available.")
+        return "\n".join(lines)
+    totals = flowsum[flowsum["side"] == "total"]
+    if totals.empty:
+        lines.append("No flow-summary data available.")
+        return "\n".join(lines)
+    totals = totals.sort_values("expiry").head(top_n)
+    label = (
+        ("volm_bs", "net vol"),
+        ("oi", "OI"),
+        ("gxoi", "GxOI"),
+        ("dxoi", "DxOI"),
+        ("vannaxoi", "VannaxOI"),
+        ("charmxoi", "CharmxOI"),
+    )
+    for _, r in totals.iterrows():
+        parts = [f"- {_fmt_date(r['expiry'])}:"]
+        for col, name in label:
+            if col in totals.columns:
+                parts.append(f"{name} {float(r[col]):+,.0f}")
+        lines.append(" ".join(parts))
+    return "\n".join(lines)

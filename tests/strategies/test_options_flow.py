@@ -232,3 +232,51 @@ def test_detect_structures_collapses_repeat_fills():
     by_strike = {leg["strike"]: leg for leg in s.legs}
     assert by_strike[7400.0]["size"] == pytest.approx(100.0)
     assert by_strike[7400.0]["premium"] == pytest.approx(200000.0)
+
+
+# ── format_flowsum_markdown ──────────────────────────────────────────────────
+
+from trading_intel.strategies.options_flow import format_flowsum_markdown  # noqa: E402
+
+
+def test_format_flowsum_markdown():
+    md = format_flowsum_markdown(flowsum_by_expiry(_flowsum_chain()))
+    assert md.startswith("## Greek-OI by expiry (flowsum)")
+    assert "2026-05-22" in md
+    assert "GxOI" in md
+    # one bullet per expiry total (2 expiries)
+    assert md.count("\n- ") == 2
+
+
+def test_format_flowsum_markdown_empty():
+    assert "No flow-summary data available." in format_flowsum_markdown(pd.DataFrame())
+
+
+def test_detect_structures_spread_leg_excludes_outrights():
+    """spread_leg=False outrights must not be swept into a same-ms package."""
+    t = pd.Timestamp("2026-05-22 03:31:18.331")
+    df = pd.DataFrame(
+        [
+            # genuine 2-leg put spread, both flagged as spread legs
+            {"time": t, "root": "SPX", "expiration": "2026-06-18", "strike": 7450.0,
+             "opt_kind": "put", "size": 250, "premium": 2457250.0,
+             "aggressor_side": "sell", "spread_leg": True},
+            {"time": t, "root": "SPX", "expiration": "2026-06-18", "strike": 7150.0,
+             "opt_kind": "put", "size": 425, "premium": 1431825.0,
+             "aggressor_side": "buy", "spread_leg": True},
+            # coincidental outright at the SAME ms, different expiry — must stay separate
+            {"time": t, "root": "SPX", "expiration": "2026-11-20", "strike": 7000.0,
+             "opt_kind": "put", "size": 10, "premium": 300000.0,
+             "aggressor_side": "buy", "spread_leg": False},
+        ]
+    )
+    structs = detect_structures(df)
+    by_kind = {s.kind: s for s in structs}
+    assert "put spread" in by_kind
+    ps = by_kind["put spread"]
+    assert ps.n_legs == 2
+    # the Nov outright did NOT leak into the package (no false calendar/diagonal)
+    assert ps.expirations == ["2026-06-18"]
+    singles = [s for s in structs if s.kind == "single"]
+    assert len(singles) == 1
+    assert singles[0].legs[0]["strike"] == 7000.0

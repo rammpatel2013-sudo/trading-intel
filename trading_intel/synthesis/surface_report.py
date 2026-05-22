@@ -17,8 +17,16 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from trading_intel.greeks.surface import DeltaSurface, forward_vol
+from trading_intel.strategies.options_flow import (
+    FlowSummary,
+    Structure,
+    format_flow_markdown,
+    format_flowsum_markdown,
+    format_structures_markdown,
+)
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.prompts import SURFACE_INTERPRETATION_PROMPT
 
@@ -152,3 +160,28 @@ def interpret_surface_llm(
         metrics=json.dumps(metrics, indent=2), kb=kb_text or "(none provided)"
     )
     return llm.complete(prompt, model=model, max_tokens=600).strip()
+
+
+def build_surface_report(
+    metrics: dict,
+    *,
+    flow: FlowSummary | None = None,
+    flowsum: pd.DataFrame | None = None,
+    structures: list[Structure] | None = None,
+) -> str:
+    """Compose the full markdown report: surface read + flow + greek-OI + packages.
+
+    ``interpret_surface`` supplies the surface section; each flow section is
+    appended only when its data is provided — ``aggregate_flow`` -> flow tilt,
+    ``flowsum_by_expiry`` -> greek-OI by expiry, ``detect_structures`` -> notable
+    packages. Every section is a descriptive regime read-through, never a trade
+    signal (FlashAlpha rule 4).
+    """
+    sections = [interpret_surface(metrics)]
+    if flow is not None:
+        sections.append(format_flow_markdown(flow))
+    if flowsum is not None and not flowsum.empty:
+        sections.append(format_flowsum_markdown(flowsum))
+    if structures is not None:
+        sections.append(format_structures_markdown(structures))
+    return "\n\n".join(sections)

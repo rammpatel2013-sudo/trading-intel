@@ -23,8 +23,14 @@ from plotly.subplots import make_subplots
 
 from trading_intel.clients.convex import ConvexClient
 from trading_intel.config import get_settings
+from trading_intel.errors import TradingIntelError
 from trading_intel.greeks.surface import DeltaSurface, build_delta_surface, forward_vol
-from trading_intel.synthesis.surface_report import interpret_surface, surface_metrics
+from trading_intel.strategies.options_flow import (
+    aggregate_flow,
+    detect_structures,
+    flowsum_by_expiry,
+)
+from trading_intel.synthesis.surface_report import build_surface_report, surface_metrics
 
 
 def _table_rows(surface: DeltaSurface) -> tuple[list[str], list[list[int]]]:
@@ -187,7 +193,26 @@ def main() -> None:
     fig = build_dashboard_figure(surface, symbol=symbol, spot=spot)
 
     metrics = surface_metrics(surface)
-    report_md = interpret_surface(metrics)
+
+    # Flow + per-trade packages (best-effort: the surface still renders if the
+    # flow endpoints are empty pre-open or error out). No live creds in CI.
+    flow = flowsum = structures = None
+    try:
+        flow = aggregate_flow(client.flow_chain(symbol))
+    except TradingIntelError as exc:
+        print(f"flow tilt skipped: {exc}")
+    try:
+        flowsum = flowsum_by_expiry(client.flow_summary(symbol))
+    except TradingIntelError as exc:
+        print(f"flowsum skipped: {exc}")
+    try:
+        structures = detect_structures(client.time_and_sales(symbol, limit=500))
+    except TradingIntelError as exc:
+        print(f"packages skipped: {exc}")
+
+    report_md = build_surface_report(
+        metrics, flow=flow, flowsum=flowsum, structures=structures
+    )
     if args.llm:
         from trading_intel.synthesis.llm import OllamaProvider
         from trading_intel.synthesis.surface_report import interpret_surface_llm, load_kb_context
