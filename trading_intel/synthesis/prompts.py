@@ -70,3 +70,22 @@ Document text:
 {text}
 \"\"\"
 """
+
+
+SURFACE_INTERPRETATION_PROMPT = """\
+You are a volatility analyst writing a short desk note on the current implied
+volatility surface. You are given (a) structured metrics computed from the live
+surface and (b) reference notes from the desk's own methodology library.
+
+Write a concise interpretation (<= 220 words, plain English, GitHub markdown)
+of what the surface is currently saying: the skew (downside vs upside demand),
+the term structure (carry / stress), forward vol, and what regime it implies.
+Ground your reasoning in the reference notes where relevant. Do NOT give trade
+recommendations or price targets — this is a regime read-through only.
+
+Metrics (JSON):
+{metrics}
+
+Reference notes (desk methodology):
+{kb}
+"""
