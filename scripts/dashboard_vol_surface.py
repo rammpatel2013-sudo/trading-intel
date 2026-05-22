@@ -25,6 +25,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from trading_intel.clients.convex import ConvexClient
 from trading_intel.config import get_settings
 from trading_intel.dashboard.changes import build_change_report
+from trading_intel.dashboard.walls import build_wall_report
 from trading_intel.errors import TradingIntelError
 from trading_intel.greeks.surface import DeltaSurface, build_delta_surface, forward_vol
 from trading_intel.memory.db import make_session_factory
@@ -230,6 +231,7 @@ def main() -> None:
         session_factory = make_session_factory(get_settings())
         with session_factory() as session:
             report_md = f"{report_md}\n\n{build_change_report(session, symbol)}"
+            report_md = f"{report_md}\n\n{build_wall_report(session, symbol)}"
     except (SQLAlchemyError, TradingIntelError) as exc:
         print(f"change panels skipped: {exc}")
 
