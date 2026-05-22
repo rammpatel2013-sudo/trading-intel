@@ -10,7 +10,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from trading_intel.clients.convex import ConvexClient
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
-from trading_intel.scheduler.jobs import gex_rolling, greeks_snapshot
+from trading_intel.scheduler.jobs import chain_snapshot, gex_rolling, greeks_snapshot
 
 
 def main() -> None:
@@ -31,10 +31,16 @@ def main() -> None:
         with session_factory() as session:
             gex_rolling.run(session, source, settings=settings)
 
+    def run_chain_snapshot() -> None:
+        with session_factory() as session:
+            chain_snapshot.run(session, source, settings=settings)
+
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
     # Greeks snapshot — 06:45 ET pre-market (see MEMORY.md schedule).
     scheduler.add_job(run_greeks_snapshot, "cron", hour=6, minute=45, name="greeks_snapshot")
+    # Per-strike chain snapshot — 06:45 ET pre-market (feeds day-over-day change panels).
+    scheduler.add_job(run_chain_snapshot, "cron", hour=6, minute=45, name="chain_snapshot")
     # Long-dated rolling GEX — 16:30 ET EOD (heavier ~6-month pull, once daily).
     scheduler.add_job(run_gex_rolling, "cron", hour=16, minute=30, name="gex_rolling")
 

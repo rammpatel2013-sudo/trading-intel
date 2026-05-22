@@ -93,6 +93,11 @@ class GreeksChain(Base):
     """Per-strike snapshot. Heavier — 1/day + key intraday strikes."""
 
     __tablename__ = "greeks_chain"
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol", "ts", "source", "expiry", "strike", "cp", name="uq_greeks_chain"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     symbol: Mapped[str] = mapped_column(String(16))
@@ -113,6 +118,7 @@ class GreeksChain(Base):
     dxoi: Mapped[float | None] = mapped_column(Float)
     vxoi: Mapped[float | None] = mapped_column(Float)
     cxoi: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
 class FlowBucket(Base):
