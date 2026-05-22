@@ -20,11 +20,14 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from sqlalchemy.exc import SQLAlchemyError
 
 from trading_intel.clients.convex import ConvexClient
 from trading_intel.config import get_settings
+from trading_intel.dashboard.changes import build_change_report
 from trading_intel.errors import TradingIntelError
 from trading_intel.greeks.surface import DeltaSurface, build_delta_surface, forward_vol
+from trading_intel.memory.db import make_session_factory
 from trading_intel.strategies.options_flow import (
     aggregate_flow,
     detect_structures,
@@ -221,6 +224,14 @@ def main() -> None:
             metrics, OllamaProvider(get_settings()), kb_text=load_kb_context()
         )
         report_md = f"{report_md}\n\n## LLM read-through (grounded in playbooks)\n{narrative}"
+
+    # Day-over-day change panels (need >= 2 daily greeks_chain snapshots).
+    try:
+        session_factory = make_session_factory(get_settings())
+        with session_factory() as session:
+            report_md = f"{report_md}\n\n{build_change_report(session, symbol)}"
+    except (SQLAlchemyError, TradingIntelError) as exc:
+        print(f"change panels skipped: {exc}")
 
     out = Path(args.out) if args.out else Path("reports") / f"{symbol.lower()}_vol_dashboard.html"
     out.parent.mkdir(parents=True, exist_ok=True)
