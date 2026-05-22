@@ -115,6 +115,48 @@ Living document. Update at the end of every working session. Tells future-you (a
 - Convex-style dashboard view (joy-plot / gxoi-by-expiration) — Mithil's stated dashboard preference.
 - AM summary (ties methodology + data + live price together).
 
+## Data-gap analysis — research playbooks -> Convex data (2026-05-21)
+
+Derived from the 13 ingested methodology playbooks: maps each recurring framework
+to the data it requires and our current collection state. Four tables already
+exist (`greeks_chain`, `flow_buckets`, `vix_data`, `quotes_daily`) but NO job
+writes them yet — that is exactly where the leverage is.
+
+**What the research demands (recurring across playbooks):**
+- Implied vol SURFACE (strike x expiry x IV) over time — ManagingSmileRisk (SABR),
+  IV-Surface-Construction, Forecasting-IVS-dynamics, Riding-on-a-Smile, local-vol. The central object.
+- Smile/skew (IV vs strike, 25-delta skew) + term structure (VXST/VIX/VXV/VXMT + ATM-IV per expiry).
+- SABR params (alpha=vol-of-vol, beta, rho, nu) + vanna/volga, fit from the smile.
+- Vol-of-vol / VVIX (How-vol-of-vol-depends-on-vol; VIX-options paper).
+- Realized-vs-implied (IVAR) — Trading-Volatility; needs realized vol.
+- GEX gamma regime: cumulative gamma by strike, flip, max pain, put-vs-call gamma (red/blue) — gex-explanation.
+- flowratio / vflowratio + the 4 money/volume conditions + 5m/15m/30m bucketed flow — convex.docx.
+- Market internals $ADD (NYSE adv minus decl), TICK — Trading-with-Market-Internal.
+- Daily OHLCV -> 10wk/30wk MA, stochastic, realized vol — dr.wish, and the GEX:RVOL classifier.
+- VIX / VVIX / MOVE / credit spreads — FlashAlpha probability model (Phase 5+).
+
+**Gap table (what to collect next):**
+
+| Need | In Convex? | Table (exists) | Job? | Action |
+|---|---|---|---|---|
+| Per-strike IV surface + greeks + gxoi over time | YES (chain returns it; we discard after aggregating) | `greeks_chain` | none | **#1: write a per-strike chain-snapshot job.** Unlocks surface/smile/skew/SABR/cumulative-gamma/max-pain/vol-of-vol. |
+| flowratio/vflowratio + bucketed flow (5m/15m/30m) | YES (und flowratio/vflowratio; bucketed = chain params, not pulled yet) | `flow_buckets` | none | flow-snapshot job; add bucketed-flow params to the chain pull. |
+| VIX, VVIX, MOVE, HY/IG OAS, VIX term structure | NO (options-only) | `vix_data` | none | FRED (key present) for VIX/MOVE/credit; CBOE scrape (`clients/cboe.py`, not built) for VVIX + term structure. |
+| Daily OHLCV -> rv20/rv60, MAs, stochastic | NO (Convex gives spot only) | `quotes_daily` | none | yfinance fallback or Convex und history; compute RV -> enables IVAR + GEX:RVOL + dr.wish rules. |
+| Market internals ($ADD, TICK, breadth) | NO | (new table) | none | needs external breadth source + new table; lower priority. |
+| Skew/term-structure metrics, volga | DERIVED / verify | — | none | derive from `greeks_chain` once stored; verify `volga` exists in the convexlib field list. |
+
+**Verify against the convexlib field list (do not assume):** exact names for the
+time-bucketed flow params (volmbs/valuebs 5m/15m/30m), and whether Convex exposes
+`volga` and VIX/VVIX directly. One bad param 400s the whole chain request (quirks).
+
+**Priority for the next data session:** (1) per-strike `greeks_chain` collector —
+biggest unlock, pure Convex, table ready; (2) `quotes_daily` OHLCV + realized vol;
+(3) `vix_data` (FRED first, CBOE after); (4) `flow_buckets`. All FlashAlpha-safe
+(data-only, no signals). When the 24/7 collector (ADR-001) is built, `runner_collector`
+should register THESE jobs too, not just the current two.
+
+
 
 ---
 
