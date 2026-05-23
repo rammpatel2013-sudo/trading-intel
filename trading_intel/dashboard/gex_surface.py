@@ -56,11 +56,23 @@ def _recent_chain_ts(session: Session, symbol: str, *, days: int) -> list[dateti
 
 
 def _expiry_within(chain: pd.DataFrame, ts: datetime, expiry_within_days: int) -> pd.DataFrame:
-    """Keep only strikes whose expiry is within ``expiry_within_days`` DTE of ``ts``."""
+    """Keep only strikes whose expiry is within ``expiry_within_days`` DTE of ``ts``.
+
+    Compares calendar dates (not timestamps) so it is robust whether ``ts`` is
+    tz-aware (Postgres) or tz-naive (SQLite) — subtracting a tz-naive expiry from
+    a tz-aware ts would otherwise raise.
+    """
     if chain.empty or "expiry" not in chain.columns:
         return chain
-    dte = (pd.to_datetime(chain["expiry"]) - pd.Timestamp(ts)).dt.days
-    return chain[(dte >= 0) & (dte <= expiry_within_days)]
+    ref = pd.Timestamp(ts).date()
+    dte = pd.to_numeric(
+        chain["expiry"].map(
+            lambda e: (pd.Timestamp(e).date() - ref).days if pd.notna(e) else None
+        ),
+        errors="coerce",
+    )
+    mask = (dte >= 0) & (dte <= expiry_within_days)
+    return chain[mask.fillna(False)]
 
 
 def _spot_by_date(session: Session, symbol: str, *, days: int) -> dict[date, float]:

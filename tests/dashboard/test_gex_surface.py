@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+import pandas as pd
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from trading_intel.dashboard.gex_surface import (
+    _expiry_within,
     gex_strike_matrix,
     load_gex_strike_series,
     spot_flip_overlay,
@@ -112,6 +114,22 @@ def test_pct_range_keeps_all_when_no_spot(session: Session):
     # No greeks_snapshots row -> no spot for the day -> filter is skipped.
     series = load_gex_strike_series(session, "SPX", days=30, pct_range=0.03)
     assert set(series["strike"]) == {7400.0, 7500.0}
+
+
+def test_expiry_within_handles_tz_aware_ts():
+    # Regression: Postgres returns tz-aware ts; expiry is a tz-naive date.
+    # Subtracting them directly raises — _expiry_within must compare dates.
+    chain = pd.DataFrame(
+        {
+            "strike": [7400, 7500],
+            "opt_kind": ["call", "put"],
+            "expiry": [pd.Timestamp("2026-06-18"), pd.Timestamp("2026-12-18")],
+            "gxoi": [1.0, 2.0],
+        }
+    )
+    ts_aware = datetime(2026, 5, 22, 6, 45, tzinfo=UTC)
+    kept = _expiry_within(chain, ts_aware, 60)
+    assert set(kept["strike"]) == {7400}  # near-dated kept, far-dated dropped
 
 
 def test_empty_when_no_chain(session: Session):
