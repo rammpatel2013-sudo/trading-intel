@@ -17,7 +17,9 @@ from trading_intel.scheduler.jobs import (
     gex_rolling,
     greeks_snapshot,
     intraday_flow,
+    oi_chain_eod,
     prune_intraday,
+    prune_oi_chain,
     quotes_daily,
 )
 from trading_intel.synthesis.llm import OllamaProvider
@@ -64,6 +66,14 @@ def main() -> None:
         with session_factory() as session:
             prune_intraday.run(session, settings=settings)
 
+    def run_oi_chain_eod() -> None:
+        with session_factory() as session:
+            oi_chain_eod.run(session, source, settings=settings)
+
+    def run_prune_oi_chain() -> None:
+        with session_factory() as session:
+            prune_oi_chain.run(session, settings=settings)
+
     def run_am_summary() -> None:
         with session_factory() as session:
             am_summary.run(session, llm, settings=settings)
@@ -108,6 +118,12 @@ def main() -> None:
     )
     # Prune stale intraday_flow rows hourly (retention via INTRADAY_RETENTION_HOURS).
     scheduler.add_job(run_prune_intraday, "cron", minute=5, name="prune_intraday")
+    # Wide (~180d) EOD per-strike chain for the OI/flow change study — 16:35 ET,
+    # just after gex_rolling (OI is an EOD figure). On the NAS this is a separate
+    # DSM task (runner cron is ignored there).
+    scheduler.add_job(run_oi_chain_eod, "cron", hour=16, minute=35, name="oi_chain_eod")
+    # Prune stale oi_chain_eod rows daily (retention via OI_CHAIN_RETENTION_DAYS).
+    scheduler.add_job(run_prune_oi_chain, "cron", hour=2, minute=20, name="prune_oi_chain")
     # Daily AM regime report — 07:00 ET (after the 06:45 Greeks snapshot). Reads
     # stored data, renders via local LLM, upserts one am_summaries row/day. On the
     # NAS this is a separate DSM task (runner cron is ignored there).

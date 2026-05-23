@@ -122,6 +122,42 @@ class GreeksChain(Base):
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
+class OiChainEod(Base):
+    """End-of-day wide (~180d) per-strike chain for the OI/flow change study.
+
+    One row per (symbol, ts[day], expiry, strike, cp). Carries open interest,
+    the vendor's day-over-day OI change (Convex ``oi_ch`` -> ``oi_change``),
+    traded volume, signed greek-OI exposures and the raw greeks/iv. Day-over-day
+    diffs (volume vs ΔOI vs ΔGEX) are computed downstream — regime descriptors,
+    not signals (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "oi_chain_eod"
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol", "ts", "source", "expiry", "strike", "cp", name="uq_oi_chain_eod"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[datetime] = mapped_column(DateTime)
+    expiry: Mapped[date] = mapped_column(Date)
+    strike: Mapped[float] = mapped_column(Float)
+    cp: Mapped[str] = mapped_column(String(1))  # 'C' or 'P'
+    dte: Mapped[int | None] = mapped_column(Integer)
+    oi: Mapped[int | None] = mapped_column(Integer)
+    oi_change: Mapped[int | None] = mapped_column(Integer)
+    volume: Mapped[int | None] = mapped_column(Integer)
+    delta: Mapped[float | None] = mapped_column(Float)
+    gamma: Mapped[float | None] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    gxoi: Mapped[float | None] = mapped_column(Float)
+    dxoi: Mapped[float | None] = mapped_column(Float)
+    vxoi: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+
+
 class FlowBucket(Base):
     """Convex time-bucketed flow data."""
 

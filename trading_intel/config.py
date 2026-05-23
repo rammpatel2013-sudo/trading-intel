@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     INTRADAY_MAX_DTE: int = 1  # keep 0DTE + 1DTE
     INTRADAY_RETENTION_HOURS: int = 48  # prune per-strike 5-min rows older than this
 
+    # ── EOD wide chain (OI/flow change study) ──────────────────────────
+    OI_CHAIN_WINDOW_DAYS: int = 180  # expirations within this DTE are stored
+    OI_CHAIN_RETENTION_DAYS: int = 90  # prune oi_chain_eod rows older than this
+
     # ── Daily price history (quotes_daily backfill + EOD refresh) ──────
     QUOTES_BACKFILL_PERIOD: str = "5y"  # one-time history depth (yfinance period)
     QUOTES_REFRESH_PERIOD: str = "6mo"  # daily-job pull window (enough for rv60)

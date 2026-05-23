@@ -90,6 +90,7 @@ _CHAIN_PARAMS = (
     "charm",
     "volatility",  # IV
     "oi",
+    "oi_ch",  # day-over-day open-interest change (Convex native)
     "day_volume",
     "gxoi",
     "dxoi",
@@ -167,15 +168,42 @@ class ConvexClient(OptionsDataSource):
         exps: tuple[int, ...] = (1, 2, 3),
         strike_range: float = 0.15,
     ) -> pd.DataFrame:
+        """Normalized options chain (see ``OptionsDataSource.chain``).
+
+        ``oi_ch`` (day-over-day OI change) is the one optional field: if Convex
+        rejects it (one bad param 400s the whole request) the pull is retried
+        once without it and ``oi_change`` is filled with NaN, so a single field
+        cannot brick the chain.
+        """
+        try:
+            return self._fetch_chain(symbol, _CHAIN_PARAMS, exps=exps, strike_range=strike_range)
+        except DataSourceError:
+            reduced = tuple(p for p in _CHAIN_PARAMS if p != "oi_ch")
+            if len(reduced) == len(_CHAIN_PARAMS):
+                raise
+            df = self._fetch_chain(symbol, reduced, exps=exps, strike_range=strike_range)
+            if "oi_change" not in df.columns:
+                df["oi_change"] = float("nan")
+            return df
+
+    def _fetch_chain(
+        self,
+        symbol: str,
+        params: tuple[str, ...],
+        *,
+        exps: tuple[int, ...],
+        strike_range: float,
+    ) -> pd.DataFrame:
+        """Pull + validate + normalize a chain for an explicit ``params`` tuple."""
         rows = self._timed(
             lambda: self._api.get_chain_as_rows(
                 symbol,
-                params=list(_CHAIN_PARAMS),
+                params=list(params),
                 exps=list(exps),
                 rng=strike_range,
             )
         )
-        cols = [*_CHAIN_STRUCT, *_CHAIN_PARAMS]
+        cols = [*_CHAIN_STRUCT, *params]
         if not rows:
             return pd.DataFrame(columns=cols)
 
@@ -184,11 +212,13 @@ class ConvexClient(OptionsDataSource):
             raise DataSourceError(
                 f"Convex chain for {symbol!r} returned {df.shape[1]} columns; "
                 f"expected {len(cols)} ([symbol, expiration, strike, kind, "
-                f"*{len(_CHAIN_PARAMS)} params])"
+                f"*{len(params)} params])"
             )
         df.columns = cols
         # Normalize names to the OptionsDataSource Protocol vocabulary.
-        df = df.rename(columns={"volatility": "iv", "day_volume": "volume"})
+        df = df.rename(
+            columns={"volatility": "iv", "day_volume": "volume", "oi_ch": "oi_change"}
+        )
         # Convex returns `expiration` as days since the Unix epoch (e.g. 20595 =
         # 2026-05-22). Normalize to a real datetime so the greeks layer stays
         # vendor-agnostic.

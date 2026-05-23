@@ -19,7 +19,7 @@ from trading_intel.greeks.exposures import compute_exposures
 # Data params ConvexClient requests, in order (== _CHAIN_PARAMS).
 _DATA_PARAMS = (
     "delta", "gamma", "theta", "vega", "vanna", "charm", "volatility", "oi",
-    "day_volume", "gxoi", "dxoi", "vxoi", "multiplier",
+    "oi_ch", "day_volume", "gxoi", "dxoi", "vxoi", "multiplier",
 )
 
 
@@ -27,8 +27,9 @@ def _row(*, symbol="SPY", expiration=20595, strike=730.0, kind="call", **param_o
     """Build one get_chain_as_rows row: [symbol, expiration, strike, kind, *params]."""
     params = {
         "delta": 0.5, "gamma": 0.01, "theta": -0.1, "vega": 0.2, "vanna": 0.05,
-        "charm": -0.02, "volatility": 0.18, "oi": 1000, "day_volume": 500,
-        "gxoi": 1.0e6, "dxoi": 5.0e5, "vxoi": 2.0e5, "multiplier": 100,
+        "charm": -0.02, "volatility": 0.18, "oi": 1000, "oi_ch": 25,
+        "day_volume": 500, "gxoi": 1.0e6, "dxoi": 5.0e5, "vxoi": 2.0e5,
+        "multiplier": 100,
     }
     params.update(param_overrides)
     return [symbol, expiration, strike, kind] + [params[p] for p in _DATA_PARAMS]
@@ -105,6 +106,7 @@ def test_chain_layout_and_normalized_names(monkeypatch):
     for col in ("symbol", "expiration", "strike", "opt_kind"):
         assert col in df.columns
     assert "iv" in df.columns and "volume" in df.columns
+    assert "oi_change" in df.columns and "oi_ch" not in df.columns
     assert "volatility" not in df.columns and "day_volume" not in df.columns
     assert df["opt_kind"].iloc[0] == "call"
     # epoch-day 20595 normalizes to a 2026 datetime

@@ -26,7 +26,10 @@ class OptionsDataSource(Protocol):
 
         Required columns:
             strike, expiration, opt_kind (C/P), delta, gamma, theta, vega,
-            vanna, charm, iv, oi, volume, gxoi, dxoi, vxoi, cxoi
+            vanna, charm, iv, oi, oi_change, volume, gxoi, dxoi, vxoi, cxoi
+
+        ``oi_change`` is the vendor's day-over-day open-interest change (Convex
+        ``oi_ch``); it may be NaN when the vendor omits it.
         """
         ...
 
