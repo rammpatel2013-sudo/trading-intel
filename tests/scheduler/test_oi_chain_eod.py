@@ -53,3 +53,49 @@ def test_nan_oi_change_becomes_none():
     chain["oi_change"] = float("nan")
     recs = _chain_to_records(chain, symbol="SPX", ts=datetime(2026, 5, 22), window_days=180)
     assert recs[0]["oi_change"] is None
+
+
+def test_run_batches_inserts(monkeypatch):
+    """run() must chunk the multi-row INSERT (Postgres caps params at 65535)."""
+    from sqlalchemy import create_engine, func, select
+    from sqlalchemy.orm import Session
+
+    from trading_intel.memory.models import OiChainEod
+    from trading_intel.scheduler.jobs import oi_chain_eod as job
+
+    engine = create_engine("sqlite://")
+    OiChainEod.__table__.create(engine)
+
+    n_rows = 120
+    chain = pd.DataFrame(
+        [
+            {"expiration": pd.Timestamp("2026-05-26"), "strike": 5000.0 + i,
+             "opt_kind": "call" if i % 2 else "put", "oi": 10, "oi_change": 1,
+             "volume": 5, "gxoi": 1.0, "dxoi": 1.0, "vxoi": 1.0, "gamma": 0.0,
+             "delta": 0.0, "iv": 0.1}
+            for i in range(n_rows)
+        ]
+    )
+
+    class _Source:
+        def chain_long(self, symbol: str) -> pd.DataFrame:
+            return chain
+
+    monkeypatch.setattr(job, "effective_symbols", lambda session, settings: ["BIG"])
+    monkeypatch.setattr(job, "_INSERT_BATCH", 50)  # 120 rows -> 3 batches
+
+    with Session(engine) as session:
+        orig = session.execute
+        calls = {"n": 0}
+
+        def _counting(*a, **k):
+            calls["n"] += 1
+            return orig(*a, **k)
+
+        monkeypatch.setattr(session, "execute", _counting)
+        job.run(session, _Source(), settings=object())
+        monkeypatch.setattr(session, "execute", orig)
+        total = session.scalar(select(func.count()).select_from(OiChainEod))
+
+    assert total == n_rows           # every row written across batches
+    assert calls["n"] == 3           # ceil(120 / 50) INSERT statements

@@ -37,6 +37,9 @@ log = structlog.get_logger(__name__)
 _SOURCE = "convex_eod"
 _UQ_COLS = ["symbol", "ts", "source", "expiry", "strike", "cp"]
 DEFAULT_WINDOW_DAYS = 180
+# Postgres caps bound params at 65535/statement; ~16 cols/row -> stay well under
+# (~4095 rows max). Batch the multi-row INSERT so a wide 180d chain doesn't blow it.
+_INSERT_BATCH = 1000
 
 _FLOAT_COLS = ("delta", "gamma", "iv", "gxoi", "dxoi", "vxoi")
 _INT_COLS = ("oi", "oi_change", "volume")
@@ -138,10 +141,12 @@ def run(
             bound.warning("oi_chain_eod.empty", symbol=symbol)
             continue
 
-        stmt = pg_insert(OiChainEod).values(records).on_conflict_do_nothing(
-            index_elements=_UQ_COLS
-        )
-        session.execute(stmt)
+        for start in range(0, len(records), _INSERT_BATCH):
+            batch = records[start : start + _INSERT_BATCH]
+            stmt = pg_insert(OiChainEod).values(batch).on_conflict_do_nothing(
+                index_elements=_UQ_COLS
+            )
+            session.execute(stmt)
         rows_written += len(records)
         bound.debug("oi_chain_eod.symbol", symbol=symbol, rows=len(records))
 
