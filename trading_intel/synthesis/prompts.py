@@ -121,3 +121,31 @@ Document text:
 {text}
 \"\"\"
 """
+
+
+AM_SUMMARY_PROMPT = """\
+You are the desk analyst writing the morning regime note for {as_of}. You are
+given a structured snapshot of the watchlist built from collected options and
+price data (already formatted as markdown tables below). Write a concise
+pre-market note in plain English (GitHub markdown, <= 320 words).
+
+Structure the note in three parts, in this order:
+1. **Market regime** — one short paragraph on SPX/SPY/QQQ: net GEX sign, dealer
+   gamma regime (above/below flip), ATM IV, and the 0DTE cumulative
+   gamma/vanna/charm read where present.
+2. **Research watchlist** — for each research-surfaced ticker, one line on why
+   it is on the list (use the supplied rationale/sentiment), tied to whatever
+   regime metric it currently shows. If there are none, say so in one line.
+3. **Watchlist regime** — call out only the few names with the most notable
+   regime reads (largest weekly GEX change, gamma regime flips, skew extremes,
+   one-sided flow tilt). Do not enumerate every symbol.
+
+Hard rules:
+- Describe the CURRENT regime only. This is a read-through, NOT a forecast.
+- Do NOT give trade recommendations, price targets, entries, or predictions of
+  direction. No "buy/sell/long/short", no "expect", no "should".
+- Use ONLY the numbers in the data below; do not invent figures.
+
+Data (already computed — your single source of truth):
+{data}
+"""

@@ -11,6 +11,7 @@ from trading_intel.clients.convex import ConvexClient
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.scheduler.jobs import (
+    am_summary,
     chain_snapshot,
     flow_snapshot,
     gex_rolling,
@@ -19,6 +20,7 @@ from trading_intel.scheduler.jobs import (
     prune_intraday,
     quotes_daily,
 )
+from trading_intel.synthesis.llm import OllamaProvider
 
 
 def main() -> None:
@@ -29,6 +31,7 @@ def main() -> None:
 
     # Composition root: instantiate shared clients/session factory once.
     source = ConvexClient(settings)
+    llm = OllamaProvider(settings)
     session_factory = make_session_factory(settings)
 
     def run_greeks_snapshot() -> None:
@@ -60,6 +63,10 @@ def main() -> None:
     def run_prune_intraday() -> None:
         with session_factory() as session:
             prune_intraday.run(session, settings=settings)
+
+    def run_am_summary() -> None:
+        with session_factory() as session:
+            am_summary.run(session, llm, settings=settings)
 
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
@@ -101,6 +108,10 @@ def main() -> None:
     )
     # Prune stale intraday_flow rows hourly (retention via INTRADAY_RETENTION_HOURS).
     scheduler.add_job(run_prune_intraday, "cron", minute=5, name="prune_intraday")
+    # Daily AM regime report — 07:00 ET (after the 06:45 Greeks snapshot). Reads
+    # stored data, renders via local LLM, upserts one am_summaries row/day. On the
+    # NAS this is a separate DSM task (runner cron is ignored there).
+    scheduler.add_job(run_am_summary, "cron", hour=7, minute=0, name="am_summary")
 
     log.info("Scheduler started. Jobs registered: %d", len(scheduler.get_jobs()))
     scheduler.start()

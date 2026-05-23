@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     FLOW_TOP_N: int = 10  # largest prints kept per snapshot
     FLOW_MIN_PACKAGE_PREMIUM: float = 250_000.0  # min $ premium for a notable package
 
+    # ── Daily AM report ───────────────────────────────────────────────
+    AM_REPORT_SEND_DISCORD: bool = False  # push AM report to Discord (client not built yet)
+
     # ── Schwab (PARKED) ────────────────────────────────────────────────
     SCHWAB_APP_KEY: str = ""
     SCHWAB_APP_SECRET: SecretStr = SecretStr("")
