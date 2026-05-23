@@ -27,7 +27,7 @@ Living document. Update at the end of every working session. Tells future-you (a
 - **Company-research drop folder** `research/company/` (gitignored): drop PDFs/docx → `python scripts/sync_research_watchlist.py` runs Ollama ingest (`memory/watchlist_ingest.ingest_folder`) → adds tickers to `watchlist_entries` → backfills price history for the new tickers (`quotes_daily.run(symbols=...)`). Next collector cycle, those tickers get full regime collection + appear on the dashboard.
 - **intraday_flow 48h retention**: `scheduler/jobs/prune_intraday.py` (hourly cron) deletes per-strike rows older than `INTRADAY_RETENTION_HOURS` (48).
 - **Migrations now at 0008.** pytest green, ruff clean.
-- **REMAINING to fully activate:** redeploy the NAS collector with this code so the new 5-min `intraday_flow` and 16:45 `quotes_daily` jobs actually run. Week-over-week metrics (change panels, wall drift, ΔGEX/week) are data-gated — need ≥1 week of history (live from 2026-05-22).
+- **ACTIVATED on NAS 2026-05-23.** Code pushed (commit `0b84d66`), NAS image rebuilt with the new jobs, and three DSM Task Scheduler tasks added: `trading-intel intraday` (5-min, Mon–Fri 09:30–16:00), `trading-intel flow` (30-min, Mon–Fri 09:30–16:00), `trading-intel daily prices` (16:45 daily → `quotes_daily && prune_intraday`). Smoke-tested (`prune_intraday` → EXIT 0). First live 5-min volume = **Tue 2026-05-26** (Mon 25th = Memorial Day). See `### NAS deployment` below for how the collector actually runs + the gotchas hit. Week-over-week metrics still data-gated (need ≥1 week of history, live from 2026-05-22).
 
 **Status as of 2026-05-19 evening:**
 - Supabase database live with 14-table schema (project: `wrjizvhwsotoeymyjrcu`)
@@ -218,6 +218,21 @@ should register THESE jobs too, not just the current two.
 - 10:00 / 14:00 — internals composite
 - 16:30 — EOD snapshot + VVIX pull
 - Sun 21:00 — weekly theme synthesis (Claude Opus)
+
+### NAS deployment (how the collector runs) + lessons (2026-05-23) — read before redeploying
+The NAS is a Synology (DSM, repo at `/var/services/homes/drmithil/trading-intel`, Postgres container `trading-intel-pg` on `192.168.1.211:5433`). How it actually runs — and what bit us:
+- **The collector is NOT `runner.py`/APScheduler and NOT the docker-compose `scheduler` service.** It's DSM **Control Panel → Task Scheduler** tasks, each running `docker run --rm --network trading-intel-net -v .../.env:/app/.env -e DATABASE_URL=... trading-intel sh -c "python -m trading_intel.scheduler.jobs.<JOB> && ..."`. So **cron expressions in `runner.py` are ignored on the NAS** — every new job needs its own DSM task (script + schedule). To add a job: new User-defined-script task, user `root`, same docker wrapper, change the `jobs.<JOB>` module, set the Schedule.
+- **The image bakes in code** (`COPY trading_intel ...`); only `.env` is mounted. Editing source on disk does nothing until the image is rebuilt. **Always rebuild with `docker build --no-cache`** — a plain build hit `Using cache` on the `COPY` layer and silently produced the identical image (timestamp never moved). Verify success two ways: Container Manager → Image timestamp flips to today **and** log shows `Successfully tagged trading-intel:latest`.
+- **Git is NOT installed on the NAS** (`git: command not found`), and the repo dir may not be a real clone. Update code via **GitHub tarball overlay**, not `git pull`: `curl -sL -o ti.tar.gz https://github.com/rammpatel2013-sudo/trading-intel/archive/refs/heads/main.tar.gz; tar xzf ti.tar.gz; cp -rf trading-intel-main/. trading-intel/` (overlay preserves the gitignored `.env`), then `docker build --no-cache -t trading-intel ./trading-intel`. Repo is public so no auth needed.
+- **Task stdout isn't visible in the DSM UI** — redirect to a log file in the home dir (`> /var/services/homes/drmithil/ti_update.log 2>&1`) and open it via File Station. Tasks run under **bash**.
+- **`docker run --rm` one-shot jobs trigger a Container Manager "container <random-name> stopped unexpectedly" event on every successful exit.** Benign (jobs start→work→exit); `EXIT 0` is the real signal. The 5-min job will fire this notice ~78×/trading-day — silence via Control Panel → Notification if noisy.
+- **Schema migrations are applied from the LAPTOP over the network** (DATABASE_URL → `192.168.1.211:5433`), independent of the image rebuild. DB schema and the collector image are updated separately. NAS DB is at head `0008`.
+- DSM schedule: "Run on **Weekly** (Mon–Fri)" + "First/Last run time" + "**repeat every N minutes**" models RTH cadence. **Times follow the NAS clock** — set to match US market hours.
+
+### Dev-workflow gotchas (cowork sandbox ↔ Windows repo)
+- **Can't `git push` from the sandbox** (no GitHub auth). Commits land locally in the mounted repo; **Mithil pushes** (PyCharm). Same for all live-infra steps.
+- A stale `.git/index.lock` on the Windows-mounted repo **can't be `rm`'d** from the Linux sandbox (`Operation not permitted`) but **can be `mv`'d** aside. The same EPERM shows up as harmless `unable to unlink tmp_obj_*` warnings during `git add`/commit — objects still write; confirm with `git fsck --connectivity-only`.
+- **Sandbox ruff (0.15.x) ≫ repo's pinned `ruff>=0.5`** and flags ~32 pre-existing UP007/RUF002/ANN204 issues the project treats as clean. **Don't fix repo-wide ruff drift — lint only changed files.** (`S105` on `SCHWAB_TOKEN_PATH` is a false positive — it's a file path.)
 
 ### Formulas (FINAL as of 2026-05-21 — see decision log)
 **Units decision (validated against the ConvexValue app):** `gex_total` is **raw net signed gxoi** (calls +, puts −) — matches what Mithil sees in Convex's gxoi panels (e.g. AAPL ≈ 3.70k near-term). Convex's `gxoi`/`dxoi`/`vxoi` are already `greek × oi` per-share; we deliberately do NOT apply the contract multiplier or spot² dollar-scaling (we tried that — SpotGamma-style $ GEX — and dropped it to match the source).

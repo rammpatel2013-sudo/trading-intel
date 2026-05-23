@@ -157,6 +157,7 @@ The composition root is `trading_intel/scheduler/runner.py` (for the scheduler) 
 - **Logging values from `.env`.** See rule 2.
 - **Storing PII or trade-secret content in commit messages.** PDFs in `data/pdfs/` may be proprietary — never copy excerpts into git history.
 - **Adding npm/Node dependencies.** This is a pure Python project.
+- **Assuming the NAS runs `runner.py` or that editing source updates the collector.** The NAS collector is a set of DSM Task Scheduler tasks calling a baked-in Docker image; code changes only take effect after a `--no-cache` image rebuild (git isn't installed there — update via GitHub tarball). See MEMORY `### NAS deployment`.
 - **Adding more vendors.** The MASTER_PLAN.md fixes the vendor set. New vendors require an ADR in `docs/decisions/`.
 
 ---
@@ -176,7 +177,8 @@ Example pushback:
 |---|---|
 | Convex API errors | `trading_intel/clients/convex.py` + Convex rate-limit metrics in System Health page |
 | Wrong Greek values | `trading_intel/greeks/exposures.py` + sample contract in `tests/greeks/test_exposures.py` |
-| Scheduler not firing | `scheduler/runner.py` job registry + APScheduler logs |
+| Scheduler not firing (local/dev) | `scheduler/runner.py` job registry + APScheduler logs |
+| Job not running ON THE NAS / new job missing | NAS runs **DSM Task Scheduler** tasks (`docker run ... python -m trading_intel.scheduler.jobs.<X>`), NOT `runner.py`. Rebuild the image (`docker build --no-cache`) + add a DSM task. See MEMORY `### NAS deployment`. |
 | Dashboard slow | Check page's data loaders — should hit cached/normalized DB tables, not raw Convex calls |
 | Migration drift | `alembic current` vs. `alembic heads` |
 | Discord alerts not sending | `clients/discord.py` + webhook URL in `.env` |
