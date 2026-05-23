@@ -138,7 +138,7 @@ def main() -> None:
     pct_range = None if full_chain else pct / 100.0
     near_only = st.sidebar.checkbox("Near-term expiries only", value=False)
     expiry_within = (
-        st.sidebar.slider("Expiry within (DTE)", min_value=1, max_value=90, value=7, step=1)
+        st.sidebar.slider("Expiry within (DTE)", min_value=1, max_value=180, value=30, step=1)
         if near_only
         else None
     )
