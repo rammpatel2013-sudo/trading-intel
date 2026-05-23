@@ -58,6 +58,20 @@ class Settings(BaseSettings):
     # ── Watchlist ──────────────────────────────────────────────────────
     WATCHLIST: str = "SPY,QQQ,SPX,AAPL,MSFT,GOOGL,AMZN,META,NVDA,TSLA,AMD,SMCI,PLTR"
 
+    # ── Intraday 0DTE/1DTE volume flow (focused, 5-min cadence) ────────
+    INTRADAY_SYMBOLS: str = "SPX,SPY,QQQ"
+    INTRADAY_STRIKE_RANGE: float = 0.03  # +/- fraction of spot for the tight 0DTE pull
+    INTRADAY_MAX_DTE: int = 1  # keep 0DTE + 1DTE
+    INTRADAY_RETENTION_HOURS: int = 48  # prune per-strike 5-min rows older than this
+
+    # ── Daily price history (quotes_daily backfill + EOD refresh) ──────
+    QUOTES_BACKFILL_PERIOD: str = "5y"  # one-time history depth (yfinance period)
+    QUOTES_REFRESH_PERIOD: str = "6mo"  # daily-job pull window (enough for rv60)
+
+    # ── Options flow snapshots ────────────────────────────────────────
+    FLOW_TOP_N: int = 10  # largest prints kept per snapshot
+    FLOW_MIN_PACKAGE_PREMIUM: float = 250_000.0  # min $ premium for a notable package
+
     # ── Schwab (PARKED) ────────────────────────────────────────────────
     SCHWAB_APP_KEY: str = ""
     SCHWAB_APP_SECRET: SecretStr = SecretStr("")
@@ -67,6 +81,10 @@ class Settings(BaseSettings):
     @property
     def watchlist_symbols(self) -> list[str]:
         return [s.strip().upper() for s in self.WATCHLIST.split(",") if s.strip()]
+
+    @property
+    def intraday_symbols(self) -> list[str]:
+        return [s.strip().upper() for s in self.INTRADAY_SYMBOLS.split(",") if s.strip()]
 
 
 _settings: Settings | None = None

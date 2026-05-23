@@ -13,6 +13,22 @@ Living document. Update at the end of every working session. Tells future-you (a
 - Sanity check passed: SPX GEX ~$1.55B, single names $20–190M, SPY net ~$16M (calls/puts near-cancel intraday). Flip points populate for 12/13 (SMCI null — no zero-crossing in ±10%, plausible)
 - See decision log (2026-05-21) for the ConvexValue response-shape gotchas + formula revision
 
+**Status as of 2026-05-22 (Phase 2 — dashboard made visible + price history):**
+- **Per-ticker dashboard page** (`dashboard/pages/1_Ticker.py`, Roadmap A1 DONE): price + SMA20 + Bollinger + GEX overlay, net GEX/DEX by strike (rolling avg + normal fit, marks flip & spot), RSI(14), call/put walls, day-over-day change panels. Pure data prep in `dashboard/ticker_data.py` (unit-tested).
+- **Intraday 0DTE/1DTE volume flow** (SPX/SPY/QQQ): volume-weighted gamma/vanna/charm (cumulative + 5-min interval), `greeks/intraday_flow.py` (pure) + `scheduler/jobs/intraday_flow.py` (5-min RTH cron, market-hours guard) + `intraday_flow` table (migration **0005**) + auto-refreshing page `pages/2_Intraday_0DTE.py`. Config `INTRADAY_SYMBOLS`/`INTRADAY_STRIKE_RANGE` (±3%)/`INTRADAY_MAX_DTE`.
+- **Daily price history**: `clients/prices.py` `YFinancePriceSource` behind new `PriceDataSource` Protocol (SPX→^GSPC); `prices/realized_vol.py` (rv20/rv60); `scheduler/jobs/quotes_daily.py` + `scripts/backfill_quotes.py` (one-time, 5y) + 16:45 ET daily cron. quotes_daily backfilled for full watchlist.
+- **Bugs fixed (now tested):** quotes_daily.symbol FK→tickers (job now seeds `tickers`; SQLite tests enforce FKs); `quotes_daily.volume` widened int4→BigInteger (migration **0006**) — ^GSPC index volume overflowed int4.
+- **Migrations now at 0006.** ~124 tests, pytest green, ruff clean.
+- **Watchlist overview** (`pages/3_Watchlist.py` + `scripts/watchlist_report.py`, shared `dashboard/watchlist_metrics.py`): per-ticker net GEX + dir + weekly Δ, C/P OI, vol/OI, skew, walls + CW distance, gamma regime (spot vs flip), gamma concentration ±3%. Descriptive gamma-squeeze read-through (NOT a prediction — rule 4 / C5 gate).
+- **Options flow** (`flow_snapshots` table, migration **0007**; `scheduler/jobs/flow_snapshot.py` 30-min RTH; `dashboard/flow_data.py` + `pages/4_Flow.py`): call/put notional, P/C tilt, net premium, largest prints + multi-leg packages via `strategies/options_flow.py`. Added `flow_chain`/`time_and_sales` to the OptionsDataSource Protocol.
+- **Fixed-strike vol charts + Fibonacci** (Ticker page): fib overlay (`prices/fibonacci.py`), fixed-strike ΔIV-by-strike chart + call/put wall-drift chart (`dashboard/changes.load_fixed_strike_changes`, `dashboard/walls.wall_history_frame`). Work off existing data — no migration.
+- **Research-driven dynamic watchlist**: `watchlist_entries` table (migration **0008**); LLM extractor `synthesis/watchlist_extract.py` (+ `WATCHLIST_EXTRACTION_PROMPT`); ingest `memory/watchlist_ingest.py` (`python -m trading_intel.memory.watchlist_ingest <file>`, needs Ollama); `dashboard/dynamic_watchlist.py` + `pages/5_Research_Watchlist.py` (surfaced tickers + rationale/sentiment, cross-referenced with regime metrics).
+- **Effective watchlist** (`trading_intel/watchlist.py` `effective_symbols`): static `.env` WATCHLIST ∪ active `watchlist_entries` symbols. Wired into greeks/chain/gex_rolling/flow/quotes collectors + watchlist & flow dashboard pages (intraday 0DTE stays the focused SPX/SPY/QQQ set). Graceful fallback to static when the table/DB isn't available.
+- **Company-research drop folder** `research/company/` (gitignored): drop PDFs/docx → `python scripts/sync_research_watchlist.py` runs Ollama ingest (`memory/watchlist_ingest.ingest_folder`) → adds tickers to `watchlist_entries` → backfills price history for the new tickers (`quotes_daily.run(symbols=...)`). Next collector cycle, those tickers get full regime collection + appear on the dashboard.
+- **intraday_flow 48h retention**: `scheduler/jobs/prune_intraday.py` (hourly cron) deletes per-strike rows older than `INTRADAY_RETENTION_HOURS` (48).
+- **Migrations now at 0008.** pytest green, ruff clean.
+- **REMAINING to fully activate:** redeploy the NAS collector with this code so the new 5-min `intraday_flow` and 16:45 `quotes_daily` jobs actually run. Week-over-week metrics (change panels, wall drift, ΔGEX/week) are data-gated — need ≥1 week of history (live from 2026-05-22).
+
 **Status as of 2026-05-19 evening:**
 - Supabase database live with 14-table schema (project: `wrjizvhwsotoeymyjrcu`)
 - Ollama running locally with `qwen2.5:3b` + `nomic-embed-text` pulled

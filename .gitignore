@@ -68,3 +68,11 @@ docs/playbooks/*.md
 
 # Generated viz/report artifacts (regenerable)
 reports/
+
+# Throwaway ConvexValue scaffold (read for API spec, then delete)
+cvx-probe/
+
+# Company research drop folder (proprietary content)
+research/company/*
+!research/company/.gitkeep
+!research/company/README.md

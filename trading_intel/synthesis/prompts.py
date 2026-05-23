@@ -89,3 +89,35 @@ Metrics (JSON):
 Reference notes (desk methodology):
 {kb}
 """
+
+
+WATCHLIST_EXTRACTION_PROMPT = """\
+You are building a watchlist from a company / equity research document titled
+"{title}". Identify the tradeable tickers the document actually discusses and,
+for each, capture WHY it is interesting per the document.
+
+Return ONLY a single JSON object (no prose, no markdown fences) shaped like:
+{{
+  "tickers": [
+    {{"symbol": "TICKER",
+      "rationale": "<= 30 word reason this name is on the watchlist, per the doc",
+      "sentiment": <number between -1 and 1>,
+      "confidence": <number 0 to 1>,
+      "themes": ["short theme label", ...]}}
+  ]
+}}
+
+Guidance:
+- Use ONLY tickers explicitly discussed; do NOT invent symbols. Use the
+  exchange ticker (e.g. AAPL), uppercase. Return "tickers": [] if none.
+- rationale: grounded in the document's own argument, not generic.
+- sentiment: the document's stance on the name (-1 bearish .. 1 bullish; 0
+  neutral). confidence: how strongly the doc supports it (0..1).
+- themes: 0-3 short labels (e.g. "AI capex", "margin expansion").
+- Output valid JSON only.
+
+Document text:
+\"\"\"
+{text}
+\"\"\"
+"""

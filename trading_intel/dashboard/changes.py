@@ -96,3 +96,21 @@ def build_change_report(session: Session, symbol: str, *, n_expiries: int = 3) -
     except ComputationError as exc:
         sections.append(f"## ATM vol changes (sticky-delta)\nUnavailable: {exc}")
     return "\n\n".join(sections)
+
+
+def load_fixed_strike_changes(session: Session, symbol: str) -> pd.DataFrame | None:
+    """Fixed-strike IV-change frame (curr - prev) for charting, or None.
+
+    Returns the ``fixed_strike_changes`` output (columns ``expiration``,
+    ``strike``, ``opt_kind``, ``iv_prev``, ``iv_curr``, ``d_iv_pts``) for the two
+    most recent chain snapshots. ``None`` when there are < 2 snapshots or no
+    overlapping strikes. Regime descriptor only (FlashAlpha rule 4).
+    """
+    snaps = load_recent_chain_snapshots(session, symbol, n=2)
+    if len(snaps) < 2:
+        return None
+    (_, curr), (_, prev) = snaps[0], snaps[1]
+    try:
+        return fixed_strike_changes(prev, curr)
+    except ComputationError:
+        return None

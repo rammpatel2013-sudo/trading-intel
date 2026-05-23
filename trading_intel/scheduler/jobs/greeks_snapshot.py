@@ -24,6 +24,7 @@ from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.memory.models import GreeksSnapshot
+from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
 
@@ -43,7 +44,7 @@ def run(session: Session, source: OptionsDataSource, *, settings: Settings | Non
     bound = log.bind(correlation_id=correlation_id, job="greeks_snapshot")
 
     ts = datetime.now().replace(second=0, microsecond=0)
-    symbols = settings.watchlist_symbols
+    symbols = effective_symbols(session, settings)
     bound.info("greeks_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols))
 
     written = 0

@@ -116,3 +116,21 @@ def build_wall_report(session: Session, symbol: str, *, days: int = 10) -> str:
         lines.append("")
         lines.append("Only one day stored so far — movement shows once there are >= 2 days.")
     return "\n".join(lines)
+
+
+def wall_history_frame(session: Session, symbol: str, *, days: int = 10) -> pd.DataFrame:
+    """Call/put walls per day as an ascending frame for plotting drift.
+
+    Columns: ``date``, ``call_wall``, ``put_wall`` (oldest first). Empty frame
+    when no snapshots are stored.
+    """
+    history = load_wall_history(session, symbol, days=days)
+    if not history:
+        return pd.DataFrame(columns=["date", "call_wall", "put_wall"])
+    frame = pd.DataFrame(
+        [
+            {"date": h["date"], "call_wall": h["call_wall"], "put_wall": h["put_wall"]}
+            for h in history
+        ]
+    )
+    return frame.sort_values("date").reset_index(drop=True)

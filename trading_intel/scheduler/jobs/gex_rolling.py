@@ -27,6 +27,7 @@ from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.greeks.rolling import compute_rolling_gex
 from trading_intel.memory.models import GexRolling, GexTerm
+from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
 
@@ -47,8 +48,11 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="gex_rolling")
 
     ts = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    symbols = settings.watchlist_symbols
-    bound.info("gex_rolling.start", ts=ts.isoformat(), symbol_count=len(symbols), window_days=window_days)
+    symbols = effective_symbols(session, settings)
+    bound.info(
+        "gex_rolling.start", ts=ts.isoformat(), symbol_count=len(symbols),
+        window_days=window_days,
+    )
 
     written = 0
     failed = 0

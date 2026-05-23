@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
+from sqlalchemy.dialects.postgresql.dml import Insert
 
 from trading_intel.errors import DataSourceError
 from trading_intel.scheduler.jobs.chain_snapshot import _chain_to_records, run
@@ -99,5 +100,8 @@ def test_run_orchestration_writes_skips_and_commits():
     run(session, source, settings=_Settings(["SPX", "FAIL", "EMPTY"]))
 
     assert source.calls == ["SPX", "FAIL", "EMPTY"]
-    assert len(session.executed) == 1  # only SPX produced rows
+    # Only SPX produced rows -> exactly one INSERT (the effective-watchlist
+    # resolver also issues a SELECT, which we ignore here).
+    inserts = [e for e in session.executed if isinstance(e, Insert)]
+    assert len(inserts) == 1
     assert session.commits == 1  # commit always called

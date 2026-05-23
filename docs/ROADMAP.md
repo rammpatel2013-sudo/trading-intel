@@ -19,7 +19,7 @@ _Dated 2026-05-22. Companion to MASTER_PLAN.md — maps the 7-phase plan against
 ## Roadmap (ordered, by track)
 
 ### Track A — Make it visible (highest near-term value; data ready)
-- **A1. Per-ticker dashboard page** — price + Bollinger + GEX/DEX + RSI + walls + change panels in one Streamlit page. Dep: data (have). Gate: none. Effort: **M**. (Phase 2)
+- **A1. Per-ticker dashboard page** — ✅ DONE 2026-05-22 (`pages/1_Ticker.py`): price + SMA + Bollinger + GEX overlay, GEX/DEX-by-strike (+rolling avg/normal fit, flip & spot marks), RSI, walls, change panels. Plus: intraday 0DTE/1DTE volume-weighted gamma/vanna/charm page (`pages/2_Intraday_0DTE.py`, 5-min collector) and daily price-history backfill (`quotes_daily`, rv20/60). (Phase 2)
 - **A2. GEX-VEX heat map** — 2D dealer-flow surface (spot% × IV-shock), flip boundary. Dep: chain+surface (have). Gate: none. Effort: **M**. (Phase 6 item, data-ready now)
 - **A3. Quick reads** — wall-vs-spot distance, GEX flip vs spot, biggest fixed-strike movers. Dep: data (have). Gate: none. Effort: **S** each.
 
@@ -58,3 +58,16 @@ _Dated 2026-05-22. Companion to MASTER_PLAN.md — maps the 7-phase plan against
 ## Guardrail (unchanged)
 
 FlashAlpha rule: GEX/DEX/VEX/CHEX, walls, and surface reads are **regime descriptors, not signals**. No alerts off raw Greek crossings until the probability model (C5) exists.
+
+
+## Session 2026-05-22 — progress + next-up
+
+**Shipped:** A1 per-ticker page; intraday 0DTE/1DTE volume-flow (table + 5-min collector + page); daily price history (yfinance `PriceDataSource`, rv20/60, backfill + EOD job). Migrations 0005 (intraday_flow) + 0006 (volume→bigint). Pending NAS redeploy to run the new jobs.
+
+**Requested next (queued, with gates):**
+- ✅ **Watchlist overview table/view** (DONE) — Streamlit page `pages/3_Watchlist.py` + HTML report `scripts/watchlist_report.py`. Metrics: per-ticker: total GEX (+ up/down), call/put ratio, vol/OI ratio, ΔtotalGEX over last week, Δcall wall/put wall, skew & its change. _Descriptive (rule 4). Structure buildable now; week-over-week cells gated on ≥1 week of history._
+- **Better fixed-strike vol viz** — turn `build_change_report` markdown into charts; overlay vol change vs call-wall drift. _Buildable now; drift needs ≥2 days._
+- ✅ **Major option-flow panel** (DONE) — `flow_snapshots` table (migration 0007), 30-min RTH collector `scheduler/jobs/flow_snapshot.py`, page `pages/4_Flow.py` (watchlist overview + per-symbol top prints & multi-leg packages).
+- ✅ **Dynamic watchlist from uploaded research** (DONE) — `watchlist_entries` table (migration 0008); `synthesis/watchlist_extract.py` LLM extractor; `memory/watchlist_ingest.py` (`python -m ... <file>`); `pages/5_Research_Watchlist.py` (rationale/sentiment + regime metrics). Needs Ollama running to ingest.
+- ✅ **Fixed-strike vol charts + Fibonacci** (DONE) — Ticker page: fib overlay (`prices/fibonacci.py`), fixed-strike ΔIV chart + call/put-wall drift chart (`load_fixed_strike_changes`, `wall_history_frame`).
+- **Gamma-squeeze "will it happen" / pre-explosive-move read** — ⚠️ this is signal/prediction territory. Per FlashAlpha rule 4 + C5 gate, NO predictive alerts until the probability model (4–8 wks of data, ~July). Buildable now only as **descriptive ingredients**: short-dated gamma concentration, call-wall proximity to spot, vol/OI spikes, GEX flip vs spot — shown as a read-through, not a prediction.

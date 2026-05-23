@@ -414,6 +414,15 @@ class ConvexClient(OptionsDataSource):
         # not used here. Bucketed flow lives on the chain endpoint.
         return self._get_und(list(symbols), list(_UND_PARAMS_BASE))
 
+    def spot(self, symbol: str) -> float:
+        """Public spot accessor (``OptionsDataSource`` Protocol).
+
+        Thin wrapper over the internal price-only lookup so downstream callers
+        (e.g. the intraday 0DTE flow collector) can anchor exposure math on the
+        underlying price without pulling a full chain.
+        """
+        return self._spot(symbol)
+
     def _spot(self, symbol: str) -> float:
         """Fetch the current underlying price (price-only — minimal & proven)."""
         und = self._get_und([symbol], ["price"])

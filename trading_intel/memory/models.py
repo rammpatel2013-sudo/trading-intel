@@ -18,6 +18,7 @@ from typing import Any
 from sqlalchemy import (
     ARRAY,
     JSON,
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -61,7 +62,7 @@ class QuoteDaily(Base):
     high: Mapped[float] = mapped_column(Float)
     low: Mapped[float] = mapped_column(Float)
     close: Mapped[float] = mapped_column(Float)
-    volume: Mapped[int] = mapped_column(Integer)
+    volume: Mapped[int] = mapped_column(BigInteger)  # index/aggregate volume can exceed int4
     rv20: Mapped[float | None] = mapped_column(Float)
     rv60: Mapped[float | None] = mapped_column(Float)
 
@@ -304,3 +305,118 @@ class AmSummary(Base):
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON)
     claude_model: Mapped[str | None] = mapped_column(String(64))
     tokens_used: Mapped[int | None] = mapped_column(Integer)
+
+
+# ── Intraday 0DTE/1DTE volume-weighted flow ────────────────────────────
+
+
+class IntradayFlow(Base):
+    """Per-strike intraday 0DTE/1DTE volume-weighted exposures.
+
+    Populated by the 5-minute ``intraday_flow`` collector for a focused symbol
+    set (SPX/SPY/QQQ) at a tight strike range. Each row carries the raw greeks
+    and traded volume plus the volume-weighted gamma/delta/vanna/charm — both
+    on cumulative day volume (``*_vol``) and on the per-cycle increment
+    (``*_vol_iv``). The aggregate intraday time series is derived by summing the
+    ``*_vol`` columns per ``ts``; the per-strike bars use the latest ``ts``.
+
+    Regime descriptor only (FlashAlpha rule 4) — no signals.
+    """
+
+    __tablename__ = "intraday_flow"
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol", "ts", "source", "expiry", "strike", "cp", name="uq_intraday_flow"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[datetime] = mapped_column(DateTime)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+    expiry: Mapped[date] = mapped_column(Date)
+    dte: Mapped[int | None] = mapped_column(Integer)
+    strike: Mapped[float] = mapped_column(Float)
+    cp: Mapped[str] = mapped_column(String(1))  # 'C' or 'P'
+    spot: Mapped[float | None] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    gamma: Mapped[float | None] = mapped_column(Float)
+    delta: Mapped[float | None] = mapped_column(Float)
+    vanna: Mapped[float | None] = mapped_column(Float)
+    charm: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[int | None] = mapped_column(Integer)  # cumulative day volume
+    volume_interval: Mapped[int | None] = mapped_column(Integer)  # fresh vs prior cycle
+    # Cumulative-volume-weighted exposures.
+    gamma_vol: Mapped[float | None] = mapped_column(Float)
+    delta_vol: Mapped[float | None] = mapped_column(Float)
+    vanna_vol: Mapped[float | None] = mapped_column(Float)
+    charm_vol: Mapped[float | None] = mapped_column(Float)
+    # Interval-volume-weighted exposures.
+    gamma_vol_iv: Mapped[float | None] = mapped_column(Float)
+    delta_vol_iv: Mapped[float | None] = mapped_column(Float)
+    vanna_vol_iv: Mapped[float | None] = mapped_column(Float)
+    charm_vol_iv: Mapped[float | None] = mapped_column(Float)
+
+
+# ── Options flow snapshots ─────────────────────────────────────────────
+
+
+class FlowSnapshot(Base):
+    """Aggregate options-flow snapshot per symbol/timestamp.
+
+    Populated by the ``flow_snapshot`` collector from ConvexValue flow + time &
+    sales: call/put premium notional, the put/call tilt, net premium, the
+    largest prints (``top_prints`` JSON) and notable multi-leg packages
+    (``packages`` JSON). Powers the Flow dashboard page.
+
+    Regime descriptor only (FlashAlpha rule 4) — never a signal.
+    """
+
+    __tablename__ = "flow_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "ts", "source", name="uq_flow_snapshots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[datetime] = mapped_column(DateTime)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+    call_notional: Mapped[float | None] = mapped_column(Float)
+    put_notional: Mapped[float | None] = mapped_column(Float)
+    net_premium: Mapped[float | None] = mapped_column(Float)
+    put_call_ratio: Mapped[float | None] = mapped_column(Float)
+    tilt: Mapped[str | None] = mapped_column(String(32))
+    n_prints: Mapped[int | None] = mapped_column(Integer)
+    top_prints: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    packages: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+
+
+# ── Dynamic (research-driven) watchlist ────────────────────────────────
+
+
+class WatchlistEntry(Base):
+    """A ticker surfaced from uploaded company research, with LLM rationale.
+
+    Populated by the research-ingest pipeline: an uploaded report is run through
+    the LLM, which extracts the tickers it discusses plus a one-line rationale,
+    a sentiment (-1 bearish .. 1 bullish) and themes. One row per
+    (symbol, source document). The Research Watchlist page lists these and
+    cross-references whatever regime metrics exist for the symbol.
+
+    ``symbol`` is intentionally NOT a FK (a researched name may not be in the
+    collection watchlist / ``tickers`` yet). Descriptive context only — never a
+    trade signal (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "watchlist_entries"
+    __table_args__ = (
+        UniqueConstraint("symbol", "source_doc_id", name="uq_watchlist_entries"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    source_doc_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
+    rationale: Mapped[str | None] = mapped_column(Text)
+    sentiment: Mapped[float | None] = mapped_column(Float)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    themes: Mapped[list[str] | None] = mapped_column(JSON)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
