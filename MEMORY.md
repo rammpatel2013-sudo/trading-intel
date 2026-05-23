@@ -29,6 +29,17 @@ Living document. Update at the end of every working session. Tells future-you (a
 - **Migrations now at 0008.** pytest green, ruff clean.
 - **ACTIVATED on NAS 2026-05-23.** Code pushed (commit `0b84d66`), NAS image rebuilt with the new jobs, and three DSM Task Scheduler tasks added: `trading-intel intraday` (5-min, Mon–Fri 09:30–16:00), `trading-intel flow` (30-min, Mon–Fri 09:30–16:00), `trading-intel daily prices` (16:45 daily → `quotes_daily && prune_intraday`). Smoke-tested (`prune_intraday` → EXIT 0). First live 5-min volume = **Tue 2026-05-26** (Mon 25th = Memorial Day). See `### NAS deployment` below for how the collector actually runs + the gotchas hit. Week-over-week metrics still data-gated (need ≥1 week of history, live from 2026-05-22).
 
+**Status as of 2026-05-23 (Phase 2.1 — Daily AM report DONE):**
+- **Daily AM report** (`synthesis/am_summary.py` + `scheduler/jobs/am_summary.py` + `dashboard/pages/0_AM_Report.py` + reader `dashboard/am_report_data.py` + `AM_SUMMARY_PROMPT`, commit `7d7da5b`): research-watchlist-aware morning regime note. Pure `build_am_context` composes the effective watchlist, per-ticker regime metrics, flow highlights, SPX/SPY/QQQ 0DTE read, week-over-week ΔGEX, and research-surfaced tickers (rationale/sentiment, flagged research-vs-static) — all from STORED data (no live Convex pull; it summarizes what the greeks/chain/flow/intraday/quotes collectors wrote). `render_am_markdown` calls the local Ollama LLM (rule 7) with a deterministic tables-only fallback if Ollama is down. Idempotent upsert into `am_summaries` (`ON CONFLICT (date) DO UPDATE` — re-running anytime refreshes today's row). Page sorts to top (`0_`). Registered 07:00 ET in `runner.py`. Discord delivery gated behind `AM_REPORT_SEND_DISCORD` (no-op — no `clients/discord.py` yet). Descriptive only (rule 4). 172 tests green, ruff clean on changed files.
+- Verified locally 2026-05-23: job wrote today's row, `used_llm=true`, 13 symbols, `research=0` (no active research tickers, so the research section shows the empty-state line). Renders on the AM Report page.
+- **NAS deploy pending (Mithil, PowerShell):** push `main`, then add a DSM task `... trading-intel python -m trading_intel.scheduler.jobs.am_summary` Daily ~06:55 (runner cron ignored on NAS). No migration — `am_summaries` already at head `0008`.
+- **Sandbox gotcha (NEW, important):** the cowork mount intermittently served STALE/TRUNCATED views of just-edited files during verification (the canonical Windows files were fine via the Read tool). Lint/test against reconstructed clean copies and verify canonical via Read. Also: pytest reused a stale assertion-rewritten `.pyc` the mount could not delete (EPERM) — run `pytest --assert=plain -p no:cacheprovider` (plus the `datetime.UTC` shim) to bypass it. `.git/index.lock` could not be removed (EPERM) — `mv` it aside; the `tmp_obj_*` unlink warnings during `git add`/commit are benign (confirm with `git fsck --connectivity-only`).
+
+**Open viz items (next — see `docs/NEXT_SESSION.md` for the detailed plan):**
+- **GEX-by-strike time series** for SPX/SPY/QQQ (the Convex-style joy-plot / gxoi-by-strike view) — daily-resolution from existing `greeks_chain` first; intraday cadence is a heavier follow-up.
+- **Improve the fixed-strike vol visualization** (Ticker page `load_fixed_strike_changes` chart — readability/redesign; not yet addressed).
+- **VIX dashboard** — needs the `vix_data` collector built first (FRED for VIX/MOVE/credit; CBOE scrape for VVIX + term structure VXST/VIX/VXV/VXMT), then a page with the zones (<22 carry / 22–32 fragility / >32 stress).
+
 **Status as of 2026-05-19 evening:**
 - Supabase database live with 14-table schema (project: `wrjizvhwsotoeymyjrcu`)
 - Ollama running locally with `qwen2.5:3b` + `nomic-embed-text` pulled
@@ -292,6 +303,12 @@ Both idempotent (ON CONFLICT), ts floored to the day. **Requires migration `0002
 ## Recent decisions / decision log
 
 (Move to `docs/decisions/ADR-N-name.md` once an ADR is written. This is the short-form trail.)
+
+**2026-05-23 (Phase 2.1 — daily AM report)**
+- Built the AM report as a SUMMARIZER over stored data, not a collector — it reads what the greeks/chain/flow/intraday/quotes jobs wrote. Running it anytime refreshes today's row; it reads ~30d history + last-7d for ΔGEX. It always reports for `datetime.now().date()` — `build_am_context` accepts an `as_of` for backfill, but the job entrypoint doesn't expose a `--date` flag yet.
+- Daily LLM = local Ollama (`LLM_DAILY_MODEL`) per rule 7, with a deterministic tables-only fallback so the row always writes even if Ollama is down. `claude_model` records the local model name (null on fallback); `tokens_used` left null on the Ollama path.
+- Discord delivery deferred (no `clients/discord.py`); gated behind `AM_REPORT_SEND_DISCORD` (default off) as a no-op stub. Mithil's stated goal was "see it on the dashboard," so dashboard-first.
+- Upsert quirk: insert against `AmSummary.__table__` (not the ORM class) — the column is literally named `metadata`, which shadows SQLAlchemy's `MetaData` on the mapped class, so `pg_insert(AmSummary).values(metadata=...)` raises `AttributeError`. `on_conflict_do_update` compiles fine on SQLite for tests.
 
 **2026-05-21 (Phase 1.5b — research knowledge pipeline)**
 - Pivoted from the 24/7 collector to the research knowledge pipeline (Mithil's priority). Collector still wanted; deferred.
