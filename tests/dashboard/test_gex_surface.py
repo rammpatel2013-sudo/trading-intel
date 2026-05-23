@@ -88,6 +88,32 @@ def test_expiry_within_filter_drops_far_dated(session: Session):
     assert 8000.0 in set(wide["strike"])
 
 
+def test_pct_range_trims_to_near_the_money(session: Session):
+    ts = datetime(2026, 5, 22, 6, 45, tzinfo=UTC)
+    _add_chain(session, ts, expiry=_NEAR)  # strikes 7400 / 7500
+    # A far-OTM strike well outside +/-3% of a 7450 spot.
+    session.add(
+        GreeksChain(symbol="SPX", ts=ts, expiry=_NEAR, strike=9000, cp="C",
+                    gxoi=999.0, source="convex")
+    )
+    # Spot for the band comes from greeks_snapshots, matched by day.
+    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7450.0))
+    session.commit()
+
+    near = load_gex_strike_series(session, "SPX", days=30, pct_range=0.03)
+    assert set(near["strike"]) == {7400.0, 7500.0}  # 9000 trimmed (band ~7227..7674)
+    full = load_gex_strike_series(session, "SPX", days=30, pct_range=None)
+    assert 9000.0 in set(full["strike"])
+
+
+def test_pct_range_keeps_all_when_no_spot(session: Session):
+    ts = datetime(2026, 5, 22, 6, 45, tzinfo=UTC)
+    _add_chain(session, ts, expiry=_NEAR)
+    # No greeks_snapshots row -> no spot for the day -> filter is skipped.
+    series = load_gex_strike_series(session, "SPX", days=30, pct_range=0.03)
+    assert set(series["strike"]) == {7400.0, 7500.0}
+
+
 def test_empty_when_no_chain(session: Session):
     series = load_gex_strike_series(session, "SPX", days=30)
     assert series.empty

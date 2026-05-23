@@ -131,6 +131,11 @@ def main() -> None:
 
     symbol = st.sidebar.selectbox("Symbol", symbols, index=0 if symbols else None)
     days = st.sidebar.slider("Lookback (days)", min_value=5, max_value=120, value=30, step=5)
+    pct = st.sidebar.slider(
+        "Strike range (± % of spot)", min_value=1.0, max_value=15.0, value=3.0, step=0.5
+    )
+    full_chain = st.sidebar.checkbox("Show full chain (ignore range)", value=False)
+    pct_range = None if full_chain else pct / 100.0
     near_only = st.sidebar.checkbox("Near-term expiries only", value=False)
     expiry_within = (
         st.sidebar.slider("Expiry within (DTE)", min_value=1, max_value=90, value=7, step=1)
@@ -145,7 +150,8 @@ def main() -> None:
         factory = _session_factory()
         with factory() as session:
             series = load_gex_strike_series(
-                session, symbol, days=days, expiry_within_days=expiry_within
+                session, symbol, days=days,
+                expiry_within_days=expiry_within, pct_range=pct_range,
             )
             overlay = spot_flip_overlay(session, symbol, days=days)
     except (TradingIntelError, SQLAlchemyError) as exc:

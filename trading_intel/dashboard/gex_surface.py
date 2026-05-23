@@ -17,7 +17,7 @@ nothing in this module emits an alert.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 from sqlalchemy import select
@@ -63,18 +63,35 @@ def _expiry_within(chain: pd.DataFrame, ts: datetime, expiry_within_days: int) -
     return chain[(dte >= 0) & (dte <= expiry_within_days)]
 
 
+def _spot_by_date(session: Session, symbol: str, *, days: int) -> dict[date, float]:
+    """Map each snapshot day to its spot, for the spot-relative strike window."""
+    hist = load_snapshot_history(session, symbol, days=days)
+    if hist.empty:
+        return {}
+    out: dict[date, float] = {}
+    for ts, spot in zip(hist["ts"], hist["spot"], strict=False):
+        if spot is not None and not pd.isna(spot):
+            out[pd.Timestamp(ts).date()] = float(spot)
+    return out
+
+
 def load_gex_strike_series(
     session: Session,
     symbol: str,
     *,
     days: int = 30,
     expiry_within_days: int | None = None,
+    pct_range: float | None = 0.03,
 ) -> pd.DataFrame:
     """Net signed GEX by strike for each stored chain snapshot in range, oldest first.
 
     Returns a tidy long frame with columns ``ts``, ``strike``, ``net_gex``
     (calls +, puts -). Optionally restricts each snapshot to strikes expiring
     within ``expiry_within_days`` of that snapshot (a near-term gamma view).
+    ``pct_range`` (default 0.03 = +/-3% of that day's spot) trims the chain to a
+    near-the-money band so the heatmap focuses on the active strikes instead of
+    the full +/-15% pull; pass ``None`` to keep every strike. The spot per day
+    comes from ``greeks_snapshots``; days with no stored spot keep all strikes.
     Empty frame when no chain snapshots are stored for ``symbol``.
     """
     ts_list = _recent_chain_ts(session, symbol, days=days)
@@ -93,12 +110,19 @@ def load_gex_strike_series(
         return pd.DataFrame(columns=_LONG_COLS)
     frame = frame.assign(ts=[r.ts for r in rows])
 
+    spot_by_date = _spot_by_date(session, symbol, days=days) if pct_range else {}
+
     parts: list[pd.DataFrame] = []
     for ts in ts_list:
         chain = frame[frame["ts"] == ts]
         if expiry_within_days is not None:
             chain = _expiry_within(chain, ts, expiry_within_days)
         by_strike = gex_by_strike(chain)
+        if pct_range:
+            spot = spot_by_date.get(pd.Timestamp(ts).date())
+            if spot and spot > 0:
+                lo, hi = spot * (1.0 - pct_range), spot * (1.0 + pct_range)
+                by_strike = by_strike[(by_strike["strike"] >= lo) & (by_strike["strike"] <= hi)]
         if by_strike.empty:
             continue
         parts.append(by_strike.assign(ts=ts).rename(columns={"gex": "net_gex"}))
