@@ -203,8 +203,26 @@ def main() -> None:
     st.divider()
     st.subheader("Surface + flow report")
     st.caption("Interpretive desk note (The Read / The Flow / Speculation vs Hedging) via the LLM, grounded in the playbooks.")
+
+    # Show the latest report written overnight by the surface-report job (the slow
+    # CPU-Ollama generation runs at ~2:30 AM, not on page load). Fresh session: the
+    # main one above is already closed by the time we get here.
+    from trading_intel.dashboard.surface_report_data import latest_surface_report
+
+    with factory() as srsession:
+        stored = latest_surface_report(srsession, symbol)
+        stored_view = (
+            (stored.as_of, stored.model, stored.report_md) if stored is not None else None
+        )
+    if stored_view is not None:
+        as_of, model, report_md = stored_view
+        st.caption(f"Nightly report · {as_of:%Y-%m-%d} · {model or 'deterministic'}")
+        st.markdown(report_md)
+    else:
+        st.info("No nightly report stored for this symbol yet — generate one below, or it'll appear after the next overnight run.")
+
     live_flow = st.checkbox("Pull live flow from Convex (else use the stored snapshot)", value=False)
-    if st.button("Generate report"):
+    if st.button("Generate report now"):
         from trading_intel.dashboard.report_data import generate_surface_flow_report
 
         try:

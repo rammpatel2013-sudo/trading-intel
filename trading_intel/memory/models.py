@@ -453,6 +453,28 @@ class ResearchNote(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class SurfaceReport(Base):
+    """Per-ticker interpretive surface + flow report (3-part narrative via LLM).
+
+    Written nightly by the surface-report job from the latest oi_chain_eod
+    snapshot (surface metrics), the option flow (stored flow_snapshots overnight),
+    and KB grounding. One row per (symbol, as_of). Shown on the Vol Lab page so
+    the slow CPU-Ollama generation happens overnight, not on page load.
+    Descriptive regime read-through only (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "surface_reports"
+    __table_args__ = (UniqueConstraint("symbol", "as_of", name="uq_surface_reports"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    as_of: Mapped[date] = mapped_column(Date)
+    report_md: Mapped[str] = mapped_column(Text)
+    flow_source: Mapped[str | None] = mapped_column(String(32))
+    model: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 class WatchlistEntry(Base):
     """A ticker surfaced from uploaded company research, with LLM rationale.
 
