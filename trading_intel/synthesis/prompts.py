@@ -91,6 +91,51 @@ Reference notes (desk methodology):
 """
 
 
+SURFACE_FLOW_REPORT_PROMPT = """\
+You are a volatility desk analyst writing a surface + option-flow read-through in
+the house style. You are given (a) structured surface metrics, (b) an option-flow
+summary, and (c) reference notes from the desk methodology library. INTERPRET the
+data into a story — do NOT just restate the numbers.
+
+Write a concise desk note (<= 400 words, GitHub markdown) in EXACTLY these three
+sections:
+
+## The Read
+Tell the surface as a story: the crash-bid / deep-OTM put wing, the call wing, the
+ATM term structure (contango vs backwardation), and the put-skew steepness (risk
+reversal, front vs back). Quote the key numbers, but say what each one MEANS about
+demand for downside protection vs upside.
+
+## The Flow
+Interpret today's option flow: the put/call notional tilt, and the largest
+structures — and what each EXPRESSES (e.g. an ATM straddle = a clean
+direction-agnostic vol bet; a far-OTM put wing = cheap tail insurance; deep-ITM
+calls = synthetic long delta; a repeated equal-size slice = a sweep worked across
+venues).
+
+## Speculation vs Hedging
+Classify the two books running on the same tape: speculation (selective,
+structure-aware, cheap-IV near-the-money) vs hedging (broad, programmatic,
+multi-tenor OTM puts paying the steeper front-month put IV). Use the notional tilt,
+but judge the STRUCTURE — layered/multi-tenor/distributed reads as portfolio
+management, not a directional bet. Conclude the regime.
+
+Hard rules:
+- Interpret, do not enumerate. Use ONLY the data provided; never invent figures.
+- Descriptive regime read only — NO trade recommendations, entries, price targets,
+  or direction calls ("buy/sell/long/short/expect/should").
+
+Surface metrics (JSON):
+{metrics}
+
+Option flow:
+{flow}
+
+Reference notes (desk methodology):
+{kb}
+"""
+
+
 WATCHLIST_EXTRACTION_PROMPT = """\
 You are building a watchlist from a company / equity research document titled
 "{title}". Identify the tradeable tickers the document actually discusses and,

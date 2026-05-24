@@ -31,7 +31,13 @@ log = structlog.get_logger(__name__)
 _SOURCE = "convex"
 
 
-def run(session: Session, source: OptionsDataSource, *, settings: Settings | None = None) -> None:
+def run(
+    session: Session,
+    source: OptionsDataSource,
+    *,
+    settings: Settings | None = None,
+    symbols: list[str] | None = None,
+) -> None:
     """Snapshot watchlist Greeks into ``greeks_snapshots``.
 
     Args:
@@ -44,7 +50,7 @@ def run(session: Session, source: OptionsDataSource, *, settings: Settings | Non
     bound = log.bind(correlation_id=correlation_id, job="greeks_snapshot")
 
     ts = datetime.now().replace(second=0, microsecond=0)
-    symbols = effective_symbols(session, settings)
+    symbols = symbols or effective_symbols(session, settings)
     bound.info("greeks_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols))
 
     written = 0

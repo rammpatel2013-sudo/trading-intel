@@ -156,6 +156,15 @@ def main() -> None:
     chain, spot = loaded
     st.caption(f"{symbol} · spot ~{spot:,.2f} · snapshot {date_sel:%Y-%m-%d}")
 
+    if st.button(f"⟳ Pull live now ({symbol})"):
+        from trading_intel.dashboard.live_refresh import pull_live_symbol
+
+        with st.spinner(f"Pulling live {symbol} from Convex…"):
+            with factory() as lsession:
+                status = pull_live_symbol(lsession, symbol, settings=get_settings())
+        st.success(f"Live pull: {status} — select today's snapshot above to view it.")
+        st.rerun()
+
     try:
         surf = build_surface_grid(chain, spot)
     except ComputationError as exc:
@@ -190,6 +199,26 @@ def main() -> None:
             st.markdown(interpret_surface(surface_metrics(build_delta_surface(chain))))
         except ComputationError:
             pass
+
+    st.divider()
+    st.subheader("Surface + flow report")
+    st.caption("Interpretive desk note (The Read / The Flow / Speculation vs Hedging) via the LLM, grounded in the playbooks.")
+    live_flow = st.checkbox("Pull live flow from Convex (else use the stored snapshot)", value=False)
+    if st.button("Generate report"):
+        from trading_intel.dashboard.report_data import generate_surface_flow_report
+
+        try:
+            from trading_intel.synthesis.llm import OllamaProvider
+
+            llm = OllamaProvider(get_settings())
+        except Exception:
+            llm = None
+        with st.spinner("Generating surface + flow report (LLM)…"):
+            with factory() as rsession:
+                report_md = generate_surface_flow_report(
+                    rsession, symbol, settings=get_settings(), llm=llm, prefer_live=live_flow
+                )
+        st.markdown(report_md)
 
     st.divider()
     st.subheader("Sticky-strike vol changes (day-over-day)")

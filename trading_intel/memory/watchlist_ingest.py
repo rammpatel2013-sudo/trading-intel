@@ -114,8 +114,9 @@ def discover_research_files(research_dir: Path) -> list[Path]:
 
     if not research_dir.is_dir():
         return []
+    # rglob: recurse into per-report subfolders under research/company/.
     return sorted(
-        p for p in research_dir.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS
+        p for p in research_dir.rglob("*") if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS
     )
 
 
@@ -164,8 +165,12 @@ def main() -> None:
     from trading_intel.memory.db import make_session_factory
     from trading_intel.synthesis.llm import OllamaProvider
 
-    parser = argparse.ArgumentParser(description="Ingest research -> dynamic watchlist.")
-    parser.add_argument("path", help="Path to the research PDF/docx to ingest")
+    parser = argparse.ArgumentParser(
+        description="Ingest research -> dynamic watchlist. PATH may be a single "
+        "file (manual) or a folder (recursive; ingests every new file - use for "
+        "the nightly run, e.g. research/company)."
+    )
+    parser.add_argument("path", help="Research PDF/docx file, OR a folder to scan recursively")
     parser.add_argument("--model", default=None, help="Ollama model override")
     args = parser.parse_args()
 
@@ -180,8 +185,12 @@ def main() -> None:
     settings = get_settings()
     llm = OllamaProvider(settings)
     session_factory = make_session_factory(settings)
+    target = Path(args.path)
     with session_factory() as session:
-        result = ingest_research(session, llm, Path(args.path), model=args.model)
+        if target.is_dir():
+            result = ingest_folder(session, llm, research_dir=target, model=args.model)
+        else:
+            result = ingest_research(session, llm, target, model=args.model)
     print(f"Done: {result}")
 
 

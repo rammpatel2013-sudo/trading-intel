@@ -113,6 +113,7 @@ def run(
     *,
     settings: Settings | None = None,
     window_days: int = DEFAULT_WINDOW_DAYS,
+    symbols: list[str] | None = None,
 ) -> None:
     """Snapshot the watchlist's wide EOD per-strike chain into ``oi_chain_eod``."""
     settings = settings or get_settings()
@@ -120,7 +121,7 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="oi_chain_eod")
 
     ts = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    symbols = effective_symbols(session, settings)
+    symbols = symbols or effective_symbols(session, settings)
     bound.info(
         "oi_chain_eod.start", ts=ts.isoformat(), symbol_count=len(symbols),
         window_days=window_days,

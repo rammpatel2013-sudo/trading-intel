@@ -99,7 +99,13 @@ def _chain_to_records(
     return records
 
 
-def run(session: Session, source: OptionsDataSource, *, settings: Settings | None = None) -> None:
+def run(
+    session: Session,
+    source: OptionsDataSource,
+    *,
+    settings: Settings | None = None,
+    symbols: list[str] | None = None,
+) -> None:
     """Snapshot the watchlist per-strike Greeks chain into ``greeks_chain``.
 
     Args:
@@ -112,7 +118,7 @@ def run(session: Session, source: OptionsDataSource, *, settings: Settings | Non
     bound = log.bind(correlation_id=correlation_id, job="chain_snapshot")
 
     ts = datetime.now(UTC).replace(second=0, microsecond=0)
-    symbols = effective_symbols(session, settings)
+    symbols = symbols or effective_symbols(session, settings)
     bound.info("chain_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols))
 
     rows_written = 0

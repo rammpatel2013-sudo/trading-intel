@@ -31,7 +31,10 @@ from trading_intel.strategies.options_flow import (
     format_structures_markdown,
 )
 from trading_intel.synthesis.llm import LLMProvider
-from trading_intel.synthesis.prompts import SURFACE_INTERPRETATION_PROMPT
+from trading_intel.synthesis.prompts import (
+    SURFACE_FLOW_REPORT_PROMPT,
+    SURFACE_INTERPRETATION_PROMPT,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -205,6 +208,27 @@ def interpret_surface_llm(
         metrics=json.dumps(metrics, indent=2), kb=kb_text or "(none provided)"
     )
     return llm.complete(prompt, model=model, max_tokens=600).strip()
+
+
+def interpret_surface_flow_llm(
+    metrics: dict,
+    flow_md: str,
+    llm: LLMProvider,
+    *,
+    kb_text: str = "",
+    model: str | None = None,
+) -> str:
+    """The 3-part surface + flow narrative: The Read / The Flow / Speculation vs Hedging.
+
+    Interprets the surface metrics + an option-flow markdown summary, grounded in
+    the methodology KB. Regime read-through only (FlashAlpha rule 4).
+    """
+    prompt = SURFACE_FLOW_REPORT_PROMPT.format(
+        metrics=json.dumps(metrics, indent=2),
+        flow=flow_md or "(no flow data available)",
+        kb=kb_text or "(none provided)",
+    )
+    return llm.complete(prompt, model=model, max_tokens=900).strip()
 
 
 def build_surface_report(
