@@ -20,6 +20,7 @@ from trading_intel.dashboard.dynamic_watchlist import (
     distinct_symbols,
     load_watchlist_entries,
 )
+from trading_intel.dashboard.research_note_data import latest_research_note
 from trading_intel.dashboard.watchlist_metrics import format_display, load_watchlist_metrics
 
 
@@ -49,6 +50,14 @@ def main() -> None:
             entries = load_watchlist_entries(session)
             symbols = distinct_symbols(entries)
             metrics = load_watchlist_metrics(session, symbols) if symbols else None
+            notes = {}
+            for s in symbols:
+                n = latest_research_note(session, s)
+                if n is not None:
+                    notes[s] = {
+                        "note_md": n.note_md, "as_of": n.as_of,
+                        "sources": n.sources, "model": n.model,
+                    }
     except SQLAlchemyError as exc:
         st.error(f"Could not load research watchlist: {exc}")
         return
@@ -91,9 +100,24 @@ def main() -> None:
     else:
         st.dataframe(format_display(metrics), use_container_width=True, hide_index=True)
         st.caption(
-            "Metrics populate only for symbols the collectors track. To collect a newly "
-            "surfaced name, add it to WATCHLIST in .env so the snapshot jobs pull it."
+            "Metrics populate after the collectors next run — research tickers are pulled "
+            "automatically (no .env edit). Use 'Pull live now' on the Vol Lab to get one now."
         )
+
+    st.subheader("Research notes")
+    if not notes:
+        st.info(
+            "No research notes yet. They're written nightly (PDF + 10-K + FMP + live regime "
+            "via the LLM). Generate now: "
+            "`.venv\\Scripts\\python -m trading_intel.scheduler.jobs.research_notes`."
+        )
+    else:
+        for s in symbols:
+            nd = notes.get(s)
+            if not nd:
+                continue
+            with st.expander(f"{s} — {nd['as_of']} (sources: {nd['sources'] or 'none'})"):
+                st.markdown(nd["note_md"])
 
 
 main()

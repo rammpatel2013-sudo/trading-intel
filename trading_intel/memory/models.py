@@ -433,6 +433,26 @@ class FlowSnapshot(Base):
 # ── Dynamic (research-driven) watchlist ────────────────────────────────
 
 
+class ResearchNote(Base):
+    """Per-ticker narrative research note (PDF + 10-K + FMP + regime via LLM).
+
+    Written nightly by the research-note job, stored on the NAS Postgres, one row
+    per (symbol, as_of). Shown on the Research Watchlist page. Descriptive
+    research read-through only (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "research_notes"
+    __table_args__ = (UniqueConstraint("symbol", "as_of", name="uq_research_notes"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    as_of: Mapped[date] = mapped_column(Date)
+    note_md: Mapped[str] = mapped_column(Text)
+    sources: Mapped[str | None] = mapped_column(String(128))
+    model: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 class WatchlistEntry(Base):
     """A ticker surfaced from uploaded company research, with LLM rationale.
 

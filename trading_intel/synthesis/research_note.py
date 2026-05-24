@@ -70,7 +70,7 @@ def build_research_note(
     )
     if llm is not None:
         try:
-            return llm.complete(prompt, model=model, max_tokens=1000).strip()
+            return llm.complete(prompt, model=model, max_tokens=700).strip()
         except Exception as exc:  # Ollama down / model missing - deterministic fallback
             log.warning("research_note.llm_failed", ticker=ticker, error=str(exc))
     return (
