@@ -40,10 +40,9 @@ def session() -> Session:
 def test_iv_hv_table_from_db(session: Session):
     ts = datetime(2026, 5, 23)
     exp = date(2026, 6, 21)  # ~30 DTE from the snapshot
-    for K in (4800, 4900, 5000, 5100, 5200):
-        m = K / 5000.0
-        cd = max(0.05, min(0.95, 0.5 - (m - 1) * 2.5))
-        for cp, d in (("C", cd), ("P", cd - 1.0)):
+    # 5 clean strikes per wing, |delta| 10..50 (inside build_delta_surface's grid).
+    for K, cdelta in ((4800, 0.50), (4900, 0.40), (5000, 0.30), (5100, 0.20), (5200, 0.10)):
+        for cp, d in (("C", cdelta), ("P", -cdelta)):
             session.add(OiChainEod(
                 symbol="SPX", ts=ts, expiry=exp, strike=float(K), cp=cp,
                 source="convex_eod", iv=0.20, delta=d, dte=30,
