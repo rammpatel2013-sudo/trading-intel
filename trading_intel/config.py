@@ -41,6 +41,10 @@ class Settings(BaseSettings):
 
     # ── Free data sources ──────────────────────────────────────────────
     FRED_API_KEY: SecretStr
+    # FMP (company research: profile / financials / news; free tier ~250/day).
+    FMP_API: SecretStr = SecretStr("")
+    # SEC EDGAR fair-access requires a descriptive User-Agent incl. a contact email.
+    EDGAR_USER_AGENT: str = "trading-intel research (set EDGAR_USER_AGENT in .env)"
 
     # ── Discord webhooks (multiple channels) ───────────────────────────
     DISCORD_WEBHOOK_URL: SecretStr                       # general / AM summary

@@ -194,3 +194,45 @@ Hard rules:
 Data (already computed — your single source of truth):
 {data}
 """
+
+
+RESEARCH_NOTE_PROMPT = """\
+You are an equity research analyst writing a concise note on {ticker}. You are
+given (a) an excerpt from an uploaded research report, (b) the latest 10-K text,
+(c) company fundamentals + recent news, and (d) the live options/vol regime for
+the name. Synthesize them into a narrative - do NOT just list the inputs.
+
+Write <= 450 words, GitHub markdown, in these sections:
+
+## Snapshot
+What the company is (sector, size) and the one-line setup from the uploaded research.
+
+## Fundamentals & filings
+The revenue/earnings trend and margins, plus anything notable from the 10-K (risk
+factors, MD&A themes). Ground every claim in the numbers/text provided.
+
+## What's moving it
+Recent news / catalysts.
+
+## Options & vol regime
+The current gamma regime, skew / term structure, and IV-HV (rich vs cheap) for the
+name - what the options market is pricing.
+
+## The read
+Tie the uploaded research thesis together with the fundamentals and the vol regime.
+
+Hard rules: use ONLY the data provided; never invent figures. Descriptive research
+read-through - NO trade recommendations, price targets, or direction calls.
+
+Uploaded research excerpt:
+{pdf}
+
+10-K excerpt:
+{tenk}
+
+Fundamentals + news:
+{fundamentals}
+
+Options / vol regime:
+{regime}
+"""

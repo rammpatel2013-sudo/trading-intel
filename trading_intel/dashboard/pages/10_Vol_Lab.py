@@ -221,45 +221,103 @@ def main() -> None:
         st.markdown(report_md)
 
     st.divider()
-    st.subheader("Fixed-strike vol changes (centered at 50Δ)")
-    if pair is None:
-        st.info(f"Needs 2 snapshots for {symbol}; have 1. Lights up after the next EOD run.")
-    else:
-        prev, curr = pair
-        try:
-            from trading_intel.greeks.surface_changes import (
-                delta_change_profile,
-                fixed_strike_changes,
-            )
+    st.subheader("Vol surface + changes by expiry (centered at 50Δ)")
+    from trading_intel.greeks.surface_panel import (
+        centered_frame,
+        next_weekly_expiries,
+        surface_panel,
+    )
 
-            prof = delta_change_profile(prev, curr)
-            cfig = go.Figure()
-            for exp, g in prof.groupby("expiry"):
-                g = g.sort_values("order")
-                cfig.add_trace(go.Scatter(
-                    x=g["label"], y=g["d_iv_pts"], mode="lines+markers", name=str(exp),
+    all_exps = sorted(set(chain["expiration"].dt.date))
+    defaults = next_weekly_expiries(chain, n=3) or all_exps[:3]
+    picks: list = []
+    for i, ecol in enumerate(st.columns(3)):
+        if not all_exps:
+            break
+        dflt = defaults[i] if i < len(defaults) else all_exps[min(i, len(all_exps) - 1)]
+        picks.append(ecol.selectbox(
+            f"Expiry {i + 1}", all_exps, index=all_exps.index(dflt),
+            key=f"vp_exp_{i}", format_func=lambda d: f"{d:%d-%b-%y}",
+        ))
+    picks = list(dict.fromkeys(picks))  # dedupe, keep order
+
+    prev_chain = pair[0] if pair is not None else None
+    panels = surface_panel(chain, prev_chain, picks) if picks else []
+    if not panels:
+        st.caption("No usable expiries for the panel (need strikes on both wings).")
+    else:
+        st.markdown(
+            "<style>[data-testid='stTable'] td,[data-testid='stTable'] th"
+            "{font-size:0.70rem;padding:1px 7px;line-height:1.15;}</style>",
+            unsafe_allow_html=True,
+        )
+        ivf = centered_frame(panels, "iv")
+        if prev_chain is None:
+            st.markdown("**Vol surface — today's IV % by Δ** (Δ-change columns need a 2nd snapshot)")
+            st.table(ivf.round(2))
+        else:
+            held = st.radio(
+                "Change columns — hold constant:",
+                ["Fixed delta (sticky-delta)", "Fixed strike (sticky-strike)"],
+                horizontal=True,
+            )
+            kind = "delta" if held.startswith("Fixed delta") else "strike"
+            chf = centered_frame(panels, kind)
+            combined = ivf.rename(columns={c: f"{c} IV" for c in ivf.columns}).join(
+                chf.rename(columns={c: f"{c} Δ" for c in chf.columns})
+            )
+            change_cols = [f"{c} Δ" for c in chf.columns]
+
+            absvals = np.abs(combined[change_cols].to_numpy(dtype=float))
+            vmax = float(np.nanmax(absvals)) if absvals.size and not np.all(np.isnan(absvals)) else 0.0
+
+            def _css(col):
+                out = []
+                for v in col:
+                    if v != v or vmax <= 0:  # NaN or no scale
+                        out.append("")
+                        continue
+                    a = 0.15 + 0.6 * min(abs(v) / vmax, 1.0)
+                    if v > 0:
+                        out.append(f"background-color: rgba(46,204,113,{a:.2f})")
+                    elif v < 0:
+                        out.append(f"background-color: rgba(231,76,60,{a:.2f})")
+                    else:
+                        out.append("")
+                return out
+
+            styler = combined.style.format("{:.2f}", na_rep="").apply(_css, subset=change_cols)
+            st.markdown(
+                f"**Vol surface (IV %) + change vs prior ({held}, vol pts) — green up / red down**"
+            )
+            st.table(styler)  # full table, no internal scroll
+
+            chf_delta = centered_frame(panels, "delta")  # fixed-delta change (today - prior)
+            yest = ivf - chf_delta  # prior-day IV levels, by delta
+            lfig = go.Figure()
+            palette = ["#3498db", "#e67e22", "#9b59b6", "#1abc9c"]
+            for i, c in enumerate(ivf.columns):
+                col = palette[i % len(palette)]
+                lfig.add_trace(go.Scatter(
+                    x=list(ivf.index), y=ivf[c], mode="lines", name=f"{c} today",
+                    line={"color": col, "width": 2},
                 ))
-            cfig.add_hline(y=0.0, line_color="#666", line_dash="dot")
-            cfig.update_layout(
-                title="IV change by Δ — OTM puts (5→50) · ATM · OTM calls (50→5)",
-                template="plotly_dark", height=380,
-                xaxis_title="Δ (put wing → ATM → call wing)", yaxis_title="Δ IV (vol pts)",
+                lfig.add_trace(go.Scatter(
+                    x=list(yest.index), y=yest[c], mode="lines", name=f"{c} prior",
+                    line={"color": col, "width": 1, "dash": "dot"},
+                ))
+            lfig.update_layout(
+                title="IV by Δ — today (solid) vs prior (dotted), per expiry",
+                template="plotly_dark", height=420,
+                xaxis_title="Δ (put 5→50 · ATM · 50→5 call)", yaxis_title="IV %",
                 margin={"l": 10, "r": 10, "t": 50, "b": 10},
             )
-            st.plotly_chart(cfig, use_container_width=True)
+            st.plotly_chart(lfig, use_container_width=True)
             st.caption(
-                "Curve above zero = IV richened at that delta vs the prior snapshot. "
-                "A broadly parallel lift = regime shift; a put-wing-only lift = "
-                "downside-protection bid (mechanical vs fear, by delta)."
+                "Table: today's IV by Δ + change vs prior (green up / red down). Chart: the IV "
+                "curves themselves — today (solid) vs prior (dotted), same colour per expiry, so "
+                "you see how each expiry's skew shifted. 6 lines = 3 expiries × today/prior."
             )
-            with st.expander("Largest fixed-strike moves (by literal strike)"):
-                ch = fixed_strike_changes(prev, curr).head(12)[
-                    ["expiration", "strike", "opt_kind", "d_iv_pts"]
-                ]
-                ch["d_iv_pts"] = ch["d_iv_pts"].round(2)
-                st.dataframe(ch, use_container_width=True, hide_index=True)
-        except ComputationError as exc:
-            st.caption(f"No overlap to diff: {exc}")
 
     if hist_fig is not None:
         st.divider()
