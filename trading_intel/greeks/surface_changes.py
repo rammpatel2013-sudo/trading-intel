@@ -87,6 +87,49 @@ def atm_term_changes(
     return pd.DataFrame(rows)
 
 
+def delta_change_profile(
+    prev: pd.DataFrame, curr: pd.DataFrame, *, n_expiries: int = 3
+) -> pd.DataFrame:
+    """Per-|delta| IV change (curr - prev, vol pts) as a profile centered at 50d ATM.
+
+    Builds a delta surface for each snapshot, aligns expiries by date, and lays the
+    change out OTM-put (5d) -> ATM (50d) -> OTM-call (5d), matching the desk's
+    centered vol-surface-changes view. Returns a long DataFrame:
+    ``expiry`` (date), ``order`` (int, x-axis position, ATM at the centre),
+    ``label`` (e.g. ``5Pd`` / ``ATM`` / ``5Cd``), ``side`` (put/atm/call),
+    ``abs_delta`` (grid value), ``d_iv_pts``. Sticky-strike vs sticky-delta read.
+    """
+    sp = build_delta_surface(prev, n_expiries=n_expiries)
+    sc = build_delta_surface(curr, n_expiries=n_expiries)
+    p_idx = {sp.expiries[i]: i for i in range(sp.n_expiries)}
+    c_idx = {sc.expiries[i]: i for i in range(sc.n_expiries)}
+    deltas = sc.deltas  # ascending, e.g. 5..50
+    nd = len(deltas)
+    atm_order = nd - 1  # 50d sits at the centre
+
+    rows: list[dict] = []
+    for exp in sorted(set(p_idx) & set(c_idx)):
+        i, j = c_idx[exp], p_idx[exp]
+        # put wing: 5d -> 50d ascending (order 0 .. atm_order)
+        for k in range(nd):
+            d = float(deltas[k])
+            label = "ATM" if k == atm_order else f"{d:g}Pd"
+            rows.append({
+                "expiry": exp, "order": k, "label": label,
+                "side": "atm" if k == atm_order else "put", "abs_delta": d,
+                "d_iv_pts": float((sc.iv_put[i, k] - sp.iv_put[j, k]) * 100.0),
+            })
+        # call wing: 47.5d -> 5d descending (skip 50d ATM, already placed)
+        for n, k in enumerate(range(nd - 2, -1, -1), start=1):
+            d = float(deltas[k])
+            rows.append({
+                "expiry": exp, "order": atm_order + n, "label": f"{d:g}Cd",
+                "side": "call", "abs_delta": d,
+                "d_iv_pts": float((sc.iv_call[i, k] - sp.iv_call[j, k]) * 100.0),
+            })
+    return pd.DataFrame(rows).sort_values(["expiry", "order"]).reset_index(drop=True)
+
+
 def format_fixed_strike_changes_markdown(changes: pd.DataFrame, *, top_n: int = 8) -> str:
     """Render the biggest fixed-strike IV moves as a report sub-section."""
     lines = ["## Fixed-strike vol changes (sticky-strike)"]

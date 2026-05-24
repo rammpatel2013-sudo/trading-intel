@@ -55,9 +55,14 @@ def main() -> None:
 
     if entries.empty:
         st.info(
-            "No research ingested yet. Ingest a company-research PDF/docx with:\n\n"
-            "`python -m trading_intel.memory.watchlist_ingest <path-to-file>`\n\n"
-            "(Ollama must be running locally.)"
+            "No research ingested yet. Drop company reports under "
+            "`research\\company\\` (per-report subfolders OK), then ingest:\n\n"
+            "- Whole folder (recursive, new files only):\n"
+            "`.venv\\Scripts\\python -m trading_intel.memory.watchlist_ingest research\\company`\n\n"
+            "- A single file:\n"
+            "`.venv\\Scripts\\python -m trading_intel.memory.watchlist_ingest "
+            "research\\company\\<report>.pdf`\n\n"
+            "Also runs nightly via Task Scheduler. (Ollama must be running locally.)"
         )
         return
 

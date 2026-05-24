@@ -221,17 +221,43 @@ def main() -> None:
         st.markdown(report_md)
 
     st.divider()
-    st.subheader("Sticky-strike vol changes (day-over-day)")
+    st.subheader("Fixed-strike vol changes (centered at 50Δ)")
     if pair is None:
         st.info(f"Needs 2 snapshots for {symbol}; have 1. Lights up after the next EOD run.")
     else:
         prev, curr = pair
         try:
-            from trading_intel.greeks.surface_changes import fixed_strike_changes
+            from trading_intel.greeks.surface_changes import (
+                delta_change_profile,
+                fixed_strike_changes,
+            )
 
-            ch = fixed_strike_changes(prev, curr).head(12)[["expiration", "strike", "opt_kind", "d_iv_pts"]]
-            ch["d_iv_pts"] = ch["d_iv_pts"].round(2)
-            st.dataframe(ch, use_container_width=True, hide_index=True)
+            prof = delta_change_profile(prev, curr)
+            cfig = go.Figure()
+            for exp, g in prof.groupby("expiry"):
+                g = g.sort_values("order")
+                cfig.add_trace(go.Scatter(
+                    x=g["label"], y=g["d_iv_pts"], mode="lines+markers", name=str(exp),
+                ))
+            cfig.add_hline(y=0.0, line_color="#666", line_dash="dot")
+            cfig.update_layout(
+                title="IV change by Δ — OTM puts (5→50) · ATM · OTM calls (50→5)",
+                template="plotly_dark", height=380,
+                xaxis_title="Δ (put wing → ATM → call wing)", yaxis_title="Δ IV (vol pts)",
+                margin={"l": 10, "r": 10, "t": 50, "b": 10},
+            )
+            st.plotly_chart(cfig, use_container_width=True)
+            st.caption(
+                "Curve above zero = IV richened at that delta vs the prior snapshot. "
+                "A broadly parallel lift = regime shift; a put-wing-only lift = "
+                "downside-protection bid (mechanical vs fear, by delta)."
+            )
+            with st.expander("Largest fixed-strike moves (by literal strike)"):
+                ch = fixed_strike_changes(prev, curr).head(12)[
+                    ["expiration", "strike", "opt_kind", "d_iv_pts"]
+                ]
+                ch["d_iv_pts"] = ch["d_iv_pts"].round(2)
+                st.dataframe(ch, use_container_width=True, hide_index=True)
         except ComputationError as exc:
             st.caption(f"No overlap to diff: {exc}")
 
