@@ -59,16 +59,22 @@ def ingest_research(
     path: Path,
     *,
     model: str | None = None,
+    force: bool = False,
 ) -> dict:
     """Ingest one research file into ``watchlist_entries``.
 
     Returns ``{"status": ingested|skipped|empty, "symbols": [...], "doc_id": int|None}``.
+
+    ``force=True`` re-extracts even when the file's SHA is already on record
+    (reuses the existing ``Document`` row) - use it to re-process a doc through
+    improved extraction logic. Entry upsert stays ON CONFLICT DO NOTHING, so a
+    re-run only ADDS newly-surfaced tickers; it never duplicates or clobbers.
     """
     sha = sha256_file(path)
     existing = session.execute(
         select(Document).where(Document.sha256 == sha)
     ).scalar_one_or_none()
-    if existing is not None:
+    if existing is not None and not force:
         log.info("watchlist_ingest.skip_existing", file=path.name)
         return {"status": "skipped", "symbols": [], "doc_id": existing.id}
 
@@ -126,6 +132,7 @@ def ingest_folder(
     *,
     research_dir: Path = DEFAULT_RESEARCH_DIR,
     model: str | None = None,
+    force: bool = False,
 ) -> dict:
     """Ingest every NEW research file in ``research_dir`` into the watchlist.
 
@@ -140,7 +147,7 @@ def ingest_folder(
     seen: set[str] = set()
     for path in files:
         try:
-            result = ingest_research(session, llm, path, model=model)
+            result = ingest_research(session, llm, path, model=model, force=force)
         except (TradingIntelError, OSError, ValueError) as exc:
             session.rollback()
             stats["failed"] += 1
@@ -172,6 +179,12 @@ def main() -> None:
     )
     parser.add_argument("path", help="Research PDF/docx file, OR a folder to scan recursively")
     parser.add_argument("--model", default=None, help="Ollama model override")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-extract even if the file is already on record (re-process through "
+        "current extraction logic; only ADDS newly-found tickers).",
+    )
     args = parser.parse_args()
 
     structlog.configure(
@@ -188,9 +201,9 @@ def main() -> None:
     target = Path(args.path)
     with session_factory() as session:
         if target.is_dir():
-            result = ingest_folder(session, llm, research_dir=target, model=args.model)
+            result = ingest_folder(session, llm, research_dir=target, model=args.model, force=args.force)
         else:
-            result = ingest_research(session, llm, target, model=args.model)
+            result = ingest_research(session, llm, target, model=args.model, force=args.force)
     print(f"Done: {result}")
 
 

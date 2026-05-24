@@ -12,6 +12,7 @@ Manual run:
 """
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from pathlib import Path
 
@@ -33,8 +34,38 @@ _PDF_MAX = 3000
 _TENK_MAX = 3000
 
 
+def _ticker_excerpt(text: str, ticker: str, *, window: int = 1800, max_chars: int = 4000) -> str:
+    """Return the part(s) of a (possibly multi-ticker) doc that mention ``ticker``.
+
+    A research report can cover many names; the per-ticker note must use the
+    section about THIS ticker, not the document's first page. Gathers merged
+    windows around each whole-word mention; falls back to the start if none found.
+    """
+    if not text:
+        return ""
+    pat = re.compile(rf"(?<![A-Za-z]){re.escape(ticker)}(?![A-Za-z])")
+    spans: list[list[int]] = []
+    for m in pat.finditer(text):
+        s = max(0, m.start() - window // 4)
+        e = min(len(text), m.start() + window)
+        if spans and s <= spans[-1][1]:
+            spans[-1][1] = max(spans[-1][1], e)
+        else:
+            spans.append([s, e])
+    if not spans:
+        return text[:max_chars]
+    out: list[str] = []
+    total = 0
+    for s, e in spans:
+        out.append(text[s:e])
+        total += e - s
+        if total >= max_chars:
+            break
+    return " … ".join(out)[:max_chars]
+
+
 def _pdf_text_for_symbol(session: Session, symbol: str) -> str:
-    """Extract text from the most recent research doc that surfaced ``symbol`` ("" on miss)."""
+    """Excerpt (around the ticker's mentions) of the latest research doc that surfaced it."""
     doc_id = session.execute(
         select(WatchlistEntry.source_doc_id)
         .where(WatchlistEntry.symbol == symbol, WatchlistEntry.active.is_(True))
@@ -48,7 +79,7 @@ def _pdf_text_for_symbol(session: Session, symbol: str) -> str:
         return ""
     try:
         text, _ = extract_text(Path(doc.path))
-        return text or ""
+        return _ticker_excerpt(text or "", symbol)
     except Exception as exc:  # missing file / parse error
         log.warning("research_notes.pdf_extract_failed", symbol=symbol, error=str(exc))
         return ""

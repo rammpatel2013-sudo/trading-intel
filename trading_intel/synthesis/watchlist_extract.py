@@ -88,10 +88,33 @@ def parse_candidates(raw: str) -> list[WatchlistCandidate]:
     return out
 
 
+def _chunks(text: str, *, size: int = MAX_CHARS, overlap: int = 1000) -> list[str]:
+    """Split ``text`` into overlapping ~``size``-char chunks (small models have a
+    tiny context, so one slice misses tickers in later pages of a big report)."""
+    if not text:
+        return [""]
+    if len(text) <= size:
+        return [text]
+    step = max(1, size - overlap)
+    return [text[i : i + size] for i in range(0, len(text), step)]
+
+
 def extract_watchlist(
     llm: LLMProvider, title: str, text: str, *, model: str | None = None
 ) -> list[WatchlistCandidate]:
-    """Run the watchlist-extraction prompt over (a bounded slice of) ``text``."""
-    prompt = WATCHLIST_EXTRACTION_PROMPT.format(title=title, text=text[:MAX_CHARS])
-    raw = llm.complete(prompt, model=model, max_tokens=768)
-    return parse_candidates(raw)
+    """Extract tickers across the WHOLE document by chunking, then union (dedup).
+
+    A big multi-ticker report exceeds a small local model's context, so we run the
+    extraction over each chunk and merge the candidates (first mention wins).
+    """
+    seen: dict[str, WatchlistCandidate] = {}
+    for chunk in _chunks(text):
+        raw = llm.complete(
+            WATCHLIST_EXTRACTION_PROMPT.format(title=title, text=chunk),
+            model=model,
+            max_tokens=768,
+        )
+        for cand in parse_candidates(raw):
+            if cand.symbol not in seen:
+                seen[cand.symbol] = cand
+    return list(seen.values())
