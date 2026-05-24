@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+import pandas as pd
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from trading_intel.dashboard.changes import build_change_report, load_recent_chain_snapshots
+from trading_intel.dashboard.changes import (
+    build_change_report,
+    fixed_strike_change_matrix,
+    load_fixed_strike_changes,
+    load_recent_chain_snapshots,
+)
 from trading_intel.memory.models import GreeksChain
 
 
@@ -68,3 +74,22 @@ def test_build_change_report_needs_two(session: Session):
 
 def test_build_change_report_no_data(session: Session):
     assert "Not enough history yet" in build_change_report(session, "SPX")
+
+
+def test_fixed_strike_change_matrix_shape(session: Session):
+    _add_snapshot(session, datetime(2026, 5, 21, 6, 45, tzinfo=UTC), 0.15)
+    _add_snapshot(session, datetime(2026, 5, 22, 6, 45, tzinfo=UTC), 0.18)
+
+    frame = load_fixed_strike_changes(session, "SPX")
+    assert frame is not None and not frame.empty
+    matrix = fixed_strike_change_matrix(frame)
+    # index = strikes (sorted), columns = the single shared expiry, values = ΔIV pts
+    assert list(matrix.index) == sorted(matrix.index)
+    assert matrix.shape[0] >= 7  # overlapping strikes present in both snapshots
+    # ATM IV rose 0.15 -> 0.18, so fixed-strike ΔIV should be broadly positive
+    assert matrix.to_numpy()[~pd.isna(matrix.to_numpy())].mean() > 0
+
+
+def test_fixed_strike_change_matrix_empty():
+    assert fixed_strike_change_matrix(None).empty
+    assert fixed_strike_change_matrix(pd.DataFrame()).empty

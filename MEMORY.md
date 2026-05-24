@@ -49,9 +49,20 @@ Living document. Update at the end of every working session. Tells future-you (a
 - **Verified:** 8 new tests pass (collector window/field mapping + analytics diff on SQLite) + 2 isolated tests for the Convex happy/fallback paths; ruff clean on the changed files that the mount would serve (oi_changes, both test files, collector, prune, migration). `convex.py`/`runner.py`/`models.py`/`config.py` couldn't be lint-run via the mount (severe stale/truncated reads this session — see gotcha) but carry only small pattern-mirroring changes.
 - **NAS deploy (Mithil):** `alembic upgrade head` from the laptop (applies 0009 to the NAS DB) + add DSM tasks for `oi_chain_eod` (~16:35) and `prune_oi_chain` (daily), same docker wrapper. **Also still pending: chain_snapshot/greeks_snapshot have NO NAS DSM task** (only intraday/flow/daily-prices run there) — that's why the GEX surface and this OI study won't accumulate until those EOD collectors are scheduled too.
 
-**Open viz items (next — see `docs/NEXT_SESSION.md` for the detailed plan):**
-- **Improve the fixed-strike vol visualization** (Ticker page `load_fixed_strike_changes` chart — readability/redesign; not yet addressed). [Track 2]
-- **VIX dashboard** — needs the `vix_data` collector built first (FRED for VIX/MOVE/credit; CBOE scrape for VVIX + term structure VXST/VIX/VXV/VXMT), then a page with the zones (<22 carry / 22–32 fragility / >32 stress).
+**Status as of 2026-05-23 (Session — methodology RAG substrate + ΔIV positioning + fixed-strike heatmap + VIX, code-complete):**
+- **Methodology RAG substrate DONE (item 2).** The `chunks` pgvector table + `embedding Vector(768)` + IVFFlat index already existed (migration 0001) so **no migration**. New: `memory/chunking.py` (deterministic full-text chunker); `memory/embeddings.py` (chunk→embed→`INSERT ... CAST(:v AS vector)`, kept OUT of the ORM so `models.py` stays Postgres-neutral + SQLite tests work; `delete_chunks`/`count_chunks`); `pdf_pipeline.ingest_document` now embeds on ingest (best-effort, `--no-embed`); `memory/retrieval.py` (cosine `embedding <=> CAST(:q AS vector)` filtered by `kind`, + `format_kb`); `surface_report.load_kb_context` upgraded to semantic retrieval (query from surface metrics) with file-concat fallback. 35 memory/surface tests green, ruff-clean.
+- **Auto-scan + re-index DONE.** `memory/sync_knowledge.py` reconciles a drop folder vs `documents` by **path**: new→ingest, unchanged→skip, **edited→supersede** (delete old chunks/theme_obs/watchlist_entries + playbook, re-ingest), removed→**prune (opt-in `--prune-removed`)**, + **backfills embeddings** for docs with zero chunks. Both `research/doc/` (methodology) + `research/company/` (research). CLI: `python -m trading_intel.memory.sync_knowledge`.
+- **22 methodology PDFs** in `research/doc/`. Mithil's first ingest (old code, no embeddings) → **then `python -m trading_intel.memory.sync_knowledge --skip-research` backfills embeddings** (no LLM regen). That run stalled ~7-9 docs (large PDF on pdfplumber fallback or Ollama thrash); ingest is per-doc-committed + sha-idempotent so Ctrl-C + re-run resumes.
+- **ΔIV positioning analytic DONE (item 1).** `oi_changes.py`: per-strike **ΔIV** + descriptive `positioning` label (`classify_positioning` = ΔOI sign × ΔIV sign: opening demand-led / opening supply-led / closing-unwind / closing-into-firmer-IV) + `mean_d_iv`. Mithil's "new-buy vs close, confirmed by IV" idea. On `pages/7_OI_Flow_Change.py`. Live after Tue 5/26. 8 tests green.
+- **Fixed-strike viz redesigned DONE (Track 2).** `changes.fixed_strike_change_matrix` (strike×expiry pivot); Ticker `_fixed_strike_panel` now a diverging ΔIV **heatmap**. 6 tests green.
+- **VIX dashboard DONE (Track 3) — CBOE endpoints UNVERIFIED (built blind per Mithil).** `clients/fred.py` (VIX `VIXCLS`, HY `BAMLH0A0HYM2`, IG `BAMLC0A0CM`; **MOVE not on FRED → None**), `clients/cboe.py` (VVIX `_VVIX` + term `_VIX9D/_VIX/_VIX3M/_VIX6M` from cdn.cboe.com — **VERIFY URL + JSON keys live**, graceful None), `scheduler/jobs/vix_snapshot.py` (idempotent get-or-create upsert; vix_sd20 from FRED, vvix_sd20 from history; vega_zone), `dashboard/vix_view.py` (pure), `pages/8_VIX.py`. Registered `runner.py` 16:45 ET. **No migration** (`vix_data` exists). 17 tests green.
+- **Sandbox gotcha (WORSE):** the mount served STALE/TRUNCATED/NUL-corrupted copies of many files (incl. large canonical files via bash); the Read/Edit/Write tools were always authoritative. Verified by reconstructing clean `/tmp` copies via **heredoc** (not `cp`, which propagated truncation) + pytest/ruff there. Test deps installed fresh in-sandbox.
+- **Hand-off (Mithil):** (1) finish 22-PDF ingest → `sync_knowledge --skip-research` to embed; (2) push `main`; (3) NAS DSM tasks: `am_summary` ~06:55, `vix_snapshot` ~16:45, + the `oi_chain_eod` re-deploy w/ batch fix; (4) `scripts/verify_oi_flow.py` after Tue 5/26 EOD; (5) verify CBOE endpoints; (6) optional laptop nightly `sync_knowledge` (needs Ollama).
+
+**Open items (next):**
+- ✅ Fixed-strike vol viz redesigned (strike×expiry ΔIV heatmap). [Track 2 done]
+- ✅ VIX dashboard built — **CBOE endpoints need live verification.** [Track 3 done]
+- **AM-report RAG wiring** was deferred (item 2 scoped to substrate + surface-KB only) — wire retrieved methodology into `AM_SUMMARY_PROMPT` next.
 
 **Status as of 2026-05-19 evening:**
 - Supabase database live with 14-table schema (project: `wrjizvhwsotoeymyjrcu`)
@@ -156,6 +167,8 @@ Living document. Update at the end of every working session. Tells future-you (a
 - AM summary (ties methodology + data + live price together).
 
 ## Data-gap analysis — research playbooks -> Convex data (2026-05-21)
+
+> **[STALE as of 2026-05-24]** The jobs this section calls "not built" are now built (chain_snapshot, flow_snapshot, vix_snapshot, quotes_daily, oi_chain_eod). Kept for history; see the 2026-05-24 decision-log entry.
 
 Derived from the 13 ingested methodology playbooks: maps each recurring framework
 to the data it requires and our current collection state. Four tables already
@@ -316,6 +329,16 @@ Both idempotent (ON CONFLICT), ts floored to the day. **Requires migration `0002
 ## Recent decisions / decision log
 
 (Move to `docs/decisions/ADR-N-name.md` once an ADR is written. This is the short-form trail.)
+
+**2026-05-24 (VIX / volatility workstream)**
+- VENDOR DECISION (locked — do not re-litigate): stay **Convex-only** for options. Evaluated **IBKR** (rejected: requires TWS/Gateway always-on + daily auto-logout) and re-evaluated **Schwab** (rejected for now: the 7-day refresh-token chore buys only intraday bars + the VIX complex, not needed while daily granularity suffices). Daily OHLCV via yfinance, VIX/MOVE/credit via FRED. Revisit Schwab ONLY if an intraday/low-timeframe use-case lands. MOVE + credit stay on FRED (not available on Schwab).
+- Persisted VIX term structure + VRP (migration **0010**: `vix_data.vix9d/vix3m/vix6m/vrp`). `vix_snapshot` now stores the CBOE term structure it already fetched and computes `vrp = VIX − SPX rv20×100`. Verified live: vix9d 14.07 / vix 16.76 / vix3m 20.03 / vix6m 22.35 (healthy contango), vrp +6.01. CBOE CDN term endpoints (_VIX9D/_VIX3M/_VIX6M) confirmed working.
+- VIX dashboard (`8_VIX.py`) enhanced: VVIX/VIX + VIX9D/VIX metrics, stored term-structure curve classified contango/backwardation/flat, VRP trend chart, "how to read" expander. New pure helpers in `vix_view.py`.
+- VIX DECOMPOSITION (CBOE 6-factor) replicated. Feasibility: no CBOE API/feed (interactive web tool only) → replicate from our data per the CBOE whitepaper (`VIX-Decomposition-2025-08-01.pdf`). `greeks/vix_decomposition.py` (pure: sticky strike / parallel shift / put+call gradient @30Δ / down+up convexity @10Δ on a synthetic 30-day fixed-strike skew). Validated vs CBOE's Yen-Carry worked example (2.57/7.29/1.66/3.43). Source = `oi_chain_eod` (SPX per-strike iv+delta, ~30d expiries); needs ≥2 consecutive SPX EOD snapshots. Loader `dashboard/vix_decomp_data.py` + panel on the VIX page (shows "accumulating history" until 2 snapshots; SPX had 1 as of 2026-05-23, 14.7k rows, full iv+delta). LITE attribution (representative-delta IV excess); FULL (VIX variance-strip recompute) is a later refinement.
+- Interpretation guide: `docs/guides/reading-the-vix.md` (term structure, VRP, VVIX, the 6-factor decomposition, how it feeds a swing bias).
+- The **Data-gap analysis (2026-05-21)** section below is STALE: the jobs it calls "not built" are all built now (chain_snapshot, flow_snapshot, vix_snapshot, quotes_daily, oi_chain_eod). Kept for history.
+- SANDBOX CAVEAT (Cowork/agent): the Linux sandbox mount TRUNCATES files with multibyte chars (em-dash, box-drawing) — it mangled `vix_view.py` and couldn't import `models.py`. Authoritative = the Windows file tools; run tests on the real machine. ASCII-only modules run fine in the sandbox.
+- NEXT: gamma-regime classifier (#10, from `oi_chain_eod` cumulative gamma + flip); then FMP market-internals (free tier) + market-timing dashboard; vol lab; swing-trade synthesis. **dr.wish engine dropped per Mithil.**
 
 **2026-05-23 (Phase 2.1 — daily AM report)**
 - Built the AM report as a SUMMARIZER over stored data, not a collector — it reads what the greeks/chain/flow/intraday/quotes jobs wrote. Running it anytime refreshes today's row; it reads ~30d history + last-7d for ΔGEX. It always reports for `datetime.now().date()` — `build_am_context` accepts an `as_of` for backfill, but the job entrypoint doesn't expose a `--date` flag yet.

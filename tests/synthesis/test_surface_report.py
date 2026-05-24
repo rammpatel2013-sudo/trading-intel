@@ -117,3 +117,39 @@ def test_build_surface_report_full():
     assert "## Greek-OI by expiry (flowsum)" in md
     assert "## Notable packages" in md
     assert "call spread" in md
+
+
+# ── load_kb_context: semantic retrieval + file fallback ──────────────────────
+
+from trading_intel.memory.retrieval import ChunkHit  # noqa: E402
+from trading_intel.synthesis import surface_report  # noqa: E402
+
+
+def test_build_surface_query_mentions_key_terms():
+    q = surface_report.build_surface_query(surface_metrics(_surface()))
+    assert "skew" in q.lower()
+    assert "term-structure slope" in q.lower()
+
+
+def test_load_kb_context_uses_semantic_retrieval(monkeypatch):
+    hits = [ChunkHit(1, 10, "Doc A", "skew note from the desk", 0.1)]
+    monkeypatch.setattr(surface_report, "retrieve_chunks", lambda *a, **k: hits)
+    out = surface_report.load_kb_context(session=object(), llm=_FakeLLM(), query="skew")
+    assert "### Doc A" in out and "skew note from the desk" in out
+
+
+def test_load_kb_context_falls_back_to_files_on_error(tmp_path, monkeypatch):
+    (tmp_path / "trading-volatility.md").write_text("VOL FILE NOTES", encoding="utf-8")
+
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(surface_report, "retrieve_chunks", boom)
+    out = surface_report.load_kb_context(tmp_path, session=object(), llm=_FakeLLM(), query="skew")
+    assert "VOL FILE NOTES" in out
+
+
+def test_load_kb_context_files_only_when_no_session(tmp_path):
+    (tmp_path / "managingsmilerisk.md").write_text("SABR NOTES", encoding="utf-8")
+    out = surface_report.load_kb_context(tmp_path)
+    assert "SABR NOTES" in out

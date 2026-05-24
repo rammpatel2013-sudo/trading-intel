@@ -230,6 +230,11 @@ class VixData(Base):
     vix_sd20: Mapped[float | None] = mapped_column(Float)
     vvix_sd20: Mapped[float | None] = mapped_column(Float)
     vega_zone: Mapped[str | None] = mapped_column(String(16))  # low/mid/high
+    # CBOE index term structure (persisted from vix_snapshot) + variance risk premium
+    vix9d: Mapped[float | None] = mapped_column(Float)
+    vix3m: Mapped[float | None] = mapped_column(Float)
+    vix6m: Mapped[float | None] = mapped_column(Float)
+    vrp: Mapped[float | None] = mapped_column(Float)  # VIX - SPX 20d realized vol (vol pts)
 
 
 # ── Earnings ───────────────────────────────────────────────────────────

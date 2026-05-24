@@ -21,6 +21,7 @@ from trading_intel.scheduler.jobs import (
     prune_intraday,
     prune_oi_chain,
     quotes_daily,
+    vix_snapshot,
 )
 from trading_intel.synthesis.llm import OllamaProvider
 
@@ -78,6 +79,13 @@ def main() -> None:
         with session_factory() as session:
             am_summary.run(session, llm, settings=settings)
 
+    def run_vix_snapshot() -> None:
+        from trading_intel.clients.cboe import CboeClient
+        from trading_intel.clients.fred import FredClient
+
+        with session_factory() as session:
+            vix_snapshot.run(session, FredClient(settings), CboeClient())
+
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
     # Greeks snapshot — 06:45 ET pre-market (see MEMORY.md schedule).
@@ -128,6 +136,9 @@ def main() -> None:
     # stored data, renders via local LLM, upserts one am_summaries row/day. On the
     # NAS this is a separate DSM task (runner cron is ignored there).
     scheduler.add_job(run_am_summary, "cron", hour=7, minute=0, name="am_summary")
+    # Daily VIX/VVIX/credit snapshot — 16:45 ET (FRED + CBOE). On the NAS this is
+    # a separate DSM task (runner cron is ignored there).
+    scheduler.add_job(run_vix_snapshot, "cron", hour=16, minute=45, name="vix_snapshot")
 
     log.info("Scheduler started. Jobs registered: %d", len(scheduler.get_jobs()))
     scheduler.start()

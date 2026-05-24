@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
+from trading_intel.memory.embeddings import embed_and_store_chunks
 from trading_intel.memory.models import Document, Theme, ThemeObservation
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.tagging import (
@@ -164,8 +165,16 @@ def ingest_document(
     playbook_dir: Path,
     kind: str = "methodology",
     model: str | None = None,
+    embed: bool = True,
+    embed_model: str | None = None,
 ) -> str:
-    """Process one document. Returns ``ingested`` | ``skipped`` | ``empty``."""
+    """Process one document. Returns ``ingested`` | ``skipped`` | ``empty``.
+
+    When ``embed`` is set, the document's full text is chunked and embedded into
+    the ``chunks`` pgvector store after the playbook + theme tagging. An embedding
+    failure is non-fatal — the document, playbook and themes are still committed
+    (the chunks can be backfilled later by ``memory/sync_knowledge``).
+    """
     sha = sha256_file(path)
     existing = session.execute(select(Document).where(Document.sha256 == sha)).scalar_one_or_none()
     if existing is not None:
@@ -202,8 +211,10 @@ def ingest_document(
     tags: DocTags = tag_document(llm, title, text, model=model)
     obs_date = date.today()
     symbol = tags.symbols[0][:16] if tags.symbols else None
+    theme_ids: list[int] = []
     for tag in tags.themes:
         theme = _get_or_create_theme(session, tag.name, tag.scope)
+        theme_ids.append(theme.id)
         session.add(
             ThemeObservation(
                 theme_id=theme.id,
@@ -216,6 +227,22 @@ def ingest_document(
             )
         )
 
+    chunks_written = 0
+    if embed:
+        try:
+            chunks_written = embed_and_store_chunks(
+                session,
+                llm,
+                document_id=doc.id,
+                text_body=text,
+                theme_ids=theme_ids,
+                symbols=tags.symbols,
+                obs_date=obs_date,
+                model=embed_model,
+            )
+        except Exception as exc:  # embedding is best-effort — never brick the ingest
+            log.warning("pipeline.embed_failed", file=path.name, error=str(exc))
+
     session.commit()
     log.info(
         "pipeline.ingested",
@@ -223,6 +250,7 @@ def ingest_document(
         pages=page_count,
         themes=len(tags.themes),
         symbols=tags.symbols,
+        chunks=chunks_written,
     )
     return "ingested"
 
@@ -236,6 +264,8 @@ def run(
     limit: int | None = None,
     kind: str = "methodology",
     model: str | None = None,
+    embed: bool = True,
+    embed_model: str | None = None,
 ) -> dict[str, int]:
     """Ingest every supported document under ``research_dir``."""
     docs = discover_documents(research_dir)
@@ -247,7 +277,14 @@ def run(
     for path in docs:
         try:
             status = ingest_document(
-                session, llm, path, playbook_dir=playbook_dir, kind=kind, model=model
+                session,
+                llm,
+                path,
+                playbook_dir=playbook_dir,
+                kind=kind,
+                model=model,
+                embed=embed,
+                embed_model=embed_model,
             )
             stats[status] += 1
         except (TradingIntelError, OSError, ValueError) as exc:
@@ -273,6 +310,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--model", default=None, help="Ollama model override (default: LLM_DAILY_MODEL)"
+    )
+    parser.add_argument(
+        "--no-embed",
+        dest="embed",
+        action="store_false",
+        help="Skip chunk embedding into the pgvector store (text/themes only).",
     )
     args = parser.parse_args()
 
@@ -300,6 +343,7 @@ def main() -> None:
             limit=args.limit,
             kind=args.kind,
             model=args.model,
+            embed=args.embed,
         )
     print(f"Done: {stats}")
 

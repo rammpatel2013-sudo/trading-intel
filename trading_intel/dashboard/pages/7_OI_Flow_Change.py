@@ -99,10 +99,11 @@ def main() -> None:
         return
 
     summary = summarize_oi_change(frame)
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total ΔGEX", f"{summary.total_d_gex:,.0f}")
     c2.metric("Call ΔOI", f"{summary.call_d_oi:,.0f}")
     c3.metric("Put ΔOI", f"{summary.put_d_oi:,.0f}")
+    c4.metric("Mean ΔIV", f"{summary.mean_d_iv:+.4f}")
     st.caption(summary.note)
 
     top = top_oi_changes(frame, by=rank_by, n=top_n)
@@ -113,6 +114,8 @@ def main() -> None:
         columns={
             "oi_change_vendor": "oi_chg (convex)",
             "d_oi": "ΔOI (ours)",
+            "d_iv": "ΔIV",
+            "positioning": "positioning read",
             "d_gex_contrib": "ΔGEX",
             "gex_contrib_curr": "GEX contrib",
         }

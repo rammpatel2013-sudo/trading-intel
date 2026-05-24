@@ -1,127 +1,63 @@
-# Next session — GEX-by-strike time series + vol-viz polish (fixed-strike + VIX)
+# Next session — wire the methodology RAG into the AM report, verify the data-gated pages, ship VIX live
 
-## Goal
-Three visualization tracks, in priority order. Track 1 is the main build; 2 and 3
-are the carry-over polish items Mithil flagged.
+## State coming in (end of 2026-05-23 session)
+Built + tested this session (canonical Windows files authoritative; sandbox mount
+was badly truncating — see MEMORY "Sandbox gotcha"):
+- **Methodology RAG substrate** (item 2): `memory/chunking.py`, `memory/embeddings.py`,
+  embed-on-ingest in `pdf_pipeline`, `memory/retrieval.py`, `memory/sync_knowledge.py`
+  (auto-scan + supersede + prune + embedding backfill), and `surface_report.load_kb_context`
+  upgraded to semantic retrieval (file-concat fallback). No migration (chunks table existed).
+- **ΔIV positioning analytic** (item 1) in `dashboard/oi_changes.py` + surfaced on page 7.
+- **Fixed-strike ΔIV heatmap** (Track 2) — `changes.fixed_strike_change_matrix` + Ticker panel.
+- **VIX dashboard** (Track 3) — `clients/fred.py`, `clients/cboe.py`, `scheduler/jobs/vix_snapshot.py`,
+  `dashboard/vix_view.py`, `pages/8_VIX.py`, registered in `runner.py` (16:45 ET).
+- `scripts/verify_oi_flow.py` (read-only post-EOD checker).
 
-1. **GEX-by-strike time series** for SPX / SPY / QQQ (extensible to the watchlist) —
-   the Convex-style "joy-plot / gxoi-by-strike over time" view. Net signed GEX per
-   strike, plotted as a strike × time heatmap with spot + flip overlaid.
-2. **Improve the fixed-strike vol visualization** on the Ticker page — the current
-   `load_fixed_strike_changes` chart is hard to read; redesign it.
-3. **VIX dashboard** — bigger lift: the `vix_data` table exists but **no collector
-   writes it yet**, so this is "build the collector, then the page."
+All unit-tested on SQLite/mocks + ruff-clean on changed files.
 
-All three are descriptive regime views — FlashAlpha rule 4, no signals.
+## Priorities, in order
 
-## Context (read first)
-- `CLAUDE.md` (rule 4 FlashAlpha, rule 7 cost-aware LLM, rule 1 data-source isolation),
-  `MEMORY.md` (Formulas, `### NAS deployment`, the 2026-05-23 status + the **sandbox
-  gotcha** note — stale/truncated mount views, stale pytest `.pyc`, `index.lock` EPERM).
-- Live data in NAS Postgres (`postgresql+psycopg://intel:intel@192.168.1.211:5433/trading_intel`,
-  head `0008`): `greeks_chain` (per-strike `ts, expiry, strike, cp, gxoi, dxoi, vxoi,
-  oi, iv, gamma…`), `greeks_snapshots` (spot, gex_total, gex_flip, atm_iv), `intraday_flow`
-  (SPX/SPY/QQQ 0DTE volume-weighted greeks, 5-min), `quotes_daily`, `vix_data` (empty).
-- Dashboard charting = **Plotly** (`st.plotly_chart`; `plotly>=5.22` is a dep). Pages are
-  thin shells over pure helpers; session via the `_session_factory()` pattern (see any
-  `dashboard/pages/*.py`).
+1. **Wire the methodology RAG into the AM report** (the deferred item-2 finish).
+   `synthesis/am_summary.render_am_markdown` currently feeds only the deterministic
+   tables to `AM_SUMMARY_PROMPT`. Add a retrieval step: build a query from the day's
+   regime (gamma regime, skew/IV, flow tilt), call `memory.retrieval.retrieve_chunks(
+   session, llm, query, kind="methodology")`, and inject `format_kb(hits)` into the
+   prompt as desk-methodology grounding (mirror how `surface_report` now does it).
+   Keep the Ollama-down fallback. Pure context-build should stay testable; mock retrieval.
 
----
+2. **Verify the data-gated pages once Tue 2026-05-26 EOD lands.**
+   Run `python scripts/verify_oi_flow.py` — confirms ≥2 `oi_chain_eod` snapshots, that
+   Convex's native `oi_ch` sign-agrees with our ΔOI, the ΔGEX/mean-ΔIV roll-up, and that
+   the GEX surface gained a 2nd daily column. Then eyeball page 7 (ΔIV + positioning
+   columns) and the GEX surface page. Also confirm `chain_snapshot`/`greeks_snapshot` are
+   actually scheduled on the NAS (they had NO DSM task — that's why these accumulate slowly).
 
-## Track 1 — GEX-by-strike time series (primary)
+3. **Verify the CBOE endpoints in `clients/cboe.py`** (built blind this session).
+   Hit `https://cdn.cboe.com/api/global/delayed_quotes/quotes/_VVIX.json` (and `_VIX9D`,
+   `_VIX`, `_VIX3M`, `_VIX6M`) once live, confirm the JSON key for the level, and fix
+   `_BASE` / `_parse_price` if CBOE has changed the shape. Then run `vix_snapshot` once and
+   open page 8.
 
-### Data + cadence reality (decide first)
-- Net GEX per strike at a given `ts` is already computed: `dashboard/ticker_data.gex_by_strike(chain)`
-  returns net signed gxoi by strike (calls +, puts −) — the project's GEX convention
-  (MEMORY Formulas).
-- A multi-`ts` chain reader already exists: `dashboard/changes.load_recent_chain_snapshots(
-  session, symbol, n=...)` → `list[(ts, chain_df)]`, newest first.
-- **Cadence:** `chain_snapshot` runs **once daily** (06:45 ET), so today this yields a
-  **daily-resolution** time series. Intraday resolution would need either (a) a new/expanded
-  intraday `greeks_chain` collector (heavier Convex chain pulls — added cost/rate-limit risk),
-  or (b) deriving from `intraday_flow` (but that is volume-weighted gamma over a tight 0DTE
-  range, NOT full-chain gxoi). **Recommendation: ship daily-resolution first (free, uses
-  existing data); add an intraday chain cadence as a separate follow-up only if wanted.**
+4. **Backfill methodology embeddings** if not already done: after the 22-PDF ingest,
+   `python -m trading_intel.memory.sync_knowledge --skip-research`.
 
-### Build
-1. **Pure helper** `dashboard/gex_surface.py`:
-   - `load_gex_strike_series(session, symbol, *, days=30, expiry_within_days: int | None = None)
-     -> pd.DataFrame` — for each stored chain `ts` in range, apply `gex_by_strike` and stack
-     into a tidy long frame `[ts, strike, net_gex]`. Reuse `load_recent_chain_snapshots`
-     (raise its `n`/add a days-based variant) so there are **no new raw queries** beyond the
-     existing chain reader. Optional `expiry_within_days` filter to a near-term gamma view.
-   - `gex_strike_matrix(series) -> pd.DataFrame` — pivot to `index=strike, columns=ts,
-     values=net_gex` for the heatmap.
-   - `spot_flip_overlay(session, symbol, *, days=30) -> pd.DataFrame` — `[ts, spot, gex_flip]`
-     from `greeks_snapshots` (reuse `ticker_data.load_snapshot_history`) to draw spot/flip
-     lines over the heatmap.
-2. **Render** in a thin page `dashboard/pages/6_GEX_Surface.py`:
-   - Symbol selector (default SPX/SPY/QQQ, allow any effective-watchlist symbol), a
-     date-range / `days` slider, and the optional expiry filter.
-   - Plotly heatmap: x = time, y = strike, color = net GEX on a **diverging, zero-centered**
-     scale (red short-gamma / blue long-gamma, matching the existing wall/gamma coloring).
-     Overlay spot and flip as lines (`go.Scatter` over the heatmap). Add a "latest snapshot"
-     bar (net GEX by strike for the most recent `ts`) as a companion chart — that is the
-     classic Convex profile.
-   - Caption it descriptive-only (rule 4). Empty-state when <1 snapshot.
-3. **Tests** `tests/dashboard/test_gex_surface.py`: seed a few `greeks_chain` rows across 2–3
-   `ts` (SQLite, per-table `create`, NOT `Base.metadata.create_all` — `chunks.theme_ids` is
-   a Postgres ARRAY that SQLite can't compile), assert the long frame and the pivot shapes +
-   that net GEX sign matches the call/put convention.
+## Hand-off commands (Mithil, PowerShell — one at a time)
+- Finish ingest then embed: `.venv\Scripts\python -m trading_intel.memory.sync_knowledge --skip-research`
+- Full re-scan both folders (going forward): `.venv\Scripts\python -m trading_intel.memory.sync_knowledge`
+  (add `--prune-removed` to honor deletions)
+- After Tue 5/26 EOD: `.venv\Scripts\python scripts\verify_oi_flow.py`
+- NAS (after `git push`): add DSM tasks for `am_summary` (~06:55), `vix_snapshot` (~16:45),
+  re-deploy `oi_chain_eod` with the batch fix; rebuild image `--no-cache` (see MEMORY NAS deployment).
+- Optional laptop nightly auto-scan (needs Ollama): Windows Task Scheduler →
+  `.venv\Scripts\python -m trading_intel.memory.sync_knowledge`.
 
-### How to view
-`.venv\Scripts\streamlit run trading_intel\dashboard\Home.py` → **GEX Surface** page →
-pick SPX/SPY/QQQ. Daily resolution fills in one column per trading day; meaningful after a
-few sessions of `chain_snapshot` runs (live data accumulating from the week of 2026-05-26).
-
----
-
-## Track 2 — Improve fixed-strike vol visualization
-- Current: Ticker page renders `dashboard/changes.load_fixed_strike_changes(session, symbol)`
-  (sticky-strike ΔIV by strike) + `dashboard/walls.wall_history_frame` (call/put wall drift).
-  Mithil finds the fixed-strike chart hard to read.
-- **First step: open the Ticker page and screenshot the current chart** to define "better"
-  concretely before changing it. Likely improvements: a fixed-strike **IV time-series**
-  (one line per tracked strike over the available snapshots) and/or a ΔIV **heatmap**
-  (strike × time), normalized around ATM, with a clear legend and diverging color. Keep the
-  compute in `changes.py`; only the render changes. Reuse the Track-1 heatmap helper if it
-  generalizes.
-- Tests: extend `tests/dashboard/test_changes.py` for any new pure helper.
-
-## Track 3 — VIX dashboard (collector first, then page)
-This is the data-gap-analysis item #3 — there is **no `vix_data` collector yet**.
-1. **Collector** (rule 1: vendor calls only in `clients/`):
-   - `clients/fred.py` — VIX, MOVE, HY/IG OAS credit spreads via FRED (`FRED_API_KEY` present).
-   - `clients/cboe.py` — VVIX + the VIX term structure (VXST/VIX/VXV/VXMT) via a CBOE scrape
-     (noted as not-built in MEMORY). Verify endpoints before wiring.
-   - `scheduler/jobs/vix_snapshot.py` — idempotent upsert into `vix_data` (16:45 ET per the
-     Schedule); register in `runner.py` + a NAS DSM task.
-2. **Page** `dashboard/pages/7_VIX.py` — VIX level with the regime **zones** (<22 carry /
-   22–32 fragility / >32 stress; crisis ≈ 38.3 — MEMORY VEGA/VIX zones), VVIX, the term-structure
-   curve, and VIX 20-day StdDev (the Thrasher input — thresholds need recalibration, MEMORY).
-3. Tests for the collector (mock FRED/CBOE) + the page's pure data prep.
-- This feeds the Phase 5 FlashAlpha probability model later; keep it data-only for now.
-
----
-
-## Constraints / gotchas (carry-over from last session)
-- **Cowork mount can serve STALE/TRUNCATED file views** mid-session (canonical Windows files
-  are fine via the Read tool). Verify canonical via Read; lint/test against reconstructed
-  clean copies if the mount looks wrong.
-- **Sandbox Python 3.10**: shim `datetime.UTC = datetime.timezone.utc` before pytest.
-  Run `pytest --assert=plain -p no:cacheprovider` to dodge a stale assertion-rewritten `.pyc`
-  the mount can't delete (EPERM).
-- ruff `select = E,F,I,N,W,B,UP,ANN,S,RUF`, line-length 100; tests ignore ANN/S only (so E501/
-  F841/RUF100 still apply to tests — no redundant `# noqa: ANN…` in tests). **Lint only changed
-  files**; run ruff from the repo root (isolated dirs misclassify `trading_intel` first-party →
-  spurious I001). `S105` on `SCHWAB_TOKEN_PATH` is a known false positive.
-- SQLite tests: create the specific tables you need, never `Base.metadata.create_all` (the
-  `chunks` ARRAY column won't compile on SQLite).
-- **Mithil runs git + all live/NAS infra from PowerShell.** Hand him ONE copy-paste command at
-  a time. He commits/pushes; the sandbox can't reach GitHub/NAS/Ollama.
-- FlashAlpha rule 4: regime descriptors only, no signals/predictions.
-
-## Verify
-- `pytest -q` green + ruff-clean-on-changed-files.
-- Locally (DATABASE_URL → NAS): open the GEX Surface page and confirm SPX/SPY/QQQ render with
-  spot + flip overlaid; confirm the daily columns fill in as `chain_snapshot` accumulates.
+## Constraints / gotchas (carry-over — see MEMORY for detail)
+- **Cowork mount serves STALE/TRUNCATED/NUL copies** of even canonical files via bash;
+  Read/Edit/Write tools are authoritative. Reconstruct clean `/tmp` copies via **heredoc**
+  (not `cp`) for lint/test. Sandbox is Py3.10 → shim `datetime.UTC = timezone.utc`; run
+  `pytest --assert=plain -p no:cacheprovider`. Lint only changed files (sandbox ruff stricter).
+- SQLite tests: create only the tables you need (never `Base.metadata.create_all` — `chunks`
+  has pgvector + ARRAY cols). Embeddings/vector SQL run only on real Postgres; unit-test the
+  pure pieces + mock the vector search.
+- FlashAlpha rule 4: regime descriptors only, no signals.
+- Mithil runs all git/NAS/Ollama; sandbox can't reach GitHub/NAS-LAN/Ollama.

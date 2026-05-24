@@ -18,8 +18,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import structlog
+from sqlalchemy.orm import Session
 
 from trading_intel.greeks.surface import DeltaSurface, forward_vol
+from trading_intel.memory.retrieval import format_kb, retrieve_chunks
 from trading_intel.strategies.options_flow import (
     FlowSummary,
     Structure,
@@ -29,6 +32,8 @@ from trading_intel.strategies.options_flow import (
 )
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.prompts import SURFACE_INTERPRETATION_PROMPT
+
+log = structlog.get_logger(__name__)
 
 # Playbooks whose frameworks are most relevant to surface interpretation.
 _KB_FILES = (
@@ -141,8 +146,8 @@ def interpret_surface(metrics: dict) -> str:
     return "\n".join(lines)
 
 
-def load_kb_context(playbook_dir: str | Path = "docs/playbooks", *, max_chars: int = 6000) -> str:
-    """Concatenate relevant methodology playbooks as LLM grounding context."""
+def _load_kb_from_files(playbook_dir: str | Path, *, max_chars: int) -> str:
+    """Fallback: concatenate a few hand-picked methodology playbooks."""
     base = Path(playbook_dir)
     parts: list[str] = []
     for name in _KB_FILES:
@@ -150,6 +155,46 @@ def load_kb_context(playbook_dir: str | Path = "docs/playbooks", *, max_chars: i
         if path.exists():
             parts.append(f"### {name}\n{path.read_text(encoding='utf-8')}")
     return "\n\n".join(parts)[:max_chars]
+
+
+def build_surface_query(metrics: dict) -> str:
+    """Compose a retrieval query describing the current surface for the KB search."""
+    per = metrics.get("per_expiry") or []
+    front = per[0] if per else {}
+    return (
+        "implied volatility surface skew and term structure regime read-through; "
+        f"front {front.get('dte', '?')}-day ATM IV {front.get('atm')}, "
+        f"25-delta skew {front.get('skew_25d')}, 5-delta put wing {front.get('put_wing_5d')}; "
+        f"term-structure slope {metrics.get('term_slope')}; "
+        "dealer gamma vanna charm hedging, downside protection demand, carry vs stress."
+    )
+
+
+def load_kb_context(
+    playbook_dir: str | Path = "docs/playbooks",
+    *,
+    max_chars: int = 6000,
+    session: Session | None = None,
+    llm: LLMProvider | None = None,
+    query: str | None = None,
+    kind: str = "methodology",
+    k: int = 6,
+) -> str:
+    """Methodology grounding context for the surface read-through.
+
+    When a ``session`` + ``llm`` + ``query`` are supplied, retrieves the nearest
+    methodology chunks from the pgvector store (the RAG substrate). Falls back to
+    a small hand-picked set of playbook files when retrieval is unavailable or
+    returns nothing, so callers always get *some* grounding.
+    """
+    if session is not None and llm is not None and query:
+        try:
+            hits = retrieve_chunks(session, llm, query, k=k, kind=kind)
+            if hits:
+                return format_kb(hits, max_chars=max_chars)
+        except Exception as exc:  # retrieval is best-effort grounding — degrade gracefully
+            log.warning("surface.kb_retrieval_failed", error=str(exc))
+    return _load_kb_from_files(playbook_dir, max_chars=max_chars)
 
 
 def interpret_surface_llm(

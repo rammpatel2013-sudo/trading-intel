@@ -28,7 +28,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import get_settings
-from trading_intel.dashboard.changes import build_change_report, load_fixed_strike_changes
+from trading_intel.dashboard.changes import (
+    build_change_report,
+    fixed_strike_change_matrix,
+    load_fixed_strike_changes,
+)
 from trading_intel.dashboard.ticker_data import (
     bollinger_bands,
     dex_by_strike,
@@ -225,27 +229,35 @@ def _fixed_strike_panel(
     call_wall: float | None = None,
     put_wall: float | None = None,
 ) -> go.Figure | None:
-    if changes is None or changes.empty or "d_iv_pts" not in changes.columns:
+    matrix = fixed_strike_change_matrix(changes)
+    if matrix.empty:
         return None
-    df = changes.copy()
-    if "expiration" in df.columns and df["expiration"].notna().any():
-        df = df[df["expiration"] == df["expiration"].min()]
-    df = df.sort_values("strike")
-    colors = [_POS if v >= 0 else _NEG for v in df["d_iv_pts"]]
-    fig = go.Figure(go.Bar(x=df["strike"], y=df["d_iv_pts"], marker_color=colors))
+    # Diverging, zero-centred ΔIV heatmap across the full strike x expiry grid —
+    # far more legible than a single front-expiry bar. Red = IV fell, blue = rose.
+    x = [pd.Timestamp(c).date().isoformat() if not isinstance(c, str) else str(c)
+         for c in matrix.columns]
+    y = [float(s) for s in matrix.index]
+    zmax = float(matrix.abs().max().max())
+    zmax = zmax if zmax and zmax == zmax else 1.0  # guard NaN/0
+    fig = go.Figure(
+        go.Heatmap(
+            z=matrix.to_numpy(), x=x, y=y, colorscale="RdBu", reversescale=True,
+            zmid=0.0, zmin=-zmax, zmax=zmax, colorbar={"title": "ΔIV pts"},
+        )
+    )
     if call_wall is not None:
-        fig.add_vline(x=call_wall, line_color=_POS, line_dash="dot",
-                      annotation_text="call wall", annotation_position="top")
+        fig.add_hline(y=call_wall, line_color=_POS, line_dash="dot",
+                      annotation_text="call wall", annotation_position="right")
     if put_wall is not None:
-        fig.add_vline(x=put_wall, line_color=_NEG, line_dash="dot",
-                      annotation_text="put wall", annotation_position="bottom")
+        fig.add_hline(y=put_wall, line_color=_NEG, line_dash="dot",
+                      annotation_text="put wall", annotation_position="right")
     fig.update_layout(
-        title=f"{symbol} — fixed-strike IV change (nearest expiry)",
-        template="plotly_dark", height=320, bargap=0.1,
+        title=f"{symbol} — fixed-strike ΔIV (strike × expiry)",
+        template="plotly_dark", height=360,
         margin={"l": 10, "r": 10, "t": 50, "b": 10},
     )
-    fig.update_xaxes(title_text="Strike")
-    fig.update_yaxes(title_text="ΔIV (vol pts)")
+    fig.update_xaxes(title_text="Expiry")
+    fig.update_yaxes(title_text="Strike")
     return fig
 
 

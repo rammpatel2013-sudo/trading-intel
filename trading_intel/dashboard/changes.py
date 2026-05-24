@@ -114,3 +114,20 @@ def load_fixed_strike_changes(session: Session, symbol: str) -> pd.DataFrame | N
         return fixed_strike_changes(prev, curr)
     except ComputationError:
         return None
+
+
+def fixed_strike_change_matrix(frame: pd.DataFrame | None) -> pd.DataFrame:
+    """Pivot fixed-strike ΔIV to ``index=strike, columns=expiration, values=d_iv_pts``.
+
+    Aggregates the call + put fixed-strike IV change at each (strike, expiry) by
+    mean so the panel can show the full strike x expiry structure of the
+    day-over-day IV move as one diverging heatmap — far more legible than a single
+    front-expiry bar. ``None``/empty in -> empty out. Regime descriptor only
+    (FlashAlpha rule 4).
+    """
+    if frame is None or frame.empty or "d_iv_pts" not in frame.columns:
+        return pd.DataFrame()
+    matrix = frame.pivot_table(
+        index="strike", columns="expiration", values="d_iv_pts", aggfunc="mean"
+    )
+    return matrix.sort_index().sort_index(axis=1)

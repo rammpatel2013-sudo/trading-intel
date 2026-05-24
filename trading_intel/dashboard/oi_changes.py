@@ -14,6 +14,7 @@ These are descriptive regime lenses to help read positioning — NOT signals
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -29,8 +30,34 @@ _FRAME_COLS = [
     "expiry", "strike", "cp",
     "oi_prev", "oi_curr", "d_oi", "oi_change_vendor",
     "volume", "conversion",
+    "iv_prev", "iv_curr", "d_iv",
     "gex_contrib_prev", "gex_contrib_curr", "d_gex_contrib",
+    "positioning",
 ]
+
+
+def classify_positioning(d_oi: float | None, d_iv: float | None) -> str:
+    """Descriptive positioning character from ΔOI paired with ΔIV at a strike.
+
+    ΔOI tells you positioning *changed* but not its direction; pairing it with
+    the same strike's day-over-day IV change disambiguates opening vs closing:
+    new buying tends to firm IV at that strike, closing/unwinding tends to ease
+    it. This is a *descriptive heuristic, not a law* (IV moves for other reasons
+    too, and a buy-to-close still adds buy pressure) and never a signal
+    (FlashAlpha rule 4).
+    """
+    rising = d_oi is not None and d_oi > 0
+    falling = d_oi is not None and d_oi < 0
+    iv_known = d_iv is not None and not (isinstance(d_iv, float) and math.isnan(d_iv))
+    if iv_known and rising:
+        return "opening, demand-led (IV up)" if d_iv > 0 else "opening, supply-led (IV down)"
+    if iv_known and falling:
+        return "closing/unwind (IV down)" if d_iv < 0 else "closing into firmer IV"
+    if rising:
+        return "opening interest"
+    if falling:
+        return "closing/unwind"
+    return "little change"
 
 
 def _rows_to_frame(rows: list[OiChainEod]) -> pd.DataFrame:
@@ -44,6 +71,7 @@ def _rows_to_frame(rows: list[OiChainEod]) -> pd.DataFrame:
                 "oi": r.oi,
                 "oi_change": r.oi_change,
                 "volume": r.volume,
+                "iv": r.iv,
                 "gxoi": r.gxoi,
             }
             for r in rows
@@ -97,26 +125,52 @@ def build_oi_change_frame(prev: pd.DataFrame, curr: pd.DataFrame) -> pd.DataFram
         return pd.DataFrame(columns=_FRAME_COLS)
     prev = prev if prev is not None and not prev.empty else pd.DataFrame(columns=curr.columns)
 
-    p = prev[[*_KEYS, "oi", "gex_contrib"]].rename(
-        columns={"oi": "oi_prev", "gex_contrib": "gex_contrib_prev"}
+    p = prev[[*_KEYS, "oi", "gex_contrib", "iv"]].rename(
+        columns={"oi": "oi_prev", "gex_contrib": "gex_contrib_prev", "iv": "iv_prev"}
     )
-    c = curr[[*_KEYS, "oi", "oi_change", "volume", "gex_contrib"]].rename(
+    c = curr[[*_KEYS, "oi", "oi_change", "volume", "gex_contrib", "iv"]].rename(
         columns={
             "oi": "oi_curr", "oi_change": "oi_change_vendor",
-            "gex_contrib": "gex_contrib_curr",
+            "gex_contrib": "gex_contrib_curr", "iv": "iv_curr",
         }
     )
     merged = c.merge(p, on=_KEYS, how="left")
 
     for col in ("oi_prev", "gex_contrib_prev"):
         merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0.0)
-    for col in ("oi_curr", "oi_change_vendor", "volume", "gex_contrib_curr"):
+    # IV is left as NaN when unknown (a new strike has no prior IV) so ΔIV stays
+    # undefined rather than being treated as a move from zero.
+    for col in ("oi_curr", "oi_change_vendor", "volume", "gex_contrib_curr", "iv_curr", "iv_prev"):
         merged[col] = pd.to_numeric(merged[col], errors="coerce")
 
     merged["d_oi"] = merged["oi_curr"].fillna(0.0) - merged["oi_prev"]
+    merged["d_iv"] = merged["iv_curr"] - merged["iv_prev"]
     merged["d_gex_contrib"] = merged["gex_contrib_curr"].fillna(0.0) - merged["gex_contrib_prev"]
     vol = merged["volume"].where(merged["volume"].fillna(0.0) > 0, np.nan)
     merged["conversion"] = (merged["d_oi"].abs() / vol).replace([np.inf, -np.inf], np.nan)
+
+    d_oi, d_iv = merged["d_oi"], merged["d_iv"]
+    iv_known = d_iv.notna()
+    rising, falling = d_oi > 0, d_oi < 0
+    merged["positioning"] = np.select(
+        [
+            rising & iv_known & (d_iv > 0),
+            rising & iv_known & (d_iv < 0),
+            falling & iv_known & (d_iv < 0),
+            falling & iv_known & (d_iv > 0),
+            rising & ~iv_known,
+            falling & ~iv_known,
+        ],
+        [
+            "opening, demand-led (IV up)",
+            "opening, supply-led (IV down)",
+            "closing/unwind (IV down)",
+            "closing into firmer IV",
+            "opening interest",
+            "closing/unwind",
+        ],
+        default="little change",
+    )
 
     return merged[_FRAME_COLS].sort_values(["expiry", "strike", "cp"]).reset_index(drop=True)
 
@@ -142,6 +196,7 @@ class OiFlowSummary:
     put_d_oi: float
     n_strikes: int
     note: str
+    mean_d_iv: float = 0.0
 
 
 def summarize_oi_change(frame: pd.DataFrame) -> OiFlowSummary:
@@ -151,11 +206,19 @@ def summarize_oi_change(frame: pd.DataFrame) -> OiFlowSummary:
     total_d_gex = float(frame["d_gex_contrib"].sum())
     call_d_oi = float(frame.loc[frame["cp"] == "C", "d_oi"].sum())
     put_d_oi = float(frame.loc[frame["cp"] == "P", "d_oi"].sum())
+    mean_d_iv_raw = frame["d_iv"].mean() if "d_iv" in frame.columns else np.nan
+    mean_d_iv = 0.0 if pd.isna(mean_d_iv_raw) else float(mean_d_iv_raw)
     gex_dir = "more positive (longer-gamma)" if total_d_gex >= 0 else "more negative (shorter)"
     oi_dir = "calls" if call_d_oi >= put_d_oi else "puts"
+    if mean_d_iv > 0:
+        iv_note = "IV firmed across changed strikes (consistent with net new buying)"
+    elif mean_d_iv < 0:
+        iv_note = "IV eased across changed strikes (consistent with closing/unwinding)"
+    else:
+        iv_note = "IV little changed"
     note = (
         f"Net GEX shifted {gex_dir} vs the prior session; OI was added more on "
-        f"{oi_dir}. Descriptive only — not a trade signal."
+        f"{oi_dir}; {iv_note}. Descriptive only — not a trade signal."
     )
     return OiFlowSummary(
         total_d_gex=total_d_gex,
@@ -163,6 +226,7 @@ def summarize_oi_change(frame: pd.DataFrame) -> OiFlowSummary:
         put_d_oi=put_d_oi,
         n_strikes=len(frame),
         note=note,
+        mean_d_iv=mean_d_iv,
     )
 
 
