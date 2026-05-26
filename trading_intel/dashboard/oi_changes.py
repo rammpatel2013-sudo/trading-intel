@@ -230,9 +230,19 @@ def summarize_oi_change(frame: pd.DataFrame) -> OiFlowSummary:
     )
 
 
-def top_oi_changes(frame: pd.DataFrame, *, by: str = "d_oi", n: int = 15) -> pd.DataFrame:
-    """Strikes with the largest absolute change, ranked by ``by`` (d_oi/d_gex_contrib)."""
+def top_oi_changes(
+    frame: pd.DataFrame, *, by: str = "d_oi", n: int = 15, sort_by_strike: bool = False
+) -> pd.DataFrame:
+    """Strikes with the largest absolute change, ranked by ``by`` (d_oi/d_gex_contrib).
+
+    Selection is always the top ``n`` by magnitude. With ``sort_by_strike`` the
+    result is then re-ordered by strike ascending for display (so it reads low
+    strike -> high, e.g. 6400P before 9000C, instead of magnitude order).
+    """
     if frame is None or frame.empty or by not in frame.columns:
         return pd.DataFrame(columns=_FRAME_COLS)
     ranked = frame.assign(_abs=frame[by].abs()).sort_values("_abs", ascending=False)
-    return ranked.drop(columns="_abs").head(n).reset_index(drop=True)
+    top = ranked.drop(columns="_abs").head(n)
+    if sort_by_strike:
+        top = top.sort_values("strike", ascending=True)
+    return top.reset_index(drop=True)

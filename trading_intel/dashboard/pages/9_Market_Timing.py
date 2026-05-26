@@ -8,6 +8,7 @@ not a signal (FlashAlpha rule 4).
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 
 import streamlit as st
@@ -15,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import get_settings
+from trading_intel.dashboard.freshness import freshness_caption
 from trading_intel.dashboard.gamma_regime_data import latest_spx_gamma_regime
 from trading_intel.dashboard.market_timing import market_bias
 from trading_intel.dashboard.seasonality import seasonal_context
@@ -38,7 +40,7 @@ def _session_factory() -> sessionmaker[Session]:
     return factory
 
 
-def _safe(fn, *args, **kwargs):
+def _safe(fn: Callable[..., object], *args: object, **kwargs: object) -> object | None:
     """Best-effort loader call; None on any DB/domain error."""
     try:
         return fn(*args, **kwargs)
@@ -46,10 +48,23 @@ def _safe(fn, *args, **kwargs):
         return None
 
 
-def _fmt(value, fmt: str = "{:.2f}") -> str:
+def _fmt(value: object, fmt: str = "{:.2f}") -> str:
     if value is None or value != value:  # None or NaN
         return "—"
     return fmt.format(value)
+
+
+def _zone_md(zone: object) -> str:
+    """Streamlit coloured chip for the VIX zone (green carry / amber mid / red stress)."""
+    color = {"low": "green", "mid": "orange", "high": "red"}.get(str(zone or "").lower(), "gray")
+    return f":{color}[{zone or '—'}]"
+
+
+def _regime_md(regime: object) -> str:
+    """Streamlit coloured chip for the gamma regime (green long / red short)."""
+    r = str(regime or "").lower()
+    color = "green" if "long" in r else "red" if "short" in r else "gray"
+    return f":{color}[{regime or '—'}]"
 
 
 def main() -> None:
@@ -75,6 +90,8 @@ def main() -> None:
 
     st.subheader(f"Bias: {bias.label}")
     st.caption(bias.detail + "  ·  Descriptive regime read — not a signal.")
+    fresh = latest["date"] if latest is not None else None
+    st.caption(freshness_caption(fresh, label="VIX data"))
 
     col_g, col_v, col_s = st.columns(3)
 
@@ -83,7 +100,7 @@ def main() -> None:
         if gamma is None:
             st.caption("No SPX oi_chain_eod snapshot yet.")
         else:
-            st.metric("Regime", gamma.regime)
+            st.markdown(f"Regime: {_regime_md(gamma.regime)}")
             st.metric("Net GEX", _fmt(gamma.net_gex, "{:,.0f}"))
             st.metric("Flip", _fmt(gamma.flip, "{:.0f}"))
             st.caption(
@@ -97,7 +114,7 @@ def main() -> None:
             st.caption("No vix_data yet.")
         else:
             st.metric("VIX", _fmt(latest["vix"]))
-            st.metric("Zone", str(vol_zone or "—"))
+            st.markdown(f"Zone: {_zone_md(vol_zone)}")
             st.metric("Term structure", str(term_shape or "—"))
             st.metric("VRP", _fmt(latest["vrp"], "{:+.2f}"))
             ratio = vvix_vix_ratio(latest["vvix"], latest["vix"])

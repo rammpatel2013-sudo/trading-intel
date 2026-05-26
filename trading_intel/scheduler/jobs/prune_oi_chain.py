@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.memory.models import OiChainEod
+from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
 
@@ -37,7 +38,7 @@ def run(
     """
     settings = settings or get_settings()
     days = retention_days if retention_days is not None else settings.OI_CHAIN_RETENTION_DAYS
-    cutoff = (now or datetime.now()) - timedelta(days=days)
+    cutoff = (now or eastern_now()) - timedelta(days=days)
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="prune_oi_chain")
 

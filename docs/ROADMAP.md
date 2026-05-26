@@ -71,3 +71,41 @@ FlashAlpha rule: GEX/DEX/VEX/CHEX, walls, and surface reads are **regime descrip
 - ✅ **Dynamic watchlist from uploaded research** (DONE) — `watchlist_entries` table (migration 0008); `synthesis/watchlist_extract.py` LLM extractor; `memory/watchlist_ingest.py` (`python -m ... <file>`); `pages/5_Research_Watchlist.py` (rationale/sentiment + regime metrics). Needs Ollama running to ingest.
 - ✅ **Fixed-strike vol charts + Fibonacci** (DONE) — Ticker page: fib overlay (`prices/fibonacci.py`), fixed-strike ΔIV chart + call/put-wall drift chart (`load_fixed_strike_changes`, `wall_history_frame`).
 - **Gamma-squeeze "will it happen" / pre-explosive-move read** — ⚠️ this is signal/prediction territory. Per FlashAlpha rule 4 + C5 gate, NO predictive alerts until the probability model (4–8 wks of data, ~July). Buildable now only as **descriptive ingredients**: short-dated gamma concentration, call-wall proximity to spot, vol/OI spikes, GEX flip vs spot — shown as a read-through, not a prediction.
+
+
+## Session 2026-05-26 — agreed punch list (build / verify / deploy)
+
+Confirmed with Mithil. Order = current build order. Everything descriptor-first (rule 4); promote to `strategies/` only after the backtest proves edge.
+
+### To build
+
+**Vol-richness scanner (main workstream — scoped 5/24; see MEMORY "Vol-richness scanner (PLANNED)" for full detail):**
+1. `prices/forecast_vol.py` — HAR-RV (Corsi daily/weekly/monthly, OLS) + EWMA(0.94) baseline; per-symbol off `quotes_daily` close; annualized forward RV @30 / @60. (Yang-Zhang OHLC upgrade later.) + tests. **← IN PROGRESS**
+2. `vol/richness.py` — ATM IV per horizon (from `surface.build_delta_surface().atm_iv`) − forecast RV → `vrp_pts`; standardized to the name's own VRP percentile + IV rank → ranking frame. + tests.
+3. `vol/term_skew.py` — term slope (incl. 30↔60 calendar + `vix_data` term), 25Δ skew vs history, mandatory VEGA/VIX regime gate (short-vol OFF in stress >32). + tests.
+4. Migration `0011_vol_richness` — `vol_richness` table, **UN-PRUNED** (doubles as the long IV/VRP percentile baseline). Reversible.
+5. `scheduler/jobs/vol_richness.py` — EOD ~16:40 after `oi_chain_eod`, idempotent upsert, stored data only. + NAS DSM task on deploy.
+6. `dashboard/vol_richness_data.py` + `dashboard/pages/9_Vol_Richness.py` — sortable rich/cheap sheet, both horizons, regime-gated, descriptive labels only.
+7. **Vol cone / expected-move envelope** — ±1σ/±2σ bands in three flavors (implied / realized / forecast-RV) at weekly/monthly/quarterly; range-usage overlay + walls as markers.
+8. `scripts/backtest_vol_richness.py` — validation gate (IV vs realized forward vol, variance-swap P&L proxy, vs naive always-short baseline + gate).
+9. Convex: add `vomma` (+ `vommaxoi`/`vommaxvolm`) to `_CHAIN_PARAMS` behind the same graceful-fallback wrapper as `oi_ch`, surfaced through the Protocol.
+10. AM-report wiring — top-3 richest/cheapest into `build_am_context`.
+
+**Carry-over:**
+- Wire the **methodology RAG into the AM report** (`render_am_markdown` → `retrieve_chunks(kind="methodology")` → inject into `AM_SUMMARY_PROMPT`) — deferred item-2 finish.
+
+**Optional viz polish (not blocking):** treemap (type→expiry→strike, size=volume/color=OI), DAOI diverging-bar layout, expected-range band. (Rejected: directional-bias gauge as an interpretation — rule 4.)
+
+### To verify
+- ✅ **CBOE endpoints** — verified live 2026-05-26 (shape `{timestamp,data:{current_price},symbol}`; parser correct, no code change). Still: run `vix_snapshot` against the DB once to confirm a row writes (vega_zone, vvix_sd20).
+- `oi_ch` Convex param — `c.probe_param('SPY','oi_ch')` before NAS deploy.
+- `vomma` availability live — confirm it doesn't 400 the chain.
+- Convex IP module — verify implied-probability/expected-move module detail (didn't render in the glossary) so the cone stays vendor-neutral.
+- Data-gated pages after Tue 5/26 EOD — `scripts/verify_oi_flow.py` (≥2 `oi_chain_eod` snapshots, native `oi_ch` sign-agrees with our ΔOI, ΔGEX/mean-ΔIV roll-up, GEX surface 2nd column); eyeball page 7 (ΔIV + positioning) + GEX surface.
+- Methodology embeddings — confirm 22-PDF ingest finished + `sync_knowledge --skip-research` backfilled.
+- Set-aside scanned PDF in `research/doc/_skip` — decide OCR vs drop.
+
+### To deploy / confirm on NAS (Mithil's machine)
+- `chain_snapshot` / `greeks_snapshot` have **no DSM task** — add them (that's why the OI study + GEX surface accrue slowly).
+- Add DSM tasks: `am_summary` (~06:55), `vix_snapshot` (~16:45).
+- Re-deploy `oi_chain_eod` with the param-cap **batch fix**; `alembic upgrade head` to apply migration 0009 on the NAS DB.

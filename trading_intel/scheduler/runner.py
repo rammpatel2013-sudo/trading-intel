@@ -13,15 +13,19 @@ from trading_intel.memory.db import make_session_factory
 from trading_intel.scheduler.jobs import (
     am_summary,
     chain_snapshot,
+    delta_flow,
     flow_snapshot,
     gex_rolling,
     greeks_snapshot,
     intraday_flow,
+    live_gex,
     oi_chain_eod,
     prune_intraday,
+    prune_live_gex,
     prune_oi_chain,
     quotes_daily,
     vix_snapshot,
+    vol_richness,
 )
 from trading_intel.synthesis.llm import OllamaProvider
 
@@ -86,6 +90,22 @@ def main() -> None:
         with session_factory() as session:
             vix_snapshot.run(session, FredClient(settings), CboeClient())
 
+    def run_vol_richness() -> None:
+        with session_factory() as session:
+            vol_richness.run(session, settings=settings)
+
+    def run_delta_flow() -> None:
+        with session_factory() as session:
+            delta_flow.run(session, source, settings=settings)
+
+    def run_live_gex() -> None:
+        with session_factory() as session:
+            live_gex.run(session, source, settings=settings)
+
+    def run_prune_live_gex() -> None:
+        with session_factory() as session:
+            prune_live_gex.run(session, settings=settings)
+
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
     # Greeks snapshot — 06:45 ET pre-market (see MEMORY.md schedule).
@@ -139,6 +159,22 @@ def main() -> None:
     # Daily VIX/VVIX/credit snapshot — 16:45 ET (FRED + CBOE). On the NAS this is
     # a separate DSM task (runner cron is ignored there).
     scheduler.add_job(run_vix_snapshot, "cron", hour=16, minute=45, name="vix_snapshot")
+    # Daily vol-richness scan — 16:40 ET, after oi_chain_eod (reads the stored EOD
+    # chain + quotes; no vendor call). On the NAS this is a separate DSM task.
+    scheduler.add_job(run_vol_richness, "cron", hour=16, minute=40, name="vol_richness")
+    # Intraday all-expiry delta-notional flow — every 5 min during RTH (self-guards
+    # to 09:30-16:00 weekdays). On the NAS this is a separate DSM task.
+    scheduler.add_job(
+        run_delta_flow, "cron", day_of_week="mon-fri", hour="9-16", minute="*/5",
+        name="delta_flow",
+    )
+    # Intraday LIVE per-strike GEX (delta-band) — every 10 min during RTH; pruned
+    # daily. On the NAS these are separate DSM tasks.
+    scheduler.add_job(
+        run_live_gex, "cron", day_of_week="mon-fri", hour="9-16", minute="*/10",
+        name="live_gex",
+    )
+    scheduler.add_job(run_prune_live_gex, "cron", hour=2, minute=30, name="prune_live_gex")
 
     log.info("Scheduler started. Jobs registered: %d", len(scheduler.get_jobs()))
     scheduler.start()

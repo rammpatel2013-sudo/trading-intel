@@ -11,6 +11,7 @@ rule 4) — emits no signals.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from datetime import date
 
@@ -153,9 +154,18 @@ class DeltaSurface:
 
     @property
     def atm_iv(self) -> np.ndarray:
-        """(T,) ATM IV per expiry = mean of put/call IV at the 50Δ grid point."""
+        """(T,) ATM IV per expiry = mean of put/call IV at the 50Δ grid point.
+
+        Expiries whose 50Δ point did not interpolate (all-NaN) yield NaN here;
+        that empty-slice RuntimeWarning is expected and silenced (callers filter
+        out the non-finite values).
+        """
         idx = int(np.argmax(self.deltas))
-        return np.nanmean(np.vstack([self.iv_put[:, idx], self.iv_call[:, idx]]), axis=0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            return np.nanmean(
+                np.vstack([self.iv_put[:, idx], self.iv_call[:, idx]]), axis=0
+            )
 
 
 def _interp_delta(group: pd.DataFrame, grid: np.ndarray) -> np.ndarray:

@@ -237,6 +237,94 @@ class VixData(Base):
     vrp: Mapped[float | None] = mapped_column(Float)  # VIX - SPX 20d realized vol (vol pts)
 
 
+class VolRichness(Base):
+    """Daily vol-richness scan row per (symbol, trading-day, horizon).
+
+    IV-vs-forward-RV variance-risk-premium standardized to the name's own
+    trailing history (``vrp_pctile`` / ``iv_rank``), plus the term/skew context
+    and the VEGA/VIX regime-gated descriptive ``label``. Populated EOD by
+    ``scheduler/jobs/vol_richness.py`` from STORED data only.
+
+    **UN-PRUNED on purpose:** this is the long IV/VRP percentile baseline the
+    standardization reads back (``oi_chain_eod`` prunes at 90d, so it can't serve
+    that role). Descriptor only — never a signal (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "vol_richness"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "horizon_dte", name="uq_vol_richness"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)  # trading day
+    horizon_dte: Mapped[int] = mapped_column(Integer)  # 30 / 60
+    iv_atm: Mapped[float | None] = mapped_column(Float)
+    fcst_rv: Mapped[float | None] = mapped_column(Float)
+    vrp_pts: Mapped[float | None] = mapped_column(Float)
+    vrp_pctile: Mapped[float | None] = mapped_column(Float)
+    iv_rank: Mapped[float | None] = mapped_column(Float)
+    term_slope: Mapped[float | None] = mapped_column(Float)
+    skew_25d: Mapped[float | None] = mapped_column(Float)
+    regime_zone: Mapped[str | None] = mapped_column(String(16))  # low/mid/high
+    richness_score: Mapped[float | None] = mapped_column(Float)
+    label: Mapped[str | None] = mapped_column(String(64))
+
+
+class DeltaFlow(Base):
+    """Intraday cumulative traded delta-notional per symbol/snapshot.
+
+    Five-minute snapshots of the running dollar-delta of the day's option flow,
+    split call vs put and ALL expiries vs the NEXT (nearest) expiry. Powers the
+    delta-notional flow chart (price overlaid with cumulative call/put delta).
+    Written by ``scheduler/jobs/delta_flow.py``. Descriptor only (rule 4).
+    """
+
+    __tablename__ = "delta_flow"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "source", name="uq_delta_flow"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[datetime] = mapped_column(DateTime)  # 5-min slot
+    spot: Mapped[float | None] = mapped_column(Float)
+    next_expiry: Mapped[date | None] = mapped_column(Date)
+    call_notional_all: Mapped[float | None] = mapped_column(Float)
+    put_notional_all: Mapped[float | None] = mapped_column(Float)
+    call_notional_next: Mapped[float | None] = mapped_column(Float)
+    put_notional_next: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+
+
+class LiveGex(Base):
+    """Intraday (live) per-strike GEX snapshot — delta-band, pruned at EOD.
+
+    Refreshed every few minutes during RTH for the live GEX view, filtered to the
+    near-the-money delta band (|delta| ~0.30-0.70). Rows are pruned at end of day
+    (the daily ``greeks_chain`` / ``greeks_snapshots`` stay for historical trend).
+    Descriptor only — not a signal (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "live_gex"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "strike", "cp", name="uq_live_gex"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[datetime] = mapped_column(DateTime)
+    strike: Mapped[float] = mapped_column(Float)
+    cp: Mapped[str] = mapped_column(String(1))  # 'C' or 'P'
+    spot: Mapped[float | None] = mapped_column(Float)
+    delta: Mapped[float | None] = mapped_column(Float)
+    gamma: Mapped[float | None] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    gxoi: Mapped[float | None] = mapped_column(Float)
+    dxoi: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+
+
 # ── Earnings ───────────────────────────────────────────────────────────
 
 

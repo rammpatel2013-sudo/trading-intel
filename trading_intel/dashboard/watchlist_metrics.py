@@ -161,6 +161,17 @@ def gamma_regime(spot: float | None, gex_flip: float | None) -> str:
     return "at flip"
 
 
+def flip_distance(spot: float | None, gex_flip: float | None) -> float | None:
+    """Signed distance of spot from the GEX flip, as a fraction of spot.
+
+    Positive = spot above the flip (long-gamma side); negative = below
+    (short-gamma side). A small magnitude means the regime is close to flipping.
+    """
+    if spot is None or gex_flip is None or spot <= 0:
+        return None
+    return float((spot - gex_flip) / spot)
+
+
 def build_watchlist_row(
     symbol: str,
     *,
@@ -192,6 +203,7 @@ def build_watchlist_row(
         "gex_chg_wk": gex_change_since(history, days=weekly_days),
         "gamma_regime": gamma_regime(spot, gex_flip),
         "gex_flip": gex_flip,
+        "flip_dist": flip_distance(spot, gex_flip),
         "atm_iv": atm_iv,
         "call_put_oi": call_put_oi_ratio(chain),
         "vol_oi": vol_oi_ratio(chain),
@@ -261,6 +273,7 @@ DISPLAY_LABELS = {
     "gex_chg_wk": "ΔGEX (1wk)",
     "gamma_regime": "Gamma regime",
     "gex_flip": "GEX flip",
+    "flip_dist": "Flip dist",
     "atm_iv": "ATM IV",
     "call_put_oi": "C/P OI",
     "vol_oi": "Vol/OI",
@@ -272,7 +285,7 @@ DISPLAY_LABELS = {
 }
 
 _ARROWS = {"up": "up", "down": "down", "flat": "flat", "n/a": "n/a"}
-_PCT_COLS = ("atm_iv", "skew", "call_wall_dist", "gamma_conc_3pct")
+_PCT_COLS = ("atm_iv", "skew", "call_wall_dist", "gamma_conc_3pct", "flip_dist")
 _NUM_COLS = ("spot", "gex_flip", "call_wall", "put_wall")
 _BIG_COLS = ("gex_total", "gex_chg_wk")
 _RATIO_COLS = ("call_put_oi", "vol_oi")

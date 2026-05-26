@@ -26,6 +26,7 @@ from trading_intel.clients.cboe import CboeClient
 from trading_intel.clients.fred import FredClient
 from trading_intel.dashboard.vix_view import classify_zone
 from trading_intel.memory.models import QuoteDaily, VixData
+from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
 
@@ -65,7 +66,7 @@ def _term_structure(cboe: CboeClient) -> dict[str, float | None]:
 
 def run(session: Session, fred: FredClient, cboe: CboeClient, *, as_of: date | None = None) -> None:
     """Fetch today's macro vol snapshot and upsert it into ``vix_data``."""
-    as_of = as_of or date.today()
+    as_of = as_of or eastern_now().date()
     vix, vix_sd20 = fred.vix_with_sd20()
     hy_oas, ig_oas = fred.credit_spreads()
     vvix = cboe.vvix()

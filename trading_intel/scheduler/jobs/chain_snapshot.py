@@ -18,7 +18,7 @@ Manual run:
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 
 import pandas as pd
 import structlog
@@ -29,6 +29,7 @@ from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.memory.models import GreeksChain
+from trading_intel.timeutils import eastern_now
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -117,7 +118,7 @@ def run(
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="chain_snapshot")
 
-    ts = datetime.now(UTC).replace(second=0, microsecond=0)
+    ts = eastern_now().replace(second=0, microsecond=0)
     symbols = symbols or effective_symbols(session, settings)
     bound.info("chain_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols))
 

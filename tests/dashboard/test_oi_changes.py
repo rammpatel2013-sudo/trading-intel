@@ -123,6 +123,17 @@ def test_top_changes_ranks_by_abs():
     assert len(top) == 1 and top.iloc[0]["cp"] == "C"
 
 
+def test_top_changes_sort_by_strike_orders_ascending():
+    # 9000C has the bigger d_oi, but sort_by_strike should show 7400P first.
+    prev = _frame((9000.0, "C", 100), (7400.0, "P", 100))
+    curr = _frame((9000.0, "C", 900), (7400.0, "P", 400))  # +800 vs +300
+    frame = build_oi_change_frame(prev, curr)
+    by_mag = top_oi_changes(frame, by="d_oi", n=2)
+    assert list(by_mag["strike"]) == [9000.0, 7400.0]  # magnitude order
+    by_strike = top_oi_changes(frame, by="d_oi", n=2, sort_by_strike=True)
+    assert list(by_strike["strike"]) == [7400.0, 9000.0]  # ascending by strike
+
+
 def test_classify_positioning_branches():
     assert classify_positioning(200, 0.01) == "opening, demand-led (IV up)"
     assert classify_positioning(200, -0.01) == "opening, supply-led (IV down)"

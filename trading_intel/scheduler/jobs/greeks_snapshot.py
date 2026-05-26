@@ -14,7 +14,6 @@ Manual run:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -24,6 +23,7 @@ from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.memory.models import GreeksSnapshot
+from trading_intel.timeutils import eastern_now
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -49,7 +49,7 @@ def run(
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="greeks_snapshot")
 
-    ts = datetime.now().replace(second=0, microsecond=0)
+    ts = eastern_now().replace(second=0, microsecond=0)
     symbols = symbols or effective_symbols(session, settings)
     bound.info("greeks_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols))
 

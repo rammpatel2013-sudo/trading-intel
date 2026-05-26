@@ -38,6 +38,7 @@ from trading_intel.greeks.intraday_flow import (
     volume_weighted_by_strike,
 )
 from trading_intel.memory.models import IntradayFlow
+from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
 
@@ -167,7 +168,7 @@ def run(
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="intraday_flow")
 
-    now = datetime.now()
+    now = eastern_now()
     if not force and not is_market_hours(now):
         bound.info("intraday_flow.skipped_off_hours", now=now.isoformat())
         return

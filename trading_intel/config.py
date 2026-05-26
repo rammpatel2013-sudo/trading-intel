@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     OI_CHAIN_WINDOW_DAYS: int = 180  # expirations within this DTE are stored
     OI_CHAIN_RETENTION_DAYS: int = 90  # prune oi_chain_eod rows older than this
 
+    # ── Intraday live GEX (delta-band per-strike, pruned EOD) ──────────
+    LIVE_GEX_SYMBOLS: str = ""  # comma list; empty -> effective watchlist (heavy)
+    LIVE_GEX_STRIKE_RANGE: float = 0.10  # +/- fraction of spot for each pull
+    LIVE_GEX_DELTA_LO: float = 0.30  # keep |delta| within [lo, hi] (near-the-money)
+    LIVE_GEX_DELTA_HI: float = 0.70
+    LIVE_GEX_RETENTION_HOURS: int = 24  # prune live_gex rows older than this
+
     # ── Daily price history (quotes_daily backfill + EOD refresh) ──────
     QUOTES_BACKFILL_PERIOD: str = "5y"  # one-time history depth (yfinance period)
     QUOTES_REFRESH_PERIOD: str = "6mo"  # daily-job pull window (enough for rv60)
@@ -87,7 +94,7 @@ class Settings(BaseSettings):
     SCHWAB_APP_KEY: str = ""
     SCHWAB_APP_SECRET: SecretStr = SecretStr("")
     SCHWAB_CALLBACK_URL: str = "https://127.0.0.1"
-    SCHWAB_TOKEN_PATH: str = "data/token.json"
+    SCHWAB_TOKEN_PATH: str = "data/token.json"  # noqa: S105 (a file path, not a secret)
 
     @property
     def watchlist_symbols(self) -> list[str]:

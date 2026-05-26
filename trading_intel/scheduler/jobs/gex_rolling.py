@@ -16,7 +16,6 @@ Manual run:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -27,6 +26,7 @@ from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.greeks.rolling import compute_rolling_gex
 from trading_intel.memory.models import GexRolling, GexTerm
+from trading_intel.timeutils import eastern_now
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -47,7 +47,7 @@ def run(
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="gex_rolling")
 
-    ts = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    ts = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
     symbols = effective_symbols(session, settings)
     bound.info(
         "gex_rolling.start", ts=ts.isoformat(), symbol_count=len(symbols),

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.memory.models import IntradayFlow
+from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
 
@@ -37,7 +38,7 @@ def run(
     """
     settings = settings or get_settings()
     hours = retention_hours if retention_hours is not None else settings.INTRADAY_RETENTION_HOURS
-    cutoff = (now or datetime.now()) - timedelta(hours=hours)
+    cutoff = (now or eastern_now()) - timedelta(hours=hours)
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="prune_intraday")
 

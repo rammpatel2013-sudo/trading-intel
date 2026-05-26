@@ -1,7 +1,7 @@
 """OI & flow change page — day-over-day positioning, by strike.
 
 For one watchlist symbol, compares the two most recent EOD wide-chain snapshots
-(``oi_chain_eod``) and surfaces, per strike: ΔOI (today − yesterday), today's
+(``oi_chain_eod``) and surfaces, per strike: ΔOI (today - yesterday), today's
 volume, conversion (|ΔOI| / volume — new positioning vs churn), the vendor's
 native OI change, and each strike's net-signed GEX contribution and its change.
 Rolls up to total ΔGEX and call-vs-put ΔOI with a descriptive read-through.
@@ -15,16 +15,19 @@ from __future__ import annotations
 
 import plotly.graph_objects as go
 import streamlit as st
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import get_settings
+from trading_intel.dashboard.freshness import freshness_caption
 from trading_intel.dashboard.oi_changes import (
     load_oi_change_frame,
     summarize_oi_change,
     top_oi_changes,
 )
 from trading_intel.errors import TradingIntelError
+from trading_intel.memory.models import OiChainEod
 
 _POS = "#5dade2"
 _NEG = "#e74c3c"
@@ -87,6 +90,9 @@ def main() -> None:
         factory = _session_factory()
         with factory() as session:
             frame = load_oi_change_frame(session, symbol)
+            latest_ts = session.execute(
+                select(func.max(OiChainEod.ts)).where(OiChainEod.symbol == symbol)
+            ).scalar_one_or_none()
     except (TradingIntelError, SQLAlchemyError) as exc:
         st.error(f"Could not load OI change for {symbol}: {exc}")
         return
@@ -98,6 +104,9 @@ def main() -> None:
         )
         return
 
+    st.caption(
+        freshness_caption(latest_ts.date() if latest_ts else None, label="Snapshot pulled")
+    )
     summary = summarize_oi_change(frame)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total ΔGEX", f"{summary.total_d_gex:,.0f}")
@@ -106,10 +115,10 @@ def main() -> None:
     c4.metric("Mean ΔIV", f"{summary.mean_d_iv:+.4f}")
     st.caption(summary.note)
 
-    top = top_oi_changes(frame, by=rank_by, n=top_n)
+    top = top_oi_changes(frame, by=rank_by, n=top_n, sort_by_strike=True)
     st.plotly_chart(_d_gex_figure(top, symbol), use_container_width=True)
 
-    st.subheader(f"Top {len(top)} strikes by |{rank_by}|")
+    st.subheader(f"Top {len(top)} strikes by |{rank_by}| (low strike -> high)")
     display = top.rename(
         columns={
             "oi_change_vendor": "oi_chg (convex)",

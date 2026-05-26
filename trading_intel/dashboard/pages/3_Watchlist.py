@@ -16,15 +16,19 @@ predict squeezes or "explosive moves". That waits on the probability model.
 from __future__ import annotations
 
 import streamlit as st
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import get_settings
+from trading_intel.dashboard.freshness import freshness_caption
+from trading_intel.dashboard.styling import gamma_regime_color, gex_dir_color
 from trading_intel.dashboard.watchlist_metrics import (
     DISPLAY_LABELS,
     format_display,
     load_watchlist_metrics,
 )
+from trading_intel.memory.models import GreeksSnapshot
 from trading_intel.watchlist import effective_symbols
 
 
@@ -53,6 +57,9 @@ def main() -> None:
         with factory() as session:
             symbols = effective_symbols(session, settings)
             metrics = load_watchlist_metrics(session, symbols) if symbols else None
+            latest_ts = session.execute(
+                select(func.max(GreeksSnapshot.ts))
+            ).scalar_one_or_none()
     except SQLAlchemyError as exc:
         st.error(f"Could not load watchlist metrics: {exc}")
         return
@@ -64,8 +71,17 @@ def main() -> None:
         st.info("No data stored yet for any watchlist symbol.")
         return
 
+    st.caption(freshness_caption(latest_ts, label="Greeks snapshot pulled"))
+
     ordered = metrics[[c for c in DISPLAY_LABELS if c in metrics.columns]]
-    st.dataframe(format_display(ordered), use_container_width=True, hide_index=True)
+    display = format_display(ordered)
+    color_cols = [c for c in ("Gamma regime", "GEX dir") if c in display.columns]
+    styled = display.style
+    if "Gamma regime" in color_cols:
+        styled = styled.map(lambda v: f"color: {gamma_regime_color(v)}", subset=["Gamma regime"])
+    if "GEX dir" in color_cols:
+        styled = styled.map(lambda v: f"color: {gex_dir_color(v)}", subset=["GEX dir"])
+    st.dataframe(styled, use_container_width=True, hide_index=True)
 
     st.caption(
         "ΔGEX (1wk) and skew/wall drift fill in as daily history accrues (live from "

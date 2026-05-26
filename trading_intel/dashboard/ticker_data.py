@@ -219,6 +219,73 @@ def load_latest_chain(session: Session, symbol: str) -> tuple[datetime | None, p
     return ts, _chain_rows_to_frame(rows)
 
 
+def available_chain_dates(session: Session, symbol: str, *, limit: int = 60) -> list[datetime]:
+    """Distinct stored ``greeks_chain`` snapshot timestamps for ``symbol``, newest first."""
+    rows = session.execute(
+        select(GreeksChain.ts)
+        .where(GreeksChain.symbol == symbol)
+        .group_by(GreeksChain.ts)
+        .order_by(GreeksChain.ts.desc())
+        .limit(limit)
+    ).scalars()
+    return list(rows)
+
+
+def load_chain_at(session: Session, symbol: str, ts: datetime) -> pd.DataFrame:
+    """Per-strike chain frame for ``symbol`` at a specific snapshot ``ts``."""
+    rows = list(
+        session.execute(
+            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.ts == ts)
+        ).scalars()
+    )
+    return _chain_rows_to_frame(rows)
+
+
+def near_spot(
+    by_strike: pd.DataFrame, spot: float | None, pct: float | None
+) -> pd.DataFrame:
+    """Filter a by-strike frame to strikes within +/- ``pct`` (fraction) of ``spot``.
+
+    Returns the frame unchanged when ``spot``/``pct`` are missing or it has no
+    ``strike`` column (so callers can pass ``pct=None`` for the full chain).
+    """
+    if (
+        by_strike is None
+        or by_strike.empty
+        or spot is None
+        or pct is None
+        or spot <= 0
+        or "strike" not in by_strike.columns
+    ):
+        return by_strike
+    lo, hi = spot * (1 - pct), spot * (1 + pct)
+    strike = pd.to_numeric(by_strike["strike"], errors="coerce")
+    return by_strike[(strike >= lo) & (strike <= hi)]
+
+
+def snapshot_spot_flip(
+    snaps: pd.DataFrame, ts: datetime | None = None
+) -> tuple[float | None, float | None]:
+    """``(spot, gex_flip)`` from the snapshot nearest ``ts`` (latest if ``ts`` is None).
+
+    Lets the ticker page show the spot/flip that belong to the SELECTED chain
+    snapshot rather than always the most recent one. Empty history -> ``(None, None)``.
+    """
+    if snaps is None or snaps.empty:
+        return None, None
+    if ts is None:
+        row = snaps.iloc[-1]
+    else:
+        idx = (pd.to_datetime(snaps["ts"]) - pd.Timestamp(ts)).abs().idxmin()
+        row = snaps.loc[idx]
+    spot = pd.to_numeric(row.get("spot"), errors="coerce")
+    flip = pd.to_numeric(row.get("gex_flip"), errors="coerce")
+    return (
+        float(spot) if pd.notna(spot) else None,
+        float(flip) if pd.notna(flip) else None,
+    )
+
+
 def load_snapshot_history(session: Session, symbol: str, *, days: int = 180) -> pd.DataFrame:
     """Aggregate ``greeks_snapshots`` time series, oldest first.
 
@@ -384,6 +451,33 @@ def intraday_by_strike(frame: pd.DataFrame) -> pd.DataFrame:
         frame.groupby("strike", as_index=False)[present].sum().sort_values("strike")
     )
     return grouped.reset_index(drop=True)
+
+
+def volume_by_strike_side(frame: pd.DataFrame, *, col: str = "volume") -> pd.DataFrame:
+    """Per-strike traded volume split into calls vs puts.
+
+    Returns a frame with ``strike``, ``call`` and ``put`` columns (summed over
+    expiries). ``col`` selects cumulative ``volume`` or ``volume_interval``.
+    Empty / column-less input yields an empty, correctly-typed frame.
+    """
+    if (
+        frame is None
+        or frame.empty
+        or col not in frame.columns
+        or "cp" not in frame.columns
+        or "strike" not in frame.columns
+    ):
+        return pd.DataFrame(columns=["strike", "call", "put"])
+    df = frame.copy()
+    df["_side"] = df["cp"].astype(str).str.upper().str[0]
+    df["_vol"] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+    pivot = df.pivot_table(
+        index="strike", columns="_side", values="_vol", aggfunc="sum", fill_value=0.0
+    )
+    out = pd.DataFrame({"strike": pivot.index})
+    out["call"] = pivot["C"].to_numpy() if "C" in pivot.columns else 0.0
+    out["put"] = pivot["P"].to_numpy() if "P" in pivot.columns else 0.0
+    return out.sort_values("strike").reset_index(drop=True)
 
 
 def load_intraday_flow_series(

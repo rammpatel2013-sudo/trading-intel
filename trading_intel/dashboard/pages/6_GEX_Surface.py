@@ -22,6 +22,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import get_settings
+from trading_intel.dashboard.freshness import freshness_caption
 from trading_intel.dashboard.gex_surface import (
     gex_strike_matrix,
     load_gex_strike_series,
@@ -165,6 +166,9 @@ def main() -> None:
         )
         return
 
+    st.caption(
+        freshness_caption(pd.Timestamp(series["ts"].max()).to_pydatetime(), label="Latest snapshot")
+    )
     n_snaps = series["ts"].nunique()
     matrix = gex_strike_matrix(series)
     st.plotly_chart(_surface_figure(matrix, overlay, symbol), use_container_width=True)

@@ -19,7 +19,7 @@ prediction (FlashAlpha rule 4), including for the research-surfaced tickers.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 
 import pandas as pd
 import structlog
@@ -32,6 +32,7 @@ from trading_intel.dashboard.ticker_data import load_intraday_flow_series
 from trading_intel.dashboard.watchlist_metrics import load_watchlist_metrics
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.prompts import AM_SUMMARY_PROMPT
+from trading_intel.timeutils import eastern_now
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -151,7 +152,7 @@ def build_am_context(
     session: Session, settings: Settings, *, as_of: date | None = None
 ) -> AmContext:
     """Assemble the AM report context from stored data (no live vendor pulls)."""
-    as_of = as_of or datetime.now().date()
+    as_of = as_of or eastern_now().date()
     symbols = effective_symbols(session, settings)
     static_set = set(settings.watchlist_symbols)
 

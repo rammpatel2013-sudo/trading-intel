@@ -27,6 +27,30 @@ MAX_CHARS = 14_000
 _JSON_OBJ = re.compile(r"\{.*\}", re.DOTALL)
 _TICKER_RE = re.compile(r"^[A-Z][A-Z.\-]{0,9}$")
 
+# Refinitiv RIC / Yahoo exchange suffixes that break a plain US price lookup
+# (e.g. ``RY.TO`` Toronto, ``AAPL.N`` NYSE). Share classes (``BRK.A``/``BRK.B``)
+# are deliberately NOT in this set, so they are preserved.
+_EXCHANGE_SUFFIXES = frozenset({
+    "N", "O", "OQ", "K", "P", "Z", "PK", "TO", "V", "CN", "NE", "L", "PA", "DE",
+    "AS", "BR", "MC", "MI", "SW", "ST", "HE", "OL", "CO", "VI", "AX", "NZ", "HK",
+    "T", "SS", "SZ", "KS", "KQ", "TW", "TWO", "BO", "NS", "SI", "JK", "BK", "SA",
+    "MX", "BA", "F",
+})
+
+
+def normalize_symbol(symbol: str) -> str:
+    """Strip a trailing exchange suffix: ``RY.TO`` -> ``RY``, ``AAPL.N`` -> ``AAPL``.
+
+    Exchange-coded tickers don't resolve on the US price feed, so we reduce them
+    to the base ticker. Share classes (``BRK.A`` / ``BRK.B``) are preserved
+    because ``A`` / ``B`` are not exchange codes.
+    """
+    sym = symbol.strip().upper()
+    base, dot, suffix = sym.rpartition(".")
+    if dot and base and suffix in _EXCHANGE_SUFFIXES:
+        return base
+    return sym
+
 
 @dataclass
 class WatchlistCandidate:
@@ -69,7 +93,7 @@ def parse_candidates(raw: str) -> list[WatchlistCandidate]:
     for item in data.get("tickers", []) or []:
         if not isinstance(item, dict):
             continue
-        symbol = str(item.get("symbol", "")).strip().upper()
+        symbol = normalize_symbol(str(item.get("symbol", "")))
         if not _TICKER_RE.match(symbol) or symbol in seen:
             continue
         seen.add(symbol)

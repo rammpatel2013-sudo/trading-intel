@@ -33,18 +33,24 @@ from trading_intel.dashboard.changes import (
     fixed_strike_change_matrix,
     load_fixed_strike_changes,
 )
+from trading_intel.dashboard.freshness import format_et, freshness_caption
+from trading_intel.dashboard.live_gex_data import load_live_chain
 from trading_intel.dashboard.ticker_data import (
+    available_chain_dates,
     bollinger_bands,
     dex_by_strike,
     gex_by_strike,
     latest_snapshot,
+    load_chain_at,
     load_latest_chain,
     load_quotes,
     load_snapshot_history,
+    near_spot,
     normal_fit_by_strike,
     rolling_avg_by_strike,
     rsi,
     sma,
+    snapshot_spot_flip,
 )
 from trading_intel.dashboard.walls import build_wall_report, wall_history_frame
 from trading_intel.errors import TradingIntelError
@@ -54,6 +60,24 @@ _POS = "#2ecc71"
 _NEG = "#e74c3c"
 _ACCENT = "#e84393"
 _GOLD = "#f6c343"
+
+# Index symbols -> their yfinance quote ticker (for the live spot fetch).
+_YF_MAP = {"SPX": "^GSPC", "NDX": "^NDX", "RUT": "^RUT", "VIX": "^VIX"}
+
+
+def _live_spot(symbol: str) -> float | None:
+    """Best-effort live spot via yfinance (index symbols mapped); None on failure.
+
+    The stored GEX/DEX profile stays from the snapshot — this only moves the spot
+    *marker* so it tracks the current tape.
+    """
+    try:
+        import yfinance as yf
+
+        px = getattr(yf.Ticker(_YF_MAP.get(symbol, symbol)).fast_info, "last_price", None)
+        return float(px) if px else None
+    except Exception:  # live quote is best-effort; callers fall back to snapshot spot
+        return None
 
 
 def _session_factory() -> sessionmaker[Session]:
@@ -252,7 +276,7 @@ def _fixed_strike_panel(
         fig.add_hline(y=put_wall, line_color=_NEG, line_dash="dot",
                       annotation_text="put wall", annotation_position="right")
     fig.update_layout(
-        title=f"{symbol} — fixed-strike ΔIV (strike × expiry)",
+        title=f"{symbol} — fixed-strike ΔIV (strike x expiry)",
         template="plotly_dark", height=360,
         margin={"l": 10, "r": 10, "t": 50, "b": 10},
     )
@@ -277,6 +301,26 @@ def _wall_drift_panel(frame: pd.DataFrame, symbol: str) -> go.Figure | None:
     return fig
 
 
+def _atm_iv_panel(snaps: pd.DataFrame, symbol: str) -> go.Figure | None:
+    """Day-over-day ATM implied vol from the aggregate snapshot history."""
+    if snaps is None or snaps.empty or "atm_iv" not in snaps.columns:
+        return None
+    iv = pd.to_numeric(snaps["atm_iv"], errors="coerce")
+    if not iv.notna().any():
+        return None
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(x=snaps["ts"], y=iv * 100.0, mode="lines+markers",
+                   line={"color": _GOLD}, name="ATM IV %")
+    )
+    fig.update_layout(
+        title=f"{symbol} — ATM IV over time (day over day)", template="plotly_dark",
+        height=320, margin={"l": 10, "r": 10, "t": 50, "b": 10},
+    )
+    fig.update_yaxes(title_text="ATM IV %")
+    return fig
+
+
 def main() -> None:
     st.set_page_config(page_title="Ticker", page_icon="📊", layout="wide")
     settings = get_settings()
@@ -290,26 +334,54 @@ def main() -> None:
         st.warning("No symbols configured in the watchlist.")
         return
 
+    pct = st.sidebar.slider("Strike range (± % of spot)", 1.0, 25.0, 8.0, 0.5)
+    full_chain = st.sidebar.checkbox("Show full chain (ignore range)", value=False)
+    pct_range = None if full_chain else pct / 100.0
+
     try:
         factory = _session_factory()
         with factory() as session:
-            ts, chain = load_latest_chain(session, symbol)
+            dates = available_chain_dates(session, symbol)
+            chosen_ts = (
+                st.sidebar.selectbox(
+                    "Stored snapshot", dates, index=0,
+                    format_func=lambda d: pd.Timestamp(d).strftime("%Y-%m-%d %H:%M"),
+                    help="A historical stored chain snapshot - not a fresh live pull.",
+                )
+                if dates
+                else None
+            )
+            if chosen_ts is not None:
+                ts, chain = chosen_ts, load_chain_at(session, symbol, chosen_ts)
+            else:
+                ts, chain = load_latest_chain(session, symbol)
             snaps = load_snapshot_history(session, symbol)
             snap = latest_snapshot(session, symbol)
             prices = _price_history(session, symbol)
-            wall_md = build_wall_report(session, symbol)
             change_md = build_change_report(session, symbol)
+            wall_md = build_wall_report(session, symbol)
             wall_hist = wall_history_frame(session, symbol)
             fixed_changes = load_fixed_strike_changes(session, symbol)
+            live_ts, live_chain = load_live_chain(session, symbol)
     except (SQLAlchemyError, TradingIntelError) as exc:
         st.error(f"Could not load data for {symbol}: {exc}")
         return
 
-    spot = snap.spot if snap is not None else None
-    flip = snap.gex_flip if snap is not None else None
+    # Spot/flip belong to the SELECTED snapshot; on the latest view prefer a live
+    # quote so the spot marker tracks the tape (the GEX/DEX profile itself stays
+    # from the stored snapshot).
+    snap_spot, flip = snapshot_spot_flip(snaps, chosen_ts)
+    is_latest = chosen_ts is None or (bool(dates) and chosen_ts == dates[0])
+    live_spot = _live_spot(symbol) if is_latest else None
+    spot = live_spot if live_spot is not None else snap_spot
+    cw = wall_hist["call_wall"].iloc[-1] if not wall_hist.empty else None
+    pw = wall_hist["put_wall"].iloc[-1] if not wall_hist.empty else None
 
     cols = st.columns(4)
-    cols[0].metric("Spot", f"{spot:g}" if spot is not None else "n/a")
+    cols[0].metric(
+        "Spot", f"{spot:g}" if spot is not None else "n/a",
+        help="Live quote" if live_spot is not None else "From the stored snapshot",
+    )
     cols[1].metric("GEX flip", f"{flip:g}" if flip is not None else "n/a")
     cols[2].metric(
         "GEX (net gxoi)",
@@ -319,8 +391,9 @@ def main() -> None:
         "ATM IV",
         f"{snap.atm_iv * 100:.1f}%" if snap is not None and snap.atm_iv is not None else "n/a",
     )
-    st.caption(f"Latest chain snapshot: {ts.isoformat() if ts is not None else 'none stored yet'}")
+    st.caption(freshness_caption(ts, label="Chain snapshot"))
 
+    # Price + RSI directly below it (per request).
     fib = fib_levels(prices)
     price_fig = _price_panel(prices, snaps, symbol)
     if price_fig is not None:
@@ -329,14 +402,32 @@ def main() -> None:
     else:
         st.info("No price history available (quotes_daily empty and yfinance unavailable).")
 
-    gex = gex_by_strike(chain)
-    dex = dex_by_strike(chain)
+    rsi_fig = _rsi_panel(prices, symbol)
+    if rsi_fig is not None:
+        st.plotly_chart(rsi_fig, use_container_width=True)
+
+    # Net GEX / DEX by strike, trimmed to the selected strike range; call/put
+    # walls marked on the GEX panel. Prefer the fresh LIVE per-strike GEX on the
+    # latest view, falling back to the stored snapshot chain.
+    use_live = is_latest and live_ts is not None
+    gex_chain = live_chain if use_live else chain
+    if use_live:
+        st.caption(
+            f"GEX / DEX by strike: **LIVE** @ {format_et(live_ts)} "
+            "(near-the-money delta band)."
+        )
+    gex = near_spot(gex_by_strike(gex_chain), spot, pct_range)
+    dex = near_spot(dex_by_strike(gex_chain), spot, pct_range)
     left, right = st.columns(2)
     gex_fig = _exposure_bar(
         gex, "gex", title=f"{symbol} — net GEX by strike", ytitle="net gxoi",
         flip=flip, spot=spot, with_fit=True,
     )
     if gex_fig is not None:
+        for wall, color, label in ((cw, _POS, "call wall"), (pw, _NEG, "put wall")):
+            if wall is not None:
+                gex_fig.add_vline(x=wall, line_color=color, line_dash="dash",
+                                  annotation_text=label, annotation_position="top")
         left.plotly_chart(gex_fig, use_container_width=True)
     else:
         left.info("No per-strike chain stored yet for GEX.")
@@ -348,27 +439,33 @@ def main() -> None:
     else:
         right.info("No per-strike chain stored yet for DEX.")
 
-    rsi_fig = _rsi_panel(prices, symbol)
-    if rsi_fig is not None:
-        st.plotly_chart(rsi_fig, use_container_width=True)
-
-    cw = wall_hist["call_wall"].iloc[-1] if not wall_hist.empty else None
-    pw = wall_hist["put_wall"].iloc[-1] if not wall_hist.empty else None
-    fs_fig = _fixed_strike_panel(fixed_changes, symbol, call_wall=cw, put_wall=pw)
-    drift_fig = _wall_drift_panel(wall_hist, symbol)
-    fs_col, drift_col = st.columns(2)
+    # Day-over-day vol change: fixed-strike ΔIV heatmap (trimmed to range) +
+    # ATM IV over time.
+    fs_fig = _fixed_strike_panel(
+        near_spot(fixed_changes, spot, pct_range), symbol, call_wall=cw, put_wall=pw
+    )
+    atm_fig = _atm_iv_panel(snaps, symbol)
+    fs_col, atm_col = st.columns(2)
     if fs_fig is not None:
         fs_col.plotly_chart(fs_fig, use_container_width=True)
     else:
         fs_col.info("Fixed-strike vol change needs >= 2 daily chain snapshots.")
-    if drift_fig is not None:
-        drift_col.plotly_chart(drift_fig, use_container_width=True)
+    if atm_fig is not None:
+        atm_col.plotly_chart(atm_fig, use_container_width=True)
     else:
-        drift_col.info("Wall drift needs >= 2 days of snapshots.")
+        atm_col.info("ATM IV history needs stored greeks snapshots.")
 
-    wall_col, change_col = st.columns(2)
-    wall_col.markdown(wall_md)
-    change_col.markdown(change_md)
+    # Walls: the drift visualization (the table is secondary, in an expander).
+    drift_fig = _wall_drift_panel(wall_hist, symbol)
+    if drift_fig is not None:
+        st.plotly_chart(drift_fig, use_container_width=True)
+    else:
+        st.info("Wall drift needs >= 2 days of snapshots.")
+
+    with st.expander("Wall + day-over-day change tables"):
+        wall_col, change_col = st.columns(2)
+        wall_col.markdown(wall_md)
+        change_col.markdown(change_md)
 
 
 main()

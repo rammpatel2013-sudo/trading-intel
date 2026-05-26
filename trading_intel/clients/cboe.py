@@ -1,9 +1,12 @@
 """CBOE client — VVIX and the VIX term structure.
 
 The only module that scrapes CBOE (CLAUDE.md rule 1). Reads the public delayed-
-quote JSON feed CBOE serves from its CDN. **Endpoints are unverified from the
-build sandbox** — confirm the URL shape + JSON keys against a live response on
-first run and adjust ``_BASE`` / ``_parse_price`` if CBOE has changed them.
+quote JSON feed CBOE serves from its CDN. **Endpoints verified live 2026-05-26**:
+the response shape is ``{"timestamp", "data": {"current_price", ...}, "symbol"}``
+and ``_parse_price`` (unwrap ``data`` → ``current_price``) reads it correctly.
+Note: the less-liquid tenors (``_VIX9D`` / ``_VIX3M`` / ``_VIX6M``) return
+``open/high/low = 0.0`` with ``current_price == close`` — the level is still
+correct; only ``_VIX`` / ``_VVIX`` carry full intraday OHLC.
 
 Term-structure tenors (CBOE's current index names):
 - ``_VIX9D``  — 9-day  (formerly VXST)

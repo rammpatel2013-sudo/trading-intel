@@ -35,6 +35,7 @@ from trading_intel.strategies.options_flow import (
     aggregate_flow,
     detect_structures,
 )
+from trading_intel.timeutils import eastern_now
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -158,7 +159,7 @@ def run(
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="flow_snapshot")
 
-    now = datetime.now()
+    now = eastern_now()
     if not force and not is_market_hours(now):
         bound.info("flow_snapshot.skipped_off_hours", now=now.isoformat())
         return

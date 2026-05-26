@@ -14,6 +14,7 @@ from trading_intel.dashboard.watchlist_metrics import (
     atm_skew,
     call_put_oi_ratio,
     call_wall_distance,
+    flip_distance,
     format_display,
     gamma_concentration,
     gamma_regime,
@@ -86,6 +87,13 @@ def test_gamma_regime():
     assert gamma_regime(None, 100.0) == "n/a"
 
 
+def test_flip_distance():
+    assert flip_distance(105.0, 100.0) == pytest.approx((105.0 - 100.0) / 105.0)
+    assert flip_distance(95.0, 100.0) < 0  # spot below flip
+    assert flip_distance(None, 100.0) is None
+    assert flip_distance(0.0, 100.0) is None
+
+
 @pytest.fixture
 def session() -> Session:
     engine = create_engine("sqlite://")
@@ -126,8 +134,8 @@ def test_format_display_renders_and_renames():
         [
             {"symbol": "SPY", "spot": 500.123, "gex_total": 1500000.0, "gex_dir": "up",
              "gex_chg_wk": None, "gamma_regime": "long gamma", "gex_flip": 498.0,
-             "atm_iv": 0.215, "call_put_oi": 1.234, "vol_oi": 0.5, "skew": 0.03,
-             "call_wall": 505.0, "put_wall": 495.0, "call_wall_dist": 0.01,
+             "flip_dist": 0.004, "atm_iv": 0.215, "call_put_oi": 1.234, "vol_oi": 0.5,
+             "skew": 0.03, "call_wall": 505.0, "put_wall": 495.0, "call_wall_dist": 0.01,
              "gamma_conc_3pct": 0.42},
         ]
     )

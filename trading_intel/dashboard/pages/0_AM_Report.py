@@ -11,6 +11,8 @@ regime read-through only — not trade signals (FlashAlpha rule 4).
 
 from __future__ import annotations
 
+from datetime import date
+
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -21,6 +23,7 @@ from trading_intel.dashboard.am_report_data import (
     available_dates,
     latest_am_summary,
 )
+from trading_intel.dashboard.freshness import format_et
 
 
 def _session_factory() -> sessionmaker[Session]:
@@ -53,6 +56,13 @@ def main() -> None:
                     "`python -m trading_intel.scheduler.jobs.am_summary`"
                 )
                 return
+
+            if dates[0] < date.today():
+                st.warning(
+                    f"Latest report is dated **{format_et(dates[0])}** -- today's "
+                    f"({format_et(date.today())}) has not been generated yet. "
+                    "Refresh with `python -m trading_intel.scheduler.jobs.am_summary`."
+                )
 
             chosen = st.selectbox(
                 "Report date",

@@ -30,6 +30,7 @@ from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.memory.models import OiChainEod
+from trading_intel.timeutils import eastern_now
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -120,7 +121,7 @@ def run(
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="oi_chain_eod")
 
-    ts = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    ts = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
     symbols = symbols or effective_symbols(session, settings)
     bound.info(
         "oi_chain_eod.start", ts=ts.isoformat(), symbol_count=len(symbols),

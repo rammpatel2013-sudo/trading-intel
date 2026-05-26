@@ -77,6 +77,22 @@ def filter_0dte_1dte(
     return df[(df["dte"] >= 0) & (df["dte"] <= max_dte)].reset_index(drop=True)
 
 
+def filter_delta_band(
+    chain: pd.DataFrame, *, lo: float = 0.30, hi: float = 0.70
+) -> pd.DataFrame:
+    """Keep only rows whose ``|delta|`` is within ``[lo, hi]`` (near-the-money band).
+
+    Drops far-OTM (``|delta| < lo``) and deep-ITM (``|delta| > hi``) strikes — the
+    gamma that matters for the live GEX view sits near the money. Empty /
+    column-less input returns empty.
+    """
+    if chain is None or chain.empty or "delta" not in chain.columns:
+        return chain if chain is not None else pd.DataFrame()
+    df = chain.copy()
+    absd = pd.to_numeric(df["delta"], errors="coerce").abs()
+    return df[absd.between(lo, hi)].reset_index(drop=True)
+
+
 def _prepared(chain: pd.DataFrame, volume_col: str) -> tuple[pd.DataFrame, pd.Series]:
     missing = [c for c in _REQUIRED if c not in chain.columns]
     if volume_col not in chain.columns:

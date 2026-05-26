@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from trading_intel.synthesis.watchlist_extract import extract_watchlist, parse_candidates
+from trading_intel.synthesis.watchlist_extract import (
+    extract_watchlist,
+    normalize_symbol,
+    parse_candidates,
+)
 
 
 class FakeLLM:
@@ -50,3 +54,18 @@ def test_parse_candidates_bad_json():
 def test_extract_watchlist_uses_llm():
     out = extract_watchlist(FakeLLM(_GOOD), "Some Note", "body text")
     assert [c.symbol for c in out] == ["NVDA", "AAPL"]
+
+
+def test_normalize_symbol_strips_exchange_suffix():
+    assert normalize_symbol("RY.TO") == "RY"      # Toronto
+    assert normalize_symbol("AAPL.N") == "AAPL"    # NYSE RIC
+    assert normalize_symbol(" ry.to ") == "RY"     # trimmed + uppercased
+    assert normalize_symbol("MSFT") == "MSFT"      # untouched
+    # share classes are NOT exchange codes -> preserved
+    assert normalize_symbol("BRK.B") == "BRK.B"
+    assert normalize_symbol("BRK.A") == "BRK.A"
+
+
+def test_parse_candidates_normalizes_suffix():
+    raw = '{"tickers": [{"symbol": "RY.TO", "rationale": "Canadian bank"}]}'
+    assert [c.symbol for c in parse_candidates(raw)] == ["RY"]

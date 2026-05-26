@@ -106,7 +106,7 @@ def _vrp_figure(hist: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-def _safe_decomp(session: Session):
+def _safe_decomp(session: Session) -> object | None:
     """Best-effort SPX decomposition; None if oi_chain_eod is unreachable."""
     try:
         return latest_spx_decomposition(session)
@@ -114,7 +114,7 @@ def _safe_decomp(session: Session):
         return None
 
 
-def _decomp_figure(decomp) -> go.Figure:
+def _decomp_figure(decomp: object) -> go.Figure:
     items = list(decomp.factors.items())[::-1]  # sticky strike rendered on top
     labels = [_FACTOR_LABELS[k] for k, _ in items]
     values = [v for _, v in items]
@@ -129,7 +129,7 @@ def _decomp_figure(decomp) -> go.Figure:
     return fig
 
 
-def _render_decomposition(result) -> None:
+def _render_decomposition(result: object) -> None:
     if result is None:
         st.caption("Decomposition unavailable (oi_chain_eod not reachable).")
         return
@@ -211,6 +211,23 @@ def main() -> None:
 
     st.subheader("VIX decomposition - mechanical vs. true fear")
     _render_decomposition(decomp_result)
+    with st.expander("What the decomposition means", expanded=False):
+        st.markdown(
+            "The day-over-day VIX change is split into *why* it moved:\n\n"
+            "- **Sticky strike (mechanical)** - VIX moved only because spot slid along a "
+            "fixed vol surface; risk was not actually re-priced. The classic 'the VIX is "
+            "lying to you' move.\n"
+            "- **Parallel shift (regime/fear)** - the whole surface re-priced up or down. "
+            "This is *true* fear (or relief), not a mechanical artifact.\n"
+            "- **Put gradient (downside hedge)** - the move came from the put wing: hedgers "
+            "bidding (or lifting) crash protection.\n"
+            "- **Call gradient (upside)** - driven by upside-call demand (chase / lotto).\n"
+            "- **Downside / upside convexity (tail)** - the deep wings steepening: tail-risk "
+            "being re-priced beyond the linear skew.\n\n"
+            "A VIX pop that is mostly **sticky strike** is mechanical; one that is mostly "
+            "**parallel shift / put gradient / downside convexity** is genuine fear. "
+            "Descriptive read only (FlashAlpha rule 4)."
+        )
 
     with st.expander("How to read this", expanded=False):
         st.markdown(
