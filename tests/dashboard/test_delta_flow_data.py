@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from trading_intel.dashboard.delta_flow_data import (
-    available_symbols,
+    delta_flow_symbols,
     load_delta_flow_day,
 )
 from trading_intel.memory.models import DeltaFlow
@@ -61,8 +61,8 @@ def test_load_specific_day(session: Session):
     assert list(out["spot"]) == [7400.0]
 
 
-def test_available_symbols(session: Session):
+def test_delta_flow_symbols(session: Session):
     _row(session, symbol="SPX")
     _row(session, symbol="QQQ", ts=datetime(2026, 5, 26, 10, 5))
     session.commit()
-    assert available_symbols(session) == ["QQQ", "SPX"]
+    assert delta_flow_symbols(session) == ["QQQ", "SPX"]

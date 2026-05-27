@@ -34,6 +34,24 @@ _POS = "#2ecc71"
 _GOLD = "#f6c343"
 _PREFERRED = ("SPX", "SPY", "QQQ")
 
+# Index symbols -> their yfinance quote ticker (for the live spot fetch).
+_YF_MAP = {"SPX": "^GSPC", "NDX": "^NDX", "RUT": "^RUT", "VIX": "^VIX"}
+
+
+def _live_spot(symbol: str) -> float | None:
+    """Best-effort live spot via yfinance (index symbols mapped); None on failure.
+
+    Only moves the latest spot *marker* to the live tape — the stored GEX-by-strike
+    matrix and the gamma-flip line stay from the daily snapshots.
+    """
+    try:
+        import yfinance as yf
+
+        px = getattr(yf.Ticker(_YF_MAP.get(symbol, symbol)).fast_info, "last_price", None)
+        return float(px) if px else None
+    except Exception:  # live quote is best-effort; falls back to the snapshot spot
+        return None
+
 
 def _session_factory() -> sessionmaker[Session]:
     """Reuse the factory the Home composition root injected, else build one."""
@@ -98,7 +116,9 @@ def _surface_figure(
     return fig
 
 
-def _latest_profile_figure(series: pd.DataFrame, symbol: str) -> go.Figure | None:
+def _latest_profile_figure(
+    series: pd.DataFrame, symbol: str, spot: float | None = None
+) -> go.Figure | None:
     """Companion bar: net GEX by strike for the most recent snapshot."""
     if series.empty:
         return None
@@ -108,6 +128,11 @@ def _latest_profile_figure(series: pd.DataFrame, symbol: str) -> go.Figure | Non
     fig = go.Figure(
         go.Bar(x=latest["strike"], y=latest["net_gex"], marker_color=colors, name="net GEX")
     )
+    if spot is not None:
+        fig.add_vline(
+            x=spot, line_color=_GOLD, line_dash="dot",
+            annotation_text=f"spot {spot:,.2f}", annotation_position="top",
+        )
     fig.update_layout(
         title=f"{symbol} — latest profile ({pd.Timestamp(latest_ts).date()})",
         template="plotly_dark", height=320,
@@ -169,6 +194,15 @@ def main() -> None:
     st.caption(
         freshness_caption(pd.Timestamp(series["ts"].max()).to_pydatetime(), label="Latest snapshot")
     )
+
+    # Move only the latest spot marker to the live tape (matrix + flip stay daily).
+    live_spot = _live_spot(symbol)
+    if live_spot is not None and not overlay.empty:
+        overlay = overlay.copy()
+        last = overlay.index[-1]
+        overlay.loc[last, "spot"] = live_spot
+        st.caption(f"Spot marker: live quote {live_spot:,.2f} (matrix is the daily snapshot).")
+
     n_snaps = series["ts"].nunique()
     matrix = gex_strike_matrix(series)
     st.plotly_chart(_surface_figure(matrix, overlay, symbol), use_container_width=True)
@@ -178,7 +212,12 @@ def main() -> None:
             "a few daily sessions accumulate."
         )
 
-    profile = _latest_profile_figure(series, symbol)
+    marker_spot = (
+        float(overlay["spot"].iloc[-1])
+        if not overlay.empty and pd.notna(overlay["spot"].iloc[-1])
+        else None
+    )
+    profile = _latest_profile_figure(series, symbol, marker_spot)
     if profile is not None:
         st.plotly_chart(profile, use_container_width=True)
 

@@ -428,8 +428,10 @@ class ConvexClient(OptionsDataSource):
         if width == len(expected):
             df.columns = expected
         elif width < len(expected):
-            # Convex omitted some trailing params; name what we got (symbol first).
+            # Convex omitted some trailing params; name only what we got.
             df.columns = expected[:width]
+        else:
+            # Convex returned extra trailing columns; name the known ones, pad the rest.
             df.columns = expected + [f"extra_{i}" for i in range(width - len(expected))]
         return df
 

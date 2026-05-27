@@ -74,3 +74,11 @@ def live_spot(frame: pd.DataFrame) -> float | None:
         return None
     s = pd.to_numeric(frame["spot"], errors="coerce").dropna()
     return float(s.iloc[0]) if not s.empty else None
+
+
+def live_gex_symbols(session: Session) -> list[str]:
+    """Distinct symbols with stored ``live_gex`` data, alphabetical."""
+    rows = session.execute(
+        select(LiveGex.symbol).group_by(LiveGex.symbol).order_by(LiveGex.symbol)
+    ).scalars()
+    return list(rows)

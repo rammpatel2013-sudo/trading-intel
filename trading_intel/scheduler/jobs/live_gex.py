@@ -19,6 +19,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -36,12 +37,58 @@ log = structlog.get_logger(__name__)
 
 _SLOT_MINUTES = 10
 _SOURCE = "convex"
-_UQ_COLS = ["symbol", "ts", "strike", "cp"]
-_UPDATE_COLS = ("spot", "delta", "gamma", "iv", "gxoi", "dxoi")
+_UQ_COLS = ["symbol", "ts", "strike", "cp", "expiry"]
+_UPDATE_COLS = ("spot", "delta", "gamma", "iv", "gxoi", "dxoi", "oi", "vanna", "charm")
+_SUM_COLS = ("gxoi", "dxoi", "oi")
+_WMEAN_COLS = ("delta", "gamma", "iv", "vanna", "charm")
+_GROUP_COLS = ["strike", "cp", "expiry"]
 
 
 def _floor_to_slot(now: datetime, minutes: int = _SLOT_MINUTES) -> datetime:
     return now.replace(minute=(now.minute // minutes) * minutes, second=0, microsecond=0)
+
+
+def _expiry_dates(df: pd.DataFrame) -> pd.Series:
+    """Per-row option expiration as a python ``date`` (None when unavailable).
+
+    The Convex client normalizes ``expiration`` to a datetime; we also tolerate
+    raw epoch-day integers (Convex's native format) for safety.
+    """
+    if "expiration" not in df.columns:
+        return pd.Series([None] * len(df), index=df.index)
+    raw = df["expiration"]
+    if pd.api.types.is_numeric_dtype(raw):
+        parsed = pd.to_datetime(pd.to_numeric(raw, errors="coerce"), unit="D",
+                                origin="unix", errors="coerce")
+    else:
+        parsed = pd.to_datetime(raw, errors="coerce")
+    return pd.Series(
+        [d.date() if pd.notna(d) else None for d in parsed], index=df.index
+    )
+
+
+def _collapse_by_strike(work: pd.DataFrame) -> pd.DataFrame:
+    """One row per ``(strike, cp, expiry)`` — the ``live_gex`` grain.
+
+    A near-the-money chain can list the same ``(strike, cp)`` more than once per
+    expiry, and the upsert key is ``(symbol, ts, strike, cp, expiry)``, so rows
+    sharing that key must be merged here or Postgres raises ``CardinalityViolation``.
+    Different expiries are kept as separate rows (per-expiry decomposition).
+    ``gxoi``/``dxoi``/``oi`` are additive (summed); the raw per-contract greeks
+    are OI-weighted so that ``greek * oi`` at read time reconstructs the true
+    total, falling back to a plain mean when a strike carries no OI.
+    """
+    w = work["oi"].fillna(0.0)
+    wframe = work.assign(_w=w, **{f"_wn_{c}": work[c] * w for c in _WMEAN_COLS})
+    g = wframe.groupby(_GROUP_COLS, sort=True, dropna=False)
+    out = g[list(_SUM_COLS)].sum(min_count=1)
+    wsum = g["_w"].sum()
+    wn = g[[f"_wn_{c}" for c in _WMEAN_COLS]].sum()
+    plain = g[list(_WMEAN_COLS)].mean()
+    for c in _WMEAN_COLS:
+        weighted = wn[f"_wn_{c}"] / wsum.replace(0.0, np.nan)
+        out[c] = weighted.fillna(plain[c])
+    return out.reset_index()
 
 
 def _symbols(session: Session, settings: Settings) -> list[str]:
@@ -71,15 +118,20 @@ def build_records(
             float("nan"), index=df.index
         )
 
-    out = pd.DataFrame(
+    work = pd.DataFrame(
         {
-            "symbol": symbol, "ts": ts, "source": _SOURCE,
-            "strike": col("strike").astype(float), "cp": cp,
-            "spot": float(spot) if spot is not None else None,
+            "strike": col("strike").astype(float), "cp": cp.to_numpy(),
+            "expiry": _expiry_dates(df).to_numpy(),
+            "gxoi": col("gxoi"), "dxoi": col("dxoi"), "oi": col("oi"),
             "delta": col("delta"), "gamma": col("gamma"), "iv": col("iv"),
-            "gxoi": col("gxoi"), "dxoi": col("dxoi"),
+            "vanna": col("vanna"), "charm": col("charm"),
         }
     )
+    out = _collapse_by_strike(work)
+    out.insert(0, "symbol", symbol)
+    out.insert(1, "ts", ts)
+    out.insert(2, "source", _SOURCE)
+    out["spot"] = float(spot) if spot is not None else None
     out = out.astype(object).where(pd.notna(out), None)
     return out.to_dict("records")
 

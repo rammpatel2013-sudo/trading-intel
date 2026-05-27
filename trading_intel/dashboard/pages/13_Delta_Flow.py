@@ -19,7 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import get_settings
-from trading_intel.dashboard.delta_flow_data import available_symbols, load_delta_flow_day
+from trading_intel.dashboard.delta_flow_data import delta_flow_symbols, load_delta_flow_day
 from trading_intel.dashboard.freshness import freshness_caption
 
 # (column, legend label, colour) for the four delta-notional lines.
@@ -90,7 +90,7 @@ def main() -> None:
     try:
         factory = _session_factory()
         with factory() as session:
-            stored = available_symbols(session)
+            stored = delta_flow_symbols(session)
             options = stored or list(settings.intraday_symbols)
             symbol = st.sidebar.selectbox("Symbol", options, index=0 if options else None)
             refresh = st.sidebar.selectbox("Auto-refresh", ["Off", "60s", "5 min"], index=2)

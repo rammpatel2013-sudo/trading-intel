@@ -308,7 +308,7 @@ class LiveGex(Base):
 
     __tablename__ = "live_gex"
     __table_args__ = (
-        UniqueConstraint("symbol", "ts", "strike", "cp", name="uq_live_gex"),
+        UniqueConstraint("symbol", "ts", "strike", "cp", "expiry", name="uq_live_gex"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -316,12 +316,16 @@ class LiveGex(Base):
     ts: Mapped[datetime] = mapped_column(DateTime)
     strike: Mapped[float] = mapped_column(Float)
     cp: Mapped[str] = mapped_column(String(1))  # 'C' or 'P'
+    expiry: Mapped[date | None] = mapped_column(Date)  # option expiration (per-expiry decomposition)
     spot: Mapped[float | None] = mapped_column(Float)
     delta: Mapped[float | None] = mapped_column(Float)
     gamma: Mapped[float | None] = mapped_column(Float)
     iv: Mapped[float | None] = mapped_column(Float)
     gxoi: Mapped[float | None] = mapped_column(Float)
     dxoi: Mapped[float | None] = mapped_column(Float)
+    oi: Mapped[float | None] = mapped_column(Float)  # open interest (for charm/vanna exposure)
+    vanna: Mapped[float | None] = mapped_column(Float)  # raw greek; exposure = vanna * oi
+    charm: Mapped[float | None] = mapped_column(Float)  # raw greek; exposure = charm * oi
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 

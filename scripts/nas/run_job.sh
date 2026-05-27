@@ -21,6 +21,7 @@ REPO_DIR="$HOME_DIR/trading-intel"
 ENV_FILE="$REPO_DIR/.env"
 IMAGE="trading-intel"
 NETWORK="trading-intel-net"
+PG_CONTAINER="trading-intel-pg"
 # DSM tasks run as root WITHOUT /usr/local/bin on PATH, so call docker by full
 # path (matches your existing tasks' "Run: /usr/local/bin/docker ...").
 DOCKER="/usr/local/bin/docker"
@@ -37,8 +38,10 @@ if [ "$#" -lt 1 ]; then
     exit 2
 fi
 
-# Ensure the docker network exists (no-op if it already does), like your tasks do.
+# Ensure the network exists and the Postgres container is attached (matches your
+# existing tasks; both are no-ops if already done).
 "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+"$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
 
 status=0
 for job in "$@"; do

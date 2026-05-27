@@ -62,7 +62,7 @@ def load_delta_flow_day(
     return pd.DataFrame(records)
 
 
-def available_symbols(session: Session) -> list[str]:
+def delta_flow_symbols(session: Session) -> list[str]:
     """Distinct symbols with stored delta-flow data."""
     rows = session.execute(
         select(DeltaFlow.symbol).group_by(DeltaFlow.symbol).order_by(DeltaFlow.symbol)

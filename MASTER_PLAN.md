@@ -308,7 +308,7 @@ Query pattern: natural-language → semantic search → top-K chunks → Claude 
 
 **Snapshot cadence:** 6:45 AM + 9:45 / 12:00 / 14:00 / 15:30 during RTH + 4:30 PM close.
 
-**Convex eliminates ~500 lines of analytical Black-Scholes code** that would otherwise sit in `greeks/black_scholes.py`. Keep a small `greeks/black_scholes.py` only for the heatmap simulation grid (which needs to shock spot/IV synthetically).
+**Convex eliminates ~500 lines of analytical Black-Scholes code** that would otherwise sit in `greeks/black_scholes.py`. Keep a small `greeks/black_scholes.py` for simulation / what-if views that need to shock spot/IV synthetically: the heatmap simulation grid, the gamma-flip repricing (`greeks/flip_point.py`), and the spot-ladder MM gamma profile (`greeks/gamma_profile.py`). Convex pre-computed greeks remain the default for snapshot/by-strike views; only explicitly simulated views recompute. See **ADR-002** (greek recompute for the spot-ladder MM positioning simulation).
 
 ### 5.3 Earnings ripple engine — unchanged from v1
 
