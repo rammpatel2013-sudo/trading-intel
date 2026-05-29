@@ -1,21 +1,20 @@
-"""CBOE client — VVIX and the VIX term structure.
+"""CBOE client - VVIX, VIX term structure, and skew indices (Cboe SKEW + SDEX).
 
 The only module that scrapes CBOE (CLAUDE.md rule 1). Reads the public delayed-
-quote JSON feed CBOE serves from its CDN. **Endpoints verified live 2026-05-26**:
-the response shape is ``{"timestamp", "data": {"current_price", ...}, "symbol"}``
-and ``_parse_price`` (unwrap ``data`` → ``current_price``) reads it correctly.
-Note: the less-liquid tenors (``_VIX9D`` / ``_VIX3M`` / ``_VIX6M``) return
-``open/high/low = 0.0`` with ``current_price == close`` — the level is still
-correct; only ``_VIX`` / ``_VVIX`` carry full intraday OHLC.
+quote JSON feed CBOE serves from its CDN.
 
 Term-structure tenors (CBOE's current index names):
-- ``_VIX9D``  — 9-day  (formerly VXST)
-- ``_VIX``    — 30-day VIX
-- ``_VIX3M``  — 3-month (formerly VXV)
-- ``_VIX6M``  — 6-month (formerly VXMT)
+- ``_VIX9D``  - 9-day (formerly VXST)
+- ``_VIX``    - 30-day VIX
+- ``_VIX3M``  - 3-month (formerly VXV)
+- ``_VIX6M``  - 6-month (formerly VXMT)
+
+Skew indices added per ADR-003:
+- ``_SKEW``   - Cboe SKEW Index, BKM third-moment estimator over OTM SPX
+- ``SDEX``    - Nations SkewDex Large-Cap, ATM vs 1-sigma-OTM-put SPY skew
 
 All reads degrade gracefully to ``None`` so a CBOE outage / shape change never
-brings down the snapshot job. Descriptive macro inputs only (FlashAlpha rule 4).
+brings down the snapshot job.
 """
 
 from __future__ import annotations
@@ -28,6 +27,11 @@ _BASE = "https://cdn.cboe.com/api/global/delayed_quotes/quotes/{sym}.json"
 
 VVIX_SYM = "_VVIX"
 TERM_SYMS = {"VIX9D": "_VIX9D", "VIX": "_VIX", "VIX3M": "_VIX3M", "VIX6M": "_VIX6M"}
+
+# Skew index symbols. Per ADR-003 section 3.2, the Nations SDEX is the primary
+# signal input; Cboe SKEW is a cross-check on third-moment regime changes.
+SKEW_SYM = "_SKEW"
+SDEX_SYM = "SDEX"
 
 
 class CboeClient:
@@ -47,7 +51,7 @@ class CboeClient:
                 resp = httpx.get(_BASE.format(sym=sym), timeout=self._timeout)
             resp.raise_for_status()
             return resp.json()
-        except Exception as exc:  # network / shape / parse — degrade to None
+        except Exception as exc:  # network / shape / parse - degrade to None
             log.warning("cboe.fetch_failed", sym=sym, error=str(exc))
             return None
 
@@ -70,6 +74,25 @@ class CboeClient:
 
     def vvix(self) -> float | None:
         return self.quote(VVIX_SYM)
+
+    def skew_index(self) -> float | None:
+        """Cboe SKEW Index (30d, model-free third moment of SPX) close.
+
+        Degrades to ``None`` on any fetch / shape failure so an EOD outage in
+        the Cboe feed never blocks the skew job.
+        """
+        return self.quote(SKEW_SYM)
+
+    def sdex(self) -> float | None:
+        """Nations SkewDex Large-Cap (``SDEX``) - ATM vs 1-sigma-OTM-put SPY skew.
+
+        The Nations index is more directly comparable across names because both
+        moneyness and maturity are standardized to ATM / 1-sigma-OTM and 30d
+        respectively. If the CBOE CDN doesn't expose SDEX directly (the symbol
+        is owned by Bank of America), this returns ``None`` and the EOD job
+        falls back to our own ``SPY`` proxy.
+        """
+        return self.quote(SDEX_SYM)
 
     def term_structure(self) -> dict[str, float | None]:
         """Map tenor label -> level for the VIX term-structure curve."""

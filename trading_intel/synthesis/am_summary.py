@@ -26,10 +26,13 @@ import structlog
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings
+from sqlalchemy import select
+
 from trading_intel.dashboard.dynamic_watchlist import load_watchlist_entries
 from trading_intel.dashboard.flow_data import load_watchlist_flow
 from trading_intel.dashboard.ticker_data import load_intraday_flow_series
 from trading_intel.dashboard.watchlist_metrics import load_watchlist_metrics
+from trading_intel.memory.models import IndexSkewDaily, SkewSnapshot
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.prompts import AM_SUMMARY_PROMPT
 from trading_intel.timeutils import eastern_now
@@ -97,6 +100,29 @@ class TickerRegime:
 
 
 @dataclass(frozen=True)
+class SkewExtreme:
+    """One single-name tail-of-distribution skew read (call bias OR put bid)."""
+
+    symbol: str
+    rr_25d: float | None
+    rr_pctile_252d: float | None
+    label: str | None
+    bucket: str  # "call_bias" | "put_bid"
+
+
+@dataclass(frozen=True)
+class IndexSkewRead:
+    """Today's index-level skew snapshot, for the AM report regime header."""
+
+    cboe_skew: float | None = None
+    sdex: float | None = None
+    sdex_pctile_252d: float | None = None
+    spx_rr_25d_30d: float | None = None
+    spx_rr_pctile_252d: float | None = None
+    vix_tail_hedging_score: float | None = None
+
+
+@dataclass(frozen=True)
 class AmContext:
     """Everything the AM report renders, derived purely from stored data."""
 
@@ -106,6 +132,8 @@ class AmContext:
     watchlist: list[TickerRegime] = field(default_factory=list)
     static_symbols: list[str] = field(default_factory=list)
     research_symbols: list[str] = field(default_factory=list)
+    index_skew: "IndexSkewRead | None" = None
+    skew_extremes: list[SkewExtreme] = field(default_factory=list)
 
 
 # ── Context builder ────────────────────────────────────────────────────
@@ -211,6 +239,9 @@ def build_am_context(
         for rec in _records(entries)
     ]
 
+    index_skew = _load_index_skew(session, as_of=as_of)
+    skew_extremes = _load_skew_extremes(session, as_of=as_of)
+
     return AmContext(
         as_of=as_of,
         market=market,
@@ -218,7 +249,78 @@ def build_am_context(
         watchlist=watchlist,
         static_symbols=[s for s in symbols if s in static_set],
         research_symbols=sorted(research_set),
+        index_skew=index_skew,
+        skew_extremes=skew_extremes,
     )
+
+
+# -- Skew context loaders --------------------------------------------
+
+
+def _load_index_skew(session, *, as_of):
+    """Today's index_skew_daily row, ``None`` if not yet populated."""
+    row = session.execute(
+        select(
+            IndexSkewDaily.cboe_skew,
+            IndexSkewDaily.sdex,
+            IndexSkewDaily.sdex_pctile_252d,
+            IndexSkewDaily.spx_rr_25d_30d,
+            IndexSkewDaily.spx_rr_pctile_252d,
+            IndexSkewDaily.vix_tail_hedging_score,
+        ).where(IndexSkewDaily.date == as_of)
+    ).first()
+    if row is None:
+        return None
+    return IndexSkewRead(
+        cboe_skew=_opt_f(row[0]),
+        sdex=_opt_f(row[1]),
+        sdex_pctile_252d=_opt_f(row[2]),
+        spx_rr_25d_30d=_opt_f(row[3]),
+        spx_rr_pctile_252d=_opt_f(row[4]),
+        vix_tail_hedging_score=_opt_f(row[5]),
+    )
+
+
+def _load_skew_extremes(session, *, as_of, horizon_dte=30):
+    """Tail-of-distribution names today (pctile <= 0.05 OR >= 0.95)."""
+    rows = session.execute(
+        select(
+            SkewSnapshot.symbol,
+            SkewSnapshot.rr_25d,
+            SkewSnapshot.rr_25d_pctile_252d,
+            SkewSnapshot.label,
+        ).where(
+            SkewSnapshot.ts == as_of,
+            SkewSnapshot.horizon_dte == horizon_dte,
+            SkewSnapshot.rr_25d_pctile_252d.is_not(None),
+        )
+    ).all()
+    extremes = []
+    for sym, rr, pct, lab in rows:
+        if pct is None:
+            continue
+        if pct <= 0.05:
+            bucket = 'call_bias'
+        elif pct >= 0.95:
+            bucket = 'put_bid'
+        else:
+            continue
+        extremes.append(
+            SkewExtreme(
+                symbol=str(sym),
+                rr_25d=_opt_f(rr),
+                rr_pctile_252d=_opt_f(pct),
+                label=str(lab) if lab is not None else None,
+                bucket=bucket,
+            )
+        )
+    extremes.sort(
+        key=lambda e: (
+            0 if e.bucket == 'call_bias' else 1,
+            e.rr_pctile_252d if e.bucket == 'call_bias' else -(e.rr_pctile_252d or 0.0),
+        )
+    )
+    return extremes
 
 
 # ── Deterministic markdown (also the LLM-down fallback) ────────────────
@@ -296,10 +398,46 @@ def _watchlist_table(ctx: AmContext) -> str:
     return "\n".join(rows)
 
 
+def _skew_section(ctx):
+    """Index-level skew header + tail-of-distribution single-name extremes."""
+    lines = ['## Skew', '']
+    idx = ctx.index_skew
+    if idx is None:
+        lines.append('_No index-skew row for today yet._')
+    else:
+        lines.append(
+            f'- **Index:** Cboe SKEW {_f_num(idx.cboe_skew)}, '
+            f'SDEX {_f_num(idx.sdex)} (pctile {_f_pct(idx.sdex_pctile_252d)}), '
+            f'SPX 25d RR(30d) {_f_num(idx.spx_rr_25d_30d, nd=4)} '
+            f'(pctile {_f_pct(idx.spx_rr_pctile_252d)}), '
+            f'VIX tail-hedging z-score {_f_num(idx.vix_tail_hedging_score)}.'
+        )
+    if ctx.skew_extremes:
+        lines.append('')
+        lines.append('**Single-name extremes (252d tails):**')
+        for e in ctx.skew_extremes[:10]:
+            bucket_tag = 'call bias' if e.bucket == 'call_bias' else 'put bid'
+            lines.append(
+                f'- **{e.symbol}** ({bucket_tag}) - '
+                f'25d RR {_f_num(e.rr_25d, nd=4)}, '
+                f'pctile {_f_pct(e.rr_pctile_252d)}, '
+                f"label: {e.label or '-'}"
+            )
+    else:
+        lines.append('')
+        lines.append('_No single-name skew extremes today._')
+    return '\n'.join(lines)
+
+
 def build_tables_markdown(ctx: AmContext) -> str:
-    """Deterministic markdown body (market + research + watchlist tables)."""
+    """Deterministic markdown body (market + skew + research + watchlist tables)."""
     return "\n\n".join(
-        [_market_section(ctx), _research_section(ctx), _watchlist_table(ctx)]
+        [
+            _market_section(ctx),
+            _skew_section(ctx),
+            _research_section(ctx),
+            _watchlist_table(ctx),
+        ]
     )
 
 

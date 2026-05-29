@@ -230,6 +230,44 @@ class ConvexClient(OptionsDataSource):
         )
         return df
 
+    # VIX symbol convention on ConvexValue (ADR-003 section 7 open question 2).
+    # Smoke-tested 2026-05-28: bare ``VIX`` returns 340+ rows across VIXW
+    # weekly + VIX monthly expiries. ``_VIX`` is the quote feed symbol but
+    # returns an EMPTY chain (not an error), so we no longer probe it.
+    # Kept as a tuple so we can fall through to alternates if Convex ever
+    # changes the canonical form; loop below falls through on empty too.
+    _VIX_SYMBOL_CANDIDATES: tuple[str, ...] = ("VIX",)
+
+    def vix_chain(
+        self,
+        *,
+        exps: tuple[int, ...] = (1, 2, 3),
+        strike_range: float = 0.50,
+    ) -> pd.DataFrame:
+        """VIX options chain (see ``OptionsDataSource.vix_chain``).
+
+        Thin delegation to ``chain()`` after probing the symbol form Convex
+        accepts for the VIX. Wider default ``strike_range`` (50% vs the 15%
+        equity default) because OTM VIX-call hedges trade well above spot.
+        Empty frame if no candidate works - the EOD job logs and continues
+        rather than failing the whole night.
+
+        Falls through on both ``DataSourceError`` AND empty frames so an
+        accepted-but-empty symbol doesn't shadow a working alternate.
+        """
+        last_err: DataSourceError | None = None
+        for sym in self._VIX_SYMBOL_CANDIDATES:
+            try:
+                df = self.chain(sym, exps=exps, strike_range=strike_range)
+                if not df.empty:
+                    return df
+            except DataSourceError as exc:
+                last_err = exc
+                continue
+        if last_err is not None:
+            raise last_err
+        return pd.DataFrame()
+
     def chain_long(
         self,
         symbol: str,

@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     LIVE_GEX_DELTA_HI: float = 0.70
     LIVE_GEX_RETENTION_HOURS: int = 24  # prune live_gex rows older than this
 
+    # ── Daily chain snapshot breadth (feeds the GEX-surface all-expiry views) ──
+    CHAIN_SNAPSHOT_MAX_EXPS: int = 40  # expirations to pull per daily snapshot (chain_long)
+    CHAIN_SNAPSHOT_STRIKE_RANGE: float = 0.30  # +/- fraction of spot for the daily chain
+
     # ── Daily price history (quotes_daily backfill + EOD refresh) ──────
     QUOTES_BACKFILL_PERIOD: str = "5y"  # one-time history depth (yfinance period)
     QUOTES_REFRESH_PERIOD: str = "6mo"  # daily-job pull window (enough for rv60)

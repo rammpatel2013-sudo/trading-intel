@@ -170,3 +170,90 @@ def spot_flip_overlay(session: Session, symbol: str, *, days: int = 30) -> pd.Da
     if hist.empty:
         return pd.DataFrame(columns=_OVERLAY_COLS)
     return hist[_OVERLAY_COLS].reset_index(drop=True)
+
+
+# ── Latest snapshot — rich per-strike frame for the 4-profile panel ────
+
+
+def load_latest_chain_rich(
+    session: Session, symbol: str
+) -> tuple[datetime | None, pd.DataFrame]:
+    """Latest ``greeks_chain`` snapshot for ``symbol``, rich-column variant.
+
+    Unlike ``ticker_data._chain_rows_to_frame`` (which drops ``vanna`` / ``delta``
+    for the slim downstream views), this frame carries every column the
+    4-profile panel needs: ``strike, opt_kind, expiry, oi, gxoi, dxoi, vanna,
+    delta``. Returns ``(ts, frame)`` — ``(None, empty)`` when nothing is stored.
+    """
+    ts = session.execute(
+        select(GreeksChain.ts)
+        .where(GreeksChain.symbol == symbol)
+        .order_by(GreeksChain.ts.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if ts is None:
+        return None, pd.DataFrame(
+            columns=["strike", "opt_kind", "expiry", "oi", "gxoi", "dxoi", "vanna", "delta"]
+        )
+    rows = list(
+        session.execute(
+            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.ts == ts)
+        ).scalars()
+    )
+    frame = pd.DataFrame(
+        [
+            {
+                "strike": r.strike,
+                "opt_kind": "call" if str(r.cp).upper().startswith("C") else "put",
+                "expiry": pd.Timestamp(r.expiry) if r.expiry is not None else pd.NaT,
+                "oi": r.oi,
+                "gxoi": r.gxoi,
+                "dxoi": r.dxoi,
+                "vanna": r.vanna,
+                "delta": r.delta,
+            }
+            for r in rows
+        ]
+    )
+    return ts, frame
+
+
+def aggregate_by_strike(chain: pd.DataFrame, kind: str) -> pd.DataFrame:
+    """Per-strike aggregation for the 4-profile panel.
+
+    Returns a tidy frame ``[strike, value]`` ascending by strike. ``kind``:
+
+    - ``"oi"``     — unsigned sum of resting open interest
+    - ``"gex"``    — net signed gamma OI (calls +, puts -); sums ``gxoi`` × sign
+    - ``"vanna"``  — net signed vanna OI; ``vanna`` × ``oi`` × sign
+    - ``"delta"``  — sum of ``dxoi`` (carries the natural call/put sign already)
+
+    Empty frame in → empty frame out.
+    """
+    cols = ["strike", "value"]
+    if chain is None or chain.empty or "strike" not in chain.columns:
+        return pd.DataFrame(columns=cols)
+    df = chain.copy()
+    sign = (
+        df["opt_kind"].astype(str).str[0].str.upper()
+        .map({"C": 1.0, "P": -1.0}).fillna(0.0)
+    )
+    if kind == "oi":
+        df["_v"] = pd.to_numeric(df["oi"], errors="coerce").fillna(0.0)
+    elif kind == "gex":
+        df["_v"] = pd.to_numeric(df["gxoi"], errors="coerce").fillna(0.0) * sign
+    elif kind == "vanna":
+        v = pd.to_numeric(df["vanna"], errors="coerce").fillna(0.0)
+        oi = pd.to_numeric(df["oi"], errors="coerce").fillna(0.0)
+        df["_v"] = v * oi * sign
+    elif kind == "delta":
+        df["_v"] = pd.to_numeric(df["dxoi"], errors="coerce").fillna(0.0)
+    else:
+        raise ValueError(f"unknown kind: {kind!r}")
+    out = (
+        df.groupby("strike", as_index=False)["_v"].sum()
+        .rename(columns={"_v": "value"})
+        .sort_values("strike")
+        .reset_index(drop=True)
+    )
+    return out[cols]

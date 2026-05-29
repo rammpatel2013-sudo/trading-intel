@@ -73,6 +73,25 @@ class OptionsDataSource(Protocol):
         """Per-trade time & sales (single sweeps / blocks) for ``symbol``."""
         ...
 
+    def vix_chain(
+        self,
+        *,
+        exps: tuple[int, ...] = (1, 2, 3),
+        strike_range: float = 0.50,
+    ) -> pd.DataFrame:
+        """Return the VIX options chain.
+
+        Same column contract as ``chain()`` but for VIX options. VIX options
+        carry a *call* skew (the structural OTM-call bid from tail-risk
+        hedgers) - the opposite of equity put skew. ``strike_range`` is wider
+        because OTM VIX-call hedges trade far from spot.
+
+        The Convex symbol convention for the VIX is vendor-dependent (one of
+        ``VIX`` / ``^VIX`` / ``_VIX`` / ``$VIX``) - implementations must pick
+        the working form and document it. Per ADR-003 section 7 open question.
+        """
+        ...
+
     def health(self) -> dict:
         """Vendor connectivity, rate-limit status, last call latency."""
         ...

@@ -36,11 +36,15 @@ def load_latest_chain(session: Session, symbol: str) -> tuple[object, pd.DataFra
     rows = session.execute(
         select(LiveGex).where(LiveGex.symbol == symbol, LiveGex.ts == latest)
     ).scalars().all()
+    # Effective position = resting OI + today's net flow (volm_buy - volm_sell);
+    # falls back to OI when flow is absent. Drives the spot-ladder + forward field.
     recs = [
         {
             "strike": r.strike,
             "opt_kind": "call" if str(r.cp).upper().startswith("C") else "put",
-            "iv": r.iv, "oi": r.oi, "expiration": r.expiry, "spot": r.spot,
+            "iv": r.iv,
+            "oi": (r.oi or 0.0) + (r.volm_buy or 0.0) - (r.volm_sell or 0.0),
+            "expiration": r.expiry, "spot": r.spot,
         }
         for r in rows
     ]

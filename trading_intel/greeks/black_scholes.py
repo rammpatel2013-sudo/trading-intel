@@ -27,7 +27,7 @@ _MIN_T = 1.0 / (365.0 * 24.0)  # floor time-to-expiry at ~1 hour to avoid /0
 # Anything this large is clearly an epoch-day count, not a days-to-expiry value.
 _EPOCH_DAY_THRESHOLD = 10_000
 
-__all__ = ["bs_gamma", "dollar_gamma", "norm_pdf", "years_to_expiry"]
+__all__ = ["bs_charm", "bs_gamma", "dollar_gamma", "norm_pdf", "years_to_expiry"]
 
 
 def norm_pdf(x: np.ndarray) -> np.ndarray:
@@ -49,6 +49,33 @@ def bs_gamma(
     sqrt_t = np.sqrt(t)
     d1 = (np.log(spot / strike) + (r + 0.5 * sigma**2) * t) / (sigma * sqrt_t)
     return norm_pdf(d1) / (spot * sigma * sqrt_t)
+
+
+def bs_charm(
+    spot: float | np.ndarray,
+    strike: np.ndarray,
+    sigma: np.ndarray,
+    t: np.ndarray,
+    r: float = 0.0,
+) -> np.ndarray:
+    """Black-Scholes charm (∂Δ/∂t) for arrays of options, no-dividends.
+
+    ``charm = -N'(d1) * [r/(σ√T) - d2/(2T)]`` — calendar-time derivative of
+    delta, expressed per year. With no dividends, the value is identical for
+    calls and puts (Δ_put = Δ_call - 1, the constant drops out under
+    differentiation), so the caller applies the dealer sign (calls +, puts -)
+    when aggregating into hedging-flow exposure.
+
+    Matches the convention used by ``bs_gamma`` in this module: broadcasts
+    against ``spot``, returns a numpy array of the same shape as ``strike``.
+    """
+    sqrt_t = np.sqrt(t)
+    d1 = (np.log(spot / strike) + (r + 0.5 * sigma**2) * t) / (sigma * sqrt_t)
+    d2 = d1 - sigma * sqrt_t
+    # Per-year charm: -N'(d1) * (r/(σ√T) - d2/(2T)). The bracketed term grows
+    # as 1/√T near expiry; that's the well-known "charm explodes ATM into the
+    # close" behaviour (MEMORY note on charm intuition).
+    return -norm_pdf(d1) * (r / (sigma * sqrt_t) - d2 / (2.0 * t))
 
 
 def dollar_gamma(

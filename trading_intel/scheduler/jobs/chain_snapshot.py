@@ -36,6 +36,9 @@ log = structlog.get_logger(__name__)
 
 _SOURCE = "convex"
 _UQ_COLS = ["symbol", "ts", "source", "expiry", "strike", "cp"]
+# Postgres caps bound params at 65535/statement; ~16 cols/row -> stay well under.
+# Required now that chain_snapshot pulls the wide multi-expiry chain (chain_long).
+_INSERT_BATCH = 1000
 _GREEK_COLS = (
     "oi",
     "volume",
@@ -126,7 +129,11 @@ def run(
     failed = 0
     for symbol in symbols:
         try:
-            chain = source.chain(symbol)
+            chain = source.chain_long(
+                symbol,
+                max_exps=settings.CHAIN_SNAPSHOT_MAX_EXPS,
+                strike_range=settings.CHAIN_SNAPSHOT_STRIKE_RANGE,
+            )
         except TradingIntelError as exc:
             failed += 1
             bound.warning("chain_snapshot.symbol_failed", symbol=symbol, error=str(exc))
@@ -137,10 +144,12 @@ def run(
             bound.warning("chain_snapshot.empty", symbol=symbol)
             continue
 
-        stmt = pg_insert(GreeksChain).values(records).on_conflict_do_nothing(
-            index_elements=_UQ_COLS
-        )
-        session.execute(stmt)
+        for start in range(0, len(records), _INSERT_BATCH):
+            batch = records[start : start + _INSERT_BATCH]
+            stmt = pg_insert(GreeksChain).values(batch).on_conflict_do_nothing(
+                index_elements=_UQ_COLS
+            )
+            session.execute(stmt)
         rows_written += len(records)
         bound.debug("chain_snapshot.symbol", symbol=symbol, rows=len(records))
 

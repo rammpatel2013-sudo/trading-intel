@@ -436,6 +436,11 @@ class LiveGex(Base):
     oi: Mapped[float | None] = mapped_column(Float)  # open interest (for charm/vanna exposure)
     vanna: Mapped[float | None] = mapped_column(Float)  # raw greek; exposure = vanna * oi
     charm: Mapped[float | None] = mapped_column(Float)  # raw greek; exposure = charm * oi
+    # Today's signed flow from ConvexValue ``flowsum`` (migration 0018). Nullable
+    # — until the NAS image is rebuilt to pull flow, these stay NULL and the
+    # gamma-profile / force-attribution consumers fall back to OI-only.
+    volm_buy: Mapped[float | None] = mapped_column(Float)
+    volm_sell: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
