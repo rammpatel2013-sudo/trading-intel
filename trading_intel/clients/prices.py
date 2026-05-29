@@ -10,8 +10,11 @@ later for more granular history without touching consumers.
 from __future__ import annotations
 
 import pandas as pd
+import structlog
 
 from trading_intel.errors import DataSourceError
+
+log = structlog.get_logger(__name__)
 
 # Watchlist symbols that need a different ticker on the price vendor. SPX is the
 # S&P 500 *index* on Convex; yfinance exposes the index level as ``^GSPC``.
@@ -80,3 +83,59 @@ class YFinancePriceSource:
             raise DataSourceError(f"yfinance frame for {symbol!r} missing {missing}")
         out = df[list(_COLUMNS)].dropna(subset=["date", "close"])
         return out.sort_values("date").reset_index(drop=True)
+
+
+def fetch_yf_index_close(symbol: str, *, period: str = "5d") -> float | None:
+    """Latest close for a Yahoo index symbol (e.g. ``^SDEX``, ``^SKEW``).
+
+    Degrades to ``None`` on any fetch / shape failure so an upstream Yahoo
+    outage never blocks the calling job. Mirrors ``CboeClient`` semantics.
+    """
+    try:
+        import yfinance as yf
+    except ImportError as exc:  # pragma: no cover - dependency present in prod
+        raise DataSourceError("yfinance is not installed") from exc
+
+    try:
+        raw = yf.Ticker(symbol).history(period=period, interval="1d", auto_adjust=False)
+    except Exception as exc:  # network / shape / parse - degrade to None
+        log.warning("yf.fetch_failed", sym=symbol, error=str(exc))
+        return None
+
+    if raw is None or raw.empty or "Close" not in raw.columns:
+        log.warning("yf.empty", sym=symbol)
+        return None
+
+    closes = raw["Close"].dropna()
+    if closes.empty:
+        return None
+    try:
+        return float(closes.iloc[-1])
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_sdex(*, period: str = "5d") -> float | None:
+    """Nations SkewDex Large-Cap close, via Yahoo (``^SDEX``).
+
+    SDEX is owned by Nations and isn't on the Cboe CDN, so Yahoo is the source
+    of truth here. Returns ``None`` on any fetch failure.
+    """
+    return fetch_yf_index_close("^SDEX", period=period)
+
+
+def fetch_voli(*, period: str = "5d") -> float | None:
+    """Nations VolDex Large-Cap close, via Yahoo (``^VOLI``).
+
+    VOLI is Nations' ATM-only implied vol gauge for SPY/SPX — a cleaner
+    "true IV" read than VIX (which is a strip and is sensitive to wing prices).
+    """
+    return fetch_yf_index_close("^VOLI", period=period)
+
+
+def fetch_tdex(*, period: str = "5d") -> float | None:
+    """Nations TailDex Large-Cap close, via Yahoo (``^TDEX``).
+
+    TDEX normalizes the price of deep-OTM puts — pure tail-hedge demand.
+    """
+    return fetch_yf_index_close("^TDEX", period=period)

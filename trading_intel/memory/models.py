@@ -271,6 +271,116 @@ class VolRichness(Base):
     label: Mapped[str | None] = mapped_column(String(64))
 
 
+class SkewSnapshot(Base):
+    """Daily per-name volatility-skew descriptor row per (symbol, day, horizon).
+
+    Captures the FX-convention surface coordinates at 10D and 25D - risk
+    reversals (``iv_put_d - iv_call_d``) and butterflies (``avg(wing) - atm``) -
+    along with their trailing-window percentiles (63d / 252d), the front-vs-back
+    skew slope, the name's 60d VIX beta, the abnormal RR (the residual of
+    ``Drr_25d`` after removing what the name's VIX-beta predicts from ``DSDEX``),
+    a shift-vs-slide label decomposing the day's surface move, and a descriptive
+    summary ``label``. Populated EOD by ``scheduler/jobs/skew_snapshots.py`` from
+    STORED data only.
+
+    **UN-PRUNED on purpose:** this is the long skew percentile baseline the
+    standardization reads back (``oi_chain_eod`` prunes at 90d, so it can't serve
+    that role). Per ADR-003 (revision 2), skew is signal-eligible - but rule 4's
+    architectural constraint stands: only ``strategies/skew.py`` writes to
+    ``signals``; this descriptor table stays under ``vol/``.
+    """
+
+    __tablename__ = "skew_snapshots"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "horizon_dte", name="uq_skew_snapshots"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)  # trading day
+    horizon_dte: Mapped[int] = mapped_column(Integer)  # 30 / 60 / 90 / 180 / 365
+    atm_iv: Mapped[float | None] = mapped_column(Float)
+    rr_10d: Mapped[float | None] = mapped_column(Float)
+    rr_25d: Mapped[float | None] = mapped_column(Float)
+    bf_10d: Mapped[float | None] = mapped_column(Float)
+    bf_25d: Mapped[float | None] = mapped_column(Float)
+    rr_25d_pctile_63d: Mapped[float | None] = mapped_column(Float)
+    rr_25d_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    bf_25d_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    front_back_rr_slope: Mapped[float | None] = mapped_column(Float)
+    vix_beta_60d: Mapped[float | None] = mapped_column(Float)
+    rr_25d_abnormal: Mapped[float | None] = mapped_column(Float)
+    shift_slide_label: Mapped[str | None] = mapped_column(String(16))
+    label: Mapped[str | None] = mapped_column(String(64))
+
+
+class IndexSkewDaily(Base):
+    """Index-level skew snapshot per trading day.
+
+    Stores Cboe SKEW (third-moment estimator), Nations SkewDex (``SDEX`` -
+    ATM-vs-1-sigma-OTM-put SPY skew), our own SPX 25-delta RR and its trailing
+    percentile, mirrored VVIX, and the VIX-options-derived tail-hedging
+    composite. Populated EOD by ``scheduler/jobs/index_skew.py``. Per ADR-003
+    sections 2.3 and 3.4.
+    """
+
+    __tablename__ = "index_skew_daily"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    cboe_skew: Mapped[float | None] = mapped_column(Float)
+    sdex: Mapped[float | None] = mapped_column(Float)
+    spx_rr_25d_30d: Mapped[float | None] = mapped_column(Float)
+    spx_rr_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    sdex_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    vvix: Mapped[float | None] = mapped_column(Float)
+    vix_call_skew_25d: Mapped[float | None] = mapped_column(Float)
+    vix_call_oi_share: Mapped[float | None] = mapped_column(Float)
+    vix_tail_hedging_score: Mapped[float | None] = mapped_column(Float)
+    # Nations Indexes family — added in migration 0022.
+    # ``voli`` / ``tdex`` are Yahoo-sourced (^VOLI, ^TDEX).
+    # ``*_proxy`` are computed from the SPX delta surface — Nations does not
+    # publish CallDex/PutDex/RiskDex on Yahoo (subscription only); the proxies
+    # use IV at 15Δ (≈1σ-OTM) @ 30d, which carries the same regime info.
+    voli: Mapped[float | None] = mapped_column(Float)
+    voli_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    tdex: Mapped[float | None] = mapped_column(Float)
+    tdex_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    calldex_proxy: Mapped[float | None] = mapped_column(Float)
+    calldex_proxy_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    putdex_proxy: Mapped[float | None] = mapped_column(Float)
+    putdex_proxy_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    riskdex_proxy: Mapped[float | None] = mapped_column(Float)
+    riskdex_proxy_pctile_252d: Mapped[float | None] = mapped_column(Float)
+
+
+class VixOptionsChain(Base):
+    """EOD snapshot of one VIX options chain row (per ts/expiry/strike/kind).
+
+    Pulled via ``OptionsDataSource.vix_chain`` by
+    ``scheduler/jobs/vix_options.py``. The dashboard reads this for the
+    VIX-options view; the EOD index-skew job aggregates it into
+    ``index_skew_daily``.
+    """
+
+    __tablename__ = "vix_options_chain"
+    __table_args__ = (
+        UniqueConstraint(
+            "ts", "expiration", "strike", "opt_kind", name="uq_vix_options_chain"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ts: Mapped[date] = mapped_column(Date)
+    expiration: Mapped[date] = mapped_column(Date)
+    strike: Mapped[float] = mapped_column(Float)
+    opt_kind: Mapped[str] = mapped_column(String(4))  # call / put
+    delta: Mapped[float | None] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    oi: Mapped[float | None] = mapped_column(Float)
+    oi_change: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[float | None] = mapped_column(Float)
+
+
 class DeltaFlow(Base):
     """Intraday cumulative traded delta-notional per symbol/snapshot.
 

@@ -17,6 +17,7 @@ from trading_intel.scheduler.jobs import (
     flow_snapshot,
     gex_rolling,
     greeks_snapshot,
+    index_skew,
     intraday_flow,
     live_gex,
     oi_chain_eod,
@@ -24,7 +25,10 @@ from trading_intel.scheduler.jobs import (
     prune_live_gex,
     prune_oi_chain,
     quotes_daily,
+    skew_snapshots,
+    vix_options,
     vix_snapshot,
+    vol_regime,
     vol_richness,
 )
 from trading_intel.synthesis.llm import OllamaProvider
@@ -94,6 +98,24 @@ def main() -> None:
         with session_factory() as session:
             vol_richness.run(session, settings=settings)
 
+    def run_skew_snapshots() -> None:
+        with session_factory() as session:
+            skew_snapshots.run(session, settings=settings)
+
+    def run_vix_options() -> None:
+        with session_factory() as session:
+            vix_options.run(session, source, settings=settings)
+
+    def run_index_skew() -> None:
+        from trading_intel.clients.cboe import CboeClient
+
+        with session_factory() as session:
+            index_skew.run(session, CboeClient(), settings=settings)
+
+    def run_vol_regime() -> None:
+        with session_factory() as session:
+            vol_regime.run(session, settings=settings)
+
     def run_delta_flow() -> None:
         with session_factory() as session:
             delta_flow.run(session, source, settings=settings)
@@ -162,6 +184,18 @@ def main() -> None:
     # Daily vol-richness scan — 16:40 ET, after oi_chain_eod (reads the stored EOD
     # chain + quotes; no vendor call). On the NAS this is a separate DSM task.
     scheduler.add_job(run_vol_richness, "cron", hour=16, minute=40, name="vol_richness")
+    # VIX options chain EOD pull -- 16:42 ET (after oi_chain_eod, before index_skew).
+    # On the NAS this is a separate DSM task (runner cron is ignored there).
+    scheduler.add_job(run_vix_options, "cron", hour=16, minute=42, name="vix_options")
+    # Index-level skew snapshot -- 16:50 ET (after vix_snapshot @ 16:45 and
+    # vix_options @ 16:42, both of which it depends on). NAS: separate DSM task.
+    scheduler.add_job(run_index_skew, "cron", hour=16, minute=50, name="index_skew")
+    # Vol-regime classifier — 17:00 ET (after index_skew so today's row exists).
+    # On the NAS this is a separate DSM task (runner cron is ignored there).
+    scheduler.add_job(run_vol_regime, "cron", hour=17, minute=0, name="vol_regime")
+    # Per-name skew snapshot -- 16:55 ET (after index_skew so SDEX delta is
+    # available for the abnormal-RR residual). NAS: separate DSM task.
+    scheduler.add_job(run_skew_snapshots, "cron", hour=16, minute=55, name="skew_snapshots")
     # Intraday all-expiry delta-notional flow — every 5 min during RTH (self-guards
     # to 09:30-16:00 weekdays). On the NAS this is a separate DSM task.
     scheduler.add_job(
