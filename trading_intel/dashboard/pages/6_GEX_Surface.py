@@ -48,9 +48,13 @@ from trading_intel.errors import TradingIntelError
 # ── Visuals ────────────────────────────────────────────────────────────
 
 _GOLD = "#f6c343"
-_GREEN = "#2ecc71"
-_BLUE = "#5dade2"
-_RED = "#e74c3c"
+_GREEN = "#22c55e"          # vivid green for calls / positive
+_GREEN_LIGHT = "#86efac"
+_RED = "#ef4444"            # vivid red for puts / negative
+_RED_LIGHT = "#fca5a5"
+_BLUE = "#3b82f6"           # vivid blue for positive net (gex/vanna/dex)
+_PINK = "#ec4899"           # vivid pink for negative net
+_TEAL = "#06b6d4"           # neutral teal (unused; reserved)
 _DARK = "plotly_dark"
 _PREFERRED = ("SPX", "SPY", "QQQ")
 
@@ -174,54 +178,102 @@ def _heatmap_figure(matrix: pd.DataFrame, overlay: pd.DataFrame, symbol: str) ->
 # ── 4-profile strip ────────────────────────────────────────────────────
 
 
+def _oi_call_put_split(chain: pd.DataFrame) -> pd.DataFrame:
+    """``[strike, call_oi, put_oi]`` — OI separated by side (both positive).
+
+    Rendered as a back-to-back horizontal bar (puts on the left, calls on the
+    right) so the distribution of open interest by side is immediately legible.
+    """
+    cols = ["strike", "call_oi", "put_oi"]
+    if chain is None or chain.empty:
+        return pd.DataFrame(columns=cols)
+    df = chain.copy()
+    oi = pd.to_numeric(df.get("oi", 0.0), errors="coerce").fillna(0.0)
+    kind = df["opt_kind"].astype(str).str[0].str.upper()
+    by_call = pd.DataFrame({"strike": df["strike"], "v": oi.where(kind == "C", 0.0)})
+    by_put = pd.DataFrame({"strike": df["strike"], "v": oi.where(kind == "P", 0.0)})
+    call_oi = by_call.groupby("strike", as_index=False)["v"].sum().rename(columns={"v": "call_oi"})
+    put_oi = by_put.groupby("strike", as_index=False)["v"].sum().rename(columns={"v": "put_oi"})
+    out = call_oi.merge(put_oi, on="strike", how="outer").fillna(0.0)
+    return out[cols].sort_values("strike").reset_index(drop=True)
+
+
 def _four_profile_strip(
     chain: pd.DataFrame, symbol: str, spot: float | None, ts: object
 ) -> go.Figure:
-    """OI / GEX / Vanna / Delta side-by-side bar profiles by strike."""
-    kinds = [
-        ("oi", "OI", _BLUE),
-        ("gex", "Net GEX", _GREEN),
-        ("vanna", "Net Vanna×OI", _GOLD),
-        ("delta", "Net DEX (Δ×OI)", _RED),
-    ]
+    """OI (call/put split) | Net GEX | Net Vanna×OI | Net DEX — by strike."""
     fig = make_subplots(
         rows=1, cols=4,
         shared_yaxes=True,
         horizontal_spacing=0.02,
-        subplot_titles=[label for _, label, _ in kinds],
+        subplot_titles=[
+            "OI (puts ◀ | ▶ calls)",
+            "Net GEX",
+            "Net Vanna×OI",
+            "Net DEX (Δ×OI)",
+        ],
     )
-    for i, (kind, _label, base_color) in enumerate(kinds, start=1):
+
+    # OI split — puts on the left (negative x), calls on the right (positive x).
+    oi = _oi_call_put_split(chain)
+    if not oi.empty:
+        fig.add_trace(
+            go.Bar(
+                y=oi["strike"], x=-oi["put_oi"],
+                orientation="h",
+                marker_color=_RED, marker_line_width=0,
+                name="put OI", showlegend=False,
+                hovertemplate="strike=%{y}<br>put OI=%{customdata:.0f}<extra></extra>",
+                customdata=oi["put_oi"],
+            ),
+            row=1, col=1,
+        )
+        fig.add_trace(
+            go.Bar(
+                y=oi["strike"], x=oi["call_oi"],
+                orientation="h",
+                marker_color=_GREEN, marker_line_width=0,
+                name="call OI", showlegend=False,
+                hovertemplate="strike=%{y}<br>call OI=%{x:.0f}<extra></extra>",
+            ),
+            row=1, col=1,
+        )
+
+    # Signed metrics — vivid diverging palette.
+    for col, kind in [(2, "gex"), (3, "vanna"), (4, "delta")]:
         agg = aggregate_by_strike(chain, kind)
         if agg.empty:
             continue
-        # Signed metrics → diverging color per bar; OI → solid.
-        if kind == "oi":
-            colors = base_color
-        else:
-            colors = [_BLUE if v >= 0 else _RED for v in agg["value"]]
+        colors = [_BLUE if v >= 0 else _PINK for v in agg["value"]]
+        label = {"gex": "GEX", "vanna": "Vanna×OI", "delta": "DEX"}[kind]
         fig.add_trace(
             go.Bar(
                 y=agg["strike"], x=agg["value"],
                 orientation="h",
-                marker_color=colors,
-                name=kind,
-                showlegend=False,
-                hovertemplate=f"strike=%{{y}}<br>{kind}=%{{x:.3g}}<extra></extra>",
+                marker_color=colors, marker_line_width=0,
+                name=label, showlegend=False,
+                hovertemplate=f"strike=%{{y}}<br>{label}=%{{x:.3g}}<extra></extra>",
             ),
-            row=1, col=i,
+            row=1, col=col,
         )
-        if spot is not None:
-            fig.add_hline(
-                y=spot, line_color=_GOLD, line_dash="dot",
-                row=1, col=i,
-            )
+
+    # Spot reference line on every panel.
+    if spot is not None:
+        for col in (1, 2, 3, 4):
+            fig.add_hline(y=spot, line_color=_GOLD, line_dash="dot", row=1, col=col)
+
     fig.update_layout(
         title=f"{symbol} — latest snapshot ({pd.Timestamp(ts).date()})",
-        template=_DARK, height=540,
+        template=_DARK, height=560,
         margin={"l": 10, "r": 10, "t": 60, "b": 10}, showlegend=False,
-        bargap=0.1,
+        bargap=0.05, barmode="overlay",
     )
     fig.update_yaxes(title_text="Strike", row=1, col=1)
+    # OI panel: symmetric x-axis around 0 so the split reads cleanly.
+    if not oi.empty:
+        absmax = float(max(oi["call_oi"].max(), oi["put_oi"].max()))
+        if absmax > 0:
+            fig.update_xaxes(range=[-absmax * 1.05, absmax * 1.05], row=1, col=1)
     return fig
 
 
@@ -259,7 +311,8 @@ def _menthor_q_figure(
                 go.Bar(
                     y=gex["strike"], x=gex["value"],
                     orientation="h",
-                    marker_color=[_BLUE if v >= 0 else _RED for v in gex["value"]],
+                    marker_color=[_BLUE if v >= 0 else _PINK for v in gex["value"]],
+                    marker_line_width=0,
                     showlegend=False,
                     hovertemplate="strike=%{y}<br>GEX=%{x:.3g}<extra></extra>",
                 ),
@@ -270,7 +323,8 @@ def _menthor_q_figure(
                 go.Bar(
                     y=vanna["strike"], x=vanna["value"],
                     orientation="h",
-                    marker_color=[_BLUE if v >= 0 else _RED for v in vanna["value"]],
+                    marker_color=[_BLUE if v >= 0 else _PINK for v in vanna["value"]],
+                    marker_line_width=0,
                     showlegend=False,
                     hovertemplate="strike=%{y}<br>Vanna×OI=%{x:.3g}<extra></extra>",
                 ),
@@ -334,7 +388,8 @@ def _intraday_figure(
             go.Bar(
                 y=gex_prof["strike"], x=gex_prof["exposure"],
                 orientation="h",
-                marker_color=[_BLUE if v >= 0 else _RED for v in gex_prof["exposure"]],
+                marker_color=[_BLUE if v >= 0 else _PINK for v in gex_prof["exposure"]],
+                marker_line_width=0,
                 showlegend=False,
                 hovertemplate="strike=%{y}<br>GEX=%{x:.3g}<extra></extra>",
             ),
@@ -345,7 +400,8 @@ def _intraday_figure(
             go.Bar(
                 y=vanna_prof["strike"], x=vanna_prof["exposure"],
                 orientation="h",
-                marker_color=[_BLUE if v >= 0 else _RED for v in vanna_prof["exposure"]],
+                marker_color=[_BLUE if v >= 0 else _PINK for v in vanna_prof["exposure"]],
+                marker_line_width=0,
                 showlegend=False,
                 hovertemplate="strike=%{y}<br>Vanna×OI=%{x:.3g}<extra></extra>",
             ),

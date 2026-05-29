@@ -199,6 +199,18 @@ def _harrv_cone_figure(cone: pd.DataFrame, ann_vol: float, symbol: str) -> go.Fi
 # ── Tabs ───────────────────────────────────────────────────────────────
 
 
+def _rth_now() -> "pd.Timestamp":
+    """``eastern_now()`` clamped to RTH 09:30 ET so the forward grid never
+    starts pre-market. After 16:00, returns now (the grid logic will collapse
+    to the empty-state branch below).
+    """
+    from trading_intel.timeutils import eastern_now
+
+    now = pd.Timestamp(eastern_now())
+    open_dt = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    return now if now >= open_dt else open_dt
+
+
 def _tab_intraday(session: Session, symbol: str) -> None:
     live = _live_spot(symbol)
 
@@ -213,13 +225,23 @@ def _tab_intraday(session: Session, symbol: str) -> None:
         help="The gradient background — dealer ${greek} field projected to the close.",
     )
     scope_0dte = st.checkbox(
-        "0DTE scope only", value=True,
-        help="Filter the live chain to contracts expiring today (the true 0DTE strip).",
+        "0DTE scope only", value=False,
+        help=(
+            "Filter the live chain to contracts expiring today. If your live_gex "
+            "collector's delta band / expiry window does not include today's "
+            "0DTE strikes, turning this on yields an empty view — leave off "
+            "unless you've confirmed the collector pulls 0DTE."
+        ),
     )
+
+    # Clamp the projection start to RTH 09:30 ET — projection is meaningful
+    # only inside the cash session.
+    rth_start = _rth_now()
 
     try:
         ts, anchor, grid, gamma_field, charm_field = build_forward_fields(
             session, symbol, spot=live, scope_0dte=scope_0dte,
+            now=rth_start.to_pydatetime(),
         )
     except (TradingIntelError, SQLAlchemyError) as exc:
         st.error(f"Could not build forward field: {exc}")
@@ -227,13 +249,22 @@ def _tab_intraday(session: Session, symbol: str) -> None:
 
     if anchor is None or not grid or len(grid) < 2:
         st.info(
-            f"No live chain or session has closed for {symbol}. The intraday "
-            "cone runs during RTH (09:30-16:00 ET)."
+            f"No live chain for {symbol}, or the cash session has closed. "
+            "The intraday cone runs during RTH (09:30-16:00 ET)."
         )
         return
 
     field = gamma_field if field_greek == "gamma" else charm_field
-    if field.empty:
+
+    # Distinguish "filter wiped the chain" from "collector not running".
+    if field.empty and scope_0dte:
+        st.warning(
+            "0DTE filter wiped the chain — your `live_gex` collector probably "
+            "is not pulling today's 0DTE contracts (its delta band / expiry "
+            "window may exclude them). Uncheck **0DTE scope only** to project "
+            "over the full live chain."
+        )
+    elif field.empty:
         st.info(f"No contracts in scope for the {field_greek} field.")
 
     # Build the cone over the same time grid as the field.
@@ -242,8 +273,11 @@ def _tab_intraday(session: Session, symbol: str) -> None:
 
     if ts is not None:
         st.caption(freshness_caption(pd.Timestamp(ts).to_pydatetime(), label="Snapshot"))
-    if live is not None:
-        st.caption(f"Anchor: **{anchor:,.2f}** (live, 3-min cache).")
+    st.caption(
+        f"Projection window: **{rth_start.strftime('%H:%M')} → 16:00 ET** "
+        f"(RTH only). Anchor: **{anchor:,.2f}**"
+        + (" (live, 3-min cache)." if live is not None else " (snapshot spot).")
+    )
     if cone.empty:
         st.warning(
             f"Cone driver '{driver}' could not be computed (missing IV / "
@@ -257,9 +291,9 @@ def _tab_intraday(session: Session, symbol: str) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
     st.caption(
-        f"Driver: **{DRIVER_LABELS[driver]}** · Field: **{greek_label}** · "
-        f"Anchor: {anchor:,.2f}. Up/down paths are bounding scenarios from "
-        "now to the close, NOT a directional call (FlashAlpha rule 4)."
+        f"Driver: **{DRIVER_LABELS[driver]}** · Field: **{greek_label}**. "
+        "Up/down paths are bounding scenarios from now to the close, NOT a "
+        "directional call (FlashAlpha rule 4)."
     )
 
 
