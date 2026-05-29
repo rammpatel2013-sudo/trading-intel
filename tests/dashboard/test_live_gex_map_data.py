@@ -9,10 +9,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from trading_intel.dashboard.live_gex_map_data import (
+    available_expiries,
     composite_matrix,
     composite_profile,
     exposure_matrix,
     filter_expiry_scope,
+    filter_to_expiries,
     latest_profile,
     load_live_gex_day,
     session_fraction_remaining,
@@ -132,3 +134,31 @@ def pd_date(frame):  # noqa: ANN001
     import pandas as pd
 
     return pd.to_datetime(frame.iloc[0]["expiry"]).date()
+
+
+def test_flow_adjusted_exposure(session: Session):
+    # net_flow = 1200 - 200 = 1000 ; oi_eff = 4000 + 1000 = 5000
+    _row(session, cp="C", gxoi=1e6, gamma=0.01, oi=4000.0, charm=-0.01, vanna=0.03,
+         volm_buy=1200.0, volm_sell=200.0)
+    session.commit()
+    frame = load_live_gex_day(session, "SPX")
+    g = latest_profile(frame, "gamma").iloc[0]["exposure"]
+    c = latest_profile(frame, "charm").iloc[0]["exposure"]
+    v = latest_profile(frame, "vanna").iloc[0]["exposure"]
+    assert g == pytest.approx(1e6 + 0.01 * 1000)   # gxoi + gamma*net_flow
+    assert c == pytest.approx(-0.01 * 5000)         # charm * oi_eff
+    assert v == pytest.approx(0.03 * 5000)          # vanna * oi_eff
+
+
+def test_available_and_filter_to_expiries(session: Session):
+    sess = datetime(2026, 5, 26, 15, 0)
+    _row(session, ts=sess, strike=7500.0, cp="C", expiry=date(2026, 5, 26))
+    _row(session, ts=sess, strike=7600.0, cp="C", expiry=date(2026, 5, 29))
+    _row(session, ts=sess, strike=7700.0, cp="C", expiry=date(2026, 7, 17))
+    session.commit()
+    frame = load_live_gex_day(session, "SPX")
+    assert available_expiries(frame) == [date(2026, 5, 26), date(2026, 5, 29), date(2026, 7, 17)]
+    kept = filter_to_expiries(frame, [date(2026, 5, 26), date(2026, 5, 29)])
+    assert set(kept["strike"]) == {7500.0, 7600.0}
+    # empty selection -> unchanged
+    assert len(filter_to_expiries(frame, [])) == 3

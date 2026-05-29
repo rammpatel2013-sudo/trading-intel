@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from trading_intel.dashboard.gex_surface import (
     _expiry_within,
     gex_strike_matrix,
+    latest_strike_profiles,
     load_gex_strike_series,
     spot_flip_overlay,
 )
@@ -151,3 +152,25 @@ def test_spot_flip_overlay(session: Session):
     assert len(overlay) == 2
     # oldest first
     assert overlay["spot"].tolist() == [7480.0, 7510.0]
+
+
+def test_latest_strike_profiles_merges_four(session: Session):
+    ts = datetime(2026, 5, 22, 6, 45, tzinfo=UTC)
+    # one call + one put at the same strike, full greek set
+    session.add(GreeksChain(symbol="SPX", ts=ts, expiry=_NEAR, strike=7500, cp="C",
+                            gxoi=100.0, dxoi=50.0, vxoi=10.0, oi=4000, source="convex"))
+    session.add(GreeksChain(symbol="SPX", ts=ts, expiry=_NEAR, strike=7500, cp="P",
+                            gxoi=40.0, dxoi=-30.0, vxoi=6.0, oi=1000, source="convex"))
+    session.commit()
+
+    prof = latest_strike_profiles(session, "SPX", pct_range=None)
+    assert list(prof.columns) == ["strike", "oi", "gex", "vanna", "delta"]
+    row = prof[prof["strike"] == 7500.0].iloc[0]
+    assert row["oi"] == pytest.approx(5000.0)          # total OI (unsigned)
+    assert row["gex"] == pytest.approx(60.0)           # 100 - 40 (calls + / puts -)
+    assert row["vanna"] == pytest.approx(4.0)          # 10 - 6 (vanna signed like gamma)
+    assert row["delta"] == pytest.approx(20.0)         # dxoi summed as-is: 50 + (-30)
+
+
+def test_latest_strike_profiles_empty(session: Session):
+    assert latest_strike_profiles(session, "NOPE").empty

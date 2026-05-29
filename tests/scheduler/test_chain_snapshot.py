@@ -86,10 +86,16 @@ class _FakeSource:
             raise val
         return val
 
+    def chain_long(self, symbol: str, **_: object) -> pd.DataFrame:
+        # chain_snapshot now pulls the wide multi-expiry chain; delegate to chain.
+        return self.chain(symbol)
+
 
 class _Settings:
     def __init__(self, symbols: list[str]) -> None:
         self.watchlist_symbols = symbols
+        self.CHAIN_SNAPSHOT_MAX_EXPS = 40
+        self.CHAIN_SNAPSHOT_STRIKE_RANGE = 0.30
 
 
 def test_run_orchestration_writes_skips_and_commits():

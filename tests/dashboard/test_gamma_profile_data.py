@@ -79,3 +79,11 @@ def test_build_profile_empty_inputs(session: Session):
     _, frame = load_latest_chain(session, "NOPE")
     assert build_profile(frame, 7475.0).empty
     assert build_profile(None, None).empty
+
+
+def test_load_latest_chain_effective_oi(session: Session):
+    # oi_eff = resting OI + net flow = 4000 + (1200 - 200) = 5000
+    _row(session, strike=7400.0, cp="C", oi=4000.0, volm_buy=1200.0, volm_sell=200.0)
+    session.commit()
+    _, frame = load_latest_chain(session, "SPX")
+    assert frame.iloc[0]["oi"] == pytest.approx(5000.0)

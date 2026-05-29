@@ -11,7 +11,7 @@ DSM tasks.
 ## 1. One-time, from the laptop (PowerShell)
 
 ```powershell
-# Apply all pending migrations to the NAS DB (0013 vol_richness, 0014 delta_flow, 0015 live_gex)
+# Apply all pending migrations to the NAS DB (0013-0018 + ADR-003: 0019 skew_snapshots, 0020 index_skew_daily, 0021 vix_options_chain)
 .venv\Scripts\alembic upgrade head
 
 # Clean existing research-watchlist tickers that still carry .N / .TO suffixes
@@ -73,6 +73,9 @@ just avoids the wasted runs. Times follow the NAS clock — keep it on US Easter
 | `vol_richness` | daily 16:40 | IV-vs-forecast-RV rich/cheap scan |
 | `am_summary` | daily 06:55 | morning regime report (local LLM) |
 | `vix_snapshot` | daily 16:45 | VIX/VVIX term structure + credit |
+| `vix_options` | daily 16:42 | EOD VIX-options chain (ADR-003) — needs Convex |
+| `index_skew` | daily 16:50 | Cboe SKEW + Nations SDEX + composite tail-hedging score (ADR-003) |
+| `skew_snapshots` | daily 16:55 | Per-name RR / BF / 63d-252d percentiles / VIX-beta / abnormal RR (ADR-003) |
 
 ### Add — new intraday jobs
 | Module | Schedule (ET) | Notes |
