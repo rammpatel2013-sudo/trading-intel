@@ -351,6 +351,17 @@ class IndexSkewDaily(Base):
     putdex_proxy_pctile_252d: Mapped[float | None] = mapped_column(Float)
     riskdex_proxy: Mapped[float | None] = mapped_column(Float)
     riskdex_proxy_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    # VIX decomposition family — migration 0023. Term-structure raw tenors +
+    # the five derived dimension descriptors the regime classifier reads.
+    vix9d: Mapped[float | None] = mapped_column(Float)
+    vix3m: Mapped[float | None] = mapped_column(Float)
+    vix6m: Mapped[float | None] = mapped_column(Float)
+    vix_voli_spread: Mapped[float | None] = mapped_column(Float)
+    vix_term_9d_30d: Mapped[float | None] = mapped_column(Float)
+    vix_term_3m_30d: Mapped[float | None] = mapped_column(Float)
+    vix_spx_beta_60d: Mapped[float | None] = mapped_column(Float)
+    vvix_vix_ratio: Mapped[float | None] = mapped_column(Float)
+    vix_options_richness: Mapped[float | None] = mapped_column(Float)
 
 
 class VixOptionsChain(Base):

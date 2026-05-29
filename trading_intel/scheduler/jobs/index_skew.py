@@ -41,12 +41,14 @@ from trading_intel.greeks.surface import build_delta_surface
 from trading_intel.memory.models import (
     IndexSkewDaily,
     OiChainEod,
+    QuoteDaily,
     VixData,
     VixOptionsChain,
 )
 from trading_intel.timeutils import eastern_now
 from trading_intel.vol.nations_dex import compute_dex_triplet
 from trading_intel.vol.skew import risk_reversal, skew_percentile
+from trading_intel.vol.vix_regime import compute_decomposition
 from trading_intel.vol.vix_skew import (
     vix_call_oi_share,
     vix_call_skew,
@@ -80,6 +82,16 @@ _UPDATE_COLS = (
     "putdex_proxy_pctile_252d",
     "riskdex_proxy",
     "riskdex_proxy_pctile_252d",
+    # VIX decomposition family (migration 0023).
+    "vix9d",
+    "vix3m",
+    "vix6m",
+    "vix_voli_spread",
+    "vix_term_9d_30d",
+    "vix_term_3m_30d",
+    "vix_spx_beta_60d",
+    "vvix_vix_ratio",
+    "vix_options_richness",
 )
 
 
@@ -146,6 +158,41 @@ def _latest_vix_vvix(session: Session, *, as_of: date) -> tuple[float | None, fl
     vix = float(row[0]) if row[0] is not None else None
     vvix = float(row[1]) if row[1] is not None else None
     return (vix, vvix)
+
+
+def _spx_vix_closes(
+    session: Session, *, as_of: date, lookback_days: int = 90
+) -> tuple[pd.Series, pd.Series]:
+    """Date-indexed SPX + VIX close series for the β regression."""
+    spx_rows = session.execute(
+        select(QuoteDaily.date, QuoteDaily.close)
+        .where(QuoteDaily.symbol == "SPX", QuoteDaily.date <= as_of)
+        .order_by(QuoteDaily.date.desc())
+        .limit(lookback_days)
+    ).all()
+    vix_rows = session.execute(
+        select(VixData.date, VixData.vix)
+        .where(VixData.vix.is_not(None), VixData.date <= as_of)
+        .order_by(VixData.date.desc())
+        .limit(lookback_days)
+    ).all()
+    spx = (
+        pd.Series(
+            [float(r[1]) for r in spx_rows],
+            index=pd.to_datetime([r[0] for r in spx_rows]),
+        ).sort_index()
+        if spx_rows
+        else pd.Series(dtype=float)
+    )
+    vix = (
+        pd.Series(
+            [float(r[1]) for r in vix_rows],
+            index=pd.to_datetime([r[0] for r in vix_rows]),
+        ).sort_index()
+        if vix_rows
+        else pd.Series(dtype=float)
+    )
+    return spx, vix
 
 
 def _history_series(
@@ -224,6 +271,13 @@ def build_row(
     voli = fetch_voli()
     tdex = fetch_tdex()
 
+    # VIX term-structure tenors from Cboe — drives the TERM dimension of the
+    # vol-regime decomposition. Each tenor degrades to None on Cboe outage.
+    term = cboe.term_structure()
+    vix9d_val = term.get("VIX9D")
+    vix3m_val = term.get("VIX3M")
+    vix6m_val = term.get("VIX6M")
+
     # Build the SPX delta surface once; the 25Δ RR and Nations CallDex/PutDex
     # /RiskDex proxies all read off it.
     surface = _spx_delta_surface(session, as_of=as_of)
@@ -278,6 +332,19 @@ def build_row(
     # ratio but the regime composite is dominated by VVIX moves so a single
     # standardization suffices and avoids a noisy second join (see ADR-003 §3.4).
 
+    # VIX decomposition (migration 0023): use today's VIX + VOLI + VVIX +
+    # term-structure tenors, plus the SPX/VIX close series for the β regression.
+    spx_closes, vix_closes = _spx_vix_closes(session, as_of=as_of, lookback_days=90)
+    decomposition = compute_decomposition(
+        vix=_vix,
+        voli=voli,
+        vvix=vvix,
+        vix9d=vix9d_val,
+        vix3m=vix3m_val,
+        spx_closes=spx_closes,
+        vix_closes=vix_closes,
+    )
+
     # Z-score each component against trailing history.
     vix_skew_hist = _history_series(
         session, IndexSkewDaily.vix_call_skew_25d, before=as_of, limit=300
@@ -322,6 +389,16 @@ def build_row(
         "putdex_proxy_pctile_252d": putdex_pctile,
         "riskdex_proxy": riskdex_p,
         "riskdex_proxy_pctile_252d": riskdex_pctile,
+        # VIX decomposition family (migration 0023).
+        "vix9d": vix9d_val,
+        "vix3m": vix3m_val,
+        "vix6m": vix6m_val,
+        "vix_voli_spread": decomposition["vix_voli_spread"],
+        "vix_term_9d_30d": decomposition["vix_term_9d_30d"],
+        "vix_term_3m_30d": decomposition["vix_term_3m_30d"],
+        "vix_spx_beta_60d": decomposition["vix_spx_beta_60d"],
+        "vvix_vix_ratio": decomposition["vvix_vix_ratio"],
+        "vix_options_richness": decomposition["vix_options_richness"],
     }
 
 
