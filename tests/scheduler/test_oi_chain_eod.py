@@ -67,9 +67,14 @@ def test_run_batches_inserts(monkeypatch):
     OiChainEod.__table__.create(engine)
 
     n_rows = 120
+    # Forward-dated expiry so _chain_to_records' dte >= 0 window filter keeps
+    # every row. This test is about batching, not date filtering.
+    from trading_intel.timeutils import eastern_now
+
+    future_exp = pd.Timestamp(eastern_now().date()) + pd.Timedelta(days=30)
     chain = pd.DataFrame(
         [
-            {"expiration": pd.Timestamp("2026-05-26"), "strike": 5000.0 + i,
+            {"expiration": future_exp, "strike": 5000.0 + i,
              "opt_kind": "call" if i % 2 else "put", "oi": 10, "oi_change": 1,
              "volume": 5, "gxoi": 1.0, "dxoi": 1.0, "vxoi": 1.0, "gamma": 0.0,
              "delta": 0.0, "iv": 0.1}

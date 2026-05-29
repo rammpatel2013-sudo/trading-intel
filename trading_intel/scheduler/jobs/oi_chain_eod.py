@@ -24,6 +24,7 @@ from datetime import datetime
 import pandas as pd
 import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from trading_intel.clients import OptionsDataSource
@@ -143,9 +144,11 @@ def run(
             bound.warning("oi_chain_eod.empty", symbol=symbol)
             continue
 
+        dialect = session.bind.dialect.name if session.bind is not None else "postgresql"
+        _insert = sqlite_insert if dialect == "sqlite" else pg_insert
         for start in range(0, len(records), _INSERT_BATCH):
             batch = records[start : start + _INSERT_BATCH]
-            stmt = pg_insert(OiChainEod).values(batch).on_conflict_do_nothing(
+            stmt = _insert(OiChainEod).values(batch).on_conflict_do_nothing(
                 index_elements=_UQ_COLS
             )
             session.execute(stmt)

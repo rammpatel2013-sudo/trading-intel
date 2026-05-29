@@ -193,7 +193,7 @@ def load_latest_chain_rich(
     ).scalar_one_or_none()
     if ts is None:
         return None, pd.DataFrame(
-            columns=["strike", "opt_kind", "expiry", "oi", "gxoi", "dxoi", "vanna", "delta"]
+            columns=["strike", "opt_kind", "expiry", "oi", "gxoi", "dxoi", "vxoi", "delta"]
         )
     rows = list(
         session.execute(
@@ -209,13 +209,54 @@ def load_latest_chain_rich(
                 "oi": r.oi,
                 "gxoi": r.gxoi,
                 "dxoi": r.dxoi,
-                "vanna": r.vanna,
+                "vxoi": r.vxoi,
                 "delta": r.delta,
             }
             for r in rows
         ]
     )
     return ts, frame
+
+
+def latest_strike_profiles(
+    session: Session,
+    symbol: str,
+    *,
+    pct_range: float | None = 0.03,
+) -> pd.DataFrame:
+    """One frame, four metrics: ``[strike, oi, gex, vanna, delta]`` for the latest snapshot.
+
+    Convenience wrapper for the 4-profile panel — pulls the rich chain via
+    :func:`load_latest_chain_rich`, runs :func:`aggregate_by_strike` for each
+    kind, and outer-joins on strike. ``pct_range`` trims to ±x% of the
+    snapshot spot (looked up via :func:`load_snapshot_history`) — pass ``None``
+    to keep every strike. Empty in → empty out.
+    """
+    cols = ["strike", "oi", "gex", "vanna", "delta"]
+    _, chain = load_latest_chain_rich(session, symbol)
+    if chain.empty:
+        return pd.DataFrame(columns=cols)
+
+    if pct_range is not None and pct_range > 0:
+        hist = load_snapshot_history(session, symbol, days=1)
+        spot = None
+        if not hist.empty and pd.notna(hist["spot"].iloc[-1]):
+            spot = float(hist["spot"].iloc[-1])
+        if spot and spot > 0:
+            lo, hi = spot * (1.0 - pct_range), spot * (1.0 + pct_range)
+            chain = chain[(chain["strike"] >= lo) & (chain["strike"] <= hi)]
+            if chain.empty:
+                return pd.DataFrame(columns=cols)
+
+    parts = []
+    for kind, label in (("oi", "oi"), ("gex", "gex"), ("vanna", "vanna"), ("delta", "delta")):
+        agg = aggregate_by_strike(chain, kind).rename(columns={"value": label})
+        parts.append(agg)
+
+    out = parts[0]
+    for part in parts[1:]:
+        out = out.merge(part, on="strike", how="outer")
+    return out[cols].sort_values("strike").reset_index(drop=True).fillna(0.0)
 
 
 def aggregate_by_strike(chain: pd.DataFrame, kind: str) -> pd.DataFrame:
@@ -243,9 +284,8 @@ def aggregate_by_strike(chain: pd.DataFrame, kind: str) -> pd.DataFrame:
     elif kind == "gex":
         df["_v"] = pd.to_numeric(df["gxoi"], errors="coerce").fillna(0.0) * sign
     elif kind == "vanna":
-        v = pd.to_numeric(df["vanna"], errors="coerce").fillna(0.0)
-        oi = pd.to_numeric(df["oi"], errors="coerce").fillna(0.0)
-        df["_v"] = v * oi * sign
+        # Convex pre-computes vanna×OI as ``vxoi`` (mirrors gxoi). Sum signed.
+        df["_v"] = pd.to_numeric(df["vxoi"], errors="coerce").fillna(0.0) * sign
     elif kind == "delta":
         df["_v"] = pd.to_numeric(df["dxoi"], errors="coerce").fillna(0.0)
     else:

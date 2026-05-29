@@ -14,12 +14,17 @@ from trading_intel.memory.models import (
     FlowSnapshot,
     GreeksChain,
     GreeksSnapshot,
+    IndexSkewDaily,
     IntradayFlow,
+    SkewSnapshot,
     WatchlistEntry,
 )
 from trading_intel.scheduler.jobs import am_summary
 
-_TABLES = (AmSummary, GreeksSnapshot, GreeksChain, WatchlistEntry, FlowSnapshot, IntradayFlow)
+_TABLES = (
+    AmSummary, GreeksSnapshot, GreeksChain, WatchlistEntry,
+    FlowSnapshot, IntradayFlow, IndexSkewDaily, SkewSnapshot,
+)
 
 
 class StubLLM:

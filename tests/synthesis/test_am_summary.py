@@ -13,7 +13,9 @@ from trading_intel.memory.models import (
     FlowSnapshot,
     GreeksChain,
     GreeksSnapshot,
+    IndexSkewDaily,
     IntradayFlow,
+    SkewSnapshot,
     WatchlistEntry,
 )
 from trading_intel.synthesis.am_summary import (
@@ -26,7 +28,10 @@ from trading_intel.synthesis.am_summary import (
     render_am_markdown_fallback,
 )
 
-_TABLES = (GreeksSnapshot, GreeksChain, WatchlistEntry, FlowSnapshot, IntradayFlow)
+_TABLES = (
+    GreeksSnapshot, GreeksChain, WatchlistEntry, FlowSnapshot,
+    IntradayFlow, IndexSkewDaily, SkewSnapshot,
+)
 
 
 class StubLLM:

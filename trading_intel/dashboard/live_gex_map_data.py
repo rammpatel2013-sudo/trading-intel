@@ -25,7 +25,11 @@ from sqlalchemy.orm import Session
 from trading_intel.memory.models import LiveGex
 
 GREEKS = ("gamma", "charm", "vanna")
-_LOAD_COLS = ["ts", "strike", "cp", "expiry", "spot", "gxoi", "oi", "iv", "vanna", "charm"]
+_LOAD_COLS = [
+    "ts", "strike", "cp", "expiry", "spot",
+    "gxoi", "oi", "iv", "gamma", "vanna", "charm",
+    "volm_buy", "volm_sell",
+]
 
 # Regular cash session (ET), used to time-weight charm toward the close.
 _SESSION_OPEN_MIN = 9 * 60 + 30  # 09:30
@@ -50,7 +54,9 @@ def load_live_gex_day(
     recs = [
         {
             "ts": r.ts, "strike": r.strike, "cp": r.cp, "expiry": r.expiry, "spot": r.spot,
-            "gxoi": r.gxoi, "oi": r.oi, "iv": r.iv, "vanna": r.vanna, "charm": r.charm,
+            "gxoi": r.gxoi, "oi": r.oi, "iv": r.iv,
+            "gamma": r.gamma, "vanna": r.vanna, "charm": r.charm,
+            "volm_buy": r.volm_buy, "volm_sell": r.volm_sell,
         }
         for r in rows
         if r.ts is not None and r.ts.date() == day
@@ -58,14 +64,39 @@ def load_live_gex_day(
     return pd.DataFrame(recs) if recs else pd.DataFrame(columns=_LOAD_COLS)
 
 
+def _net_flow(df: pd.DataFrame) -> pd.Series:
+    """Today's net signed flow per row: ``volm_buy - volm_sell``, NaN→0."""
+    if "volm_buy" not in df.columns or "volm_sell" not in df.columns:
+        return pd.Series(0.0, index=df.index)
+    buy = pd.to_numeric(df["volm_buy"], errors="coerce").fillna(0.0)
+    sell = pd.to_numeric(df["volm_sell"], errors="coerce").fillna(0.0)
+    return buy - sell
+
+
 def _signed_exposure(df: pd.DataFrame, greek: str) -> pd.Series:
-    """Per-row net dealer exposure for ``greek`` (calls +, puts -)."""
+    """Per-row net dealer exposure for ``greek`` (calls +, puts -).
+
+    Uses *effective* OI = ``oi + (volm_buy - volm_sell)`` so today's net flow
+    adjusts the resting positioning (CLAUDE.md MEMORY: 0018+ volm_buy/sell
+    columns; gracefully falls back to resting OI when flow is NULL):
+
+    - **gamma** = ``gxoi + gamma * net_flow`` (gxoi is Convex's gamma*OI;
+      add the gamma×flow delta so the result is gamma×oi_eff)
+    - **charm** = ``charm * oi_eff``
+    - **vanna** = ``vanna * oi_eff``
+    """
+    net_flow = _net_flow(df)
+    oi = pd.to_numeric(df.get("oi", 0.0), errors="coerce").fillna(0.0)
+    oi_eff = oi + net_flow
+
     if greek == "gamma":
-        val = pd.to_numeric(df["gxoi"], errors="coerce")
+        gxoi = pd.to_numeric(df["gxoi"], errors="coerce").fillna(0.0)
+        gamma = pd.to_numeric(df.get("gamma", 0.0), errors="coerce").fillna(0.0)
+        val = gxoi + gamma * net_flow
     elif greek == "charm":
-        val = pd.to_numeric(df["charm"], errors="coerce") * pd.to_numeric(df["oi"], errors="coerce")
+        val = pd.to_numeric(df["charm"], errors="coerce").fillna(0.0) * oi_eff
     elif greek == "vanna":
-        val = pd.to_numeric(df["vanna"], errors="coerce") * pd.to_numeric(df["oi"], errors="coerce")
+        val = pd.to_numeric(df["vanna"], errors="coerce").fillna(0.0) * oi_eff
     else:
         raise ValueError(f"unknown greek: {greek!r}")
     sign = df["cp"].astype(str).str.upper().str[0].map({"C": 1.0, "P": -1.0}).fillna(0.0)
@@ -111,6 +142,24 @@ def session_date(frame: pd.DataFrame) -> object | None:
     if frame is None or frame.empty or "ts" not in frame.columns:
         return None
     return pd.Timestamp(frame["ts"].max()).date()
+
+
+def available_expiries(frame: pd.DataFrame) -> list[object]:
+    """Sorted distinct expiration dates present in the frame."""
+    if frame is None or frame.empty or "expiry" not in frame.columns:
+        return []
+    exp = pd.to_datetime(frame["expiry"], errors="coerce").dt.date.dropna()
+    return sorted(set(exp))
+
+
+def filter_to_expiries(frame: pd.DataFrame, expiries: list[object]) -> pd.DataFrame:
+    """Keep only rows whose expiry is in ``expiries``. Empty list = no filter."""
+    if frame is None or frame.empty or "expiry" not in frame.columns:
+        return frame
+    if not expiries:
+        return frame
+    exp = pd.to_datetime(frame["expiry"], errors="coerce").dt.date
+    return frame[exp.isin(set(expiries))]
 
 
 def filter_expiry_scope(frame: pd.DataFrame, scope: str, *, ref: object | None = None) -> pd.DataFrame:
