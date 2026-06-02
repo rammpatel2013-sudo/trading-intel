@@ -50,11 +50,12 @@ This file is the rulebook for any AI coding assistant (Claude, GPT, Cursor, Copi
 - `pytest` must pass before any merge to `main`.
 - GitHub Actions enforces this — but check locally first: `pytest -q`.
 
-### 7. Cost-aware Claude usage
-- Default model: `claude-sonnet-4-6`.
-- Reserve `claude-opus-4-6` for weekly synthesis (`scheduler/jobs/weekly_themes.py`) and high-stakes ad-hoc analysis.
-- Log token usage to `am_summaries.tokens_used` (and analog for other Claude calls).
-- For chunk tagging during PDF ingestion: batch and use `sonnet`.
+### 7. Cost-aware LLM usage
+- Default LLM provider is **local Ollama** via the `LLMProvider` Protocol in `synthesis/llm.py`. Scheduled jobs (AM summary, weekly synthesis, chunk tagging, embeddings) use the model knobs on `Settings`: `LLM_DAILY_MODEL`, `LLM_WEEKLY_MODEL`, `LLM_TAGGING_MODEL`, `EMBEDDING_MODEL`. No Anthropic / OpenAI calls in any scheduled path.
+- Ad-hoc conversational analysis lives in **Claude Desktop**, talking to the MCP server in `trading_intel/mcp/`. The MCP tools run locally and return structured data; Claude Desktop does the chat reasoning. The MCP server itself never calls a cloud LLM.
+- If a cloud LLM ever becomes necessary (e.g., a capability local models can't hit), it must be added as a new `LLMProvider` implementation behind the same Protocol and **require an ADR in `docs/decisions/`**. Treat cloud LLM addition with the same gravity as adding a new vendor (rule 1 spirit).
+- Log per-call metadata to `am_summaries.tokens_used` and the analog field on other LLM-using tables. Even at $0, latency and output-length drift matter — track them.
+- For chunk tagging during PDF ingestion: batch and use `LLM_TAGGING_MODEL` (smallest of the three Ollama models — currently `qwen2.5:7b`).
 
 ---
 
@@ -183,6 +184,7 @@ Example pushback:
 | Migration drift | `alembic current` vs. `alembic heads` |
 | Discord alerts not sending | `clients/discord.py` + webhook URL in `.env` |
 | Wrong AM summary content | `synthesis/am_summary.py` + recent rows in `am_summaries` table |
+| MCP tool returns wrong shape / Claude Desktop missing tools | `trading_intel/mcp/server.py` (composition root) + `mcp/tools.py` (tool functions) — server runs locally; restart Claude Desktop to re-register tools |
 
 ---
 

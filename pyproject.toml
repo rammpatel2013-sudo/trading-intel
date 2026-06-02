@@ -42,6 +42,7 @@ dependencies = [
     "plotly>=5.22",
     "fastapi>=0.111",               # Phase 6+
     "uvicorn[standard]>=0.30",      # Phase 6+
+    "fastmcp>=2.0",                 # MCP server for Claude Desktop integration
 
     # PDF + RAG
     "pypdf>=4.3",
@@ -75,6 +76,7 @@ dev = [
 
 [project.scripts]
 trading-intel-scheduler = "trading_intel.scheduler.runner:main"
+trading-intel-mcp = "trading_intel.mcp.server:main"
 
 [tool.setuptools.packages.find]
 include = ["trading_intel*"]

@@ -5,17 +5,25 @@ Single source of truth. Instantiate Settings() once at the composition root
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Anchor .env at the repo root (this file is trading_intel/config.py) so settings
+# load no matter the current working directory. Critical for the MCP server, which
+# Claude Desktop launches from its own cwd — a relative ".env" would not be found,
+# and the required fields below would raise a startup ValidationError. Real env
+# vars still take precedence over the file.
+_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
     """All app configuration, loaded from .env (or environment variables)."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
