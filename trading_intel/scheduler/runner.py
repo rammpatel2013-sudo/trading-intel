@@ -24,8 +24,10 @@ from trading_intel.scheduler.jobs import (
     prune_intraday,
     prune_live_gex,
     prune_oi_chain,
+    prune_tas_prints,
     quotes_daily,
     skew_snapshots,
+    tas_capture_job,
     vix_options,
     vix_snapshot,
     vol_regime,
@@ -128,6 +130,14 @@ def main() -> None:
         with session_factory() as session:
             prune_live_gex.run(session, settings=settings)
 
+    def run_tas_capture() -> None:
+        with session_factory() as session:
+            tas_capture_job.run(session, source, settings=settings)
+
+    def run_prune_tas_prints() -> None:
+        with session_factory() as session:
+            prune_tas_prints.run(session, settings=settings)
+
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
     # Greeks snapshot — 06:45 ET pre-market (see MEMORY.md schedule).
@@ -209,6 +219,15 @@ def main() -> None:
         name="live_gex",
     )
     scheduler.add_job(run_prune_live_gex, "cron", hour=2, minute=30, name="prune_live_gex")
+    # Market-wide option tape capture — every minute during RTH (self-guards to
+    # 09:30-16:00 weekdays). The unique print key dedupes overlap between polls.
+    # On the NAS this is a separate DSM task (runner cron is ignored there).
+    scheduler.add_job(
+        run_tas_capture, "cron", day_of_week="mon-fri", hour="9-16", minute="*",
+        name="tas_capture",
+    )
+    # Prune raw tas_prints older than TAS_RETENTION_DAYS (default 30) — 02:40 ET.
+    scheduler.add_job(run_prune_tas_prints, "cron", hour=2, minute=40, name="prune_tas_prints")
 
     log.info("Scheduler started. Jobs registered: %d", len(scheduler.get_jobs()))
     scheduler.start()

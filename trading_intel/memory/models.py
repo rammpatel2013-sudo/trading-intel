@@ -648,6 +648,50 @@ class FlowSnapshot(Base):
     packages: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
 
 
+# ── Options time & sales (Phase 3 — NAS tape capture) ──────────────────
+
+
+class TasPrint(Base):
+    """One large option print captured from the market-wide time-and-sales tape.
+
+    The ``tas`` feed is live-only and market-wide; the NAS ``tas_capture_job``
+    polls it during RTH, keeps prints with ``notional >= TAS_MIN_PREMIUM`` and
+    upserts them here (one decoded row per print). ``symbol`` is the raw Convex
+    contract (``.NVDA260619C230``); ``root``/``expiry``/``strike``/``cp`` are the
+    decoded fields. Raw prints are pruned at ``TAS_RETENTION_DAYS`` (the small
+    per-day roll-up is kept long-term). Descriptive flow only — never a signal
+    (FlashAlpha rule 4). Idempotent via the natural print key.
+    """
+
+    __tablename__ = "tas_prints"
+    __table_args__ = (
+        UniqueConstraint(
+            "ts", "symbol", "price", "size", "source", name="uq_tas_prints"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime)  # when we pulled it (ET)
+    ts: Mapped[datetime] = mapped_column(DateTime)  # vendor print time
+    trade_date: Mapped[date] = mapped_column(Date)  # session day (grouping / prune)
+    symbol: Mapped[str] = mapped_column(String(32))  # raw contract, e.g. .NVDA260619C230
+    root: Mapped[str | None] = mapped_column(String(16))
+    expiry: Mapped[date | None] = mapped_column(Date)
+    strike: Mapped[float | None] = mapped_column(Float)
+    cp: Mapped[str | None] = mapped_column(String(1))  # 'C' or 'P'
+    side: Mapped[str | None] = mapped_column(String(8))  # buy / sell / mid / unknown
+    price: Mapped[float | None] = mapped_column(Float)
+    size: Mapped[int | None] = mapped_column(Integer)
+    notional: Mapped[float | None] = mapped_column(Float)  # price * size * 100
+    spot: Mapped[float | None] = mapped_column(Float)
+    delta: Mapped[float | None] = mapped_column(Float)
+    gamma: Mapped[float | None] = mapped_column(Float)
+    vega: Mapped[float | None] = mapped_column(Float)
+    theta: Mapped[float | None] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
+
+
 # ── Dynamic (research-driven) watchlist ────────────────────────────────
 
 
