@@ -81,7 +81,12 @@ def load_csv(path: Path, *, as_of: date) -> pd.DataFrame:
     df["delta"] = pd.to_numeric(df.get("delta"), errors="coerce")
     df["spot"] = pd.to_numeric(df.get("spot"), errors="coerce")
     df["side"] = df.get("side", "unknown").astype(str).str.lower()
-    df["ts"] = pd.to_datetime(df.get("time"), errors="coerce")
+    ts = pd.to_datetime(df.get("time"), errors="coerce")
+    try:  # the tape stamps tz-aware times (-04:00); Excel needs tz-naive
+        ts = ts.dt.tz_localize(None)
+    except (TypeError, AttributeError):
+        pass
+    df["ts"] = ts
 
     df["dte"] = df["expiry"].map(lambda e: (e - as_of).days if isinstance(e, date) else None)
     is_call = df["cp"] == "C"
@@ -372,6 +377,10 @@ def write_workbook(path: Path, sheets: dict[str, pd.DataFrame]) -> None:
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         for name, frame in sheets.items():
             safe = frame if frame is not None and not frame.empty else pd.DataFrame({"": []})
+            safe = safe.copy()
+            for col in safe.columns:  # Excel can't store tz-aware datetimes
+                if isinstance(safe[col].dtype, pd.DatetimeTZDtype):
+                    safe[col] = safe[col].dt.tz_localize(None)
             safe.to_excel(writer, sheet_name=name[:31], index=False)
             ws = writer.sheets[name[:31]]
             ws.freeze_panes = "A2"

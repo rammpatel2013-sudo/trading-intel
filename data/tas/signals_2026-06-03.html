@@ -1,0 +1,115 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>TAS x GEX signals — 2026-06-03</title><style>
+    body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0f1115;color:#e6e8eb}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    h1{font-size:22px;margin:0 0 4px} .sub{color:#9aa4b2;margin:0 0 20px;font-size:13px}
+    .stats{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+    .stat{background:#171a21;border:1px solid #232833;border-radius:10px;padding:12px 16px}
+    .stat b{display:block;font-size:20px} .stat span{color:#9aa4b2;font-size:12px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+    .card{background:#171a21;border:1px solid #232833;border-left:4px solid #4b5563;border-radius:10px;padding:14px}
+    .card.bull{border-left-color:#16a34a} .card.bear{border-left-color:#dc2626}
+    .card-h{display:flex;justify-content:space-between;align-items:center} .card-h h3{margin:0;font-size:17px}
+    .note{color:#cbd5e1;font-size:13px;line-height:1.45;margin:8px 0 10px}
+    .card table{width:100%;border-collapse:collapse;font-size:12.5px}
+    .card th{text-align:left;color:#8b94a3;font-weight:500;padding:2px 0;width:46%}
+    .card td{text-align:right;padding:2px 0}
+    .badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+    .badge.bull{background:#0c2a1a;color:#4ade80} .badge.bear{background:#2a0f10;color:#f87171} .badge.neu{background:#22262e;color:#9aa4b2}
+    h2{margin:28px 0 10px;font-size:16px;border-bottom:1px solid #232833;padding-bottom:6px}
+    table.grid{width:100%;border-collapse:collapse;font-size:12.5px}
+    table.grid th{text-align:left;color:#8b94a3;border-bottom:1px solid #232833;padding:6px 8px}
+    table.grid td{padding:5px 8px;border-bottom:1px solid #181b22}
+    .muted{color:#6b7280;font-size:13px}
+    .disc{margin-top:30px;color:#6b7280;font-size:11.5px;line-height:1.5;border-top:1px solid #232833;padding-top:14px}
+    </style></head><body><div class="wrap">
+<h1>Options-flow × gamma confluence — 2026-06-03</h1>
+<p class="sub">Generated from data/tas/2026-06-03.csv joined with our stored GEX/wall/regime data. Descriptive research, not trade signals.</p>
+<div class="stats">
+  <div class="stat"><b>1,378</b><span>prints</span></div>
+  <div class="stat"><b>178</b><span>tickers</span></div>
+  <div class="stat"><b>$263,091,490</b><span>total premium</span></div>
+  <div class="stat"><b>$-1,108,500,876</b><span>net market $delta</span></div>
+</div>
+<h2>Top confluence ideas (tracked names — flow + our gamma backdrop)</h2>
+<div class="cards">
+    <div class="card bear">
+      <div class="card-h"><h3>SPX</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow but LONG-gamma regime dampens volatility; the put wall ~7600 likely acts as resistance/pin.</p>
+      <table><tr><th>Premium</th><td>$120,426,768 &nbsp;<small>76 prints</small></td></tr><tr><th>Calls / Puts</th><td>$59,393,928 / $61,032,840</td></tr><tr><th>Net $delta</th><td>$-1,063,900,235</td></tr><tr><th>Buy %</th><td>37%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>7609.78 / 7573.195913765068</td></tr><tr><th>Gamma regime</th><td>LONG γ (dampening)</td></tr><tr><th>Net GEX</th><td>$138</td></tr><tr><th>Call wall / Put wall</th><td>7600.0 / 7600.0</td></tr><tr><th>ATM IV</th><td>13%</td></tr></table>
+    </div>
+    <div class="card bear">
+      <div class="card-h"><h3>TSLA</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow but LONG-gamma regime dampens volatility; the put wall ~400 likely acts as resistance/pin.</p>
+      <table><tr><th>Premium</th><td>$7,024,897 &nbsp;<small>81 prints</small></td></tr><tr><th>Calls / Puts</th><td>$3,718,517 / $3,306,380</td></tr><tr><th>Net $delta</th><td>$-1,170,727</td></tr><tr><th>Buy %</th><td>58%</td></tr><tr><th>Short-dated OTM</th><td>5% of premium</td></tr><tr><th>Spot / Flip</th><td>417.8873 / 409.0896387451712</td></tr><tr><th>Gamma regime</th><td>LONG γ (dampening)</td></tr><tr><th>Net GEX</th><td>$525</td></tr><tr><th>Call wall / Put wall</th><td>450.0 / 400.0</td></tr><tr><th>ATM IV</th><td>52%</td></tr></table>
+    </div>
+    <div class="card bull">
+      <div class="card-h"><h3>AMD</h3><span class="badge bull">BULLISH</span></div>
+      <p class="note">Bullish flow; no gamma-flip read stored for this name yet.</p>
+      <table><tr><th>Premium</th><td>$6,785,499 &nbsp;<small>55 prints</small></td></tr><tr><th>Calls / Puts</th><td>$3,864,588 / $2,920,911</td></tr><tr><th>Net $delta</th><td>$6,960,567</td></tr><tr><th>Buy %</th><td>41%</td></tr><tr><th>Short-dated OTM</th><td>1% of premium</td></tr><tr><th>Spot / Flip</th><td>535.9836 / —</td></tr><tr><th>Gamma regime</th><td>n/a</td></tr><tr><th>Net GEX</th><td>$393</td></tr><tr><th>Call wall / Put wall</th><td>600.0 / 450.0</td></tr><tr><th>ATM IV</th><td>77%</td></tr></table>
+    </div>
+    <div class="card bull">
+      <div class="card-h"><h3>QQQ</h3><span class="badge bull">BULLISH</span></div>
+      <p class="note">Bullish flow but LONG-gamma regime dampens volatility; the call wall ~750 likely acts as resistance/pin.</p>
+      <table><tr><th>Premium</th><td>$5,430,279 &nbsp;<small>47 prints</small></td></tr><tr><th>Calls / Puts</th><td>$2,470,143 / $2,960,136</td></tr><tr><th>Net $delta</th><td>$4,246,589</td></tr><tr><th>Buy %</th><td>78%</td></tr><tr><th>Short-dated OTM</th><td>9% of premium</td></tr><tr><th>Spot / Flip</th><td>747.1 / 744.2122853268834</td></tr><tr><th>Gamma regime</th><td>LONG γ (dampening)</td></tr><tr><th>Net GEX</th><td>$1,375</td></tr><tr><th>Call wall / Put wall</th><td>750.0 / 700.0</td></tr><tr><th>ATM IV</th><td>26%</td></tr></table>
+    </div>
+    <div class="card bull">
+      <div class="card-h"><h3>NVDA</h3><span class="badge bull">BULLISH</span></div>
+      <p class="note">Bullish flow but LONG-gamma regime dampens volatility; the call wall ~225 likely acts as resistance/pin.</p>
+      <table><tr><th>Premium</th><td>$5,304,456 &nbsp;<small>46 prints</small></td></tr><tr><th>Calls / Puts</th><td>$3,286,551 / $2,017,905</td></tr><tr><th>Net $delta</th><td>$4,938,244</td></tr><tr><th>Buy %</th><td>43%</td></tr><tr><th>Short-dated OTM</th><td>5% of premium</td></tr><tr><th>Spot / Flip</th><td>221.2544 / 209.05708738087424</td></tr><tr><th>Gamma regime</th><td>LONG γ (dampening)</td></tr><tr><th>Net GEX</th><td>$7,908</td></tr><tr><th>Call wall / Put wall</th><td>225.0 / 200.0</td></tr><tr><th>ATM IV</th><td>46%</td></tr></table>
+    </div>
+    <div class="card bear">
+      <div class="card-h"><h3>AAPL</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow but LONG-gamma regime dampens volatility; the put wall ~300 likely acts as resistance/pin.</p>
+      <table><tr><th>Premium</th><td>$3,601,429 &nbsp;<small>27 prints</small></td></tr><tr><th>Calls / Puts</th><td>$3,353,379 / $248,050</td></tr><tr><th>Net $delta</th><td>$-16,250,865</td></tr><tr><th>Buy %</th><td>41%</td></tr><tr><th>Short-dated OTM</th><td>2% of premium</td></tr><tr><th>Spot / Flip</th><td>314.2 / 300.47299402932464</td></tr><tr><th>Gamma regime</th><td>LONG γ (dampening)</td></tr><tr><th>Net GEX</th><td>$4,735</td></tr><tr><th>Call wall / Put wall</th><td>320.0 / 300.0</td></tr><tr><th>ATM IV</th><td>29%</td></tr></table>
+    </div>
+    <div class="card bear">
+      <div class="card-h"><h3>GOOGL ⭐</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow into a SHORT-gamma regime — dealer hedging amplifies moves; a push down can feed on itself toward the put wall ~360.</p>
+      <table><tr><th>Premium</th><td>$2,858,815 &nbsp;<small>25 prints</small></td></tr><tr><th>Calls / Puts</th><td>$1,678,799 / $1,180,016</td></tr><tr><th>Net $delta</th><td>$-5,895,197</td></tr><tr><th>Buy %</th><td>37%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>360.8857 / 366.6133122282132</td></tr><tr><th>Gamma regime</th><td>SHORT γ (amplifying)</td></tr><tr><th>Net GEX</th><td>$-367</td></tr><tr><th>Call wall / Put wall</th><td>400.0 / 360.0</td></tr><tr><th>ATM IV</th><td>38%</td></tr></table>
+    </div>
+    <div class="card bear">
+      <div class="card-h"><h3>SPY ⭐</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow into a SHORT-gamma regime — dealer hedging amplifies moves; a push down can feed on itself toward the put wall ~740.</p>
+      <table><tr><th>Premium</th><td>$2,830,402 &nbsp;<small>40 prints</small></td></tr><tr><th>Calls / Puts</th><td>$997,359 / $1,833,043</td></tr><tr><th>Net $delta</th><td>$-68,560,497</td></tr><tr><th>Buy %</th><td>65%</td></tr><tr><th>Short-dated OTM</th><td>4% of premium</td></tr><tr><th>Spot / Flip</th><td>758.421 / 760.041746501424</td></tr><tr><th>Gamma regime</th><td>SHORT γ (amplifying)</td></tr><tr><th>Net GEX</th><td>$-4,172</td></tr><tr><th>Call wall / Put wall</th><td>760.0 / 740.0</td></tr><tr><th>ATM IV</th><td>17%</td></tr></table>
+    </div>
+    <div class="card bear">
+      <div class="card-h"><h3>MSFT</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow but LONG-gamma regime dampens volatility; the put wall ~420 likely acts as resistance/pin.</p>
+      <table><tr><th>Premium</th><td>$1,227,635 &nbsp;<small>17 prints</small></td></tr><tr><th>Calls / Puts</th><td>$948,910 / $278,725</td></tr><tr><th>Net $delta</th><td>$-4,502,889</td></tr><tr><th>Buy %</th><td>26%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>436.9914 / 421.51028595526935</td></tr><tr><th>Gamma regime</th><td>LONG γ (dampening)</td></tr><tr><th>Net GEX</th><td>$597</td></tr><tr><th>Call wall / Put wall</th><td>450.0 / 420.0</td></tr><tr><th>ATM IV</th><td>43%</td></tr></table>
+    </div>
+    <div class="card bull">
+      <div class="card-h"><h3>AMZN ⭐</h3><span class="badge bull">BULLISH</span></div>
+      <p class="note">Bullish flow into a SHORT-gamma regime — dealer hedging amplifies moves; a push up can feed on itself toward the call wall ~270.</p>
+      <table><tr><th>Premium</th><td>$979,049 &nbsp;<small>22 prints</small></td></tr><tr><th>Calls / Puts</th><td>$979,049 / $0</td></tr><tr><th>Net $delta</th><td>$1,746,031</td></tr><tr><th>Buy %</th><td>52%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>255.9844 / 256.68840585551146</td></tr><tr><th>Gamma regime</th><td>SHORT γ (amplifying)</td></tr><tr><th>Net GEX</th><td>$-78</td></tr><tr><th>Call wall / Put wall</th><td>270.0 / 255.0</td></tr><tr><th>ATM IV</th><td>36%</td></tr></table>
+    </div>
+    <div class="card bear">
+      <div class="card-h"><h3>META</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow but LONG-gamma regime dampens volatility; the put wall ~600 likely acts as resistance/pin.</p>
+      <table><tr><th>Premium</th><td>$733,916 &nbsp;<small>17 prints</small></td></tr><tr><th>Calls / Puts</th><td>$503,336 / $230,580</td></tr><tr><th>Net $delta</th><td>$-16,170,126</td></tr><tr><th>Buy %</th><td>45%</td></tr><tr><th>Short-dated OTM</th><td>11% of premium</td></tr><tr><th>Spot / Flip</th><td>599.9672 / 598.677103708446</td></tr><tr><th>Gamma regime</th><td>LONG γ (dampening)</td></tr><tr><th>Net GEX</th><td>$66</td></tr><tr><th>Call wall / Put wall</th><td>650.0 / 600.0</td></tr><tr><th>ATM IV</th><td>40%</td></tr></table>
+    </div>
+    <div class="card bull">
+      <div class="card-h"><h3>IBM</h3><span class="badge bull">BULLISH</span></div>
+      <p class="note">Bullish flow; no gamma-flip read stored for this name yet.</p>
+      <table><tr><th>Premium</th><td>$728,094 &nbsp;<small>13 prints</small></td></tr><tr><th>Calls / Puts</th><td>$609,044 / $119,050</td></tr><tr><th>Net $delta</th><td>$183,603</td></tr><tr><th>Buy %</th><td>60%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>320.4897 / —</td></tr><tr><th>Gamma regime</th><td>n/a</td></tr><tr><th>Net GEX</th><td>$166</td></tr><tr><th>Call wall / Put wall</th><td>350.0 / 275.0</td></tr><tr><th>ATM IV</th><td>67%</td></tr></table>
+    </div>
+    <div class="card bear">
+      <div class="card-h"><h3>NOW</h3><span class="badge bear">BEARISH</span></div>
+      <p class="note">Bearish flow; no gamma-flip read stored for this name yet.</p>
+      <table><tr><th>Premium</th><td>$402,644 &nbsp;<small>6 prints</small></td></tr><tr><th>Calls / Puts</th><td>$175,644 / $227,000</td></tr><tr><th>Net $delta</th><td>$-1,465,570</td></tr><tr><th>Buy %</th><td>63%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>124.6534 / —</td></tr><tr><th>Gamma regime</th><td>n/a</td></tr><tr><th>Net GEX</th><td>$1,026</td></tr><tr><th>Call wall / Put wall</th><td>120.0 / 120.0</td></tr><tr><th>ATM IV</th><td>77%</td></tr></table>
+    </div>
+    <div class="card bull">
+      <div class="card-h"><h3>ASML</h3><span class="badge bull">BULLISH</span></div>
+      <p class="note">Bullish flow; no gamma-flip read stored for this name yet.</p>
+      <table><tr><th>Premium</th><td>$357,479 &nbsp;<small>5 prints</small></td></tr><tr><th>Calls / Puts</th><td>$357,479 / $0</td></tr><tr><th>Net $delta</th><td>$1,968,403</td></tr><tr><th>Buy %</th><td>58%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>1713.635 / —</td></tr><tr><th>Gamma regime</th><td>n/a</td></tr><tr><th>Net GEX</th><td>$13</td></tr><tr><th>Call wall / Put wall</th><td>1700.0 / 1500.0</td></tr><tr><th>ATM IV</th><td>56%</td></tr></table>
+    </div>
+    <div class="card bull">
+      <div class="card-h"><h3>OKLO</h3><span class="badge bull">BULLISH</span></div>
+      <p class="note">Bullish flow; no gamma-flip read stored for this name yet.</p>
+      <table><tr><th>Premium</th><td>$230,875 &nbsp;<small>3 prints</small></td></tr><tr><th>Calls / Puts</th><td>$190,000 / $40,875</td></tr><tr><th>Net $delta</th><td>$437,089</td></tr><tr><th>Buy %</th><td>82%</td></tr><tr><th>Short-dated OTM</th><td>0% of premium</td></tr><tr><th>Spot / Flip</th><td>72.091 / —</td></tr><tr><th>Gamma regime</th><td>n/a</td></tr><tr><th>Net GEX</th><td>$421</td></tr><tr><th>Call wall / Put wall</th><td>80.0 / 60.0</td></tr><tr><th>ATM IV</th><td>126%</td></tr></table>
+    </div></div>
+<h2>Multi-leg packages (combos)</h2><table class='grid'><tr><th>root</th><th>structure</th><th>n_legs</th><th>total_notional</th><th>legs</th></tr><tr><td>NET</td><td>vertical/spread</td><td>2</td><td>$99,711</td><td>C195 x9, C220 x9</td></tr><tr><td>AVGO</td><td>vertical/spread</td><td>2</td><td>$99,450</td><td>C510 x30, C500 x30</td></tr><tr><td>SPX</td><td>vertical/spread</td><td>2</td><td>$99,140</td><td>P7200 x10, P7550 x4</td></tr><tr><td>INTC</td><td>vertical/spread</td><td>2</td><td>$984,600</td><td>C62 x100, C63 x100</td></tr><tr><td>SPXW</td><td>vertical/spread</td><td>2</td><td>$98,610</td><td>P7495 x10, P7500 x10</td></tr><tr><td>TSLA</td><td>risk-reversal/combo</td><td>2</td><td>$98,540</td><td>C390 x10, P422.5 x28</td></tr><tr><td>SMH</td><td>vertical/spread</td><td>2</td><td>$98,076</td><td>P515 x33, P615 x11</td></tr><tr><td>AMD</td><td>vertical/spread</td><td>2</td><td>$97,652</td><td>C50 x1, C45 x1</td></tr><tr><td>AMD</td><td>vertical/spread</td><td>2</td><td>$97,652</td><td>C50 x1, C45 x1</td></tr><tr><td>QQQ</td><td>vertical/spread</td><td>2</td><td>$97,647</td><td>C740 x33, C750 x33</td></tr><tr><td>SNDK</td><td>vertical/spread</td><td>2</td><td>$97,124</td><td>P1250 x1, P1680 x1</td></tr><tr><td>QCOM</td><td>vertical/spread</td><td>2</td><td>$97,100</td><td>C250 x10, C240 x10</td></tr></table>
+<h2>Sweeps (tight-cluster aggression)</h2><table class='grid'><tr><th>root</th><th>strike</th><th>cp</th><th>side</th><th>n_prints</th><th>total_size</th><th>total_notional</th></tr><tr><td>AMZN</td><td>270</td><td>C</td><td>buy</td><td>8</td><td>300</td><td>$313,500</td></tr><tr><td>GLXY</td><td>22.5</td><td>C</td><td>buy</td><td>7</td><td>798</td><td>$535,752</td></tr><tr><td>GLXY</td><td>30</td><td>C</td><td>sell</td><td>7</td><td>798</td><td>$576,958</td></tr><tr><td>LITE</td><td>1050</td><td>P</td><td>buy</td><td>6</td><td>77</td><td>$719,180</td></tr><tr><td>SPXW</td><td>6425</td><td>P</td><td>sell</td><td>6</td><td>1500</td><td>$8,347,500</td></tr><tr><td>AAPL</td><td>310</td><td>C</td><td>buy</td><td>5</td><td>489</td><td>$542,790</td></tr><tr><td>NET</td><td>220</td><td>C</td><td>sell</td><td>5</td><td>34</td><td>$148,478</td></tr><tr><td>NET</td><td>195</td><td>C</td><td>sell</td><td>5</td><td>34</td><td>$228,208</td></tr><tr><td>TSLA</td><td>325</td><td>P</td><td>sell</td><td>5</td><td>464</td><td>$648,208</td></tr><tr><td>SPX</td><td>7300</td><td>C</td><td>sell</td><td>4</td><td>750</td><td>$40,149,000</td></tr><tr><td>NVDA</td><td>230</td><td>C</td><td>sell</td><td>4</td><td>201</td><td>$154,316</td></tr><tr><td>SPX</td><td>7800</td><td>C</td><td>sell</td><td>4</td><td>750</td><td>$16,071,000</td></tr></table>
+<h2>Largest blocks</h2><table class='grid'><tr><th>root</th><th>expiry</th><th>strike</th><th>cp</th><th>side</th><th>size</th><th>notional</th><th>dte</th></tr><tr><td>SPX</td><td>2026-10-16</td><td>7300.0</td><td>C</td><td>sell</td><td>375</td><td>$20,074,500</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7800.0</td><td>P</td><td>buy</td><td>375</td><td>$13,127,250</td><td>135</td></tr><tr><td>SPX</td><td>2026-12-18</td><td>6100.0</td><td>P</td><td>sell</td><td>1500</td><td>$11,602,500</td><td>198</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7800.0</td><td>C</td><td>sell</td><td>375</td><td>$8,035,500</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7300.0</td><td>P</td><td>buy</td><td>375</td><td>$6,705,000</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7300.0</td><td>C</td><td>sell</td><td>125</td><td>$6,691,500</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7300.0</td><td>C</td><td>sell</td><td>125</td><td>$6,691,500</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7300.0</td><td>C</td><td>sell</td><td>125</td><td>$6,691,500</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7800.0</td><td>P</td><td>buy</td><td>125</td><td>$4,375,750</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7800.0</td><td>P</td><td>buy</td><td>125</td><td>$4,375,750</td><td>135</td></tr><tr><td>SPX</td><td>2026-10-16</td><td>7800.0</td><td>P</td><td>buy</td><td>125</td><td>$4,375,750</td><td>135</td></tr><tr><td>WDAY</td><td>2027-01-15</td><td>145.0</td><td>P</td><td>sell</td><td>1350</td><td>$3,361,500</td><td>226</td></tr></table>
+<p class="disc"><b>Not investment advice.</b> This is a descriptive confluence scan: it pairs aggressive option flow with our stored dealer-gamma regime (FlashAlpha rule 4 — GEX is a regime descriptor, not a signal). A ⭐ marks directional flow landing in a short-gamma (move-amplifying) regime; it is a place to look, not a recommendation. Gamma data is end-of-prior-day; flow is intraday. Do your own analysis and manage risk.</p>
+</div></body></html>
