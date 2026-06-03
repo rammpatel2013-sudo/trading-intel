@@ -8,17 +8,23 @@ FastMCP involved here.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 
+import pandas as pd
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings
 from trading_intel.mcp import tools
-from trading_intel.memory.models import AmSummary, WatchlistEntry
+from trading_intel.memory.models import (
+    AmSummary,
+    GreeksSnapshot,
+    QuoteDaily,
+    WatchlistEntry,
+)
 
-_TABLES = (AmSummary, WatchlistEntry)
+_TABLES = (AmSummary, WatchlistEntry, GreeksSnapshot, QuoteDaily)
 
 
 class StubLLM:
@@ -161,3 +167,89 @@ def test_search_knowledge_clamps_k() -> None:
     assert result["k"] == 20  # _MAX_K
     assert captured["k"] == 20
     assert captured["kind"] == "methodology"
+
+
+def test_get_gamma_history_empty(session: Session) -> None:
+    result = tools.get_gamma_history(session, "NVDA", days=30)
+    assert result == {"symbol": "NVDA", "rows": [], "count": 0, "found": False}
+
+
+def test_get_gamma_history_series_and_summary(session: Session) -> None:
+    # three daily snapshots, rising net GEX, spot above flip (long gamma)
+    for i, gex in enumerate((100.0, 200.0, 300.0)):
+        session.add(
+            GreeksSnapshot(
+                symbol="NVDA", ts=datetime(2026, 6, 1 + i, 6, 45),
+                spot=230.0, gex_total=gex, gex_flip=210.0, atm_iv=0.6,
+            )
+        )
+    session.commit()
+
+    result = tools.get_gamma_history(session, "nvda", days=30)
+    assert result["found"] is True
+    assert result["count"] == 3
+    assert result["summary"]["current_gex"] == 300.0
+    assert result["summary"]["start_gex"] == 100.0
+    assert result["summary"]["direction"] == "up"
+    assert "long gamma" in result["rows"][-1]["regime"]
+
+
+def test_get_technicals_empty(session: Session) -> None:
+    result = tools.get_technicals(session, "NVDA", days=120)
+    assert result == {"symbol": "NVDA", "found": False, "indicators": None}
+
+
+def test_get_technicals_computes_pure_pandas_indicators(session: Session) -> None:
+    # 30 ascending bars -> RSI/SMA/EMA computable without the 'ta' library
+    for i in range(30):
+        px = 100.0 + i
+        session.add(
+            QuoteDaily(
+                symbol="NVDA", date=date(2026, 5, 1) + timedelta(days=i),
+                open=px - 0.5, high=px + 1.0, low=px - 1.0, close=px, volume=1_000 + i,
+            )
+        )
+    session.commit()
+
+    result = tools.get_technicals(session, "NVDA", days=120)
+    assert result["found"] is True
+    assert result["bars"] == 30
+    assert result["indicators"]["rsi14"] is not None
+    assert result["indicators"]["sma20"] is not None
+    assert isinstance(result["candlestick_patterns"], list)
+
+
+class _StubSource:
+    """Minimal OptionsDataSource stand-in returning a fixed tape frame."""
+
+    def __init__(self, df: pd.DataFrame) -> None:
+        self._df = df
+
+    def time_and_sales(self, symbol: str, *, limit: int = 200, day: int = 0) -> pd.DataFrame:
+        return self._df
+
+
+def test_get_time_and_sales_summarizes_live_prints() -> None:
+    df = pd.DataFrame(
+        {
+            "time": [pd.Timestamp("2026-06-02 15:30")],
+            "opt_kind": ["call"], "strike": [230.0],
+            "expiration": [pd.Timestamp("2026-06-19")],
+            "price": [2.5], "size": [100.0], "premium": [250000.0],
+            "aggressor_side": ["buy"], "iv": [0.6], "delta": [0.5], "spot": [228.0],
+        }
+    )
+    out = tools.get_time_and_sales(_StubSource(df), "nvda", limit=10)
+    assert out["found"] is True
+    assert out["live_prints"] is True
+    assert out["rows"][0]["premium"] == 250000.0
+    assert out["rows"][0]["side"] == "buy"
+
+
+def test_get_time_and_sales_flags_after_hours_zeros() -> None:
+    df = pd.DataFrame(
+        {"opt_kind": ["call"], "strike": [230.0], "premium": [0.0], "size": [0.0]}
+    )
+    out = tools.get_time_and_sales(_StubSource(df), "NVDA")
+    assert out["live_prints"] is False
+    assert "after-hours" in out["note"]

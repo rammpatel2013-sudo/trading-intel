@@ -145,6 +145,13 @@ Tunable `.env` knobs (no rebuild needed): `LIVE_GEX_SYMBOLS` (scope down on rate
 - Optional follow-ups (offered, not built): physical "expected hedging shares" composite on page 14;
   OHLC candles / contour lines / full-chain width to match OptionsDepth; vol-richness backtest gate
   (`scripts/backtest_vol_richness.py`) before any `strategies/` promotion; AM-report top-3 vol-richness wiring.
+- **VIX-decomposition history backfill** (migration 0023 family — `vix9d`, `vix3m`, `vix6m`,
+  `vix_term_9d_30d`, `vix_voli_spread`, `vix_spx_beta_60d`, `vvix_vix_ratio`,
+  `vix_options_richness`). Yahoo carries `^VIX9D` / `^VIX3M` / `^VIX6M` daily history; build
+  `scripts/backfill_vix_term.py` to pull those + recompute the derived spreads + β + richness on
+  existing `index_skew_daily` rows (whitelist-upsert per the Nations backfill pattern). Until done,
+  the `TERM` and `VVOL` cards on the Vol Regime page show `unknown` severity and the classifier
+  falls back to `MIXED` whenever those dimensions are needed.
 
 ### Overnight-work review + gap plan (2026-05-27, plan only — nothing built)
 Inventory of what runs off-hours, across 3 scheduling surfaces:

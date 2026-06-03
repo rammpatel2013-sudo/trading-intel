@@ -22,6 +22,29 @@ def list_chart_symbols(session: Session) -> list[str]:
     return sorted(qd | gs)
 
 
+def load_ohlc(session: Session, symbol: str, *, days: int = 180) -> pd.DataFrame:
+    """Per-symbol daily OHLCV frame, oldest first (the most recent ``days`` rows).
+
+    Columns: ``date, open, high, low, close, volume``. Empty frame when the
+    symbol has no stored ``quotes_daily`` history. Descriptive only - rule 4.
+    """
+    rows = list(
+        session.execute(
+            select(
+                QuoteDaily.date, QuoteDaily.open, QuoteDaily.high,
+                QuoteDaily.low, QuoteDaily.close, QuoteDaily.volume,
+            )
+            .where(QuoteDaily.symbol == symbol)
+            .order_by(QuoteDaily.date.desc())
+            .limit(days)
+        ).all()
+    )
+    frame = pd.DataFrame(rows, columns=["date", "open", "high", "low", "close", "volume"])
+    if frame.empty:
+        return frame
+    return frame.iloc[::-1].reset_index(drop=True)  # flip to oldest-first
+
+
 def chart_frame(session: Session, symbol: str, *, rsi_period: int = 14) -> pd.DataFrame:
     """Per-symbol time series: date, close, rv20, rsi, gex, dex, atm_iv, iv_hv.
 

@@ -69,8 +69,17 @@ class OptionsDataSource(Protocol):
         """
         ...
 
-    def time_and_sales(self, symbol: str, *, limit: int = 200) -> pd.DataFrame:
-        """Per-trade time & sales (single sweeps / blocks) for ``symbol``."""
+    def time_and_sales(
+        self, symbol: str | None = None, *, limit: int = 200, day: int = 0
+    ) -> pd.DataFrame:
+        """Per-trade time & sales (single sweeps / blocks).
+
+        Market-wide by default (``symbol=None`` -> every name's prints; the
+        ``symbol`` column identifies each contract). Pass a ``symbol`` to filter
+        to one root. ``day`` selects the session: 0 = today, 1 = prior session,
+        etc. (after the 4pm close today's tape returns zeroed trade fields, and
+        prior sessions are not served - the feed is live-only during RTH).
+        """
         ...
 
     def vix_chain(

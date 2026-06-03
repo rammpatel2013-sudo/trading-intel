@@ -11,7 +11,7 @@ import pytest
 from trading_intel.greeks.surface_panel import next_weekly_expiries, surface_panel
 
 _GRID = [0.05, 0.075, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.475, 0.50]
-_TODAY = date(2026, 5, 6)
+_TODAY = date.today()  # anchor to today so fixture DTEs stay positive (no time-bomb)
 _E1 = _TODAY + timedelta(days=23)  # a "weekly"
 
 

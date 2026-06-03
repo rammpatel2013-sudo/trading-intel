@@ -371,7 +371,7 @@ class ConvexClient(OptionsDataSource):
     # ── Time & sales (per-trade prints) ────────────────────────────────
     def time_and_sales(
         self,
-        symbol: str,
+        symbol: str | None = None,
         *,
         limit: int = 200,
         orderby: str = "value",
@@ -382,18 +382,23 @@ class ConvexClient(OptionsDataSource):
         cols: tuple[str, ...] = _TAS_COLS,
         tz: str = "America/New_York",
     ) -> pd.DataFrame:
-        """Per-trade time & sales for ``symbol`` (single sweeps / blocks).
+        """Per-trade time & sales (single sweeps / blocks).
 
-        Hits ``/api/data/tas`` directly through convexlib's authenticated session
-        cookie (the same call the convexvalue.com/go/tas/ view makes — no runtime
-        token). The response is ``{"data": [<header>, [<rows>]], "meta": {...}}``;
-        row values align to ``cols`` order. The OCC ``symbol`` is parsed into
+        The tas feed is **market-wide**, not per-ticker: ``symbol=None`` (the
+        default) pulls every name's prints (the ``symbol`` column says which
+        contract), matching the convexvalue.com/go/tas/ view; pass a ``symbol``
+        only to filter to one root. ``orderby="value"`` surfaces the biggest
+        premium prints; ``orderby="time"`` is the chronological tape.
+
+        Hits ``/api/data/tas`` through convexlib's authenticated session cookie.
+        The response is ``{"data": [<header>, [<rows>]], "meta": {...}}``; rows
+        align to ``cols`` order. The OCC ``symbol`` is parsed into
         ``root``/``expiration``/``strike``/``opt_kind``; ``value``→``premium`` and
         ``volatility``→``iv`` to match the flow vocabulary.
         """
         payload = {
             "cols": list(cols),
-            "s": [symbol],
+            "s": [symbol] if symbol else [],
             "limit": limit,
             "asc": asc,
             "orderby": orderby,
@@ -403,11 +408,16 @@ class ConvexClient(OptionsDataSource):
         }
         resp = self._timed(lambda: self._tas_post(payload))
         data = resp.get("data") if isinstance(resp, dict) else None
+        empty = pd.DataFrame(columns=[*cols, "root", "expiration", "strike", "opt_kind"])
         if not data or not isinstance(data, list) or len(data) < 2:
-            return pd.DataFrame(columns=[*cols, "root", "expiration", "strike", "opt_kind"])
+            return empty
 
-        header = list(data[0])
+        # Header row can come back null (seen on day>=1 / empty sessions); fall back
+        # to the requested column order, which the rows still align to.
+        header = list(data[0]) if data[0] is not None else list(cols)
         rows = data[1] or []
+        if not rows:
+            return empty
         df = pd.DataFrame(rows, columns=header)
         if df.empty:
             return pd.DataFrame(columns=[*header, "root", "expiration", "strike", "opt_kind"])
