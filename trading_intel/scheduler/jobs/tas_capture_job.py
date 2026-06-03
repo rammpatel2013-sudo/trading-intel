@@ -177,7 +177,9 @@ def run(
         return
 
     try:
-        df = source.time_and_sales(None, limit=limit)
+        # orderby="time" = the chronological tape (every $25k+ print as it prints);
+        # the default "value" would only ever return the premium leaderboard.
+        df = source.time_and_sales(None, limit=limit, orderby="time")
     except TradingIntelError as exc:
         bound.warning("tas_capture.fetch_failed", error=str(exc))
         return

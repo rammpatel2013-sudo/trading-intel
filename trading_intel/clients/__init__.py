@@ -70,7 +70,8 @@ class OptionsDataSource(Protocol):
         ...
 
     def time_and_sales(
-        self, symbol: str | None = None, *, limit: int = 200, day: int = 0
+        self, symbol: str | None = None, *, limit: int = 200, day: int = 0,
+        orderby: str = "value",
     ) -> pd.DataFrame:
         """Per-trade time & sales (single sweeps / blocks).
 
@@ -79,6 +80,8 @@ class OptionsDataSource(Protocol):
         to one root. ``day`` selects the session: 0 = today, 1 = prior session,
         etc. (after the 4pm close today's tape returns zeroed trade fields, and
         prior sessions are not served - the feed is live-only during RTH).
+        ``orderby="value"`` surfaces the biggest-premium prints; ``orderby="time"``
+        is the chronological tape (what a polling flow collector wants).
         """
         ...
 
