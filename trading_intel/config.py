@@ -101,7 +101,8 @@ class Settings(BaseSettings):
 
     # ── Options time & sales capture (Phase 3 NAS tape -> tas_prints) ──
     TAS_MIN_PREMIUM: float = 25_000.0  # keep prints with notional (price*size*100) >= this $
-    TAS_LIMIT: int = 500  # prints pulled per poll
+    TAS_LIMIT: int = 2000  # raw prints pulled per poll (indices flood the tape; pull wide)
+    TAS_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"  # high-volume index roots (covered by other jobs)
     TAS_POLL_INTERVAL: int = 30  # seconds between polls (NAS capture daemon)
     TAS_RETENTION_DAYS: int = 30  # prune raw tas_prints older than this
 

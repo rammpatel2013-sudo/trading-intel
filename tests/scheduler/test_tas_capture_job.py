@@ -86,7 +86,7 @@ def test_decodes_from_vendor_columns(session: Session) -> None:
     df = pd.DataFrame(
         {
             "time": ["2026-06-03T15:55:00"],
-            "root": ["SPY"],
+            "root": ["NFLX"],
             "opt_kind": ["call"],
             "strike": [595.0],
             "expiration": ["2026-06-05"],
@@ -98,10 +98,10 @@ def test_decodes_from_vendor_columns(session: Session) -> None:
     tas_capture_job.run(session, _StubSource(df), settings=_settings(), force=True)
     rows = _rows(session)
     assert len(rows) == 1
-    assert rows[0].root == "SPY"
+    assert rows[0].root == "NFLX"
     assert rows[0].cp == "C"
     assert rows[0].strike == 595.0
-    assert rows[0].symbol == ".SPY260605C595"  # reconstructed from decoded fields
+    assert rows[0].symbol == ".NFLX260605C595"  # reconstructed from decoded fields
 
 
 def test_idempotent_on_rerun(session: Session) -> None:
@@ -123,6 +123,23 @@ def test_zeroed_tape_is_skipped(session: Session) -> None:
     )
     tas_capture_job.run(session, _StubSource(df), settings=_settings(), force=True)
     assert _rows(session) == []
+
+
+def test_excludes_index_roots(session: Session) -> None:
+    # SPX is in the default TAS_EXCLUDE_ROOTS; the single name is kept.
+    df = pd.DataFrame(
+        {
+            "time": ["2026-06-03T13:30:01", "2026-06-03T13:30:02"],
+            "symbol": [".SPX260620C6000", ".NVDA260619C230"],
+            "price": [10.0, 2.50],
+            "size": [100, 600],
+            "aggressor_side": ["buy", "buy"],
+        }
+    )
+    tas_capture_job.run(session, _StubSource(df), settings=_settings(), force=True)
+    rows = _rows(session)
+    assert len(rows) == 1
+    assert rows[0].root == "NVDA"
 
 
 def test_off_hours_guard_blocks_write(session: Session, monkeypatch: pytest.MonkeyPatch) -> None:

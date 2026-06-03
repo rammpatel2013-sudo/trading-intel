@@ -77,7 +77,8 @@ def _norm_cp(value: object) -> str | None:
 
 
 def _row_record(
-    row: pd.Series, *, captured_at: datetime, trade_date: date, min_premium: float
+    row: pd.Series, *, captured_at: datetime, trade_date: date, min_premium: float,
+    exclude: frozenset[str] = frozenset(),
 ) -> dict | None:
     """Build one ``tas_prints`` row from a tape row, or None if it's dropped."""
     price = _f(row.get("price"))
@@ -109,6 +110,8 @@ def _row_record(
         raw = f".{root}{expiry_d:%y%m%d}{cp}{strike:g}"
     if raw is None:
         return None
+    if root is not None and root.upper() in exclude:
+        return None  # high-volume index/ETF roots covered by other jobs
 
     ts = pd.to_datetime(row.get("time"), errors="coerce")
     ts_dt = ts.to_pydatetime() if pd.notna(ts) else captured_at
@@ -139,12 +142,14 @@ def _row_record(
 
 
 def _records(
-    df: pd.DataFrame, *, captured_at: datetime, trade_date: date, min_premium: float
+    df: pd.DataFrame, *, captured_at: datetime, trade_date: date, min_premium: float,
+    exclude: frozenset[str] = frozenset(),
 ) -> list[dict]:
     out: list[dict] = []
     for _, row in df.iterrows():
         rec = _row_record(
-            row, captured_at=captured_at, trade_date=trade_date, min_premium=min_premium
+            row, captured_at=captured_at, trade_date=trade_date,
+            min_premium=min_premium, exclude=exclude,
         )
         if rec is not None:
             out.append(rec)
@@ -168,6 +173,9 @@ def run(
     settings = settings or get_settings()
     min_premium = settings.TAS_MIN_PREMIUM if min_premium is None else min_premium
     limit = settings.TAS_LIMIT if limit is None else limit
+    exclude = frozenset(
+        r.strip().upper() for r in str(settings.TAS_EXCLUDE_ROOTS).split(",") if r.strip()
+    )
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="tas_capture")
 
@@ -197,7 +205,8 @@ def run(
 
     captured_at = now.replace(microsecond=0)
     records = _records(
-        df, captured_at=captured_at, trade_date=now.date(), min_premium=min_premium
+        df, captured_at=captured_at, trade_date=now.date(),
+        min_premium=min_premium, exclude=exclude,
     )
     if not records:
         bound.info("tas_capture.no_qualifying_prints", polled=int(len(df)))
