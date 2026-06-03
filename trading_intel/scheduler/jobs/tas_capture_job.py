@@ -40,8 +40,6 @@ log = structlog.get_logger(__name__)
 _SOURCE = "convex"
 _UQ_COLS = ["ts", "symbol", "price", "size", "source"]
 _INSERT_BATCH = 1000
-_DEFAULT_MIN_PREMIUM = 25_000.0
-_DEFAULT_LIMIT = 500
 _CONTRACT_RE = re.compile(r"^\.?([A-Za-z]+)(\d{6})([CcPp])(\d+(?:\.\d+)?)$")
 
 
@@ -158,12 +156,18 @@ def run(
     source: OptionsDataSource,
     *,
     settings: Settings | None = None,
-    min_premium: float = _DEFAULT_MIN_PREMIUM,
-    limit: int = _DEFAULT_LIMIT,
+    min_premium: float | None = None,
+    limit: int | None = None,
     force: bool = False,
 ) -> None:
-    """Capture one poll of the market-wide tape into ``tas_prints`` (idempotent)."""
+    """Capture one poll of the market-wide tape into ``tas_prints`` (idempotent).
+
+    ``min_premium`` / ``limit`` default to ``Settings.TAS_MIN_PREMIUM`` /
+    ``Settings.TAS_LIMIT`` (both overridable via ``.env``) when not passed.
+    """
     settings = settings or get_settings()
+    min_premium = settings.TAS_MIN_PREMIUM if min_premium is None else min_premium
+    limit = settings.TAS_LIMIT if limit is None else limit
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="tas_capture")
 
