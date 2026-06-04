@@ -68,10 +68,18 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # ── Watchlist ──────────────────────────────────────────────────────
-    WATCHLIST: str = "SPY,QQQ,SPX,AAPL,MSFT,GOOGL,AMZN,META,NVDA,TSLA,AMD,SMCI,PLTR"
+    # Single names only — index ETFs (SPY/QQQ/SPX) intentionally dropped: their
+    # flow/regime is covered elsewhere and they dominate Convex API usage.
+    WATCHLIST: str = "AAPL,MSFT,GOOGL,AMZN,META,NVDA,TSLA,AMD,SMCI,PLTR"
 
-    # ── Intraday 0DTE/1DTE volume flow (focused, 5-min cadence) ────────
-    INTRADAY_SYMBOLS: str = "SPX,SPY,QQQ"
+    # ── Convex API rate limiting (vendor cap: 10 requests/min) ─────────
+    # Per-process token-bucket cap in ConvexClient. Kept under 10 to leave
+    # headroom for the always-on TAS daemon (~2/min) running concurrently.
+    CONVEX_MAX_PER_MIN: int = 7
+
+    # ── Intraday 0DTE/1DTE volume flow (DISABLED — was SPX/SPY/QQQ index) ─
+    # Empty = delta_flow / intraday_flow no-op (index flow removed).
+    INTRADAY_SYMBOLS: str = ""
     INTRADAY_STRIKE_RANGE: float = 0.03  # +/- fraction of spot for the tight 0DTE pull
     INTRADAY_MAX_DTE: int = 1  # keep 0DTE + 1DTE
     INTRADAY_RETENTION_HOURS: int = 48  # prune per-strike 5-min rows older than this

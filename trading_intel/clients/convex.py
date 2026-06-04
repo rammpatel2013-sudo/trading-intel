@@ -16,6 +16,7 @@ the live API (the README is slightly out of date):
 from __future__ import annotations
 
 import re
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -146,6 +147,35 @@ class ClientHealth:
     consecutive_failures: int = 0
 
 
+class _RateGate:
+    """Per-process token bucket — caps outgoing Convex requests/min (vendor: 10).
+
+    All Convex traffic funnels through one ``ConvexClient``, so gating here covers
+    every job. ``acquire`` blocks until a token is available, smoothing bursts
+    (e.g. a per-watchlist EOD loop) under the cap. Thread-safe.
+    """
+
+    def __init__(self, per_min: int) -> None:
+        self.capacity = float(max(1, per_min))
+        self.tokens = self.capacity
+        self.refill_per_sec = self.capacity / 60.0
+        self._updated = time.monotonic()
+        self._lock = threading.Lock()
+
+    def acquire(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            self.tokens = min(self.capacity, self.tokens + (now - self._updated) * self.refill_per_sec)
+            self._updated = now
+            if self.tokens < 1.0:
+                wait = (1.0 - self.tokens) / self.refill_per_sec
+                time.sleep(wait)
+                self.tokens = 0.0
+                self._updated = time.monotonic()
+            else:
+                self.tokens -= 1.0
+
+
 class ConvexClient(OptionsDataSource):
     """Primary data client. Auth is email+password — no token lifecycle."""
 
@@ -159,6 +189,7 @@ class ConvexClient(OptionsDataSource):
             settings.CONVEX_ACCOUNT_TYPE,
         )
         self._health = ClientHealth()
+        self._gate = _RateGate(getattr(settings, "CONVEX_MAX_PER_MIN", 7))
 
     # ── Chain ──────────────────────────────────────────────────────────
     def chain(
@@ -442,6 +473,7 @@ class ConvexClient(OptionsDataSource):
 
     def _tas_post(self, payload: dict) -> object:
         """POST the tas payload via convexlib's session cookie. Verified live."""
+        self._gate.acquire()  # the tape goes through the same rate cap
         sess = self._api.session
         r = sess.post(f"{_CVX_BASE}/api/data/tas", json=payload, timeout=30)
         r.raise_for_status()
@@ -579,6 +611,7 @@ class ConvexClient(OptionsDataSource):
 
     # ── Internal: latency tracking ─────────────────────────────────────
     def _timed(self, fn: Callable[[], object]) -> object:
+        self._gate.acquire()  # respect the Convex 10/min cap (rule: one chokepoint)
         t0 = time.perf_counter()
         try:
             result = fn()
