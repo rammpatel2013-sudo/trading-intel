@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     # ── Watchlist ──────────────────────────────────────────────────────
     # Single names only — index ETFs (SPY/QQQ/SPX) intentionally dropped: their
     # flow/regime is covered elsewhere and they dominate Convex API usage.
-    WATCHLIST: str = "AAPL,MSFT,GOOGL,AMZN,META,NVDA,TSLA,AMD,SMCI,PLTR"
+    WATCHLIST: str = "AAPL,MSFT,GOOGL,AMZN,META,NVDA,AMD,SMCI,MRVL,ZS,BA,DIS"
 
     # ── Convex API rate limiting (vendor cap: 10 requests/min) ─────────
     # Per-process token-bucket cap in ConvexClient. Kept under 10 to leave
