@@ -261,6 +261,19 @@ def build_server(
         with session_factory() as session:
             return et.get_signals(session, symbol, days=days, limit=limit)
 
+    @mcp.tool()
+    def generate_ticker_report(symbol: str, days: int = 180) -> dict[str, Any]:
+        """Generate the full positioning/flow/technicals HTML report for one ticker.
+
+        Builds the standard report (the same one `scripts/ticker_report.py`
+        produces — cards, combined line view, price/skew panels, GEX term, Vol/OI
+        + day-over-day positioning, TAS top prints) and returns the saved HTML
+        path under ``reports/``. Descriptive only (FlashAlpha rule 4).
+        """
+        from trading_intel.reports import build
+
+        return {"symbol": symbol.strip().upper(), "path": build(symbol, days=days), "found": True}
+
     return mcp
 
 
