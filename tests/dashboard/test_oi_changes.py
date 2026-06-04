@@ -44,7 +44,8 @@ def _add(session: Session, ts: datetime, *, strike: float, cp: str, oi: int,
 def test_diff_oi_volume_conversion_and_signed_gex(session: Session):
     prev = datetime(2026, 5, 21, 0, 0, tzinfo=UTC)
     curr = datetime(2026, 5, 22, 0, 0, tzinfo=UTC)
-    # call 7500: OI 1000 -> 1200 (ΔOI +200), volume 400 -> conversion 0.5; gxoi +
+    # call 7500: OI 1000 -> 1200 (ΔOI +200). ΔOI settles T+1, so it reflects the
+    # PRIOR session's trading -> divide by prior volume 300 -> conversion 0.667. gxoi +
     _add(session, prev, strike=7500, cp="C", oi=1000, oi_change=0, volume=300, gxoi=1.0e6)
     _add(session, curr, strike=7500, cp="C", oi=1200, oi_change=150, volume=400, gxoi=1.2e6)
     # put 7400: OI 900 -> 800 (ΔOI -100); gxoi sign flips negative
@@ -57,7 +58,7 @@ def test_diff_oi_volume_conversion_and_signed_gex(session: Session):
 
     call = frame[(frame["strike"] == 7500) & (frame["cp"] == "C")].iloc[0]
     assert call["d_oi"] == pytest.approx(200.0)
-    assert call["conversion"] == pytest.approx(200.0 / 400.0)
+    assert call["conversion"] == pytest.approx(200.0 / 300.0)  # |ΔOI| / prior-session volume
     assert call["d_gex_contrib"] == pytest.approx(1.2e6 - 1.0e6)  # call: +gxoi
     assert call["oi_change_vendor"] == pytest.approx(150.0)
 

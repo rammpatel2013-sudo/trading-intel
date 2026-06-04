@@ -2,9 +2,13 @@
 
 Diffs the two most recent end-of-day per-strike snapshots for a symbol to
 surface, per strike: change in open interest (our own ΔOI = today - yesterday,
-cross-checked against Convex's native ``oi_change``), today's traded volume, how
-much of that volume "stuck" as OI (``conversion`` = |ΔOI| / volume - new
-positioning vs day-trade churn), and each strike's net-signed GEX contribution
+cross-checked against Convex's native ``oi_change``), and how much of the volume
+that PRODUCED that ΔOI "stuck" as new OI (``conversion`` = |ΔOI| / volume — new
+positioning vs day-trade churn). Timing note: OI settles T+1 (published next
+morning), so a snapshot's ΔOI reflects the *prior* session's trading — we divide
+by that session's volume (``volume_prev``), not today's, so the read is aligned.
+``volume`` (today's, pending its own OI print tomorrow) is carried for reference.
+Also each strike's net-signed GEX contribution
 (calls +, puts -, the project convention) plus its day-over-day change. Rolls up
 to total ΔGEX and call-vs-put ΔOI.
 
@@ -29,7 +33,7 @@ _KEYS = ["expiry", "strike", "cp"]
 _FRAME_COLS = [
     "expiry", "strike", "cp",
     "oi_prev", "oi_curr", "d_oi", "oi_change_vendor",
-    "volume", "conversion",
+    "volume_prev", "volume", "conversion",
     "iv_prev", "iv_curr", "d_iv",
     "gex_contrib_prev", "gex_contrib_curr", "d_gex_contrib",
     "positioning",
@@ -125,8 +129,11 @@ def build_oi_change_frame(prev: pd.DataFrame, curr: pd.DataFrame) -> pd.DataFram
         return pd.DataFrame(columns=_FRAME_COLS)
     prev = prev if prev is not None and not prev.empty else pd.DataFrame(columns=curr.columns)
 
-    p = prev[[*_KEYS, "oi", "gex_contrib", "iv"]].rename(
-        columns={"oi": "oi_prev", "gex_contrib": "gex_contrib_prev", "iv": "iv_prev"}
+    p = prev[[*_KEYS, "oi", "gex_contrib", "iv", "volume"]].rename(
+        columns={
+            "oi": "oi_prev", "gex_contrib": "gex_contrib_prev", "iv": "iv_prev",
+            "volume": "volume_prev",
+        }
     )
     c = curr[[*_KEYS, "oi", "oi_change", "volume", "gex_contrib", "iv"]].rename(
         columns={
@@ -138,16 +145,19 @@ def build_oi_change_frame(prev: pd.DataFrame, curr: pd.DataFrame) -> pd.DataFram
 
     for col in ("oi_prev", "gex_contrib_prev"):
         merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0.0)
-    # IV is left as NaN when unknown (a new strike has no prior IV) so ΔIV stays
-    # undefined rather than being treated as a move from zero.
-    for col in ("oi_curr", "oi_change_vendor", "volume", "gex_contrib_curr", "iv_curr", "iv_prev"):
+    # IV/volume_prev left NaN when unknown (a new strike has no prior session) so
+    # ΔIV and conversion stay undefined rather than treated as a move from zero.
+    for col in ("oi_curr", "oi_change_vendor", "volume", "volume_prev",
+                "gex_contrib_curr", "iv_curr", "iv_prev"):
         merged[col] = pd.to_numeric(merged[col], errors="coerce")
 
     merged["d_oi"] = merged["oi_curr"].fillna(0.0) - merged["oi_prev"]
     merged["d_iv"] = merged["iv_curr"] - merged["iv_prev"]
     merged["d_gex_contrib"] = merged["gex_contrib_curr"].fillna(0.0) - merged["gex_contrib_prev"]
-    vol = merged["volume"].where(merged["volume"].fillna(0.0) > 0, np.nan)
-    merged["conversion"] = (merged["d_oi"].abs() / vol).replace([np.inf, -np.inf], np.nan)
+    # ΔOI settles T+1, so it reflects the PRIOR session's trading — divide by that
+    # session's volume (volume_prev), not today's, to time the read correctly.
+    vol_prev = merged["volume_prev"].where(merged["volume_prev"].fillna(0.0) > 0, np.nan)
+    merged["conversion"] = (merged["d_oi"].abs() / vol_prev).replace([np.inf, -np.inf], np.nan)
 
     d_oi, d_iv = merged["d_oi"], merged["d_iv"]
     iv_known = d_iv.notna()
