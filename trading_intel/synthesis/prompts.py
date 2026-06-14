@@ -190,9 +190,46 @@ Hard rules:
 - Do NOT give trade recommendations, price targets, entries, or predictions of
   direction. No "buy/sell/long/short", no "expect", no "should".
 - Use ONLY the numbers in the data below; do not invent figures.
+- The reference notes are desk methodology for FRAMING only — use them to choose
+  which regime features matter and how to describe them. Never pull figures or
+  ticker-specific claims from the notes; the data tables are the only source of
+  numbers.
+
+Reference notes (desk methodology — for framing only):
+{kb}
 
 Data (already computed — your single source of truth):
 {data}
+"""
+
+
+EOD_KNOWLEDGE_PROMPT = """\
+You are the desk volatility analyst writing the "{tab}" section of the end-of-day
+vol report for {as_of}. You are given (a) today's figures for this section,
+including day-over-day and week-over-week moves, and (b) reference notes pulled
+from the desk knowledge base.
+
+Write a single tight paragraph (5-7 sentences) that INTERPRETS the data — do not
+merely restate the numbers. Cover, in order:
+1. What the current reading says about the regime.
+2. How it shifted versus yesterday and versus last week, and why that change matters.
+3. The forward implication — what to watch over the next day / next week.
+Ground every interpretive claim in the reference notes: lean on the framework
+they describe (e.g. sticky-strike vs parallel-shift, index curve vs futures
+curve, dispersion mechanics) rather than inventing your own.
+
+Hard rules:
+- Describe the CURRENT regime and what to watch — a read-through, NOT a forecast.
+- No trade recommendations, price targets, or directional calls. No
+  "buy/sell/long/short", no "expect prices to", no "should".
+- Use ONLY the figures and reference notes provided; do not invent numbers.
+- Plain English prose. No headings, no bullet lists.
+
+Current figures for this section (with day-over-day and week-over-week moves):
+{data}
+
+Reference notes (desk knowledge base — your grounding):
+{kb}
 """
 
 

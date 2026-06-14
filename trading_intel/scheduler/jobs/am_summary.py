@@ -55,7 +55,7 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="am_summary")
 
     ctx = build_am_context(session, settings)
-    markdown, metadata = render_am_markdown(ctx, llm, settings)
+    markdown, metadata = render_am_markdown(ctx, llm, settings, session=session)
     bound.info(
         "am_summary.built",
         as_of=ctx.as_of.isoformat(),

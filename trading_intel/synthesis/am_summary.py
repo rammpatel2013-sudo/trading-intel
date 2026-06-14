@@ -33,6 +33,7 @@ from trading_intel.dashboard.flow_data import load_watchlist_flow
 from trading_intel.dashboard.ticker_data import load_intraday_flow_series
 from trading_intel.dashboard.watchlist_metrics import load_watchlist_metrics
 from trading_intel.memory.models import IndexSkewDaily, SkewSnapshot
+from trading_intel.memory.retrieval import format_kb, retrieve_chunks
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.prompts import AM_SUMMARY_PROMPT
 from trading_intel.timeutils import eastern_now
@@ -44,6 +45,10 @@ log = structlog.get_logger(__name__)
 _INDEX_SYMBOLS = ("SPX", "SPY", "QQQ")
 
 _RULE4_NOTE = "_Regime descriptors only — not trading signals (FlashAlpha rule 4)._"
+
+#: Methodology-grounding retrieval knobs for the AM note (local pgvector + Ollama).
+_KB_K = 6
+_KB_MAX_CHARS = 2600
 
 
 # ── Context dataclasses ────────────────────────────────────────────────
@@ -450,22 +455,90 @@ def render_am_markdown_fallback(ctx: AmContext) -> str:
     )
 
 
+# ── Methodology grounding (RAG over the desk knowledge base) ───────────
+
+
+def build_am_knowledge_query(ctx: AmContext) -> str:
+    """Compose a methodology-retrieval query from today's regime read.
+
+    Deterministic (no LLM): describes the current index regime, index/single-name
+    skew posture, and the dealer-positioning vocabulary so the pgvector search
+    surfaces the most relevant desk frameworks. Used to ground — never to forecast.
+    """
+    parts: list[str] = ["morning options dealer-positioning regime read-through;"]
+    for m in ctx.market:
+        parts.append(f"{m.symbol} {m.gamma_regime}, net GEX {m.gex_dir}, ATM IV regime;")
+    idx = ctx.index_skew
+    if idx is not None:
+        parts.append("index skew Cboe SKEW / SDEX, VIX tail-hedging demand;")
+    if ctx.skew_extremes:
+        buckets = sorted({e.bucket.replace("_", " ") for e in ctx.skew_extremes})
+        parts.append("single-name skew extremes (" + ", ".join(buckets) + ");")
+    parts.append(
+        "gamma vanna charm hedging, flip levels, call/put walls, "
+        "volatility regime classification."
+    )
+    return " ".join(parts)
+
+
+def load_am_kb(
+    session: Session,
+    llm: LLMProvider,
+    query: str,
+    *,
+    k: int = _KB_K,
+    max_chars: int = _KB_MAX_CHARS,
+) -> tuple[str, list[str]]:
+    """Best-effort methodology grounding for the AM note.
+
+    Mirrors the surface/eod-knowledge pattern: retrieve the nearest ``methodology``
+    chunks from the pgvector store (local Ollama ``EMBEDDING_MODEL`` embeddings),
+    then format them as a prompt grounding block. Degrades to ``("", [])`` on any
+    failure so the daily job always still produces a note. Read-only + descriptive
+    (FlashAlpha rule 4); all local, zero cloud cost (rule 7).
+    """
+    if not query.strip():
+        return "", []
+    try:
+        hits = retrieve_chunks(session, llm, query, kind="methodology", k=k)
+    except Exception as exc:  # grounding is best-effort — never block the note
+        log.warning("am_summary.kb_retrieval_failed", error=str(exc))
+        return "", []
+    sources = list(dict.fromkeys(h.title for h in hits))
+    return format_kb(hits, max_chars=max_chars), sources
+
+
 # ── LLM-narrated render ────────────────────────────────────────────────
 
 
 def render_am_markdown(
-    ctx: AmContext, llm: LLMProvider, settings: Settings, *, model: str | None = None
+    ctx: AmContext,
+    llm: LLMProvider,
+    settings: Settings,
+    *,
+    session: Session | None = None,
+    model: str | None = None,
 ) -> tuple[str, dict]:
     """Render the AM report markdown + metadata.
 
-    Asks the LLM for a regime narrative grounded in the deterministic tables,
-    then appends the tables as the data section. If the LLM call fails (e.g.
-    Ollama is down), returns the deterministic tables-only fallback so the daily
-    job still writes a row.
+    Asks the LLM for a regime narrative grounded in the deterministic tables and,
+    when a ``session`` is supplied, in desk-methodology notes retrieved from the
+    pgvector knowledge base (``search_knowledge`` substrate). If the LLM call
+    fails (e.g. Ollama is down), returns the deterministic tables-only fallback so
+    the daily job still writes a row.
     """
     used_model = model or settings.LLM_DAILY_MODEL
     tables = build_tables_markdown(ctx)
-    prompt = AM_SUMMARY_PROMPT.format(as_of=ctx.as_of.isoformat(), data=tables)
+
+    kb_text, kb_sources = ("", [])
+    if session is not None:
+        kb_text, kb_sources = load_am_kb(session, llm, build_am_knowledge_query(ctx))
+
+    prompt = AM_SUMMARY_PROMPT.format(
+        as_of=ctx.as_of.isoformat(),
+        data=tables,
+        kb=kb_text or "(no reference notes found)",
+    )
 
     narrative = ""
     used_llm = False
@@ -476,8 +549,11 @@ def render_am_markdown(
         log.warning("am_summary.llm_failed", error=str(exc))
 
     if used_llm:
+        grounding = (
+            f"\n\n_Research grounding: {', '.join(kb_sources)}._" if kb_sources else ""
+        )
         markdown = (
-            f"# AM Report — {ctx.as_of.isoformat()}\n\n{narrative}\n\n"
+            f"# AM Report — {ctx.as_of.isoformat()}\n\n{narrative}{grounding}\n\n"
             f"---\n\n## Data\n\n{tables}\n\n{_RULE4_NOTE}\n"
         )
     else:
@@ -489,5 +565,7 @@ def render_am_markdown(
         "model": used_model if used_llm else None,
         "n_symbols": len(ctx.watchlist),
         "research_symbols": ctx.research_symbols,
+        "kb_sources": kb_sources,
+        "n_kb_hits": len(kb_sources),
     }
     return markdown, metadata

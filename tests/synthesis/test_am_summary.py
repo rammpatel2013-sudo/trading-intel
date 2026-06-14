@@ -18,12 +18,17 @@ from trading_intel.memory.models import (
     SkewSnapshot,
     WatchlistEntry,
 )
+from trading_intel.memory.retrieval import ChunkHit
+from trading_intel.synthesis import am_summary as am
 from trading_intel.synthesis.am_summary import (
     AmContext,
+    IndexSkewRead,
     MarketRead,
     ResearchTicker,
+    SkewExtreme,
     TickerRegime,
     build_am_context,
+    build_am_knowledge_query,
     render_am_markdown,
     render_am_markdown_fallback,
 )
@@ -211,3 +216,75 @@ def test_fallback_is_self_contained():
     assert md.startswith("# AM Report — 2026-05-23")
     assert "FlashAlpha rule 4" in md
     assert "NVDA" in md
+
+
+# ── Methodology-grounding (search_knowledge wiring) ────────────────────
+
+
+def test_build_knowledge_query_describes_regime():
+    ctx = AmContext(
+        as_of=date(2026, 5, 23),
+        market=[
+            MarketRead(
+                symbol="SPY", spot=735.0, gex_total=1.5e7, gamma_regime="long gamma",
+                atm_iv=0.19, gex_dir="up", gamma_vol=None, vanna_vol=None, charm_vol=None,
+            )
+        ],
+        index_skew=IndexSkewRead(cboe_skew=140.0),
+        skew_extremes=[
+            SkewExtreme(symbol="NVDA", rr_25d=0.04, rr_pctile_252d=0.97,
+                        label=None, bucket="put_bid"),
+        ],
+    )
+    q = build_am_knowledge_query(ctx)
+    assert "SPY long gamma" in q
+    assert "net GEX up" in q
+    assert "index skew" in q.lower()
+    assert "put bid" in q
+    for banned in ("buy", "sell", "target", "expect"):
+        assert banned not in q.lower()
+
+
+def test_render_without_session_skips_kb():
+    llm = StubLLM("CALM")
+    md, meta = render_am_markdown(_ctx(), llm, _settings())
+    assert meta["n_kb_hits"] == 0
+    assert meta["kb_sources"] == []
+    assert "_Research grounding:" not in md
+    assert "(no reference notes found)" in llm.calls[0]
+
+
+def test_render_grounds_narrative_when_kb_hits(monkeypatch):
+    hits = [
+        ChunkHit(chunk_id=1, document_id=7, title="dealer_gamma_playbook",
+                 text="In long-gamma regimes dealers dampen realized vol.", distance=0.1),
+        ChunkHit(chunk_id=2, document_id=7, title="dealer_gamma_playbook",
+                 text="Below the flip, hedging amplifies moves.", distance=0.2),
+        ChunkHit(chunk_id=3, document_id=9, title="skew_term_notes",
+                 text="Steep put-wing skew signals downside hedging demand.", distance=0.3),
+    ]
+    monkeypatch.setattr(am, "retrieve_chunks", lambda *a, **k: hits)
+
+    llm = StubLLM("REGIME NARRATIVE")
+    md, meta = render_am_markdown(_ctx(), llm, _settings(), session=object())
+
+    prompt = llm.calls[0]
+    assert "dampen realized vol" in prompt
+    assert "downside hedging demand" in prompt
+    assert meta["n_kb_hits"] == 2
+    assert meta["kb_sources"] == ["dealer_gamma_playbook", "skew_term_notes"]
+    assert "_Research grounding: dealer_gamma_playbook, skew_term_notes._" in md
+
+
+def test_render_degrades_when_kb_retrieval_raises(monkeypatch):
+    def _boom(*a, **k):
+        raise RuntimeError("pgvector down")
+
+    monkeypatch.setattr(am, "retrieve_chunks", _boom)
+    llm = StubLLM("STILL FINE")
+    md, meta = render_am_markdown(_ctx(), llm, _settings(), session=object())
+
+    assert "STILL FINE" in md
+    assert meta["used_llm"] is True
+    assert meta["n_kb_hits"] == 0
+    assert "(no reference notes found)" in llm.calls[0]

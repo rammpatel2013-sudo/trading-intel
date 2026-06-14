@@ -160,7 +160,7 @@ def rebuild_am_summary(
     "what would the brief look like right now?" queries from Claude Desktop.
     """
     ctx = build_am_context(session, settings)
-    markdown, metadata = render_am_markdown(ctx, llm, settings)
+    markdown, metadata = render_am_markdown(ctx, llm, settings, session=session)
     return {
         "date": ctx.as_of.isoformat(),
         "symbols": ctx.watchlist,
