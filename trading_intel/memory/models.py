@@ -237,6 +237,25 @@ class VixData(Base):
     vrp: Mapped[float | None] = mapped_column(Float)  # VIX - SPX 20d realized vol (vol pts)
 
 
+class VixExpiration(Base):
+    """Standard (monthly) VIX expiration calendar — one row per settlement date.
+
+    Fully deterministic (Cboe spec: the Wednesday 30 days before the following
+    month's third-Friday SPX expiration, rolled back on holidays). Computed and
+    upserted by ``scheduler/jobs/vix_expirations.py`` from ``vol.vix_calendar``;
+    no vendor call. ``spx_ref_expiry`` is the paired SPX third Friday and
+    ``holiday_adjusted`` flags rows that rolled off the normal Wednesday.
+    Descriptive calendar data, not a signal (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "vix_expirations"
+
+    expiration: Mapped[date] = mapped_column(Date, primary_key=True)
+    spx_ref_expiry: Mapped[date] = mapped_column(Date)
+    holiday_adjusted: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[date] = mapped_column(Date)
+
+
 class VolRichness(Base):
     """Daily vol-richness scan row per (symbol, trading-day, horizon).
 
@@ -314,6 +333,44 @@ class SkewSnapshot(Base):
     label: Mapped[str | None] = mapped_column(String(64))
 
 
+class IvTenorSnapshot(Base):
+    """Daily constant-maturity forward-IV row per (symbol, day, tenor).
+
+    The index-ETF complement to ``skew_snapshots``: SPY / QQQ / SPX are kept
+    OUT of the per-strike persisters (``CHAIN_EXCLUDE_ROOTS``), so the delta-
+    surface machinery that feeds ``skew_snapshots`` has no stored chain for
+    them. This table is populated EOD by ``scheduler/jobs/iv_tenor_snapshots.py``
+    from a LIVE Convex chain pull (no per-strike rows persisted) — the surface is
+    built in memory and only this small aggregate row is written.
+
+    Each row is one *constant-maturity* tenor (``tenor_dte`` = 30 / 90 days),
+    interpolated in total-variance space across the listed expiries so the
+    historical line never sawtooths as expiries roll. Wings are stored per side
+    in the equity sign convention: ``iv_put_*`` is the downside (-Δ) wing,
+    ``iv_call_*`` the upside (+Δ) wing; 50Δ ≡ ATM is ``iv_atm``. A 25Δ risk
+    reversal is therefore ``iv_put_25d - iv_call_25d`` at read time.
+
+    Regime descriptor only (FlashAlpha rule 4) — emits no signals.
+    """
+
+    __tablename__ = "iv_tenor_snapshots"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "tenor_dte", name="uq_iv_tenor_snapshots"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)  # trading day
+    tenor_dte: Mapped[int] = mapped_column(Integer)  # constant maturity: 30 / 90
+    iv_atm: Mapped[float | None] = mapped_column(Float)  # 50Δ ATM IV (decimal)
+    iv_call_15d: Mapped[float | None] = mapped_column(Float)  # +15Δ upside wing
+    iv_put_15d: Mapped[float | None] = mapped_column(Float)  # -15Δ downside wing
+    iv_call_25d: Mapped[float | None] = mapped_column(Float)  # +25Δ upside wing
+    iv_put_25d: Mapped[float | None] = mapped_column(Float)  # -25Δ downside wing
+    spot: Mapped[float | None] = mapped_column(Float)  # underlying at capture
+    n_expiries: Mapped[int | None] = mapped_column(Integer)  # expiries in the interp
+
+
 class IndexSkewDaily(Base):
     """Index-level skew snapshot per trading day.
 
@@ -340,7 +397,7 @@ class IndexSkewDaily(Base):
     # ``voli`` / ``tdex`` are Yahoo-sourced (^VOLI, ^TDEX).
     # ``*_proxy`` are computed from the SPX delta surface — Nations does not
     # publish CallDex/PutDex/RiskDex on Yahoo (subscription only); the proxies
-    # use IV at 15Δ (≈1σ-OTM) @ 30d, which carries the same regime info.
+    # use IV at 15Δ (≈1-sigma OTM) @ 30d, which carries the same regime info.
     voli: Mapped[float | None] = mapped_column(Float)
     voli_pctile_252d: Mapped[float | None] = mapped_column(Float)
     tdex: Mapped[float | None] = mapped_column(Float)
@@ -362,6 +419,23 @@ class IndexSkewDaily(Base):
     vix_spx_beta_60d: Mapped[float | None] = mapped_column(Float)
     vvix_vix_ratio: Mapped[float | None] = mapped_column(Float)
     vix_options_richness: Mapped[float | None] = mapped_column(Float)
+    # Cboe implied-correlation / dispersion family — migration 0025.
+    # ``cor1m`` / ``cor3m`` are Yahoo-sourced (^COR1M, ^COR3M). High = correlation
+    # (index-vol-led) regime; low = dispersion. ``cor1m - cor3m`` is the
+    # correlation-curve slope (positive = near-term correlation stress).
+    cor1m: Mapped[float | None] = mapped_column(Float)
+    cor1m_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    cor3m: Mapped[float | None] = mapped_column(Float)
+    cor3m_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    # Cboe constituent-vol / dispersion family — migration 0027.
+    # ``vixeq`` (^VIXEQ) is single-stock vol; ``dspx`` (^DSPX) the official
+    # dispersion index (DSPX^2 = VIXEQ^2 - VIX^2). ``vixeq_vix_spread`` =
+    # VIXEQ - VIX (wide = high dispersion / low correlation).
+    vixeq: Mapped[float | None] = mapped_column(Float)
+    vixeq_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    dspx: Mapped[float | None] = mapped_column(Float)
+    dspx_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    vixeq_vix_spread: Mapped[float | None] = mapped_column(Float)
 
 
 class VixOptionsChain(Base):
@@ -437,7 +511,7 @@ class LiveGex(Base):
     ts: Mapped[datetime] = mapped_column(DateTime)
     strike: Mapped[float] = mapped_column(Float)
     cp: Mapped[str] = mapped_column(String(1))  # 'C' or 'P'
-    expiry: Mapped[date | None] = mapped_column(Date)  # option expiration (per-expiry decomposition)
+    expiry: Mapped[date | None] = mapped_column(Date)  # per-expiry decomposition
     spot: Mapped[float | None] = mapped_column(Float)
     delta: Mapped[float | None] = mapped_column(Float)
     gamma: Mapped[float | None] = mapped_column(Float)
@@ -713,7 +787,6 @@ class ResearchNote(Base):
     sources: Mapped[str | None] = mapped_column(String(128))
     model: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime | None] = mapped_column(DateTime)
-
 
 class SurfaceReport(Base):
     """Per-ticker interpretive surface + flow report (3-part narrative via LLM).

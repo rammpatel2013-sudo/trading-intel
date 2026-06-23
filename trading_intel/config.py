@@ -114,6 +114,16 @@ class Settings(BaseSettings):
     # GEX/DEX for these (index ETFs we only want the regime line for).
     CHAIN_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"
 
+    # ── Constant-maturity forward IV (index ETFs) ─────────────────────
+    # The index-ETF complement to skew_snapshots. These roots are excluded from
+    # the per-strike persisters above, so the skew/surface pipeline has no chain
+    # for them; the iv_tenor_snapshots job pulls a LIVE chain, builds the surface
+    # in memory, and stores only ATM IV + the configured delta wings at fixed
+    # constant-maturity tenors (no per-strike rows persisted).
+    IV_TENOR_SYMBOLS: str = "QQQ,SPY,SPX"  # roots to snapshot (comma list)
+    IV_TENOR_DTE: str = "30,90"  # constant-maturity tenors in calendar days (1M/3M)
+    IV_TENOR_DELTAS: str = "15,25"  # wing |delta| points to store (ATM/50Δ always)
+
     # ── Options time & sales capture (Phase 3 NAS tape -> tas_prints) ──
     TAS_MIN_PREMIUM: float = 25_000.0  # keep prints with notional (price*size*100) >= this $
     TAS_LIMIT: int = 2000  # raw prints pulled per poll (indices flood the tape; pull wide)
@@ -142,6 +152,41 @@ class Settings(BaseSettings):
     @property
     def intraday_symbols(self) -> list[str]:
         return [s.strip().upper() for s in self.INTRADAY_SYMBOLS.split(",") if s.strip()]
+
+    @property
+    def iv_tenor_symbols(self) -> list[str]:
+        """Index-ETF roots for the constant-maturity forward-IV job (set, upper)."""
+        return [s.strip().upper() for s in self.IV_TENOR_SYMBOLS.split(",") if s.strip()]
+
+    @property
+    def iv_tenor_dtes(self) -> list[int]:
+        """Constant-maturity tenors (calendar days), ascending and de-duplicated."""
+        seen: set[int] = set()
+        out: list[int] = []
+        for tok in self.IV_TENOR_DTE.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            dte = int(tok)
+            if dte not in seen:
+                seen.add(dte)
+                out.append(dte)
+        return sorted(out)
+
+    @property
+    def iv_tenor_deltas(self) -> list[float]:
+        """Wing |delta| points (percent) to store, ascending and de-duplicated."""
+        seen: set[float] = set()
+        out: list[float] = []
+        for tok in self.IV_TENOR_DELTAS.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            d = float(tok)
+            if d not in seen:
+                seen.add(d)
+                out.append(d)
+        return sorted(out)
 
 
 _settings: Settings | None = None

@@ -19,6 +19,7 @@ from trading_intel.scheduler.jobs import (
     greeks_snapshot,
     index_skew,
     intraday_flow,
+    iv_tenor_snapshots,
     live_gex,
     oi_chain_eod,
     prune_intraday,
@@ -28,6 +29,7 @@ from trading_intel.scheduler.jobs import (
     quotes_daily,
     skew_snapshots,
     tas_capture_job,
+    vix_expirations,
     vix_options,
     vix_snapshot,
     vol_regime,
@@ -104,9 +106,17 @@ def main() -> None:
         with session_factory() as session:
             skew_snapshots.run(session, settings=settings)
 
+    def run_iv_tenor_snapshots() -> None:
+        with session_factory() as session:
+            iv_tenor_snapshots.run(session, source, settings=settings)
+
     def run_vix_options() -> None:
         with session_factory() as session:
             vix_options.run(session, source, settings=settings)
+
+    def run_vix_expirations() -> None:
+        with session_factory() as session:
+            vix_expirations.run(session, settings=settings)
 
     def run_index_skew() -> None:
         from trading_intel.clients.cboe import CboeClient
@@ -182,6 +192,14 @@ def main() -> None:
     # just after gex_rolling (OI is an EOD figure). On the NAS this is a separate
     # DSM task (runner cron is ignored there).
     scheduler.add_job(run_oi_chain_eod, "cron", hour=16, minute=35, name="oi_chain_eod")
+    # Constant-maturity forward IV for index ETFs (QQQ/SPY/SPX) — 16:38 ET. A LIVE
+    # chain pull (these roots are excluded from the per-strike persisters), so it
+    # only needs to run after the close, not after a stored-data job. Writes one
+    # small aggregate row per (symbol, tenor). On the NAS this is a separate DSM
+    # task (runner cron is ignored there).
+    scheduler.add_job(
+        run_iv_tenor_snapshots, "cron", hour=16, minute=38, name="iv_tenor_snapshots"
+    )
     # Prune stale oi_chain_eod rows daily (retention via OI_CHAIN_RETENTION_DAYS).
     scheduler.add_job(run_prune_oi_chain, "cron", hour=2, minute=20, name="prune_oi_chain")
     # Daily AM regime report — 07:00 ET (after the 06:45 Greeks snapshot). Reads
@@ -197,6 +215,12 @@ def main() -> None:
     # VIX options chain EOD pull -- 16:42 ET (after oi_chain_eod, before index_skew).
     # On the NAS this is a separate DSM task (runner cron is ignored there).
     scheduler.add_job(run_vix_options, "cron", hour=16, minute=42, name="vix_options")
+    # Standard VIX expiration calendar refresh — 16:44 ET. Deterministic (no
+    # vendor call); a sliding window of monthly settlement dates. NAS: separate
+    # DSM task (runner cron is ignored there).
+    scheduler.add_job(
+        run_vix_expirations, "cron", hour=16, minute=44, name="vix_expirations"
+    )
     # Index-level skew snapshot -- 16:50 ET (after vix_snapshot @ 16:45 and
     # vix_options @ 16:42, both of which it depends on). NAS: separate DSM task.
     scheduler.add_job(run_index_skew, "cron", hour=16, minute=50, name="index_skew")
