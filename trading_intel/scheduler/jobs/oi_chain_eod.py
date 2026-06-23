@@ -124,6 +124,9 @@ def run(
 
     ts = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
     symbols = symbols or effective_symbols(session, settings)
+    # Index ETFs we only want the aggregate GEX/DEX line for stay out of the
+    # heavy per-strike persistence (greeks_snapshot still collects them).
+    symbols = [s for s in symbols if s not in settings.chain_exclude_roots]
     bound.info(
         "oi_chain_eod.start", ts=ts.isoformat(), symbol_count=len(symbols),
         window_days=window_days,

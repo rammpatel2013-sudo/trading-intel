@@ -107,6 +107,13 @@ class Settings(BaseSettings):
     FLOW_TOP_N: int = 10  # largest prints kept per snapshot
     FLOW_MIN_PACKAGE_PREMIUM: float = 250_000.0  # min $ premium for a notable package
 
+    # ── Per-strike chain persistence excludes ─────────────────────────
+    # Roots kept OUT of the heavy per-strike persisters (oi_chain_eod,
+    # chain_snapshot) — and therefore out of skew/wall/vol-richness, which read
+    # those tables. The aggregate greeks_snapshot job STILL collects net
+    # GEX/DEX for these (index ETFs we only want the regime line for).
+    CHAIN_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"
+
     # ── Options time & sales capture (Phase 3 NAS tape -> tas_prints) ──
     TAS_MIN_PREMIUM: float = 25_000.0  # keep prints with notional (price*size*100) >= this $
     TAS_LIMIT: int = 2000  # raw prints pulled per poll (indices flood the tape; pull wide)
@@ -126,6 +133,11 @@ class Settings(BaseSettings):
     @property
     def watchlist_symbols(self) -> list[str]:
         return [s.strip().upper() for s in self.WATCHLIST.split(",") if s.strip()]
+
+    @property
+    def chain_exclude_roots(self) -> set[str]:
+        """Roots excluded from the per-strike chain persisters (set, upper)."""
+        return {r.strip().upper() for r in self.CHAIN_EXCLUDE_ROOTS.split(",") if r.strip()}
 
     @property
     def intraday_symbols(self) -> list[str]:
