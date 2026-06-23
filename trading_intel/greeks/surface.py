@@ -193,7 +193,16 @@ def build_delta_surface(
         if col not in chain.columns:
             raise ComputationError(f"Chain missing column for delta surface: {col!r}")
 
-    ref_ts = pd.Timestamp(ref or date.today()).normalize()
+    # Anchor DTE to the snapshot's own date: explicit ref wins; else the chain's
+    # ``ts`` column (a stored snapshot); else today. This keeps historical /
+    # fixture chains from going "negative DTE" once the calendar passes them.
+    if ref is not None:
+        ref_ts = pd.Timestamp(ref).normalize()
+    elif "ts" in chain.columns:
+        _ts = pd.to_datetime(chain["ts"], errors="coerce").dropna()
+        ref_ts = _ts.max().normalize() if not _ts.empty else pd.Timestamp(date.today())
+    else:
+        ref_ts = pd.Timestamp(date.today()).normalize()
     df = chain.copy()
     df["iv"] = pd.to_numeric(df["iv"], errors="coerce")
     df["delta"] = pd.to_numeric(df["delta"], errors="coerce")

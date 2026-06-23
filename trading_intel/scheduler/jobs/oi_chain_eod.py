@@ -126,7 +126,8 @@ def run(
     symbols = symbols or effective_symbols(session, settings)
     # Index ETFs we only want the aggregate GEX/DEX line for stay out of the
     # heavy per-strike persistence (greeks_snapshot still collects them).
-    symbols = [s for s in symbols if s not in settings.chain_exclude_roots]
+    _exclude = getattr(settings, "chain_exclude_roots", set())
+    symbols = [s for s in symbols if s not in _exclude]
     bound.info(
         "oi_chain_eod.start", ts=ts.isoformat(), symbol_count=len(symbols),
         window_days=window_days,

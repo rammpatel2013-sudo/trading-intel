@@ -76,6 +76,7 @@ def _latest_iv_chain(session: Session, symbol: str) -> pd.DataFrame | None:
         return None
     df["opt_kind"] = df["cp"]
     df["expiration"] = pd.to_datetime(df["expiry"])
+    df["ts"] = ts  # anchor the delta surface's DTE to this snapshot, not today
     return df
 
 

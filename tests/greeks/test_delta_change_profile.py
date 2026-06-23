@@ -21,6 +21,7 @@ def _chain(put_iv: float, call_iv: float) -> pd.DataFrame:
     df = pd.DataFrame(rows, columns=["strike", "cp", "iv", "delta", "expiry"])
     df["opt_kind"] = df["cp"]
     df["expiration"] = pd.to_datetime(df["expiry"])
+    df["ts"] = pd.Timestamp(_EXP) - pd.Timedelta(days=10)  # snapshot anchor (pos DTE)
     return df
 
 

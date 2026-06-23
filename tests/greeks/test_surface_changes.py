@@ -16,16 +16,19 @@ from trading_intel.greeks.surface_changes import (
 
 def _delta_chain(expiries: list[str], atm: float) -> pd.DataFrame:
     """Delta-rich chain (7 strikes per wing per expiry) at a given ATM IV level."""
+    # Anchor the snapshot 10d before the nearest expiry so DTE stays positive
+    # regardless of when the test runs.
+    ts = min(pd.Timestamp(e) for e in expiries) - pd.Timedelta(days=10)
     rows: list[dict] = []
     for exp in expiries:
         for d in (0.05, 0.1, 0.2, 0.3, 0.4, 0.45, 0.5):
             rows.append(
                 {"expiration": pd.Timestamp(exp), "opt_kind": "call", "delta": d,
-                 "strike": 7400 + round(d * 1000), "iv": atm + (0.5 - d) * 0.1}
+                 "strike": 7400 + round(d * 1000), "iv": atm + (0.5 - d) * 0.1, "ts": ts}
             )
             rows.append(
                 {"expiration": pd.Timestamp(exp), "opt_kind": "put", "delta": -d,
-                 "strike": 7400 - round(d * 1000), "iv": atm + (0.5 - d) * 0.12}
+                 "strike": 7400 - round(d * 1000), "iv": atm + (0.5 - d) * 0.12, "ts": ts}
             )
     return pd.DataFrame(rows)
 
