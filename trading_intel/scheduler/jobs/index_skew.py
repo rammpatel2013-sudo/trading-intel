@@ -34,7 +34,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement
 
 from trading_intel.clients.cboe import CboeClient
-from trading_intel.clients.prices import fetch_sdex, fetch_tdex, fetch_voli
+from trading_intel.clients.prices import (
+    fetch_cor1m,
+    fetch_cor3m,
+    fetch_dspx,
+    fetch_sdex,
+    fetch_tdex,
+    fetch_vixeq,
+    fetch_voli,
+)
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import ComputationError
 from trading_intel.greeks.surface import build_delta_surface
@@ -92,6 +100,17 @@ _UPDATE_COLS = (
     "vix_spx_beta_60d",
     "vvix_vix_ratio",
     "vix_options_richness",
+    # Cboe implied-correlation / dispersion family (migration 0025).
+    "cor1m",
+    "cor1m_pctile_252d",
+    "cor3m",
+    "cor3m_pctile_252d",
+    # Cboe constituent-vol / dispersion family (migration 0027).
+    "vixeq",
+    "vixeq_pctile_252d",
+    "dspx",
+    "dspx_pctile_252d",
+    "vixeq_vix_spread",
 )
 
 
@@ -270,6 +289,12 @@ def build_row(
     sdex = fetch_sdex()
     voli = fetch_voli()
     tdex = fetch_tdex()
+    # Cboe implied correlation (dispersion) via Yahoo — same degrade-to-None path.
+    cor1m = fetch_cor1m()
+    cor3m = fetch_cor3m()
+    # Cboe constituent-vol (^VIXEQ) + dispersion index (^DSPX), same Yahoo path.
+    vixeq = fetch_vixeq()
+    dspx = fetch_dspx()
 
     # VIX term-structure tenors from Cboe — drives the TERM dimension of the
     # vol-regime decomposition. Each tenor degrades to None on Cboe outage.
@@ -301,6 +326,18 @@ def build_row(
 
     tdex_hist = _history_series(session, IndexSkewDaily.tdex, before=as_of, limit=300)
     tdex_pctile = skew_percentile(tdex_hist[-252:], tdex) if tdex is not None else None
+
+    cor1m_hist = _history_series(session, IndexSkewDaily.cor1m, before=as_of, limit=300)
+    cor1m_pctile = skew_percentile(cor1m_hist[-252:], cor1m) if cor1m is not None else None
+
+    cor3m_hist = _history_series(session, IndexSkewDaily.cor3m, before=as_of, limit=300)
+    cor3m_pctile = skew_percentile(cor3m_hist[-252:], cor3m) if cor3m is not None else None
+
+    vixeq_hist = _history_series(session, IndexSkewDaily.vixeq, before=as_of, limit=300)
+    vixeq_pctile = skew_percentile(vixeq_hist[-252:], vixeq) if vixeq is not None else None
+
+    dspx_hist = _history_series(session, IndexSkewDaily.dspx, before=as_of, limit=300)
+    dspx_pctile = skew_percentile(dspx_hist[-252:], dspx) if dspx is not None else None
 
     calldex_hist = _history_series(
         session, IndexSkewDaily.calldex_proxy, before=as_of, limit=300
@@ -399,6 +436,17 @@ def build_row(
         "vix_spx_beta_60d": decomposition["vix_spx_beta_60d"],
         "vvix_vix_ratio": decomposition["vvix_vix_ratio"],
         "vix_options_richness": decomposition["vix_options_richness"],
+        # Cboe implied-correlation / dispersion family (migration 0025).
+        "cor1m": cor1m,
+        "cor1m_pctile_252d": cor1m_pctile,
+        "cor3m": cor3m,
+        "cor3m_pctile_252d": cor3m_pctile,
+        # Cboe constituent-vol / dispersion family (migration 0027).
+        "vixeq": vixeq,
+        "vixeq_pctile_252d": vixeq_pctile,
+        "dspx": dspx,
+        "dspx_pctile_252d": dspx_pctile,
+        "vixeq_vix_spread": (vixeq - _vix) if (vixeq is not None and _vix is not None) else None,
     }
 
 
@@ -456,3 +504,5 @@ def main() -> None:
         run(session, cboe, settings=settings)
 
 
+if __name__ == "__main__":
+    main()
