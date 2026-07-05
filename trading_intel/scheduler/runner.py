@@ -29,6 +29,7 @@ from trading_intel.scheduler.jobs import (
     quotes_daily,
     skew_snapshots,
     tas_capture_job,
+    tas_daily_rollup,
     vix_expirations,
     vix_options,
     vix_snapshot,
@@ -148,6 +149,10 @@ def main() -> None:
         with session_factory() as session:
             prune_tas_prints.run(session, settings=settings)
 
+    def run_tas_daily_rollup() -> None:
+        with session_factory() as session:
+            tas_daily_rollup.run(session, settings=settings)
+
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
     # Greeks snapshot — 06:45 ET pre-market (see MEMORY.md schedule).
@@ -250,6 +255,10 @@ def main() -> None:
         run_tas_capture, "cron", day_of_week="mon-fri", hour="9-16", minute="*",
         name="tas_capture",
     )
+    # EOD roll-up of tas_prints -> durable tas_daily_flow / tas_daily_contract — 17:05 ET
+    # (after the tape stops filling at 16:00, well before the 02:40 prune). Catches up any
+    # missing sessions + refreshes the latest. On the NAS this is a separate DSM task.
+    scheduler.add_job(run_tas_daily_rollup, "cron", hour=17, minute=5, name="tas_daily_rollup")
     # Prune raw tas_prints older than TAS_RETENTION_DAYS (default 30) — 02:40 ET.
     scheduler.add_job(run_prune_tas_prints, "cron", hour=2, minute=40, name="prune_tas_prints")
 

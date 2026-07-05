@@ -766,6 +766,76 @@ class TasPrint(Base):
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
+class TasDailyFlow(Base):
+    """Per-(trade_date, root) daily roll-up of the option tape — the DURABLE layer.
+
+    The EOD ``tas_daily_rollup`` job aggregates each session's ``tas_prints`` into
+    one row per name and upserts it here. This survives the 30-day raw-print prune,
+    so the accumulation/distribution scorecard can look back months. Buy vs sell
+    premium + signed ``net_dollar_delta`` are the accumulation tell. Descriptive
+    only — never a signal (FlashAlpha rule 4). Idempotent on (trade_date, root).
+    """
+
+    __tablename__ = "tas_daily_flow"
+    __table_args__ = (
+        UniqueConstraint("trade_date", "root", name="uq_tas_daily_flow"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trade_date: Mapped[date] = mapped_column(Date)
+    root: Mapped[str] = mapped_column(String(16))
+    prints: Mapped[int | None] = mapped_column(Integer)
+    total_notional: Mapped[float | None] = mapped_column(Float)
+    call_notional: Mapped[float | None] = mapped_column(Float)
+    put_notional: Mapped[float | None] = mapped_column(Float)
+    buy_notional: Mapped[float | None] = mapped_column(Float)
+    sell_notional: Mapped[float | None] = mapped_column(Float)
+    net_dollar_delta: Mapped[float | None] = mapped_column(Float)  # buy +, sell -
+    gross_dollar_delta: Mapped[float | None] = mapped_column(Float)
+    net_premium_call_put: Mapped[float | None] = mapped_column(Float)
+    pct_buy: Mapped[float | None] = mapped_column(Float)
+    dominant_side: Mapped[str | None] = mapped_column(String(8))  # buy / sell / mixed
+    created_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class TasDailyContract(Base):
+    """Per-(trade_date, root, expiry, strike, cp) daily roll-up — repeat-contract grain.
+
+    The contract-level companion to ``tas_daily_flow``: which exact strikes/expiries
+    are being accumulated or distributed, kept long-term beyond the raw-print prune.
+    ``buy_prints``/``sell_prints`` + ``dominant_side`` drive the repeat-contract view.
+    Descriptive only (rule 4). Idempotent on (trade_date, root, expiry, strike, cp).
+    """
+
+    __tablename__ = "tas_daily_contract"
+    __table_args__ = (
+        UniqueConstraint(
+            "trade_date", "root", "expiry", "strike", "cp",
+            name="uq_tas_daily_contract",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trade_date: Mapped[date] = mapped_column(Date)
+    root: Mapped[str] = mapped_column(String(16))
+    expiry: Mapped[date | None] = mapped_column(Date)
+    strike: Mapped[float | None] = mapped_column(Float)
+    cp: Mapped[str | None] = mapped_column(String(1))
+    n_prints: Mapped[int | None] = mapped_column(Integer)
+    total_notional: Mapped[float | None] = mapped_column(Float)
+    total_size: Mapped[int | None] = mapped_column(Integer)
+    avg_price: Mapped[float | None] = mapped_column(Float)
+    spot: Mapped[float | None] = mapped_column(Float)  # avg underlying at trade time
+    avg_delta: Mapped[float | None] = mapped_column(Float)  # avg option delta
+    buy_prints: Mapped[int | None] = mapped_column(Integer)
+    sell_prints: Mapped[int | None] = mapped_column(Integer)
+    buy_notional: Mapped[float | None] = mapped_column(Float)
+    sell_notional: Mapped[float | None] = mapped_column(Float)
+    net_dollar_delta: Mapped[float | None] = mapped_column(Float)
+    dominant_side: Mapped[str | None] = mapped_column(String(8))
+    created_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 # ── Dynamic (research-driven) watchlist ────────────────────────────────
 
 

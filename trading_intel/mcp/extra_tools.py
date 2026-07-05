@@ -35,6 +35,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings
+from trading_intel.flow.scorecard import build_scorecard
 from trading_intel.dashboard.skew_data import vix_options_today
 from trading_intel.dashboard.ticker_data import (
     intraday_by_strike,
