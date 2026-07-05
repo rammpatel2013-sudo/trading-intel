@@ -14,6 +14,7 @@ Coverage (table -> tool):
     vol_richness     -> get_vol_richness
     vix_data         -> get_vix
     index_skew_daily -> get_index_skew
+    iv_tenor_snapshots-> get_iv_tenor
     vix_options_chain-> get_vix_options
     live_gex         -> get_live_gex
     intraday_flow    -> get_intraday_flow
@@ -35,7 +36,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings
-from trading_intel.flow.scorecard import build_scorecard
 from trading_intel.dashboard.skew_data import vix_options_today
 from trading_intel.dashboard.ticker_data import (
     intraday_by_strike,
@@ -43,12 +43,14 @@ from trading_intel.dashboard.ticker_data import (
     load_intraday_flow_series,
     load_latest_intraday_flow,
 )
+from trading_intel.flow.scorecard import build_scorecard
 from trading_intel.mcp.tools import _iso_day, _iso_ts, _normalise_symbols, _num
 from trading_intel.memory.models import (
     DeltaFlow,
     GexRolling,
     GexTerm,
     IndexSkewDaily,
+    IvTenorSnapshot,
     LiveGex,
     OiChainEod,
     ResearchNote,
@@ -333,6 +335,105 @@ def get_index_skew(session: Session, *, days: int = 60) -> dict[str, Any]:
     return {"rows": series, "count": len(series), "found": True}
 
 
+# ── iv_tenor_snapshots ─────────────────────────────────────────────────
+
+
+def get_iv_tenor(
+    session: Session,
+    *,
+    symbols: list[str] | None = None,
+    tenor_dte: int | None = None,
+    days: int = 90,
+) -> dict[str, Any]:
+    """Constant-maturity forward IV for index ETFs (QQQ/SPY/SPX).
+
+    Reads ``iv_tenor_snapshots``: ATM IV plus the 15Δ/25Δ call and put wings at
+    fixed 30d (1M) / 90d (3M) tenors, interpolated in total-variance space (so the
+    series doesn't sawtooth on expiry roll). Adds the derived 25Δ and 15Δ risk
+    reversals (``iv_put - iv_call``; positive = the usual equity put-skew bid).
+
+    ``symbols`` filters the roots (default: all stored); ``tenor_dte`` filters to
+    one tenor (e.g. 30 or 90). ``rows`` is ordered (symbol, tenor, date asc);
+    ``latest`` carries the most recent row per (symbol, tenor). Descriptor only
+    (FlashAlpha rule 4) — the index ETFs are excluded from the per-strike chain,
+    so this is the only stored skew/term read for them.
+    """
+    days_c = max(2, min(int(days), 365))
+    # Caller-supplied roots only need uppercase + order-preserving dedupe here
+    # (the watchlist-default path of _normalise_symbols isn't wanted for this tool).
+    syms: list[str] | None = None
+    if symbols:
+        seen: set[str] = set()
+        syms = []
+        for s in symbols:
+            u = s.strip().upper()
+            if u and u not in seen:
+                seen.add(u)
+                syms.append(u)
+    filters = []
+    if syms:
+        filters.append(IvTenorSnapshot.symbol.in_(syms))
+    if tenor_dte is not None:
+        filters.append(IvTenorSnapshot.tenor_dte == int(tenor_dte))
+
+    # Window relative to the latest stored row (not wall-clock), so the read is
+    # stable regardless of when it's called or whether collection is behind.
+    max_ts = session.execute(
+        select(func.max(IvTenorSnapshot.ts)).where(*filters)
+    ).scalar()
+    if max_ts is None:
+        return {"rows": [], "count": 0, "latest": [], "found": False}
+    cutoff = max_ts - timedelta(days=days_c)
+
+    stmt = (
+        select(IvTenorSnapshot)
+        .where(IvTenorSnapshot.ts >= cutoff, *filters)
+        .order_by(
+            IvTenorSnapshot.symbol.asc(),
+            IvTenorSnapshot.tenor_dte.asc(),
+            IvTenorSnapshot.ts.asc(),
+        )
+    )
+    rows = session.execute(stmt).scalars().all()
+    if not rows:
+        return {"rows": [], "count": 0, "latest": [], "found": False}
+
+    def _rr(put: float | None, call: float | None) -> float | None:
+        return (put - call) if (put is not None and call is not None) else None
+
+    series: list[dict[str, Any]] = []
+    for r in rows:
+        series.append(
+            {
+                "symbol": r.symbol,
+                "ts": _iso_day(r.ts),
+                "tenor_dte": r.tenor_dte,
+                "iv_atm": _num(r.iv_atm),
+                "iv_call_25d": _num(r.iv_call_25d),
+                "iv_put_25d": _num(r.iv_put_25d),
+                "iv_call_15d": _num(r.iv_call_15d),
+                "iv_put_15d": _num(r.iv_put_15d),
+                "rr_25d": _num(_rr(r.iv_put_25d, r.iv_call_25d)),
+                "rr_15d": _num(_rr(r.iv_put_15d, r.iv_call_15d)),
+                "spot": _num(r.spot),
+                "n_expiries": r.n_expiries,
+            }
+        )
+
+    # Most recent row per (symbol, tenor) — series is date-ascending, so the last
+    # write per key wins.
+    latest: dict[str, dict[str, Any]] = {}
+    for row in series:
+        latest[f"{row['symbol']}:{row['tenor_dte']}"] = row
+
+    return {
+        "rows": series,
+        "count": len(series),
+        "latest": list(latest.values()),
+        "found": True,
+    }
+
+
 # ── vix_options_chain ──────────────────────────────────────────────────
 
 
@@ -568,6 +669,61 @@ def get_research_watchlist(
         for r in rows
     ]
     return {"rows": recs, "count": len(recs), "found": bool(recs)}
+
+
+# ── tas_daily_flow (accumulation / distribution scorecard) ─────────────
+
+
+def get_flow_scorecard(
+    session: Session,
+    *,
+    lookback_days: int = 20,
+    min_notional: float = 1_000_000.0,
+    min_days: int = 2,
+    limit: int = 40,
+) -> dict[str, Any]:
+    """Multi-day accumulation/distribution scorecard from ``tas_daily_flow``.
+
+    Scores each name over ``lookback_days`` of the durable option-tape roll-up:
+    ``accum_score`` in [-100, +100] (positive = persistent net buying =
+    accumulation; negative = net selling = distribution), with the supporting
+    ratios. Descriptive ranking only — never a signal (rule 4). Empty until the
+    ``tas_daily_rollup`` job has populated the roll-up table.
+    """
+    days_c = max(1, min(int(lookback_days), 365))
+    limit_c = max(1, min(int(limit), 500))
+    board = build_scorecard(
+        session, lookback_days=days_c, min_notional=float(min_notional),
+        min_days=max(1, int(min_days)),
+    )
+    if board.empty:
+        return {"rows": [], "count": 0, "lookback_days": days_c, "found": False}
+
+    recs = [
+        {
+            "root": r["root"],
+            "accum_score": _num(r["accum_score"]),
+            "label": r["label"],
+            "days_observed": int(r["days_observed"]),
+            "days_net_buy": int(r["days_net_buy"]),
+            "days_net_sell": int(r["days_net_sell"]),
+            "total_notional": _num(r["total_notional"]),
+            "net_dollar_delta": _num(r["net_dollar_delta"]),
+            "buy_tilt": _num(r["buy_tilt"]),
+            "persistence": _num(r["persistence"]),
+        }
+        for r in board.head(limit_c).to_dict("records")
+    ]
+    n_accum = int((board["label"] == "accumulation").sum())
+    n_distrib = int((board["label"] == "distribution").sum())
+    return {
+        "rows": recs,
+        "count": len(recs),
+        "lookback_days": days_c,
+        "n_accumulation": n_accum,
+        "n_distribution": n_distrib,
+        "found": True,
+    }
 
 
 # ── signals ────────────────────────────────────────────────────────────
