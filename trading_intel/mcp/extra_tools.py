@@ -501,7 +501,7 @@ def get_iv_tenor(
 def get_rv_rolloff(
     session: Session,
     *,
-    symbol: str = "SPX",
+    symbol: str = "SPY",
     window: int = 21,
     horizon: int = 10,
     lookback: int | None = None,
@@ -516,9 +516,10 @@ def get_rv_rolloff(
     systematic (vol-target / CTA) buying" mechanic. Mechanical accounting,
     descriptor only (rule 4) — not a directional signal.
 
-    ``symbol`` defaults to SPX (index realized vol). Note: the daily quotes job
-    only refreshes the effective watchlist, so verify SPX is kept current in the
-    deployed ``WATCHLIST`` before relying on this in production.
+    ``symbol`` defaults to SPY (a maintained index ETF, ~identical realized vol to
+    SPX). SPX itself is not in the daily quotes refresh so its ``quotes_daily``
+    closes go stale — pass ``symbol="SPX"`` only once SPX is added to the deployed
+    ``WATCHLIST``.
     """
     sym = symbol.strip().upper()
     win = max(2, int(window))
