@@ -235,7 +235,7 @@ def build_server(
 
     @mcp.tool()
     def get_rv_rolloff(
-        symbol: str = "SPX",
+        symbol: str = "SPY",
         window: int = 21,
         horizon: int = 10,
     ) -> dict[str, Any]:
@@ -245,8 +245,8 @@ def build_server(
         ``horizon`` sessions on a calm-tape assumption, so you can see the
         mechanical RV floor that big past moves leave behind as they drop out of
         the window (Doc McGraw's "the June down-days age out mid-July → RV floor
-        → launchpad for systematic buying"). ``symbol`` defaults to SPX.
-        Descriptor only.
+        → launchpad for systematic buying"). ``symbol`` defaults to SPY
+        (SPX quotes aren't refreshed daily). Descriptor only.
         """
         with session_factory() as session:
             return et.get_rv_rolloff(session, symbol=symbol, window=window, horizon=horizon)
@@ -352,6 +352,29 @@ def build_server(
         from trading_intel.reports import build_eod_vol
 
         path = build_eod_vol(days=days, llm=llm, settings=settings)
+        return {"path": path, "uri": Path(path).as_uri(), "found": True}
+
+    @mcp.tool()
+    def generate_flow_report(
+        lookback_days: int = 21, recent_days: int = 5, min_notional: float = 1_000_000.0
+    ) -> dict[str, Any]:
+        """Generate the EOD option-tape Flow Report (HTML) and return its path.
+
+        Longitudinal accumulation/distribution off the durable roll-up tables: a
+        Key-Findings callout (top accumulators + net-buy streaks, biggest
+        single-contract builds, new vs fading names), plus leaderboards and the
+        repeat-contract lifecycle. Returns the saved HTML path under ``reports/``.
+        Descriptive only (FlashAlpha rule 4).
+        """
+        from trading_intel.reports import build_flow
+
+        path = build_flow(
+            lookback_days=lookback_days,
+            recent_days=recent_days,
+            min_notional=min_notional,
+            llm=llm,
+            settings=settings,
+        )
         return {"path": path, "uri": Path(path).as_uri(), "found": True}
 
     return mcp
