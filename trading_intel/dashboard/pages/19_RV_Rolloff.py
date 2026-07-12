@@ -85,7 +85,7 @@ def main() -> None:
     if not syms:
         st.warning("No rows in quotes_daily yet.")
         return
-    default_ix = syms.index("SPX") if "SPX" in syms else 0
+    default_ix = syms.index("SPY") if "SPY" in syms else (syms.index("SPX") if "SPX" in syms else 0)
     c1, c2, c3 = st.columns([2, 1, 1])
     symbol = c1.selectbox("Symbol", syms, index=default_ix)
     window = c2.slider("RV window (sessions)", 5, 60, 21)
