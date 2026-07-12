@@ -16,6 +16,7 @@ Manual run:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -168,9 +169,7 @@ def build_server(
             return et.get_walls(session, symbol, dte_max=dte_max)
 
     @mcp.tool()
-    def get_oi_changes(
-        symbol: str, dte_max: int = 60, top: int = 15
-    ) -> dict[str, Any]:
+    def get_oi_changes(symbol: str, dte_max: int = 60, top: int = 15) -> dict[str, Any]:
         """Biggest day-over-day open-interest changes per strike (latest EOD snapshot)."""
         with session_factory() as session:
             return et.get_oi_changes(session, symbol, dte_max=dte_max, top=top)
@@ -202,14 +201,10 @@ def build_server(
     # ── Vol complex ────────────────────────────────────────────────────
 
     @mcp.tool()
-    def get_vol_richness(
-        symbols: list[str] | None = None, horizon_dte: int = 30
-    ) -> dict[str, Any]:
+    def get_vol_richness(symbols: list[str] | None = None, horizon_dte: int = 30) -> dict[str, Any]:
         """Latest IV-vs-forecast-RV richness scan per symbol (VRP percentile, rich/cheap)."""
         with session_factory() as session:
-            return et.get_vol_richness(
-                session, symbols, settings=settings, horizon_dte=horizon_dte
-            )
+            return et.get_vol_richness(session, symbols, settings=settings, horizon_dte=horizon_dte)
 
     @mcp.tool()
     def get_vix(days: int = 60) -> dict[str, Any]:
@@ -222,6 +217,39 @@ def build_server(
         """Index-level skew & VIX-decomposition series (Cboe SKEW, SDEX, tail-hedge score)."""
         with session_factory() as session:
             return et.get_index_skew(session, days=days)
+
+    @mcp.tool()
+    def get_iv_tenor(
+        symbols: list[str] | None = None,
+        tenor_dte: int | None = None,
+        days: int = 90,
+    ) -> dict[str, Any]:
+        """Constant-maturity forward IV for index ETFs (QQQ/SPY/SPX).
+
+        ATM IV + 15Δ/25Δ call/put wings at fixed 1M (30d) / 3M (90d) tenors, plus
+        the derived 25Δ/15Δ risk reversals. ``symbols``/``tenor_dte`` optional
+        filters; returns the daily series + the latest row per (symbol, tenor).
+        """
+        with session_factory() as session:
+            return et.get_iv_tenor(session, symbols=symbols, tenor_dte=tenor_dte, days=days)
+
+    @mcp.tool()
+    def get_rv_rolloff(
+        symbol: str = "SPX",
+        window: int = 21,
+        horizon: int = 10,
+    ) -> dict[str, Any]:
+        """Realized-vol roll-off projection: how trailing-window RV drifts as old days age out.
+
+        Projects the trailing-``window`` (default 21d) realized vol forward
+        ``horizon`` sessions on a calm-tape assumption, so you can see the
+        mechanical RV floor that big past moves leave behind as they drop out of
+        the window (Doc McGraw's "the June down-days age out mid-July → RV floor
+        → launchpad for systematic buying"). ``symbol`` defaults to SPX.
+        Descriptor only.
+        """
+        with session_factory() as session:
+            return et.get_rv_rolloff(session, symbol=symbol, window=window, horizon=horizon)
 
     @mcp.tool()
     def get_vix_options() -> dict[str, Any]:
@@ -244,19 +272,54 @@ def build_server(
             return et.get_surface_report(session, symbol)
 
     @mcp.tool()
-    def get_research_watchlist(
-        active_only: bool = True, limit: int = 200
-    ) -> dict[str, Any]:
+    def get_research_watchlist(active_only: bool = True, limit: int = 200) -> dict[str, Any]:
         """Research-driven watchlist: tickers surfaced from uploaded reports + rationale."""
         with session_factory() as session:
-            return et.get_research_watchlist(
-                session, active_only=active_only, limit=limit
+            return et.get_research_watchlist(session, active_only=active_only, limit=limit)
+
+    @mcp.tool()
+    def get_flow_scorecard(
+        lookback_days: int = 20,
+        min_notional: float = 1_000_000.0,
+        min_days: int = 2,
+        limit: int = 40,
+    ) -> dict[str, Any]:
+        """Accumulation/distribution scorecard from the durable option-tape roll-up."""
+        with session_factory() as session:
+            return et.get_flow_scorecard(
+                session,
+                lookback_days=lookback_days,
+                min_notional=min_notional,
+                min_days=min_days,
+                limit=limit,
             )
 
     @mcp.tool()
-    def get_signals(
-        symbol: str | None = None, days: int = 30, limit: int = 100
+    def get_flow_report(
+        lookback_days: int = 21,
+        recent_days: int = 5,
+        min_notional: float = 1_000_000.0,
+        top: int = 25,
     ) -> dict[str, Any]:
+        """Longitudinal option-flow report: accumulation trend, contract lifecycle, new/fading.
+
+        Extends get_flow_scorecard with the *trend* dimension off the durable
+        tape roll-up (tas_daily_flow + tas_daily_contract): who is building vs
+        bailing (recent-vs-prior score + net-buy streak), which exact contracts
+        are being accumulated over the window, and which names are newly on or
+        dropping off the board. Descriptor only.
+        """
+        with session_factory() as session:
+            return et.get_flow_report(
+                session,
+                lookback_days=lookback_days,
+                recent_days=recent_days,
+                min_notional=min_notional,
+                top=top,
+            )
+
+    @mcp.tool()
+    def get_signals(symbol: str | None = None, days: int = 30, limit: int = 100) -> dict[str, Any]:
         """Recent rows from the validated signals table (read-only)."""
         with session_factory() as session:
             return et.get_signals(session, symbol, days=days, limit=limit)
@@ -274,6 +337,23 @@ def build_server(
 
         return {"symbol": symbol.strip().upper(), "path": build(symbol, days=days), "found": True}
 
+    @mcp.tool()
+    def generate_eod_vol_report(days: int = 252) -> dict[str, Any]:
+        """Generate the EOD volatility dashboard report (HTML) and return its path.
+
+        Doc-style end-of-day vol read: a tabbed HTML report (Summary · Decomposition
+        · Term Structure · VVIX/VIX · Rabbit Hole · COR1M Map) with plain-language
+        day-over-day / week-over-week commentary and a 'what to expect next day /
+        next week' forward read, built from stored data (VIX/VVIX/term, the 6-factor
+        decomposition, Nations VolDex/SkewDex/TailDex, COR1M/COR3M, VIXEQ/DSPX and
+        the dispersion spread). Returns the saved HTML path under ``reports/`` —
+        open it to view/share. Descriptive only (FlashAlpha rule 4).
+        """
+        from trading_intel.reports import build_eod_vol
+
+        path = build_eod_vol(days=days, llm=llm, settings=settings)
+        return {"path": path, "uri": Path(path).as_uri(), "found": True}
+
     return mcp
 
 
@@ -288,4 +368,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
