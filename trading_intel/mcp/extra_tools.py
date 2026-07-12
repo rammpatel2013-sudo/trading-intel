@@ -27,6 +27,7 @@ Coverage (table -> tool):
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -43,6 +44,7 @@ from trading_intel.dashboard.ticker_data import (
     load_intraday_flow_series,
     load_latest_intraday_flow,
 )
+from trading_intel.flow.report import build_flow_report
 from trading_intel.flow.scorecard import build_scorecard
 from trading_intel.mcp.tools import _iso_day, _iso_ts, _normalise_symbols, _num
 from trading_intel.memory.models import (
@@ -53,6 +55,7 @@ from trading_intel.memory.models import (
     IvTenorSnapshot,
     LiveGex,
     OiChainEod,
+    QuoteDaily,
     ResearchNote,
     Signal,
     SurfaceReport,
@@ -60,6 +63,7 @@ from trading_intel.memory.models import (
     VolRichness,
     WatchlistEntry,
 )
+from trading_intel.prices.realized_vol import rv_rolloff_projection
 
 log = structlog.get_logger(__name__)
 
@@ -147,8 +151,13 @@ def get_oi_changes(
 
     rows = session.execute(
         select(
-            OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, OiChainEod.dte,
-            OiChainEod.oi, OiChainEod.oi_change, OiChainEod.volume,
+            OiChainEod.expiry,
+            OiChainEod.strike,
+            OiChainEod.cp,
+            OiChainEod.dte,
+            OiChainEod.oi,
+            OiChainEod.oi_change,
+            OiChainEod.volume,
         ).where(
             OiChainEod.symbol == sym,
             OiChainEod.ts == ts,
@@ -161,8 +170,12 @@ def get_oi_changes(
 
     recs = [
         {
-            "expiry": _iso_day(r.expiry), "strike": _num(r.strike), "cp": r.cp,
-            "dte": r.dte, "oi": _num(r.oi), "oi_change": _num(r.oi_change),
+            "expiry": _iso_day(r.expiry),
+            "strike": _num(r.strike),
+            "cp": r.cp,
+            "dte": r.dte,
+            "oi": _num(r.oi),
+            "oi_change": _num(r.oi_change),
             "volume": _num(r.volume),
         }
         for r in rows
@@ -171,9 +184,14 @@ def get_oi_changes(
     put_chg = sum((r.oi_change or 0) for r in rows if str(r.cp).upper().startswith("P"))
     ranked = sorted(recs, key=lambda d: abs(d["oi_change"] or 0.0), reverse=True)[:top_c]
     return {
-        "symbol": sym, "as_of": _iso_day(ts), "dte_max": dte_c,
-        "net_call_oi_change": float(call_chg), "net_put_oi_change": float(put_chg),
-        "rows": ranked, "count": len(ranked), "found": True,
+        "symbol": sym,
+        "as_of": _iso_day(ts),
+        "dte_max": dte_c,
+        "net_call_oi_change": float(call_chg),
+        "net_put_oi_change": float(put_chg),
+        "rows": ranked,
+        "count": len(ranked),
+        "found": True,
     }
 
 
@@ -189,10 +207,7 @@ def get_gex_term(session: Session, symbol: str) -> dict[str, Any]:
     """
     sym = symbol.strip().upper()
     roll = session.execute(
-        select(GexRolling)
-        .where(GexRolling.symbol == sym)
-        .order_by(GexRolling.ts.desc())
-        .limit(1)
+        select(GexRolling).where(GexRolling.symbol == sym).order_by(GexRolling.ts.desc()).limit(1)
     ).scalar_one_or_none()
     if roll is None:
         return {"symbol": sym, "found": False, "term": [], "count": 0}
@@ -207,13 +222,17 @@ def get_gex_term(session: Session, symbol: str) -> dict[str, Any]:
         .order_by(GexTerm.dte.asc())
     ).all()
     term = [
-        {"expiration": _iso_day(r.expiration), "dte": r.dte, "gex": _num(r.gex)}
-        for r in term_rows
+        {"expiration": _iso_day(r.expiration), "dte": r.dte, "gex": _num(r.gex)} for r in term_rows
     ]
     return {
-        "symbol": sym, "as_of": _iso_day(roll.ts), "spot": _num(roll.spot),
-        "window_days": roll.window_days, "gex_total": _num(roll.gex_total),
-        "n_expirations": roll.n_expirations, "term": term, "count": len(term),
+        "symbol": sym,
+        "as_of": _iso_day(roll.ts),
+        "spot": _num(roll.spot),
+        "window_days": roll.window_days,
+        "gex_total": _num(roll.gex_total),
+        "n_expirations": roll.n_expirations,
+        "term": term,
+        "count": len(term),
         "found": True,
     }
 
@@ -249,17 +268,27 @@ def get_vol_richness(
             continue
         out_rows.append(
             {
-                "symbol": sym, "as_of": _iso_day(row.ts), "horizon_dte": hz,
-                "iv_atm": _num(row.iv_atm), "fcst_rv": _num(row.fcst_rv),
-                "vrp_pts": _num(row.vrp_pts), "vrp_pctile": _num(row.vrp_pctile),
-                "iv_rank": _num(row.iv_rank), "term_slope": _num(row.term_slope),
-                "skew_25d": _num(row.skew_25d), "regime_zone": row.regime_zone,
-                "richness_score": _num(row.richness_score), "label": row.label,
+                "symbol": sym,
+                "as_of": _iso_day(row.ts),
+                "horizon_dte": hz,
+                "iv_atm": _num(row.iv_atm),
+                "fcst_rv": _num(row.fcst_rv),
+                "vrp_pts": _num(row.vrp_pts),
+                "vrp_pctile": _num(row.vrp_pctile),
+                "iv_rank": _num(row.iv_rank),
+                "term_slope": _num(row.term_slope),
+                "skew_25d": _num(row.skew_25d),
+                "regime_zone": row.regime_zone,
+                "richness_score": _num(row.richness_score),
+                "label": row.label,
             }
         )
     return {
-        "symbols": syms, "horizon_dte": hz, "rows": out_rows,
-        "count": len(out_rows), "found": bool(out_rows),
+        "symbols": syms,
+        "horizon_dte": hz,
+        "rows": out_rows,
+        "count": len(out_rows),
+        "found": bool(out_rows),
     }
 
 
@@ -273,27 +302,36 @@ def get_vix(session: Session, *, days: int = 60) -> dict[str, Any]:
     the latest values and the VEGA zone. Descriptor only (rule 4).
     """
     days_c = max(2, min(int(days), 365))
-    rows = session.execute(
-        select(VixData).order_by(VixData.date.desc()).limit(days_c)
-    ).scalars().all()
+    rows = (
+        session.execute(select(VixData).order_by(VixData.date.desc()).limit(days_c)).scalars().all()
+    )
     if not rows:
         return {"rows": [], "count": 0, "found": False}
     rows = list(reversed(rows))
     series = [
         {
-            "date": _iso_day(r.date), "vix": _num(r.vix), "vvix": _num(r.vvix),
-            "move": _num(r.move), "hy_oas": _num(r.hy_oas), "ig_oas": _num(r.ig_oas),
-            "vix9d": _num(r.vix9d), "vix3m": _num(r.vix3m), "vix6m": _num(r.vix6m),
-            "vrp": _num(r.vrp), "vega_zone": r.vega_zone,
+            "date": _iso_day(r.date),
+            "vix": _num(r.vix),
+            "vvix": _num(r.vvix),
+            "move": _num(r.move),
+            "hy_oas": _num(r.hy_oas),
+            "ig_oas": _num(r.ig_oas),
+            "vix9d": _num(r.vix9d),
+            "vix3m": _num(r.vix3m),
+            "vix6m": _num(r.vix6m),
+            "vrp": _num(r.vrp),
+            "vega_zone": r.vega_zone,
         }
         for r in rows
     ]
     last = rows[-1]
     summary = {
-        "vix": _num(last.vix), "vvix": _num(last.vvix),
+        "vix": _num(last.vix),
+        "vvix": _num(last.vvix),
         "term_9d_3m": (
             _num(last.vix9d) - _num(last.vix3m)
-            if last.vix9d is not None and last.vix3m is not None else None
+            if last.vix9d is not None and last.vix3m is not None
+            else None
         ),
         "vega_zone": last.vega_zone,
     }
@@ -304,31 +342,56 @@ def get_vix(session: Session, *, days: int = 60) -> dict[str, Any]:
 
 
 def get_index_skew(session: Session, *, days: int = 60) -> dict[str, Any]:
-    """Index-level skew & VIX-decomposition daily series.
+    """Index-level skew, dispersion & VIX-decomposition daily series.
 
     Reads ``index_skew_daily``: Cboe SKEW, Nations SDEX/TDEX/VOLI (+ proxies),
-    SPX 25d RR and percentile, the VIX-options tail-hedging composite, and the
-    VIX term-structure decomposition descriptors. Descriptor only (rule 4).
+    SPX 25d RR and percentile, the VIX-options tail-hedging composite, the VIX
+    term-structure decomposition descriptors, and the Cboe implied-correlation /
+    dispersion family (COR1M/COR3M, VIXEQ, DSPX, VIXEQ-VIX spread + trailing
+    percentiles). ``cor_slope`` = COR1M - COR3M (positive = near-term correlation
+    stress; low COR1M + wide VIXEQ-VIX = a dispersion / "loaded spring" regime).
+    Dispersion describes structure/fragility, not direction. Descriptor only
+    (rule 4).
     """
     days_c = max(2, min(int(days), 365))
-    rows = session.execute(
-        select(IndexSkewDaily).order_by(IndexSkewDaily.date.desc()).limit(days_c)
-    ).scalars().all()
+    rows = (
+        session.execute(select(IndexSkewDaily).order_by(IndexSkewDaily.date.desc()).limit(days_c))
+        .scalars()
+        .all()
+    )
     if not rows:
         return {"rows": [], "count": 0, "found": False}
     rows = list(reversed(rows))
     series = [
         {
-            "date": _iso_day(r.date), "cboe_skew": _num(r.cboe_skew),
-            "sdex": _num(r.sdex), "sdex_pctile_252d": _num(r.sdex_pctile_252d),
+            "date": _iso_day(r.date),
+            "cboe_skew": _num(r.cboe_skew),
+            "sdex": _num(r.sdex),
+            "sdex_pctile_252d": _num(r.sdex_pctile_252d),
             "spx_rr_25d_30d": _num(r.spx_rr_25d_30d),
             "spx_rr_pctile_252d": _num(r.spx_rr_pctile_252d),
             "vvix": _num(r.vvix),
             "vix_tail_hedging_score": _num(r.vix_tail_hedging_score),
-            "voli": _num(r.voli), "tdex": _num(r.tdex),
+            "voli": _num(r.voli),
+            "tdex": _num(r.tdex),
             "vix_term_9d_30d": _num(r.vix_term_9d_30d),
             "vix_term_3m_30d": _num(r.vix_term_3m_30d),
             "vvix_vix_ratio": _num(r.vvix_vix_ratio),
+            # Cboe implied-correlation / dispersion family (migrations 0025/0027).
+            "cor1m": _num(r.cor1m),
+            "cor1m_pctile_252d": _num(r.cor1m_pctile_252d),
+            "cor3m": _num(r.cor3m),
+            "cor3m_pctile_252d": _num(r.cor3m_pctile_252d),
+            "cor_slope": (
+                _num(r.cor1m) - _num(r.cor3m)
+                if r.cor1m is not None and r.cor3m is not None
+                else None
+            ),
+            "vixeq": _num(r.vixeq),
+            "vixeq_pctile_252d": _num(r.vixeq_pctile_252d),
+            "dspx": _num(r.dspx),
+            "dspx_pctile_252d": _num(r.dspx_pctile_252d),
+            "vixeq_vix_spread": _num(r.vixeq_vix_spread),
         }
         for r in rows
     ]
@@ -378,9 +441,7 @@ def get_iv_tenor(
 
     # Window relative to the latest stored row (not wall-clock), so the read is
     # stable regardless of when it's called or whether collection is behind.
-    max_ts = session.execute(
-        select(func.max(IvTenorSnapshot.ts)).where(*filters)
-    ).scalar()
+    max_ts = session.execute(select(func.max(IvTenorSnapshot.ts)).where(*filters)).scalar()
     if max_ts is None:
         return {"rows": [], "count": 0, "latest": [], "found": False}
     cutoff = max_ts - timedelta(days=days_c)
@@ -434,6 +495,88 @@ def get_iv_tenor(
     }
 
 
+# ── quotes_daily: realized-vol roll-off projection ─────────────────────
+
+
+def get_rv_rolloff(
+    session: Session,
+    *,
+    symbol: str = "SPX",
+    window: int = 21,
+    horizon: int = 10,
+    lookback: int | None = None,
+) -> dict[str, Any]:
+    """Trailing-``window`` realized-vol roll-off projection for one symbol.
+
+    Reads ``quotes_daily`` closes and projects how the trailing-``window``
+    realized vol drifts over the next ``horizon`` sessions purely as past
+    returns age out of the window (calm / zero-return-tape assumption).
+    Surfaces Doc McGraw's "the big down-days age out of the 21-day window ->
+    measured RV drifts to a floor -> the floor becomes a launchpad for
+    systematic (vol-target / CTA) buying" mechanic. Mechanical accounting,
+    descriptor only (rule 4) — not a directional signal.
+
+    ``symbol`` defaults to SPX (index realized vol). Note: the daily quotes job
+    only refreshes the effective watchlist, so verify SPX is kept current in the
+    deployed ``WATCHLIST`` before relying on this in production.
+    """
+    sym = symbol.strip().upper()
+    win = max(2, int(window))
+    hz = max(1, int(horizon))
+    lb = int(lookback) if lookback else max(win * 3, 90)
+    rows = session.execute(
+        select(QuoteDaily.date, QuoteDaily.close)
+        .where(QuoteDaily.symbol == sym)
+        .order_by(QuoteDaily.date.desc())
+        .limit(lb)
+    ).all()
+    if len(rows) < win + 1:
+        return {"symbol": sym, "rows": [], "count": 0, "found": False}
+    rows = list(reversed(rows))
+    closes = pd.Series([float(r.close) for r in rows], dtype=float)
+    proj = rv_rolloff_projection(closes, window=win, horizon=hz)
+
+    def _f(v: object) -> float | None:
+        if v is None:
+            return None
+        v = float(v)
+        return None if math.isnan(v) else v
+
+    series = [
+        {
+            "session_offset": int(t.session_offset),
+            "projected_rv": _f(t.projected_rv),
+            "dropped_return": _f(t.dropped_return),
+        }
+        for t in proj.itertuples()
+    ]
+    valid = [s for s in series if s["projected_rv"] is not None]
+    floor = min(valid, key=lambda s: s["projected_rv"], default=None)
+    drops = [s for s in series if s["dropped_return"] is not None]
+    cliff = max(drops, key=lambda s: abs(s["dropped_return"]), default=None)
+    rv_now = series[0]["projected_rv"] if series else None
+    summary = {
+        "symbol": sym,
+        "as_of": _iso_day(rows[-1].date),
+        "window": win,
+        "horizon": hz,
+        "rv_now": rv_now,
+        "rv_floor": floor["projected_rv"] if floor else None,
+        "floor_offset": floor["session_offset"] if floor else None,
+        "rv_drift": (floor["projected_rv"] - rv_now if floor and rv_now is not None else None),
+        "max_dropoff_return": cliff["dropped_return"] if cliff else None,
+        "max_dropoff_offset": cliff["session_offset"] if cliff else None,
+        "n_closes": len(rows),
+    }
+    return {
+        "symbol": sym,
+        "rows": series,
+        "count": len(series),
+        "summary": summary,
+        "found": True,
+    }
+
+
 # ── vix_options_chain ──────────────────────────────────────────────────
 
 
@@ -452,9 +595,12 @@ def get_vix_options(session: Session) -> dict[str, Any]:
         rows.append(
             {
                 "expiration": _iso_day(r.get("expiration")),
-                "strike": _num(r.get("strike")), "kind": r.get("opt_kind"),
-                "delta": _num(r.get("delta")), "iv": _num(r.get("iv")),
-                "oi": _num(r.get("oi")), "volume": _num(r.get("volume")),
+                "strike": _num(r.get("strike")),
+                "kind": r.get("opt_kind"),
+                "delta": _num(r.get("delta")),
+                "iv": _num(r.get("iv")),
+                "oi": _num(r.get("oi")),
+                "volume": _num(r.get("volume")),
             }
         )
     kind = df["opt_kind"].astype(str).str.lower()
@@ -462,7 +608,8 @@ def get_vix_options(session: Session) -> dict[str, Any]:
     total = float(oi.sum())
     call_oi = float(oi[kind.str.startswith("c")].sum())
     return {
-        "rows": rows, "count": len(rows),
+        "rows": rows,
+        "count": len(rows),
         "call_oi_share": (call_oi / total) if total > 0 else None,
         "found": True,
     }
@@ -480,17 +627,15 @@ def get_live_gex(session: Session, symbol: str) -> dict[str, Any]:
     """
     sym = symbol.strip().upper()
     ts = session.execute(
-        select(LiveGex.ts)
-        .where(LiveGex.symbol == sym)
-        .order_by(LiveGex.ts.desc())
-        .limit(1)
+        select(LiveGex.ts).where(LiveGex.symbol == sym).order_by(LiveGex.ts.desc()).limit(1)
     ).scalar_one_or_none()
     if ts is None:
         return {"symbol": sym, "found": False, "by_strike": [], "count": 0}
 
     rows = session.execute(
-        select(LiveGex.strike, LiveGex.cp, LiveGex.gxoi, LiveGex.spot)
-        .where(LiveGex.symbol == sym, LiveGex.ts == ts)
+        select(LiveGex.strike, LiveGex.cp, LiveGex.gxoi, LiveGex.spot).where(
+            LiveGex.symbol == sym, LiveGex.ts == ts
+        )
     ).all()
     spot = next((_num(r.spot) for r in rows if r.spot is not None), None)
     by_strike: dict[float, float] = {}
@@ -499,14 +644,16 @@ def get_live_gex(session: Session, symbol: str) -> dict[str, Any]:
             continue
         sign = 1.0 if str(r.cp).upper().startswith("C") else -1.0
         by_strike[float(r.strike)] = by_strike.get(float(r.strike), 0.0) + sign * float(r.gxoi)
-    profile = [
-        {"strike": k, "net_gex": v} for k, v in sorted(by_strike.items())
-    ]
+    profile = [{"strike": k, "net_gex": v} for k, v in sorted(by_strike.items())]
     net_total = sum(v for _, v in by_strike.items())
     return {
-        "symbol": sym, "as_of": _iso_ts(ts), "spot": spot,
-        "net_gex_total": net_total, "by_strike": profile,
-        "count": len(profile), "found": True,
+        "symbol": sym,
+        "as_of": _iso_ts(ts),
+        "spot": spot,
+        "net_gex_total": net_total,
+        "by_strike": profile,
+        "count": len(profile),
+        "found": True,
     }
 
 
@@ -531,7 +678,8 @@ def get_intraday_flow(session: Session, symbol: str) -> dict[str, Any]:
     for _, r in series_df.iterrows():
         series.append(
             {
-                "ts": _iso_ts(r.get("ts")), "spot": _num(r.get("spot")),
+                "ts": _iso_ts(r.get("ts")),
+                "spot": _num(r.get("spot")),
                 "gamma_vol": _num(r.get("gamma_vol")),
                 "delta_vol": _num(r.get("delta_vol")),
                 "vanna_vol": _num(r.get("vanna_vol")),
@@ -550,8 +698,12 @@ def get_intraday_flow(session: Session, symbol: str) -> dict[str, Any]:
             }
         )
     return {
-        "symbol": sym, "as_of": _iso_ts(ts), "series": series,
-        "by_strike": by_strike, "count": len(by_strike), "found": True,
+        "symbol": sym,
+        "as_of": _iso_ts(ts),
+        "series": series,
+        "by_strike": by_strike,
+        "count": len(by_strike),
+        "found": True,
     }
 
 
@@ -575,16 +727,21 @@ def get_delta_flow(session: Session, symbol: str, *, days: int = 5) -> dict[str,
     if latest is None:
         return {"symbol": sym, "found": False, "rows": [], "count": 0}
     cutoff = latest - timedelta(days=days_c)
-    rows = session.execute(
-        select(DeltaFlow)
-        .where(DeltaFlow.symbol == sym, DeltaFlow.ts >= cutoff)
-        .order_by(DeltaFlow.ts.asc())
-    ).scalars().all()
+    rows = (
+        session.execute(
+            select(DeltaFlow)
+            .where(DeltaFlow.symbol == sym, DeltaFlow.ts >= cutoff)
+            .order_by(DeltaFlow.ts.asc())
+        )
+        .scalars()
+        .all()
+    )
     if not rows:
         return {"symbol": sym, "found": False, "rows": [], "count": 0}
     series = [
         {
-            "ts": _iso_ts(r.ts), "spot": _num(r.spot),
+            "ts": _iso_ts(r.ts),
+            "spot": _num(r.spot),
             "next_expiry": _iso_day(r.next_expiry),
             "call_notional_all": _num(r.call_notional_all),
             "put_notional_all": _num(r.put_notional_all),
@@ -599,8 +756,11 @@ def get_delta_flow(session: Session, symbol: str, *, days: int = 5) -> dict[str,
         net_all = float(last.call_notional_all) - float(last.put_notional_all)
     summary = {"as_of": _iso_ts(last.ts), "net_notional_all": net_all}
     return {
-        "symbol": sym, "rows": series, "count": len(series),
-        "summary": summary, "found": True,
+        "symbol": sym,
+        "rows": series,
+        "count": len(series),
+        "summary": summary,
+        "found": True,
     }
 
 
@@ -619,8 +779,12 @@ def get_research_note(session: Session, symbol: str) -> dict[str, Any]:
     if row is None:
         return {"symbol": sym, "found": False, "note_md": None}
     return {
-        "symbol": sym, "as_of": _iso_day(row.as_of), "note_md": row.note_md,
-        "sources": row.sources, "model": row.model, "found": True,
+        "symbol": sym,
+        "as_of": _iso_day(row.as_of),
+        "note_md": row.note_md,
+        "sources": row.sources,
+        "model": row.model,
+        "found": True,
     }
 
 
@@ -636,8 +800,12 @@ def get_surface_report(session: Session, symbol: str) -> dict[str, Any]:
     if row is None:
         return {"symbol": sym, "found": False, "report_md": None}
     return {
-        "symbol": sym, "as_of": _iso_day(row.as_of), "report_md": row.report_md,
-        "flow_source": row.flow_source, "model": row.model, "found": True,
+        "symbol": sym,
+        "as_of": _iso_day(row.as_of),
+        "report_md": row.report_md,
+        "flow_source": row.flow_source,
+        "model": row.model,
+        "found": True,
     }
 
 
@@ -657,14 +825,20 @@ def get_research_watchlist(
     stmt = select(WatchlistEntry)
     if active_only:
         stmt = stmt.where(WatchlistEntry.active.is_(True))
-    rows = session.execute(
-        stmt.order_by(WatchlistEntry.added_at.desc()).limit(limit_c)
-    ).scalars().all()
+    rows = (
+        session.execute(stmt.order_by(WatchlistEntry.added_at.desc()).limit(limit_c))
+        .scalars()
+        .all()
+    )
     recs = [
         {
-            "symbol": r.symbol, "rationale": r.rationale,
-            "sentiment": _num(r.sentiment), "confidence": _num(r.confidence),
-            "themes": r.themes, "added_at": _iso_ts(r.added_at), "active": r.active,
+            "symbol": r.symbol,
+            "rationale": r.rationale,
+            "sentiment": _num(r.sentiment),
+            "confidence": _num(r.confidence),
+            "themes": r.themes,
+            "added_at": _iso_ts(r.added_at),
+            "active": r.active,
         }
         for r in rows
     ]
@@ -672,6 +846,34 @@ def get_research_watchlist(
 
 
 # ── tas_daily_flow (accumulation / distribution scorecard) ─────────────
+
+
+def get_flow_report(
+    session: Session,
+    *,
+    lookback_days: int = 21,
+    recent_days: int = 5,
+    min_notional: float = 1_000_000.0,
+    top: int = 25,
+) -> dict[str, Any]:
+    """Longitudinal option-flow report off the durable daily roll-up tables.
+
+    Builds three views over ``tas_daily_flow`` + ``tas_daily_contract`` (which
+    survive the 30-day raw-print prune): ``trend`` — per-name recent-vs-prior
+    accumulation score, net-$delta change and a signed net-buy/sell streak;
+    ``contracts`` — per (root, expiry, strike, cp) build over the window; and the
+    ``new`` / ``fading`` name lists (freshly on vs dropping off the accumulation
+    board). Extends the point-in-time ``get_flow_scorecard`` with the trend/churn
+    dimension. Descriptive only (rule 4). Empty until ``tas_daily_rollup`` has
+    populated the roll-up tables.
+    """
+    return build_flow_report(
+        session,
+        lookback_days=max(2, min(int(lookback_days), 365)),
+        recent_days=max(1, int(recent_days)),
+        min_notional=float(min_notional),
+        top=max(1, min(int(top), 200)),
+    )
 
 
 def get_flow_scorecard(
@@ -693,7 +895,9 @@ def get_flow_scorecard(
     days_c = max(1, min(int(lookback_days), 365))
     limit_c = max(1, min(int(limit), 500))
     board = build_scorecard(
-        session, lookback_days=days_c, min_notional=float(min_notional),
+        session,
+        lookback_days=days_c,
+        min_notional=float(min_notional),
         min_days=max(1, int(min_days)),
     )
     if board.empty:
@@ -752,13 +956,14 @@ def get_signals(
     stmt = select(Signal).where(Signal.ts >= cutoff)
     if sym:
         stmt = stmt.where(Signal.symbol == sym)
-    rows = session.execute(
-        stmt.order_by(Signal.ts.desc()).limit(limit_c)
-    ).scalars().all()
+    rows = session.execute(stmt.order_by(Signal.ts.desc()).limit(limit_c)).scalars().all()
     recs = [
         {
-            "ts": _iso_ts(r.ts), "symbol": r.symbol, "signal_type": r.signal_type,
-            "confidence": _num(r.confidence), "payload": r.payload,
+            "ts": _iso_ts(r.ts),
+            "symbol": r.symbol,
+            "signal_type": r.signal_type,
+            "confidence": _num(r.confidence),
+            "payload": r.payload,
         }
         for r in rows
     ]

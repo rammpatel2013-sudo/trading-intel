@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trading_intel.prices.realized_vol import add_realized_vol, log_returns, realized_vol
+from trading_intel.prices.realized_vol import (
+    add_realized_vol,
+    log_returns,
+    realized_vol,
+    rv_rolloff_projection,
+)
 
 
 def test_log_returns_first_is_nan_and_values():
@@ -45,3 +50,42 @@ def test_add_realized_vol_adds_columns():
 def test_add_realized_vol_missing_close_is_safe():
     out = add_realized_vol(pd.DataFrame({"x": [1, 2, 3]}), windows=(20,))
     assert "rv20" in out.columns
+
+
+def _prices_from_returns(returns: list[float]) -> pd.Series:
+    """Reconstruct a close series whose log-returns equal ``returns``."""
+    close = [100.0]
+    for r in returns:
+        close.append(close[-1] * float(np.exp(r)))
+    return pd.Series(close)
+
+
+def test_rv_rolloff_shape_and_offsets():
+    close = _prices_from_returns([0.005] * 40)
+    proj = rv_rolloff_projection(close, window=21, horizon=10)
+    assert list(proj.columns) == ["session_offset", "projected_rv", "dropped_return"]
+    assert proj["session_offset"].tolist() == list(range(11))
+    assert pd.isna(proj.loc[0, "dropped_return"])
+
+
+def test_rv_rolloff_offset0_matches_trailing_rv():
+    # Offset 0 must equal the plain trailing-window realized vol.
+    rng = np.random.default_rng(7)
+    close = _prices_from_returns(list(rng.normal(0, 0.01, 60)))
+    proj = rv_rolloff_projection(close, window=21, horizon=5)
+    direct = realized_vol(close, 21).iloc[-1]
+    assert proj.loc[0, "projected_rv"] == pytest.approx(direct, rel=1e-9)
+
+
+def test_rv_rolloff_big_day_ages_out_drops_vol():
+    # One big move as the OLDEST return in the window; calm (zero) tape ahead.
+    # It should age out at offset 1 and collapse projected RV to ~0.
+    returns = [0.08] + [0.0] * 20  # 21 returns, big one is oldest
+    close = _prices_from_returns(returns)
+    proj = rv_rolloff_projection(close, window=21, horizon=3, future_return=0.0)
+    assert proj.loc[0, "projected_rv"] > 0.0
+    assert proj.loc[1, "projected_rv"] == pytest.approx(0.0, abs=1e-12)
+    assert proj.loc[1, "dropped_return"] == pytest.approx(0.08)
+    # Monotonic non-increasing under a zero-return roll-off.
+    vals = proj["projected_rv"].to_numpy()
+    assert np.all(np.diff(vals) <= 1e-12)

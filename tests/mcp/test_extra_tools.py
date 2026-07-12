@@ -23,8 +23,10 @@ from trading_intel.memory.models import (
     GreeksSnapshot,
     IndexSkewDaily,
     IntradayFlow,
+    IvTenorSnapshot,
     LiveGex,
     OiChainEod,
+    QuoteDaily,
     ResearchNote,
     Signal,
     SkewSnapshot,
@@ -52,6 +54,8 @@ _TABLES = (
     Signal,
     GreeksSnapshot,
     SkewSnapshot,
+    IvTenorSnapshot,
+    QuoteDaily,
 )
 
 
@@ -267,13 +271,159 @@ def test_get_vix_series_and_summary(session: Session) -> None:
 def test_get_index_skew_series(session: Session) -> None:
     session.add(
         IndexSkewDaily(
-            date=date(2026, 6, 2), cboe_skew=140.0, sdex=25.0, vix_tail_hedging_score=0.7
+            date=date(2026, 6, 2),
+            cboe_skew=140.0,
+            sdex=25.0,
+            vix_tail_hedging_score=0.7,
+            cor1m=5.2,
+            cor1m_pctile_252d=0.03,
+            cor3m=8.1,
+            cor3m_pctile_252d=0.05,
+            vixeq=50.0,
+            vixeq_pctile_252d=0.95,
+            dspx=37.5,
+            dspx_pctile_252d=0.98,
+            vixeq_vix_spread=33.0,
         )
     )
     session.commit()
     out = et.get_index_skew(session, days=30)
     assert out["found"] is True
-    assert out["rows"][-1]["cboe_skew"] == 140.0
+    last = out["rows"][-1]
+    assert last["cboe_skew"] == 140.0
+    # Dispersion family (migrations 0025/0027) must surface via MCP.
+    assert last["cor1m"] == 5.2
+    assert last["vixeq"] == 50.0
+    assert last["dspx"] == 37.5
+    assert last["vixeq_vix_spread"] == 33.0
+    assert last["cor_slope"] == pytest.approx(5.2 - 8.1)  # COR1M - COR3M
+
+
+def test_get_index_skew_cor_slope_none_when_missing(session: Session) -> None:
+    # cor_slope must degrade to None if either leg is absent (not raise / not 0).
+    session.add(IndexSkewDaily(date=date(2026, 6, 3), cor1m=5.0, cor3m=None))
+    session.commit()
+    out = et.get_index_skew(session, days=30)
+    assert out["rows"][-1]["cor_slope"] is None
+
+
+def test_get_rv_rolloff_projects_floor(session: Session) -> None:
+    import math as _math
+
+    base = date(2026, 5, 1)
+    # 30 flat sessions except one +5% jump inside the 21d window; it ages out
+    # over the horizon so the projected RV drifts down to a floor.
+    px = 100.0
+    rows = []
+    for i in range(30):
+        px *= _math.exp(0.05 if i == 12 else 0.0)
+        rows.append(
+            QuoteDaily(
+                symbol="SPX",
+                date=base + timedelta(days=i),
+                open=px,
+                high=px,
+                low=px,
+                close=px,
+                volume=1,
+            )
+        )
+    session.add_all(rows)
+    session.commit()
+    out = et.get_rv_rolloff(session, symbol="SPX", window=21, horizon=5)
+    assert out["found"] is True
+    assert out["count"] == 6  # horizon + 1
+    assert out["rows"][0]["session_offset"] == 0
+    s = out["summary"]
+    assert s["rv_now"] is not None
+    assert s["rv_floor"] <= s["rv_now"] + 1e-9  # floor is the min of the path
+    assert s["n_closes"] == 30
+
+
+def test_get_rv_rolloff_insufficient_history(session: Session) -> None:
+    session.add(
+        QuoteDaily(
+            symbol="SPX", date=date(2026, 5, 1), open=1, high=1, low=1, close=100.0, volume=1
+        )
+    )
+    session.commit()
+    out = et.get_rv_rolloff(session, symbol="SPX", window=21, horizon=5)
+    assert out["found"] is False
+
+
+def test_get_iv_tenor_empty(session: Session) -> None:
+    out = et.get_iv_tenor(session, days=30)
+    assert out == {"rows": [], "count": 0, "latest": [], "found": False}
+
+
+def test_get_iv_tenor_series_rr_and_filters(session: Session) -> None:
+    session.add_all(
+        [
+            IvTenorSnapshot(
+                symbol="QQQ",
+                ts=date(2026, 6, 22),
+                tenor_dte=30,
+                iv_atm=0.286,
+                iv_call_25d=0.261,
+                iv_put_25d=0.325,
+                iv_call_15d=0.248,
+                iv_put_15d=0.360,
+                spot=715.0,
+                n_expiries=29,
+            ),
+            IvTenorSnapshot(
+                symbol="QQQ",
+                ts=date(2026, 6, 23),
+                tenor_dte=30,
+                iv_atm=0.270,
+                iv_call_25d=0.255,
+                iv_put_25d=0.299,
+                iv_call_15d=0.245,
+                iv_put_15d=0.334,
+                spot=716.0,
+                n_expiries=29,
+            ),
+            IvTenorSnapshot(
+                symbol="QQQ",
+                ts=date(2026, 6, 23),
+                tenor_dte=90,
+                iv_atm=0.270,
+                iv_call_25d=0.255,
+                iv_put_25d=0.298,
+                spot=716.0,
+                n_expiries=29,
+            ),
+            IvTenorSnapshot(
+                symbol="SPY",
+                ts=date(2026, 6, 23),
+                tenor_dte=30,
+                iv_atm=0.165,
+                iv_call_25d=0.148,
+                iv_put_25d=0.188,
+                spot=734.0,
+                n_expiries=32,
+            ),
+        ]
+    )
+    session.commit()
+
+    out = et.get_iv_tenor(session, days=30)
+    assert out["found"] is True
+    assert out["count"] == 4
+
+    # Derived risk reversal = put - call (positive = equity put-skew bid).
+    qqq30 = [r for r in out["rows"] if r["symbol"] == "QQQ" and r["tenor_dte"] == 30][-1]
+    assert qqq30["rr_25d"] == pytest.approx(0.299 - 0.255)
+    assert qqq30["rr_15d"] == pytest.approx(0.334 - 0.245)
+
+    # latest carries the most recent row per (symbol, tenor).
+    latest = {f'{r["symbol"]}:{r["tenor_dte"]}': r for r in out["latest"]}
+    assert latest["QQQ:30"]["ts"] == "2026-06-23"
+    assert latest["SPY:30"]["iv_atm"] == pytest.approx(0.165)
+
+    # Filters: tenor and (case-insensitive) symbol.
+    assert {r["tenor_dte"] for r in et.get_iv_tenor(session, tenor_dte=90)["rows"]} == {90}
+    assert {r["symbol"] for r in et.get_iv_tenor(session, symbols=["spy"])["rows"]} == {"SPY"}
 
 
 def test_get_vix_options_call_share(session: Session) -> None:
