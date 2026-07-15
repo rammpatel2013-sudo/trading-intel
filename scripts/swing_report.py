@@ -19,14 +19,17 @@ from __future__ import annotations
 
 import argparse
 import html
+from collections.abc import Callable
 from datetime import date, timedelta
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
 import pandas as pd
 
 from trading_intel.clients.cvforge import CVForgeClient
 from trading_intel.config import get_settings
+from trading_intel.errors import DataSourceError
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _OUT = _REPO_ROOT / "reports"
@@ -41,6 +44,21 @@ th { background:#1f2a44; color:#fff; position:sticky; top:0; }
 td:first-child, th:first-child { text-align:left; font-weight:600; }
 tr:hover td { background:#161d2e; } .note { color:#8b97a7; font-size:12px; margin-top:16px; line-height:1.5; }
 """
+
+
+_T = TypeVar("_T")
+
+
+def _safe(fn: Callable[[], _T]) -> _T | None:
+    """Run ``fn``; on a transient CVForge ``DataSourceError`` return None.
+
+    Wraps the non-core enrichment pulls (RV history, RSI, SMA) so a vendor 502
+    blip degrades that one feature instead of blanking the whole symbol.
+    """
+    try:
+        return fn()
+    except DataSourceError:
+        return None
 
 
 def realized_vol(closes: np.ndarray, window: int = 20) -> float | None:
@@ -128,22 +146,34 @@ def analyze(client: CVForgeClient, sym: str) -> dict:
         out["gex"] = exp.get("gex_total")
         out["dex"] = exp.get("dex_total")
         out["atm_iv"] = exp.get("atm_iv")
+        out["skew"] = skew_25d(chain)
+
+        # Enrichment: a transient CVForge 502 on any of these degrades that one
+        # feature to None (via _safe) instead of blanking the whole symbol, which
+        # still scores off chain / exposures / skew.
         frm = (date.today() - timedelta(days=180)).isoformat()
-        bars = client.aggs(sym, frm=frm, to=date.today().isoformat())
-        rv = realized_vol(bars["c"].to_numpy(dtype=float)) if not bars.empty else None
+        bars = _safe(lambda: client.aggs(sym, frm=frm, to=date.today().isoformat()))
+        rv = (
+            realized_vol(bars["c"].to_numpy(dtype=float))
+            if (bars is not None and not bars.empty)
+            else None
+        )
         out["rv20"] = rv
         out["iv_rv"] = (out["atm_iv"] / rv) if (rv and out.get("atm_iv")) else None
-        rsi = client.fmp(
-            "technical-indicators/rsi", {"symbol": sym, "periodLength": 14, "timeframe": "1day"}
+        rsi = _safe(
+            lambda: client.fmp(
+                "technical-indicators/rsi", {"symbol": sym, "periodLength": 14, "timeframe": "1day"}
+            )
         )
         out["rsi"] = float(rsi[0]["rsi"]) if isinstance(rsi, list) and rsi else None
-        sma = client.fmp(
-            "technical-indicators/sma", {"symbol": sym, "periodLength": 50, "timeframe": "1day"}
+        sma = _safe(
+            lambda: client.fmp(
+                "technical-indicators/sma", {"symbol": sym, "periodLength": 50, "timeframe": "1day"}
+            )
         )
         out["sma50"] = float(sma[0]["sma"]) if isinstance(sma, list) and sma else None
-        out["skew"] = skew_25d(chain)
         out["score"], out["dir"], out["structure"] = score_setup(out)
-    except Exception as exc:  # one bad symbol shouldn't kill the scan
+    except Exception as exc:  # core pull failed (or an unexpected error) -> blank this symbol
         out["error"] = str(exc)
     return out
 

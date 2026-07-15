@@ -908,3 +908,44 @@ class WatchlistEntry(Base):
     themes: Mapped[list[str] | None] = mapped_column(JSON)
     added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class SwingFeature(Base):
+    """Daily per-name swing feature snapshot (one row per symbol per trading day).
+
+    Banks the Stage-1 feature vector so its percentile features (IV-rank, IV/RV,
+    skew, GEX/DEX positioning) mature into a real trailing distribution for the
+    Stage-2 fitted model (see the swing-trade-system build). Written on demand /
+    daily by ``scripts/swing_features.py`` from CVForge (ADR-004) — convexlib is
+    untouched. Percentiles are standardized against the name's own trailing 252d
+    from this table (today excluded), matching the ``skew_snapshots`` contract.
+
+    Descriptive features only — not signals (FlashAlpha rule 4). The validated
+    ``SignalGenerator`` (P4) under ``strategies/`` is the only writer to ``signals``.
+    """
+
+    __tablename__ = "swing_features"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_swing_features"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)  # trading day
+
+    # Raw daily features (decimals unless noted).
+    spot: Mapped[float | None] = mapped_column(Float)
+    atm_iv: Mapped[float | None] = mapped_column(Float)
+    rv20: Mapped[float | None] = mapped_column(Float)
+    iv_rv: Mapped[float | None] = mapped_column(Float)  # atm_iv / rv20
+    rsi14: Mapped[float | None] = mapped_column(Float)
+    sma50: Mapped[float | None] = mapped_column(Float)
+    px_vs_sma50: Mapped[float | None] = mapped_column(Float)  # spot / sma50 - 1
+    skew_25d: Mapped[float | None] = mapped_column(Float)  # 25d put_iv - call_iv
+    gex: Mapped[float | None] = mapped_column(Float)
+    dex: Mapped[float | None] = mapped_column(Float)
+
+    # Trailing-252d percentiles (0..1, min_history 20; NULL until history banks).
+    atm_iv_rank_252d: Mapped[float | None] = mapped_column(Float)
+    iv_rv_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    skew_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    gex_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    dex_pctile_252d: Mapped[float | None] = mapped_column(Float)
