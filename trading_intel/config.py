@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     # SEC EDGAR fair-access requires a descriptive User-Agent incl. a contact email.
     EDGAR_USER_AGENT: str = "trading-intel research (set EDGAR_USER_AGENT in .env)"
 
+    # ── CVForge (ConvexValue AI API — SECONDARY OptionsDataSource, ADR-004) ──
+    # Same backend as convexlib, exposed as a keyed REST+MCP API. Research tier:
+    # market-wide breadth (/screen, /query), historical option OHLC (/mas), and
+    # 157 FMP endpoints. Used for breadth + history + FMP; convexlib stays PRIMARY
+    # for the live regime engine (rule 1). Never logged (rule 2). Its /ai gateway
+    # is out of scope — scheduled LLM stays on local Ollama (rule 7).
+    CVFORGE_API_KEY: SecretStr = SecretStr("")
+    CVFORGE_BASE_URL: str = "https://tap.convexvalue.com/api/data"
+
     # ── Discord webhooks (multiple channels) ───────────────────────────
     DISCORD_WEBHOOK_URL: SecretStr                       # general / AM summary
     DISCORD_FLOW_WEBHOOK_URL: SecretStr = SecretStr("")
