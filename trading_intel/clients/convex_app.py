@@ -83,9 +83,10 @@ class ConvexAppClient:
 
     def flow_scan(self, *, min_value: float = 1_000_000, limit: int = 25) -> dict:
         """Native vflowratio flow scanner (POST /api/data/und) -> {data: [rows]}."""
+        # min_value/limit are int-coerced below (not user strings) -> not injectable.
         query = (
-            f"select symbol from und where value > {int(min_value)} "
-            f"order by vflowratio desc nulls last limit {limit}"
+            f"select symbol from und where value > {int(min_value)} "  # noqa: S608
+            f"order by vflowratio desc nulls last limit {int(limit)}"
         )
         params = ["symbol", "value", "price", "change", "vflowratio"]
         return self._request("POST", "/api/data/und", json={"params": params, "query": query})

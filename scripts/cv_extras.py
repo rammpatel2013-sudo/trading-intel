@@ -16,7 +16,7 @@ Run (Windows, venv):
 from __future__ import annotations
 
 import html
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 from trading_intel.clients.convex_app import ConvexAppClient
@@ -161,7 +161,7 @@ def market_flow_section(client: ConvexAppClient) -> str:
     return "<h2>Index net-flow (latest)</h2>" + _table(["Sym", "flownet", "vflownet"], out)
 
 
-def _safe(fn) -> str:  # noqa: ANN001
+def _safe(fn) -> str:
     try:
         return fn()
     except DataSourceError as exc:
