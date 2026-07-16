@@ -371,6 +371,36 @@ class IvTenorSnapshot(Base):
     n_expiries: Mapped[int | None] = mapped_column(Integer)  # expiries in the interp
 
 
+class LetfSharesSnapshot(Base):
+    """Daily shares-outstanding snapshot per (symbol, trading day) for LETFs.
+
+    The primitive behind LETF net creation/redemption (issuance) flow. FMP's
+    stable tier serves only the CURRENT shares figure, so ``scheduler/jobs/
+    letf_flows.py`` snapshots it EOD and banks the series forward; Δshares, net
+    issuance $ (= Δshares × price), issuer buckets, and the k(k-1)·assets·return
+    forced-rebalance estimate are all computed downstream from this raw series.
+
+    ``nav`` is the fund NAV/close at capture (joined from the price layer) so the
+    $-flow descriptor is self-contained; ``vendor_date`` is the vendor's stated
+    as-of for the shares figure (may lag ``ts``). Unique on (symbol, ts) for
+    idempotent daily upserts (rule 5). Regime descriptor only (rule 4) — no signals.
+    """
+
+    __tablename__ = "letf_shares_snapshots"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", name="uq_letf_shares_snapshots"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)  # our snapshot trading day
+    shares_outstanding: Mapped[int] = mapped_column(BigInteger)  # whole shares
+    float_shares: Mapped[int | None] = mapped_column(BigInteger)  # free float, if given
+    nav: Mapped[float | None] = mapped_column(Float)  # fund NAV/close at capture
+    vendor_date: Mapped[date | None] = mapped_column(Date)  # vendor as-of for shares
+    source: Mapped[str | None] = mapped_column(String(32))  # vendor tag (shares-float/quote)
+
+
 class IndexSkewDaily(Base):
     """Index-level skew snapshot per trading day.
 
@@ -949,3 +979,46 @@ class SwingFeature(Base):
     skew_pctile_252d: Mapped[float | None] = mapped_column(Float)
     gex_pctile_252d: Mapped[float | None] = mapped_column(Float)
     dex_pctile_252d: Mapped[float | None] = mapped_column(Float)
+
+
+class FundamentalsSnapshot(Base):
+    """Weekly per-name fundamental inputs + cross-sectional factor scores.
+
+    Banked by ``scheduler/jobs/factor_scores.py`` from CVForge FMP fundamentals
+    (ADR-005 — no new vendor). Raw ratio/growth/momentum inputs plus the
+    universe-relative factor z-scores (Value/Quality/Growth/Momentum/Risk) and the
+    weighted composite. Unique on (symbol, ts) for idempotent weekly upserts
+    (rule 5). Descriptive research scores only (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "fundamentals_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_fundamentals_snapshots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)
+    # Raw inputs (ratios/margins as decimals; returns as fractions).
+    pe: Mapped[float | None] = mapped_column(Float)
+    pb: Mapped[float | None] = mapped_column(Float)
+    ps: Mapped[float | None] = mapped_column(Float)
+    ev_ebitda: Mapped[float | None] = mapped_column(Float)
+    roe: Mapped[float | None] = mapped_column(Float)
+    roic: Mapped[float | None] = mapped_column(Float)
+    gross_margin: Mapped[float | None] = mapped_column(Float)
+    net_margin: Mapped[float | None] = mapped_column(Float)
+    fcf_margin: Mapped[float | None] = mapped_column(Float)
+    debt_to_equity: Mapped[float | None] = mapped_column(Float)
+    current_ratio: Mapped[float | None] = mapped_column(Float)
+    revenue_growth: Mapped[float | None] = mapped_column(Float)
+    eps_growth: Mapped[float | None] = mapped_column(Float)
+    beta: Mapped[float | None] = mapped_column(Float)
+    ret_3m: Mapped[float | None] = mapped_column(Float)
+    ret_12m: Mapped[float | None] = mapped_column(Float)
+    # Cross-sectional factor z-scores + composite (universe-relative).
+    value_score: Mapped[float | None] = mapped_column(Float)
+    quality_score: Mapped[float | None] = mapped_column(Float)
+    growth_score: Mapped[float | None] = mapped_column(Float)
+    momentum_score: Mapped[float | None] = mapped_column(Float)
+    risk_score: Mapped[float | None] = mapped_column(Float)
+    composite_score: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(32))

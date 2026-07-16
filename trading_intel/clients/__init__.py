@@ -7,6 +7,8 @@ swap-out cheap.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date
 from typing import Protocol
 
 import pandas as pd
@@ -125,5 +127,44 @@ class PriceDataSource(Protocol):
         ``open``, ``high``, ``low``, ``close``, ``volume``. ``period`` is a
         vendor-style window string (e.g. ``"5y"``, ``"max"``, ``"6mo"``).
         Empty frame when the vendor has no data for the symbol.
+        """
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class SharesSnapshot:
+    """One vendor reading of an ETF/LETF's shares outstanding.
+
+    A value object at the ``clients/`` boundary (CLAUDE.md — dataclass for value
+    objects). ``as_of`` is the vendor's stated date for the figure (may lag the
+    caller's snapshot day, or be ``None`` when the vendor omits it). Counts are
+    whole shares; ``float_shares`` is the free float when the vendor provides it.
+    """
+
+    symbol: str
+    shares_outstanding: int
+    as_of: date | None = None
+    float_shares: int | None = None
+    source: str | None = None
+
+
+class EtfFlowSource(Protocol):
+    """Contract for a vendor that reports ETF/LETF shares outstanding.
+
+    The input for LETF net creation/redemption (issuance) flow: net issuance $ =
+    Δ(shares_outstanding) × price, and a k× fund's forced EOD rebalance in the
+    underlying ≈ k(k-1) × assets × return. FMP's stable tier serves only the
+    CURRENT figure (no history), so callers snapshot this daily and bank the
+    Δshares series forward (cf. the percentile bank-forward pattern) — see
+    ``scheduler/jobs/letf_flows.py``.
+
+    Descriptive research input only (FlashAlpha rule 4): issuance is a regime
+    descriptor like GEX/DEX, never on its own an alert source.
+    """
+
+    def shares_outstanding(self, symbol: str) -> SharesSnapshot | None:
+        """Current shares outstanding for ``symbol``.
+
+        ``None`` when the vendor has no usable figure for the symbol.
         """
         ...
