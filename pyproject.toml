@@ -101,6 +101,7 @@ ignore = ["ANN101", "ANN102", "S101"]   # missing self/cls, asserts in tests
 "scripts/swing_report.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 "scripts/cv_extras.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 "scripts/credit_income_scan.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
+"scripts/earnings_inflection.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 
 [tool.black]
 line-length = 100

@@ -169,6 +169,12 @@ def build_server(
             return et.get_walls(session, symbol, dte_max=dte_max)
 
     @mcp.tool()
+    def get_straddle(symbol: str, dte_max: int = 400) -> dict[str, Any]:
+        """ATM straddle price + expected-move range + day-over-day decay (latest EOD chain)."""
+        with session_factory() as session:
+            return et.get_straddle(session, symbol, dte_max=dte_max)
+
+    @mcp.tool()
     def get_oi_changes(symbol: str, dte_max: int = 60, top: int = 15) -> dict[str, Any]:
         """Biggest day-over-day open-interest changes per strike (latest EOD snapshot)."""
         with session_factory() as session:
@@ -319,6 +325,23 @@ def build_server(
             )
 
     @mcp.tool()
+    def get_flow_intelligence(symbol: str, trade_date: str | None = None) -> dict[str, Any]:
+        """Flow-intelligence drill-in for one name from the option tape: net-premium
+        4-way (call-buy / put-sell / put-buy / call-sell + a bullish-minus-bearish
+        tilt), institutional-vs-retail split by print size, DTE-bucket premium, the
+        accumulation summary, and the most-active strikes. buy/sell is the tape
+        aggressor side (not an OI-change guess). trade_date is ISO YYYY-MM-DD; the
+        latest tape day is used if omitted.
+        """
+        from datetime import date
+
+        from trading_intel.mcp.flow_intelligence_tool import flow_intelligence
+
+        td = date.fromisoformat(trade_date) if trade_date else None
+        with session_factory() as session:
+            return flow_intelligence(session, symbol, trade_date=td)
+
+    @mcp.tool()
     def get_signals(symbol: str | None = None, days: int = 30, limit: int = 100) -> dict[str, Any]:
         """Recent rows from the validated signals table (read-only)."""
         with session_factory() as session:
@@ -336,6 +359,24 @@ def build_server(
         from trading_intel.reports import build
 
         return {"symbol": symbol.strip().upper(), "path": build(symbol, days=days), "found": True}
+
+    @mcp.tool()
+    def generate_vol_surface_report(symbol: str = "SPX") -> dict[str, Any]:
+        """Generate the vol-surface *changes* HTML report for an index ETF (SPX/QQQ/SPY).
+
+        Reads the banked ``surface_snapshots`` (full delta-moneyness × expiry grid), diffs
+        today vs the prior banked day, and reads the multi-day fixed-delta vol *footprint*
+        (calls / puts offered or bid day after day) to infer dealer positioning — long gamma
+        (street lightening) vs short gamma / crash bid — then cross-checks it against net GEX
+        (confirm or contradict). Returns the saved HTML path under ``reports/`` (surface + 3D
+        + changes + skew + term + a 'The read' footprint panel). The footprint/changes need
+        >=2 banked days. Descriptive only (FlashAlpha rule 4) — GEX is the model, the surface
+        is the receipt.
+        """
+        from trading_intel.reports import build_vol_surface
+
+        path = build_vol_surface(symbol)
+        return {"symbol": symbol.strip().upper(), "path": path, "uri": Path(path).as_uri(), "found": True}
 
     @mcp.tool()
     def generate_eod_vol_report(days: int = 252) -> dict[str, Any]:

@@ -1022,3 +1022,73 @@ class FundamentalsSnapshot(Base):
     risk_score: Mapped[float | None] = mapped_column(Float)
     composite_score: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str | None] = mapped_column(String(32))
+
+
+class SentimentSnapshot(Base):
+    """Weekly per-name sentiment: institutional 13F + analyst ratings/targets.
+
+    Banked by ``scheduler/jobs/sentiment.py`` from CVForge FMP (ADR-005 — no new
+    vendor): institutional-ownership (latest 13F quarter), price-target-consensus,
+    grades-consensus, quote. Raw fields + two pure derivations (implied upside to the
+    average target, Buy-share of the panel). Unique on (symbol, ts) for the idempotent
+    weekly upsert (rule 5). Descriptive descriptors only (FlashAlpha rule 4) — the
+    *trend* (target-cut rate, institutional accumulation) is the signal, not one row.
+    """
+
+    __tablename__ = "sentiment_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_sentiment_snapshots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)
+    # Institutional (latest 13F quarter; counts/shares stored as Float per convention).
+    inst_pct: Mapped[float | None] = mapped_column(Float)
+    inst_holders: Mapped[float | None] = mapped_column(Float)
+    inst_shares: Mapped[float | None] = mapped_column(Float)
+    inst_net_share_change: Mapped[float | None] = mapped_column(Float)
+    inst_new_positions: Mapped[float | None] = mapped_column(Float)
+    inst_closed_positions: Mapped[float | None] = mapped_column(Float)
+    inst_put_call: Mapped[float | None] = mapped_column(Float)
+    # Analyst price targets + rating panel.
+    pt_avg: Mapped[float | None] = mapped_column(Float)
+    pt_high: Mapped[float | None] = mapped_column(Float)
+    pt_low: Mapped[float | None] = mapped_column(Float)
+    rating_buy: Mapped[float | None] = mapped_column(Float)
+    rating_hold: Mapped[float | None] = mapped_column(Float)
+    rating_sell: Mapped[float | None] = mapped_column(Float)
+    num_analysts: Mapped[float | None] = mapped_column(Float)
+    rating_consensus: Mapped[str | None] = mapped_column(String(16))
+    price: Mapped[float | None] = mapped_column(Float)
+    # Pure derivations.
+    pt_upside_pct: Mapped[float | None] = mapped_column(Float)
+    buy_share: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(32))
+
+
+class SurfaceSnapshot(Base):
+    """Near-money per-STRIKE IV surface for index ETFs, banked daily (fixed-strike).
+
+    One row per (symbol, ts, expiry_date, strike): the OTM-wing IV at each near-money
+    listed strike (|delta| ~0.05..0.95), plus the stored ``delta`` (a delta view is
+    derivable) and ``spot``. Keyed by STRIKE so day-over-day changes and the vol
+    footprint track the SAME contract — fixed strike is the receipt; fixed delta gets
+    smeared as spot slides along the skew. Written by
+    ``scheduler/jobs/surface_snapshots.py`` from the live chain (SPX/QQQ/SPY). Unique on
+    (symbol, ts, expiry_date, strike) for the idempotent upsert (rule 5). Descriptor only
+    (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "surface_snapshots"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "expiry_date", "strike", name="uq_surface_snapshots"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)
+    expiry_date: Mapped[date] = mapped_column(Date)
+    dte: Mapped[int] = mapped_column(Integer)
+    strike: Mapped[float] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    delta: Mapped[float | None] = mapped_column(Float)
+    spot: Mapped[float | None] = mapped_column(Float)

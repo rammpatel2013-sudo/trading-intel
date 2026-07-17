@@ -158,6 +158,21 @@ class Settings(BaseSettings):
     # Universe for the weekly multi-factor job (empty -> the watchlist).
     FACTOR_UNIVERSE: str = ""
 
+    # ── Sentiment (institutional 13F + analyst ratings/targets) ─
+    # Universe for the weekly sentiment snapshot job (empty -> the watchlist).
+    SENTIMENT_UNIVERSE: str = ""
+
+    # ── Per-name constant-maturity IV term (reads stored oi_chain_eod) ─
+    # Tenors (calendar days) for the per-name IV-term curve; complements the
+    # index-only iv_tenor job (watchlist universe).
+    IV_TERM_DTE: str = "30,60,90"
+
+    # ── Vol surface snapshots (full delta x expiry grid, index ETFs) ─
+    # Roots to bank the whole surface for (the vol-surface-changes board); n
+    # nearest liquid expiries kept per root.
+    SURFACE_SYMBOLS: str = "SPX,QQQ,SPY"
+    SURFACE_EXPIRIES: int = 12
+
     # ── Schwab (PARKED) ────────────────────────────────────────────────
     SCHWAB_APP_KEY: str = ""
     SCHWAB_APP_SECRET: SecretStr = SecretStr("")
@@ -229,6 +244,39 @@ class Settings(BaseSettings):
         """Universe for factor scoring (FACTOR_UNIVERSE, else the watchlist)."""
         syms = [s.strip().upper() for s in self.FACTOR_UNIVERSE.split(",") if s.strip()]
         return syms or self.watchlist_symbols
+
+    @property
+    def sentiment_symbols(self) -> list[str]:
+        """Universe for sentiment snapshots (SENTIMENT_UNIVERSE, else the watchlist)."""
+        syms = [s.strip().upper() for s in self.SENTIMENT_UNIVERSE.split(",") if s.strip()]
+        return syms or self.watchlist_symbols
+
+    @property
+    def iv_term_dtes(self) -> list[int]:
+        """Constant-maturity tenors (days) for the per-name IV-term job."""
+        seen: set[int] = set()
+        out: list[int] = []
+        for tok in self.IV_TERM_DTE.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            dte = int(tok)
+            if dte not in seen:
+                seen.add(dte)
+                out.append(dte)
+        return sorted(out)
+
+    @property
+    def surface_symbols(self) -> list[str]:
+        """Index-ETF roots for the full vol-surface snapshot (upper, de-duped)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for tok in self.SURFACE_SYMBOLS.split(","):
+            s = tok.strip().upper()
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
 
 
 _settings: Settings | None = None

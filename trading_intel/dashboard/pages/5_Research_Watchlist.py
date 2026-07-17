@@ -17,6 +17,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import get_settings
 from trading_intel.dashboard.dynamic_watchlist import (
+    active_symbols,
+    add_manual_entry,
+    deactivate_symbol,
     distinct_symbols,
     load_watchlist_entries,
 )
@@ -43,6 +46,33 @@ def main() -> None:
         "and sentiment. Cross-referenced with collected regime metrics. Context, not signals "
         "(FlashAlpha rule)."
     )
+
+    with st.expander("➕  Manage watchlist — add / remove (no terminal)", expanded=False):
+        factory = _session_factory()
+        add_col, rm_col = st.columns(2)
+        with add_col:
+            with st.form("wl_add", clear_on_submit=True):
+                sym = st.text_input("Add ticker", placeholder="e.g. NVDA").strip().upper()
+                note = st.text_input("Note (optional)", placeholder="why you're watching it")
+                if st.form_submit_button("Add") and sym:
+                    with factory() as s:
+                        msg = add_manual_entry(s, sym, rationale=note or None)
+                    st.success(msg)
+                    st.rerun()
+        with rm_col:
+            with factory() as s:
+                current = active_symbols(s)
+            picked = st.multiselect("Remove ticker(s)", current)
+            if st.button("Remove selected", disabled=not picked):
+                with factory() as s:
+                    for p in picked:
+                        deactivate_symbol(s, p)
+                st.success(f"Removed: {', '.join(picked)}")
+                st.rerun()
+        st.caption(
+            "Writes to the shared DB — the NAS collectors add new names and drop removed "
+            "ones on their next run (no rebuild). Confirm with `check_watchlist_coverage.py`."
+        )
 
     try:
         factory = _session_factory()

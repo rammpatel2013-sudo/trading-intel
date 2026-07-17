@@ -139,3 +139,46 @@ def fetch_tdex(*, period: str = "5d") -> float | None:
     TDEX normalizes the price of deep-OTM puts — pure tail-hedge demand.
     """
     return fetch_yf_index_close("^TDEX", period=period)
+
+
+def fetch_cor1m(*, period: str = "5d") -> float | None:
+    """Cboe 1-month S&P 500 Implied Correlation close, via Yahoo (``^COR1M``).
+
+    The implied-correlation index is the cleanest market-based dispersion gauge:
+    high = index-vol-led / correlation regime (single names moving together),
+    low = dispersion regime (idiosyncratic moves). Same Yahoo path as the Nations
+    indices; the Cboe CDN does not expose the correlation symbols. Returns
+    ``None`` on any fetch failure.
+    """
+    return fetch_yf_index_close("^COR1M", period=period)
+
+
+def fetch_cor3m(*, period: str = "5d") -> float | None:
+    """Cboe 3-month S&P 500 Implied Correlation close, via Yahoo (``^COR3M``).
+
+    The 3-month tenor paired with ``COR1M`` gives a correlation-curve slope:
+    1m > 3m (inverted) flags acute near-term correlation stress, the mirror of
+    a backwardated VIX term structure.
+    """
+    return fetch_yf_index_close("^COR3M", period=period)
+
+
+def fetch_vixeq(*, period: str = "5d") -> float | None:
+    """Cboe S&P 500 Constituent Volatility Index close, via Yahoo (``^VIXEQ``).
+
+    The single-stock leg of the dispersion trade: a market-cap-weighted 30-day
+    implied vol of S&P 500 constituents (a "VIX of the average stock"). It sits
+    far above VIX. ``VIXEQ - VIX`` is the dispersion spread; high VIXEQ with a
+    flat VIX is dispersion/positioning, not a fundamental index repricing.
+    History begins ~Nov 2024 (index launch). Returns ``None`` on fetch failure.
+    """
+    return fetch_yf_index_close("^VIXEQ", period=period)
+
+
+def fetch_dspx(*, period: str = "5d") -> float | None:
+    """Cboe S&P 500 Dispersion Index close, via Yahoo (``^DSPX``).
+
+    The official 30-day implied-dispersion gauge, tied to the others by the
+    identity ``DSPX^2 = VIXEQ^2 - VIX^2``. History begins ~Sep 2023 (launch).
+    """
+    return fetch_yf_index_close("^DSPX", period=period)

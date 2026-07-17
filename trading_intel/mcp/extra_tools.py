@@ -9,7 +9,7 @@ call ConvexValue, never write to ``signals``, and never persist anything —
 everything stored here arrived via a scheduled collector job.
 
 Coverage (table -> tool):
-    oi_chain_eod     -> get_walls, get_oi_changes
+    oi_chain_eod     -> get_walls, get_oi_changes, get_straddle
     gex_rolling/term -> get_gex_term
     vol_richness     -> get_vol_richness
     vix_data         -> get_vix
@@ -44,13 +44,16 @@ from trading_intel.dashboard.ticker_data import (
     load_intraday_flow_series,
     load_latest_intraday_flow,
 )
+from trading_intel.errors import ComputationError
 from trading_intel.flow.report import build_flow_report
 from trading_intel.flow.scorecard import build_scorecard
+from trading_intel.greeks.straddle import atm_straddle, straddle_decay
 from trading_intel.mcp.tools import _iso_day, _iso_ts, _normalise_symbols, _num
 from trading_intel.memory.models import (
     DeltaFlow,
     GexRolling,
     GexTerm,
+    GreeksSnapshot,
     IndexSkewDaily,
     IvTenorSnapshot,
     LiveGex,
@@ -128,6 +131,101 @@ def get_walls(session: Session, symbol: str, *, dte_max: int = 60) -> dict[str, 
         out[f"{label}_wall"] = side[0]["strike"] if side else None
         out[f"{label}_wall_gxoi"] = side[0]["gxoi"] if side else None
         out[f"{label}_top_strikes"] = side[:5]
+    out["found"] = True
+    return out
+
+
+def _prev_oi_ts(session: Session, symbol: str, ts: datetime) -> datetime | None:
+    """Timestamp of the EOD snapshot immediately before ``ts`` (or None)."""
+    return session.execute(
+        select(OiChainEod.ts)
+        .where(OiChainEod.symbol == symbol, OiChainEod.ts < ts)
+        .order_by(OiChainEod.ts.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def _snapshot_spot_on(session: Session, symbol: str, ts: datetime) -> float | None:
+    """Aggregate-snapshot spot for ``symbol`` on the calendar date of ``ts``."""
+    row = session.execute(
+        select(GreeksSnapshot.spot)
+        .where(GreeksSnapshot.symbol == symbol, func.date(GreeksSnapshot.ts) == ts.date())
+        .order_by(GreeksSnapshot.ts.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    return _num(row) if row is not None else None
+
+
+def _straddle_from_oi(
+    session: Session, symbol: str, ts: datetime, spot: float, dte_max: int
+) -> dict[str, Any] | None:
+    """ATM straddle dict from one ``oi_chain_eod`` snapshot, or None if unpriceable."""
+    rows = session.execute(
+        select(OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.iv).where(
+            OiChainEod.symbol == symbol,
+            OiChainEod.ts == ts,
+            OiChainEod.dte >= 0,
+            OiChainEod.dte <= dte_max,
+            OiChainEod.iv.isnot(None),
+        )
+    ).all()
+    if not rows:
+        return None
+    frame = pd.DataFrame(
+        [{"opt_kind": r.cp, "strike": r.strike, "iv": r.iv, "expiration": r.dte} for r in rows]
+    )
+    try:
+        res = atm_straddle(frame, float(spot))
+    except ComputationError:
+        return None
+    if not res:
+        return None
+    return {k: (_num(v) if isinstance(v, float) else v) for k, v in res.items()}
+
+
+def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[str, Any]:
+    """ATM straddle price + expected-move range + day-over-day decay (latest EOD chain).
+
+    The at-the-money straddle (ATM call + ATM put) is the market's compact
+    expected-move read: ``spot +/- straddle`` brackets the day's likely range, and
+    "is the straddle decaying vs the prior session?" is VS3D's charm-validity
+    cross-check -- charm leads only while the straddle bleeds; a straddle repricing
+    *up* means other flows are overpowering it. Priced with Black-Scholes from each
+    ATM leg's stored ``iv`` (the chain carries iv, not premium) over the front
+    expiration in the newest ``oi_chain_eod`` snapshot. Regime descriptor only --
+    never a signal (FlashAlpha rule 4). See
+    ``docs/learning/vs3d-dealer-exposure-digest.md``.
+    """
+    sym = symbol.strip().upper()
+    dte_c = max(0, min(int(dte_max), 400))
+    ts = _latest_oi_ts(session, sym)
+    if ts is None:
+        return {"symbol": sym, "found": False, "straddle": None}
+    snap = latest_snapshot(session, sym)
+    spot = _num(snap.spot) if snap is not None else None
+    if spot is None or spot <= 0:
+        return {"symbol": sym, "found": False, "straddle": None, "reason": "no spot"}
+
+    cur = _straddle_from_oi(session, sym, ts, float(spot), dte_c)
+    if not cur:
+        return {"symbol": sym, "found": False, "straddle": None}
+
+    out: dict[str, Any] = {"symbol": sym, "as_of": _iso_day(ts), "dte_max": dte_c}
+    out.update(cur)
+
+    prev_ts = _prev_oi_ts(session, sym, ts)
+    if prev_ts is not None:
+        prev_spot = _snapshot_spot_on(session, sym, prev_ts) or spot
+        prev = _straddle_from_oi(session, sym, prev_ts, float(prev_spot), dte_c)
+        if prev and prev.get("straddle"):
+            try:
+                decay = straddle_decay(float(cur["straddle"]), float(prev["straddle"]))
+            except ComputationError:
+                decay = None
+            if decay is not None:
+                decay["as_of_prior"] = _iso_day(prev_ts)
+                decay["prior_straddle"] = prev["straddle"]
+            out["decay"] = decay
     out["found"] = True
     return out
 

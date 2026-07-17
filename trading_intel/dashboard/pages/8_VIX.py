@@ -12,15 +12,20 @@ Descriptive regime view - not a signal (FlashAlpha rule 4).
 
 from __future__ import annotations
 
+from datetime import date
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.clients.cboe import CboeClient
 from trading_intel.config import get_settings
 from trading_intel.dashboard.vix_decomp_data import latest_spx_decomposition
+from trading_intel.memory.models import IndexSkewDaily, VixExpiration
+from trading_intel.timeutils import eastern_now
 from trading_intel.dashboard.vix_view import (
     ZONE_LOW_MAX,
     ZONE_MID_MAX,
@@ -106,6 +111,132 @@ def _vrp_figure(hist: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
+def _load_correlation(session: Session, *, days: int = 180) -> pd.DataFrame:
+    """Cboe implied-correlation history (cor1m/cor3m + pctiles) from index_skew_daily."""
+    rows = session.execute(
+        select(
+            IndexSkewDaily.date,
+            IndexSkewDaily.cor1m,
+            IndexSkewDaily.cor1m_pctile_252d,
+            IndexSkewDaily.cor3m,
+            IndexSkewDaily.cor3m_pctile_252d,
+        )
+        .where(IndexSkewDaily.date.is_not(None))
+        .order_by(IndexSkewDaily.date.desc())
+        .limit(days)
+    ).all()
+    if not rows:
+        return pd.DataFrame(
+            columns=["date", "cor1m", "cor1m_pctile_252d", "cor3m", "cor3m_pctile_252d"]
+        )
+    df = pd.DataFrame(
+        rows, columns=["date", "cor1m", "cor1m_pctile_252d", "cor3m", "cor3m_pctile_252d"]
+    )
+    return df.sort_values("date").reset_index(drop=True)
+
+
+def _load_vix_expirations(session: Session, *, as_of: date, n: int = 6) -> pd.DataFrame:
+    """Upcoming standard VIX expirations (on/after ``as_of``) with DTE."""
+    rows = session.execute(
+        select(
+            VixExpiration.expiration,
+            VixExpiration.spx_ref_expiry,
+            VixExpiration.holiday_adjusted,
+        )
+        .where(VixExpiration.expiration >= as_of)
+        .order_by(VixExpiration.expiration.asc())
+        .limit(n)
+    ).all()
+    if not rows:
+        return pd.DataFrame(columns=["expiration", "spx_ref_expiry", "holiday_adjusted", "dte"])
+    df = pd.DataFrame(rows, columns=["expiration", "spx_ref_expiry", "holiday_adjusted"])
+    df["dte"] = [(e - as_of).days for e in df["expiration"]]
+    return df
+
+
+def _correlation_figure(corr: pd.DataFrame) -> go.Figure | None:
+    plot = corr.dropna(subset=["cor1m", "cor3m"], how="all")
+    if plot.empty:
+        return None
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=plot["date"], y=plot["cor1m"], mode="lines", name="COR1M"))
+    fig.add_trace(go.Scatter(x=plot["date"], y=plot["cor3m"], mode="lines", name="COR3M"))
+    fig.update_layout(
+        title="Cboe implied correlation (dispersion)",
+        template="plotly_dark", height=320,
+        margin={"l": 10, "r": 10, "t": 50, "b": 10},
+    )
+    fig.update_yaxes(title_text="Implied correlation")
+    return fig
+
+
+def _render_correlation(corr: pd.DataFrame) -> None:
+    st.subheader("Implied correlation — dispersion regime")
+    if corr.empty or corr[["cor1m", "cor3m"]].dropna(how="all").empty:
+        st.caption(
+            "No correlation data yet. The index_skew collector writes COR1M/COR3M "
+            "(Yahoo ^COR1M/^COR3M) once it runs; backfill via "
+            "`scripts/backfill_index_skew.py`."
+        )
+        return
+    latest = corr.iloc[-1]
+    cor1m = latest["cor1m"]
+    cor3m = latest["cor3m"]
+    slope = (cor1m - cor3m) if (pd.notna(cor1m) and pd.notna(cor3m)) else None
+    pct = latest["cor1m_pctile_252d"]
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("COR1M", _metric(cor1m, "{:.1f}"))
+    c2.metric("COR3M", _metric(cor3m, "{:.1f}"))
+    c3.metric("COR1M %ile (252d)", _metric(pct * 100 if pd.notna(pct) else None, "{:.0f}"))
+    c4.metric("1M−3M slope", _metric(slope, "{:+.1f}"))
+
+    fig = _correlation_figure(corr)
+    if fig is not None:
+        st.plotly_chart(fig, use_container_width=True)
+    st.caption(
+        "High correlation = index-vol-led / 'everything moves together' regime; "
+        "low = dispersion (idiosyncratic). A **positive 1M−3M slope** (near > far) "
+        "is acute near-term correlation stress — the correlation analogue of a "
+        "backwardated VIX curve. Descriptive read only (FlashAlpha rule 4)."
+    )
+
+
+def _render_vix_expirations(exps: pd.DataFrame) -> None:
+    st.subheader("VIX expirations (standard monthly)")
+    if exps.empty:
+        st.caption(
+            "No vix_expirations rows yet. The vix_expirations collector computes "
+            "the standard monthly calendar (no vendor call) — run "
+            "`python -m trading_intel.scheduler.jobs.vix_expirations`."
+        )
+        return
+    front = exps.iloc[0]
+    st.metric(
+        "Next VIX expiration",
+        front["expiration"].strftime("%Y-%m-%d"),
+        delta=f"{int(front['dte'])} DTE",
+    )
+    disp = exps.copy()
+    disp["expiration"] = disp["expiration"].map(lambda d: d.strftime("%Y-%m-%d"))
+    disp["spx_ref_expiry"] = disp["spx_ref_expiry"].map(lambda d: d.strftime("%Y-%m-%d"))
+    disp["holiday_adjusted"] = disp["holiday_adjusted"].map({True: "rolled", False: ""})
+    disp = disp.rename(
+        columns={
+            "expiration": "VIX expiry",
+            "dte": "DTE",
+            "spx_ref_expiry": "Paired SPX expiry",
+            "holiday_adjusted": "Note",
+        }
+    )[["VIX expiry", "DTE", "Paired SPX expiry", "Note"]]
+    st.dataframe(disp, use_container_width=True, hide_index=True)
+    st.caption(
+        "Standard monthly VIX settlement = the Wednesday 30 days before the "
+        "following month's third-Friday SPX expiry (rolled to the prior business "
+        "day on holidays). 'rolled' flags a non-Wednesday settlement."
+    )
+
+
 def _safe_decomp(session: Session) -> object | None:
     """Best-effort SPX decomposition; None if oi_chain_eod is unreachable."""
     try:
@@ -157,6 +288,18 @@ def main() -> None:
         with factory() as session:
             hist = load_vix_history(session, days=180)
             decomp_result = _safe_decomp(session)
+            # Correlation + expiration reads are best-effort: a missing column or
+            # table (pre-migration) must not blank the core VIX view.
+            try:
+                corr = _load_correlation(session, days=180)
+            except SQLAlchemyError:
+                session.rollback()
+                corr = pd.DataFrame()
+            try:
+                exps = _load_vix_expirations(session, as_of=eastern_now().date(), n=6)
+            except SQLAlchemyError:
+                session.rollback()
+                exps = pd.DataFrame()
     except (TradingIntelError, SQLAlchemyError) as exc:
         st.error(f"Could not load VIX history: {exc}")
         return
@@ -208,6 +351,9 @@ def main() -> None:
         st.plotly_chart(vrp_fig, use_container_width=True)
     else:
         st.caption("VRP not available yet (needs an SPX rv20 row in quotes_daily).")
+
+    _render_correlation(corr)
+    _render_vix_expirations(exps)
 
     st.subheader("VIX decomposition - mechanical vs. true fear")
     _render_decomposition(decomp_result)
