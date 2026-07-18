@@ -173,6 +173,21 @@ class Settings(BaseSettings):
     SURFACE_SYMBOLS: str = "SPX,QQQ,SPY"
     SURFACE_EXPIRIES: int = 12
 
+    # ── EM-break / gamma burn-off + systematic flow (McGraw pattern) ───
+    # See docs/em-break-system-plan.md + docs/learning/em-break-gamma-burnoff-digest.md.
+    EARNINGS_LOOKAHEAD_DAYS: int = 30  # earn_cal pull window (days ahead)
+    PRE_EARNINGS_SNAP_DAYS: int = 10  # snapshot the pre-earnings straddle within N days of a print
+    PRE_EARNINGS_TARGET_DTE: int = 30  # prefer the ~30-DTE expiry bracketing the earnings date
+    EM_BREAK_LOOKBACK_SESSIONS: int = 10  # post-earnings window for over-realization / re-entry
+    # Systematic vol-control flow proxy (index-level tailwind). AUM/target are
+    # ESTIMATES (flows/registry.py) — calibrate; consume flow $ as a percentile.
+    VOL_CONTROL_INDEX: str = "SPX,QQQ"  # index roots the vol-control bid keys off
+    VOL_CONTROL_AUM: float = 350e9  # overrides flows.registry vol_control default
+    VOL_TARGET: float = 0.10  # target annualized vol (decimal)
+    CTA_AUM: float = 300e9
+    RISK_PARITY_AUM: float = 150e9
+    RV_ROLLOFF_HORIZON: int = 10  # sessions to project the RV roll-off forward
+
     # ── Schwab (PARKED) ────────────────────────────────────────────────
     SCHWAB_APP_KEY: str = ""
     SCHWAB_APP_SECRET: SecretStr = SecretStr("")
@@ -272,6 +287,18 @@ class Settings(BaseSettings):
         seen: set[str] = set()
         out: list[str] = []
         for tok in self.SURFACE_SYMBOLS.split(","):
+            s = tok.strip().upper()
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    @property
+    def vol_control_index_symbols(self) -> list[str]:
+        """Index roots the systematic vol-control bid keys off (upper, de-duped)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for tok in self.VOL_CONTROL_INDEX.split(","):
             s = tok.strip().upper()
             if s and s not in seen:
                 seen.add(s)

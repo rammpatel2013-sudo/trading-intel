@@ -46,7 +46,7 @@ sudo docker build --no-cache -t trading-intel .
 
 | Task | Cron (ET) | Module | Notes |
 |---|---|---|---|
-| iv_term_snapshots | Mon–Fri 16:52 | `python -m trading_intel.scheduler.jobs.iv_term_snapshots` | reads stored oi_chain_eod; no migration |
+| iv_term_snapshots | Mon–Fri **18:45** | `python -m trading_intel.scheduler.jobs.iv_term_snapshots` | reads stored oi_chain_eod → MUST run after the NAS OI-chain task (**18:00 on NAS**, not 16:35); no migration |
 | surface_snapshots | Mon–Fri 17:08 | `python -m trading_intel.scheduler.jobs.surface_snapshots` | live chain; migration 0036 fixed-strike (applied via run_surface.bat) |
 | factor_scores | weekly (Mon) | `python -m trading_intel.scheduler.jobs.factor_scores` | per handoff-2026-07-16 |
 | frawd/dldr etf_flows | per handoff | (see handoff-2026-07-16) | net-issuance |

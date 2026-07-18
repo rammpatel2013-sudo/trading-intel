@@ -204,6 +204,9 @@ td.dcol{color:#c7d3f5;font-weight:700;background:#111e46;text-align:center;}.gro
 .read{border-left:5px solid #64748b;margin-bottom:12px;}.read h3{margin:0 0 5px;font-size:14px;color:#eaf1ff;font-weight:800;}
 .read p{margin:0;font-size:12.5px;color:#c7d3f5;line-height:1.55;}.read .stat{color:#7c92d6;font-size:10.5px;margin-top:7px;}
 .read.ok{border-left-color:#22c55e;}.read.bad{border-left-color:#f59e0b;}
+.howto{margin-top:12px;border-left:5px solid #3b4a7a;}.howto h2{text-align:left;margin-bottom:6px;}
+.howto ul{margin:0;padding-left:18px;color:#c7d3f5;font-size:11.5px;line-height:1.6;}
+.howto li{margin-bottom:3px;}.howto b{color:#eaf1ff;}.howto .k{color:#f59e0b;font-weight:700;}
 </style></head><body><div class="wrap">
 <div class="topbar">
 <div class="chip cur"><div class="l">Current</div><div class="v" id="cur"></div></div>
@@ -212,13 +215,25 @@ td.dcol{color:#c7d3f5;font-weight:700;background:#111e46;text-align:center;}.gro
 <div class="chip"><div class="l">Spot</div><div class="v" id="spot"></div></div></div>
 <div class="panel read" id="readpanel" style="display:none"></div>
 <div class="grid">
-<div class="panel"><h2>Vol surface · vol changes (Δ vs prior)</h2><div id="tbl"></div></div>
+<div class="panel"><h2>Vol surface · vol changes (fixed strike, vs prior)</h2><div id="tbl"></div></div>
 <div class="rightcol">
 <div class="panel"><h2>Volatility surface (strike × expiry × IV)</h2><div class="box h230" id="surf"></div></div>
 <div class="panel"><h2>Fixed-strike vol changes</h2><div class="box h230" id="bars"></div></div></div></div>
 <div class="row2">
 <div class="panel"><h2>Front-expiry vol skew (live vs prior)</h2><div class="box h250" id="skew"></div></div>
 <div class="panel"><h2>Term structure (live vs prior)</h2><div class="box h250" id="term"></div></div></div>
+<div class="panel read howto">
+<h2>How to read this</h2>
+<ul>
+<li><b>The read</b> (top banner): the desk call. How the front-week <span class="k">fixed strikes</span> drifted over the last few days, and whether it confirms or contradicts net GEX. The same call strike <b>offered</b> (marked down) day after day while spot stays quiet &rarr; the street is <b>long gamma</b> and lightening; a put strike <b>bid</b> (marked up) &rarr; downside demand / short downside gamma. GEX is the model; the vol surface is the receipt.</li>
+<li><b>Vol surface &middot; changes table</b>: left block = IV (%) at each <span class="k">strike</span> (rows) &times; expiry (cols), warmer = higher IV; right block = day-over-day change (green = marked up, red = marked down).</li>
+<li><b>Volatility surface (3D)</b>: the same IV grid as a shape &mdash; read the skew (downside vs upside wing) and how it shifts across expiries.</li>
+<li><b>Fixed-strike vol changes</b>: how each <span class="k">listed contract</span> re-marked vs yesterday &mdash; the SAME strike, not a delta bucket that slides as spot moves (that's the whole point of fixed-strike).</li>
+<li><b>Front-expiry skew</b>: IV vs strike for the nearest expiry, live vs prior &mdash; the downside-put-bid / upside-call-offer shape.</li>
+<li><b>Term structure</b>: ATM IV vs days-to-expiry, live vs prior &mdash; upward slope = contango (calm), inverted = backwardation (near-dated stress / event).</li>
+<li>Regime <b>descriptor</b> only, never a standalone signal (FlashAlpha rule). Needs &ge;2 banked days for the changes + footprint.</li>
+</ul>
+</div>
 <div class="cap" id="cap"></div></div>
 <script>
 const D=__DATA_JSON__;const FONT="-apple-system,'Segoe UI',Roboto,sans-serif";

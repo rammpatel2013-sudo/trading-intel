@@ -564,6 +564,9 @@ class LiveGex(Base):
 
 class EarningsEvent(Base):
     __tablename__ = "earnings_events"
+    # (symbol, date) unique so the earn_cal collector can upsert idempotently
+    # (CLAUDE.md rule 5). Added by migration 0037; the table itself is 0001.
+    __table_args__ = (UniqueConstraint("symbol", "date", name="uq_earnings_events"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     symbol: Mapped[str] = mapped_column(String(16))
@@ -574,6 +577,36 @@ class EarningsEvent(Base):
     surprise_pct: Mapped[float | None] = mapped_column(Float)
     read_through_class: Mapped[str | None] = mapped_column(String(32))
     peer_impacts: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+
+
+class PreEarningsStraddle(Base):
+    """The implied expected-move BASELINE captured just before an earnings print.
+
+    The EM-break detector (``earnings/em_break.py``) needs the options-implied
+    range as it stood pre-earnings to measure how far the realized gap broke it.
+    The ``pre_earnings_straddle`` collector snapshots the ~30-DTE (earnings-
+    bracketing) ATM straddle for each name with an upcoming ``earnings_events``
+    date and upserts one row per (symbol, earnings_date) — so the row always holds
+    the freshest pre-print read. ``em_pct`` = ``straddle / spot``.
+
+    Regime descriptor input only (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "pre_earnings_straddle"
+    __table_args__ = (
+        UniqueConstraint("symbol", "earnings_date", name="uq_pre_earnings_straddle"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    earnings_date: Mapped[date] = mapped_column(Date)
+    snap_ts: Mapped[datetime] = mapped_column(DateTime)
+    dte: Mapped[int | None] = mapped_column(Integer)
+    straddle: Mapped[float | None] = mapped_column(Float)
+    em_pct: Mapped[float | None] = mapped_column(Float)  # straddle / spot
+    atm_iv: Mapped[float | None] = mapped_column(Float)
+    spot: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
 # ── Macro themes (Layer 1: pgvector) ──────────────────────────────────

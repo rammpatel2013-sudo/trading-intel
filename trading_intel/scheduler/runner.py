@@ -8,13 +8,17 @@ import logging
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from trading_intel.clients.convex import ConvexClient
+from trading_intel.clients.convex_app import ConvexAppClient
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.scheduler.jobs import (
     am_summary,
     chain_snapshot,
     delta_flow,
+    earnings_calendar,
+    em_break_reentry,
     flow_snapshot,
+    pre_earnings_straddle,
     gex_rolling,
     greeks_snapshot,
     index_skew,
@@ -51,6 +55,7 @@ def main() -> None:
 
     # Composition root: instantiate shared clients/session factory once.
     source = ConvexClient(settings)
+    app_source = ConvexAppClient(settings)  # earn_cal (extra ConvexValue endpoints)
     llm = OllamaProvider(settings)
     session_factory = make_session_factory(settings)
 
@@ -181,6 +186,18 @@ def main() -> None:
         finally:
             client.close()
 
+    def run_earnings_calendar() -> None:
+        with session_factory() as session:
+            earnings_calendar.run(session, app_source, settings=settings)
+
+    def run_pre_earnings_straddle() -> None:
+        with session_factory() as session:
+            pre_earnings_straddle.run(session, source, settings=settings)
+
+    def run_em_break_reentry() -> None:
+        with session_factory() as session:
+            em_break_reentry.run(session, settings=settings)
+
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
     # Greeks snapshot — 06:45 ET pre-market (see MEMORY.md schedule).
@@ -232,6 +249,27 @@ def main() -> None:
     # task (runner cron is ignored there).
     scheduler.add_job(
         run_iv_tenor_snapshots, "cron", hour=16, minute=38, name="iv_tenor_snapshots"
+    )
+    # Earnings calendar (earn_cal) — 06:30 ET daily; the EM-break system anchor.
+    scheduler.add_job(run_earnings_calendar, "cron", hour=6, minute=30, name="earnings_calendar")
+    # Pre-earnings straddle baseline — 06:50 ET pre-market (a pre-print read for
+    # that session's AMC names; refreshes daily within the snapshot window).
+    scheduler.add_job(
+        run_pre_earnings_straddle,
+        "cron",
+        day_of_week="mon-fri",
+        hour=6,
+        minute=50,
+        name="pre_earnings_straddle",
+    )
+    # Post-earnings re-entry scan — 17:00 ET after EOD data (gex/oi/quotes) is in.
+    scheduler.add_job(
+        run_em_break_reentry,
+        "cron",
+        day_of_week="mon-fri",
+        hour=17,
+        minute=0,
+        name="em_break_reentry",
     )
     # Prune stale oi_chain_eod rows daily (retention via OI_CHAIN_RETENTION_DAYS).
     scheduler.add_job(run_prune_oi_chain, "cron", hour=2, minute=20, name="prune_oi_chain")

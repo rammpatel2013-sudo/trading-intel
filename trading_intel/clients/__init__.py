@@ -168,3 +168,38 @@ class EtfFlowSource(Protocol):
         ``None`` when the vendor has no usable figure for the symbol.
         """
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class EarningsDate:
+    """One upcoming (or recent) earnings event for a symbol.
+
+    Value object at the ``clients/`` boundary (dataclass per CLAUDE.md). ``session``
+    is ``"BMO"`` (before market open) / ``"AMC"`` (after market close) / ``None``
+    when the vendor omits the time-of-day. Used to anchor the pre-earnings straddle
+    snapshot and to window the EM-break read.
+    """
+
+    symbol: str
+    date: date
+    session: str | None = None
+    source: str | None = None
+
+
+class EarningsCalendarSource(Protocol):
+    """Contract for a vendor that reports the forward earnings calendar.
+
+    ConvexValue's ``earn_cal`` endpoint (``clients/convex_app.py``) satisfies this
+    via the same pro login (no new vendor — rule 1). The keystone for the
+    post-earnings EM-break / gamma-burn-off system: without earnings dates we can
+    neither know a name is "post-earnings" nor snapshot the pre-earnings straddle.
+
+    Descriptive data only (FlashAlpha rule 4).
+    """
+
+    def upcoming_earnings(self, *, days: int = 30) -> list[EarningsDate]:
+        """Earnings events within ``days`` ahead, normalized to ``EarningsDate``.
+
+        Empty list when the vendor returns nothing usable.
+        """
+        ...

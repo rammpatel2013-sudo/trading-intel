@@ -18,6 +18,8 @@ from typing import Any
 
 import httpx
 
+from trading_intel.clients import EarningsDate
+from trading_intel.clients.earnings_parse import parse_earnings_calendar
 from trading_intel.config import Settings
 from trading_intel.errors import DataSourceError
 
@@ -76,6 +78,14 @@ class ConvexAppClient:
     def earnings_calendar(self, *, days: int = 30) -> dict:
         """GET /api/data/earn_cal -> {data: [header, rows]}."""
         return self._request("GET", "/api/data/earn_cal", params={"days": days})
+
+    def upcoming_earnings(self, *, days: int = 30) -> list[EarningsDate]:
+        """Typed earnings calendar — satisfies ``clients.EarningsCalendarSource``.
+
+        Thin wrapper: pulls ``earn_cal`` and shapes it via ``parse_earnings_calendar``
+        (see that module's live-schema caveat). No new vendor — same pro login.
+        """
+        return parse_earnings_calendar(self.earnings_calendar(days=days))
 
     def economic_calendar(self, *, days: int = 7) -> dict:
         """GET /api/data/econ_cal -> {data: [header, rows]}."""

@@ -76,8 +76,9 @@ def build_vol_surface(symbol: str) -> str:
     """Generate the vol-surface-changes report for ``symbol`` and return the HTML path.
 
     Single source is ``scripts/vol_surface_report.py`` (the CLI), so the MCP
-    ``generate_vol_surface_report`` tool produces the identical report: the delta-moneyness
-    × expiry surface + day-over-day changes + the multi-day fixed-delta vol *footprint* read
-    (long/short-gamma inference cross-checked against GEX). Reads banked ``surface_snapshots``.
+    ``generate_vol_surface_report`` tool produces the identical report: the near-money
+    per-STRIKE × expiry IV surface + day-over-day fixed-strike changes + the multi-day
+    FIXED-STRIKE front-week vol *footprint* read (long/short-gamma inference cross-checked
+    against GEX) + a 'How to read this' legend. Reads banked ``surface_snapshots``.
     """
     return str(_load(_VOL_SURFACE_SCRIPT, "_vol_surface_report_impl").build(symbol))
