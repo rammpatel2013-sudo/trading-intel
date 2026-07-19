@@ -50,6 +50,20 @@ net-new OI. Near-ATM only (delta band 0.30–0.70).
 
 ---
 
+## HTML reports (template + guide)
+
+Reusable skeleton: **`reports/_report_template.html`** (self-contained, light-mode, inline-SVG
+chart engine — renders with placeholder data). How-to + checklist: **`docs/report-html-guide.md`**.
+Two families, same structure/engine: Cowork **live artifact** (light mode mandatory; data via
+`window.cowork.callMcpTool`; ship `create_artifact`/`update_artifact`) vs **standalone** browser
+report (dark house style OK, e.g. `DVN_tas_flow_report.html`; baked-in data; ship `present_files`).
+**Charts = inline SVG, NEVER Chart.js** — CDN Chart.js silently fails to paint inside Cowork
+artifacts (SRI + `display:none`-at-init); this was the "all tiles empty" fix. Drive KPIs+charts from
+one DATA object (static↔live differ by only the bootstrap line); verify buckets reconcile in node;
+save `reports/<SYM>_<what>_<YYYY-MM-DD>.html`. Built 2026-07-16 (ORCL flow + full-analysis reports).
+
+---
+
 ## Gotchas / learnings (read before touching infra)
 
 **Cowork sandbox mount corruption (PERSISTENT).** The Linux mount serves

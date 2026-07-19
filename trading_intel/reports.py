@@ -16,6 +16,7 @@ from types import ModuleType
 _SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "ticker_report.py"
 _EOD_VOL_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "eod_vol_report.py"
 _FLOW_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "flow_report.py"
+_VOL_SURFACE_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_surface_report.py"
 
 
 def _load(path: Path, modname: str) -> ModuleType:
@@ -69,3 +70,15 @@ def build_flow(
             settings=settings,
         )
     )
+
+
+def build_vol_surface(symbol: str) -> str:
+    """Generate the vol-surface-changes report for ``symbol`` and return the HTML path.
+
+    Single source is ``scripts/vol_surface_report.py`` (the CLI), so the MCP
+    ``generate_vol_surface_report`` tool produces the identical report: the near-money
+    per-STRIKE × expiry IV surface + day-over-day fixed-strike changes + the multi-day
+    FIXED-STRIKE front-week vol *footprint* read (long/short-gamma inference cross-checked
+    against GEX) + a 'How to read this' legend. Reads banked ``surface_snapshots``.
+    """
+    return str(_load(_VOL_SURFACE_SCRIPT, "_vol_surface_report_impl").build(symbol))

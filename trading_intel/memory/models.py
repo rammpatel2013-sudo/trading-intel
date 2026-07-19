@@ -371,6 +371,36 @@ class IvTenorSnapshot(Base):
     n_expiries: Mapped[int | None] = mapped_column(Integer)  # expiries in the interp
 
 
+class LetfSharesSnapshot(Base):
+    """Daily shares-outstanding snapshot per (symbol, trading day) for LETFs.
+
+    The primitive behind LETF net creation/redemption (issuance) flow. FMP's
+    stable tier serves only the CURRENT shares figure, so ``scheduler/jobs/
+    letf_flows.py`` snapshots it EOD and banks the series forward; Δshares, net
+    issuance $ (= Δshares × price), issuer buckets, and the k(k-1)·assets·return
+    forced-rebalance estimate are all computed downstream from this raw series.
+
+    ``nav`` is the fund NAV/close at capture (joined from the price layer) so the
+    $-flow descriptor is self-contained; ``vendor_date`` is the vendor's stated
+    as-of for the shares figure (may lag ``ts``). Unique on (symbol, ts) for
+    idempotent daily upserts (rule 5). Regime descriptor only (rule 4) — no signals.
+    """
+
+    __tablename__ = "letf_shares_snapshots"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", name="uq_letf_shares_snapshots"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)  # our snapshot trading day
+    shares_outstanding: Mapped[int] = mapped_column(BigInteger)  # whole shares
+    float_shares: Mapped[int | None] = mapped_column(BigInteger)  # free float, if given
+    nav: Mapped[float | None] = mapped_column(Float)  # fund NAV/close at capture
+    vendor_date: Mapped[date | None] = mapped_column(Date)  # vendor as-of for shares
+    source: Mapped[str | None] = mapped_column(String(32))  # vendor tag (shares-float/quote)
+
+
 class IndexSkewDaily(Base):
     """Index-level skew snapshot per trading day.
 
@@ -534,6 +564,9 @@ class LiveGex(Base):
 
 class EarningsEvent(Base):
     __tablename__ = "earnings_events"
+    # (symbol, date) unique so the earn_cal collector can upsert idempotently
+    # (CLAUDE.md rule 5). Added by migration 0037; the table itself is 0001.
+    __table_args__ = (UniqueConstraint("symbol", "date", name="uq_earnings_events"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     symbol: Mapped[str] = mapped_column(String(16))
@@ -544,6 +577,36 @@ class EarningsEvent(Base):
     surprise_pct: Mapped[float | None] = mapped_column(Float)
     read_through_class: Mapped[str | None] = mapped_column(String(32))
     peer_impacts: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+
+
+class PreEarningsStraddle(Base):
+    """The implied expected-move BASELINE captured just before an earnings print.
+
+    The EM-break detector (``earnings/em_break.py``) needs the options-implied
+    range as it stood pre-earnings to measure how far the realized gap broke it.
+    The ``pre_earnings_straddle`` collector snapshots the ~30-DTE (earnings-
+    bracketing) ATM straddle for each name with an upcoming ``earnings_events``
+    date and upserts one row per (symbol, earnings_date) — so the row always holds
+    the freshest pre-print read. ``em_pct`` = ``straddle / spot``.
+
+    Regime descriptor input only (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "pre_earnings_straddle"
+    __table_args__ = (
+        UniqueConstraint("symbol", "earnings_date", name="uq_pre_earnings_straddle"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    earnings_date: Mapped[date] = mapped_column(Date)
+    snap_ts: Mapped[datetime] = mapped_column(DateTime)
+    dte: Mapped[int | None] = mapped_column(Integer)
+    straddle: Mapped[float | None] = mapped_column(Float)
+    em_pct: Mapped[float | None] = mapped_column(Float)  # straddle / spot
+    atm_iv: Mapped[float | None] = mapped_column(Float)
+    spot: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
 # ── Macro themes (Layer 1: pgvector) ──────────────────────────────────
@@ -908,3 +971,157 @@ class WatchlistEntry(Base):
     themes: Mapped[list[str] | None] = mapped_column(JSON)
     added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class SwingFeature(Base):
+    """Daily per-name swing feature snapshot (one row per symbol per trading day).
+
+    Banks the Stage-1 feature vector so its percentile features (IV-rank, IV/RV,
+    skew, GEX/DEX positioning) mature into a real trailing distribution for the
+    Stage-2 fitted model (see the swing-trade-system build). Written on demand /
+    daily by ``scripts/swing_features.py`` from CVForge (ADR-004) — convexlib is
+    untouched. Percentiles are standardized against the name's own trailing 252d
+    from this table (today excluded), matching the ``skew_snapshots`` contract.
+
+    Descriptive features only — not signals (FlashAlpha rule 4). The validated
+    ``SignalGenerator`` (P4) under ``strategies/`` is the only writer to ``signals``.
+    """
+
+    __tablename__ = "swing_features"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_swing_features"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)  # trading day
+
+    # Raw daily features (decimals unless noted).
+    spot: Mapped[float | None] = mapped_column(Float)
+    atm_iv: Mapped[float | None] = mapped_column(Float)
+    rv20: Mapped[float | None] = mapped_column(Float)
+    iv_rv: Mapped[float | None] = mapped_column(Float)  # atm_iv / rv20
+    rsi14: Mapped[float | None] = mapped_column(Float)
+    sma50: Mapped[float | None] = mapped_column(Float)
+    px_vs_sma50: Mapped[float | None] = mapped_column(Float)  # spot / sma50 - 1
+    skew_25d: Mapped[float | None] = mapped_column(Float)  # 25d put_iv - call_iv
+    gex: Mapped[float | None] = mapped_column(Float)
+    dex: Mapped[float | None] = mapped_column(Float)
+
+    # Trailing-252d percentiles (0..1, min_history 20; NULL until history banks).
+    atm_iv_rank_252d: Mapped[float | None] = mapped_column(Float)
+    iv_rv_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    skew_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    gex_pctile_252d: Mapped[float | None] = mapped_column(Float)
+    dex_pctile_252d: Mapped[float | None] = mapped_column(Float)
+
+
+class FundamentalsSnapshot(Base):
+    """Weekly per-name fundamental inputs + cross-sectional factor scores.
+
+    Banked by ``scheduler/jobs/factor_scores.py`` from CVForge FMP fundamentals
+    (ADR-005 — no new vendor). Raw ratio/growth/momentum inputs plus the
+    universe-relative factor z-scores (Value/Quality/Growth/Momentum/Risk) and the
+    weighted composite. Unique on (symbol, ts) for idempotent weekly upserts
+    (rule 5). Descriptive research scores only (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "fundamentals_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_fundamentals_snapshots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)
+    # Raw inputs (ratios/margins as decimals; returns as fractions).
+    pe: Mapped[float | None] = mapped_column(Float)
+    pb: Mapped[float | None] = mapped_column(Float)
+    ps: Mapped[float | None] = mapped_column(Float)
+    ev_ebitda: Mapped[float | None] = mapped_column(Float)
+    roe: Mapped[float | None] = mapped_column(Float)
+    roic: Mapped[float | None] = mapped_column(Float)
+    gross_margin: Mapped[float | None] = mapped_column(Float)
+    net_margin: Mapped[float | None] = mapped_column(Float)
+    fcf_margin: Mapped[float | None] = mapped_column(Float)
+    debt_to_equity: Mapped[float | None] = mapped_column(Float)
+    current_ratio: Mapped[float | None] = mapped_column(Float)
+    revenue_growth: Mapped[float | None] = mapped_column(Float)
+    eps_growth: Mapped[float | None] = mapped_column(Float)
+    beta: Mapped[float | None] = mapped_column(Float)
+    ret_3m: Mapped[float | None] = mapped_column(Float)
+    ret_12m: Mapped[float | None] = mapped_column(Float)
+    # Cross-sectional factor z-scores + composite (universe-relative).
+    value_score: Mapped[float | None] = mapped_column(Float)
+    quality_score: Mapped[float | None] = mapped_column(Float)
+    growth_score: Mapped[float | None] = mapped_column(Float)
+    momentum_score: Mapped[float | None] = mapped_column(Float)
+    risk_score: Mapped[float | None] = mapped_column(Float)
+    composite_score: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(32))
+
+
+class SentimentSnapshot(Base):
+    """Weekly per-name sentiment: institutional 13F + analyst ratings/targets.
+
+    Banked by ``scheduler/jobs/sentiment.py`` from CVForge FMP (ADR-005 — no new
+    vendor): institutional-ownership (latest 13F quarter), price-target-consensus,
+    grades-consensus, quote. Raw fields + two pure derivations (implied upside to the
+    average target, Buy-share of the panel). Unique on (symbol, ts) for the idempotent
+    weekly upsert (rule 5). Descriptive descriptors only (FlashAlpha rule 4) — the
+    *trend* (target-cut rate, institutional accumulation) is the signal, not one row.
+    """
+
+    __tablename__ = "sentiment_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_sentiment_snapshots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)
+    # Institutional (latest 13F quarter; counts/shares stored as Float per convention).
+    inst_pct: Mapped[float | None] = mapped_column(Float)
+    inst_holders: Mapped[float | None] = mapped_column(Float)
+    inst_shares: Mapped[float | None] = mapped_column(Float)
+    inst_net_share_change: Mapped[float | None] = mapped_column(Float)
+    inst_new_positions: Mapped[float | None] = mapped_column(Float)
+    inst_closed_positions: Mapped[float | None] = mapped_column(Float)
+    inst_put_call: Mapped[float | None] = mapped_column(Float)
+    # Analyst price targets + rating panel.
+    pt_avg: Mapped[float | None] = mapped_column(Float)
+    pt_high: Mapped[float | None] = mapped_column(Float)
+    pt_low: Mapped[float | None] = mapped_column(Float)
+    rating_buy: Mapped[float | None] = mapped_column(Float)
+    rating_hold: Mapped[float | None] = mapped_column(Float)
+    rating_sell: Mapped[float | None] = mapped_column(Float)
+    num_analysts: Mapped[float | None] = mapped_column(Float)
+    rating_consensus: Mapped[str | None] = mapped_column(String(16))
+    price: Mapped[float | None] = mapped_column(Float)
+    # Pure derivations.
+    pt_upside_pct: Mapped[float | None] = mapped_column(Float)
+    buy_share: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(32))
+
+
+class SurfaceSnapshot(Base):
+    """Near-money per-STRIKE IV surface for index ETFs, banked daily (fixed-strike).
+
+    One row per (symbol, ts, expiry_date, strike): the OTM-wing IV at each near-money
+    listed strike (|delta| ~0.05..0.95), plus the stored ``delta`` (a delta view is
+    derivable) and ``spot``. Keyed by STRIKE so day-over-day changes and the vol
+    footprint track the SAME contract — fixed strike is the receipt; fixed delta gets
+    smeared as spot slides along the skew. Written by
+    ``scheduler/jobs/surface_snapshots.py`` from the live chain (SPX/QQQ/SPY). Unique on
+    (symbol, ts, expiry_date, strike) for the idempotent upsert (rule 5). Descriptor only
+    (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "surface_snapshots"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "expiry_date", "strike", name="uq_surface_snapshots"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)
+    expiry_date: Mapped[date] = mapped_column(Date)
+    dte: Mapped[int] = mapped_column(Integer)
+    strike: Mapped[float] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    delta: Mapped[float | None] = mapped_column(Float)
+    spot: Mapped[float | None] = mapped_column(Float)

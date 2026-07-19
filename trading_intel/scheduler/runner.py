@@ -8,18 +8,24 @@ import logging
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from trading_intel.clients.convex import ConvexClient
+from trading_intel.clients.convex_app import ConvexAppClient
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.scheduler.jobs import (
     am_summary,
     chain_snapshot,
     delta_flow,
+    earnings_calendar,
+    em_break_reentry,
     flow_snapshot,
+    pre_earnings_straddle,
     gex_rolling,
     greeks_snapshot,
     index_skew,
     intraday_flow,
     iv_tenor_snapshots,
+    iv_term_snapshots,
+    letf_flows,
     live_gex,
     oi_chain_eod,
     prune_intraday,
@@ -27,7 +33,9 @@ from trading_intel.scheduler.jobs import (
     prune_oi_chain,
     prune_tas_prints,
     quotes_daily,
+    sentiment,
     skew_snapshots,
+    surface_snapshots,
     tas_capture_job,
     tas_daily_rollup,
     vix_expirations,
@@ -47,6 +55,7 @@ def main() -> None:
 
     # Composition root: instantiate shared clients/session factory once.
     source = ConvexClient(settings)
+    app_source = ConvexAppClient(settings)  # earn_cal (extra ConvexValue endpoints)
     llm = OllamaProvider(settings)
     session_factory = make_session_factory(settings)
 
@@ -107,6 +116,10 @@ def main() -> None:
         with session_factory() as session:
             skew_snapshots.run(session, settings=settings)
 
+    def run_surface() -> None:
+        with session_factory() as session:
+            surface_snapshots.run(session, source, settings=settings)
+
     def run_iv_tenor_snapshots() -> None:
         with session_factory() as session:
             iv_tenor_snapshots.run(session, source, settings=settings)
@@ -152,6 +165,38 @@ def main() -> None:
     def run_tas_daily_rollup() -> None:
         with session_factory() as session:
             tas_daily_rollup.run(session, settings=settings)
+
+    def run_letf_flows() -> None:
+        from trading_intel.clients.fmp import FmpClient
+
+        with session_factory() as session:
+            letf_flows.run(session, FmpClient(settings), settings=settings)
+
+    def run_iv_term() -> None:
+        with session_factory() as session:
+            iv_term_snapshots.run(session, settings=settings)
+
+    def run_sentiment() -> None:
+        from trading_intel.clients.cvforge import CVForgeClient
+
+        client = CVForgeClient(settings)
+        try:
+            with session_factory() as session:
+                sentiment.run(session, client, settings=settings)
+        finally:
+            client.close()
+
+    def run_earnings_calendar() -> None:
+        with session_factory() as session:
+            earnings_calendar.run(session, app_source, settings=settings)
+
+    def run_pre_earnings_straddle() -> None:
+        with session_factory() as session:
+            pre_earnings_straddle.run(session, source, settings=settings)
+
+    def run_em_break_reentry() -> None:
+        with session_factory() as session:
+            em_break_reentry.run(session, settings=settings)
 
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
@@ -204,6 +249,27 @@ def main() -> None:
     # task (runner cron is ignored there).
     scheduler.add_job(
         run_iv_tenor_snapshots, "cron", hour=16, minute=38, name="iv_tenor_snapshots"
+    )
+    # Earnings calendar (earn_cal) — 06:30 ET daily; the EM-break system anchor.
+    scheduler.add_job(run_earnings_calendar, "cron", hour=6, minute=30, name="earnings_calendar")
+    # Pre-earnings straddle baseline — 06:50 ET pre-market (a pre-print read for
+    # that session's AMC names; refreshes daily within the snapshot window).
+    scheduler.add_job(
+        run_pre_earnings_straddle,
+        "cron",
+        day_of_week="mon-fri",
+        hour=6,
+        minute=50,
+        name="pre_earnings_straddle",
+    )
+    # Post-earnings re-entry scan — 17:00 ET after EOD data (gex/oi/quotes) is in.
+    scheduler.add_job(
+        run_em_break_reentry,
+        "cron",
+        day_of_week="mon-fri",
+        hour=17,
+        minute=0,
+        name="em_break_reentry",
     )
     # Prune stale oi_chain_eod rows daily (retention via OI_CHAIN_RETENTION_DAYS).
     scheduler.add_job(run_prune_oi_chain, "cron", hour=2, minute=20, name="prune_oi_chain")
@@ -259,6 +325,38 @@ def main() -> None:
     # (after the tape stops filling at 16:00, well before the 02:40 prune). Catches up any
     # missing sessions + refreshes the latest. On the NAS this is a separate DSM task.
     scheduler.add_job(run_tas_daily_rollup, "cron", hour=17, minute=5, name="tas_daily_rollup")
+    # LETF shares-outstanding snapshot (net creation/redemption flow) — 17:10 ET,
+    # after the close. FMP publishes only the current figure, so Δshares is banked
+    # forward. Descriptor only (rule 4). On the NAS this is a separate DSM task.
+    scheduler.add_job(
+        run_letf_flows, "cron", day_of_week="mon-fri", hour=17, minute=10,
+        name="letf_flows",
+    )
+    # Per-name constant-maturity IV term — 16:52 ET, after oi_chain_eod (16:35) has
+    # refreshed the stored per-strike chain this reads. Stored-data only (no vendor);
+    # writes into the shared iv_tenor_snapshots table. On the NAS this is a separate
+    # DSM task. Descriptor only (rule 4).
+    scheduler.add_job(
+        run_iv_term, "cron", day_of_week="mon-fri", hour=16, minute=52,
+        name="iv_term_snapshots",
+    )
+    # Full vol surface grid for index ETFs — 17:08 ET (after iv_tenor 17:05). Live
+    # chain pull (SPX/QQQ/SPY); banks the whole delta x expiry surface for the
+    # vol-surface-changes board. On the NAS this is a separate DSM task. Rule 4.
+    scheduler.add_job(
+        run_surface, "cron", day_of_week="mon-fri", hour=17, minute=8,
+        name="surface_snapshots",
+    )
+    # Weekly institutional + analyst sentiment snapshot — PARKED pending data access.
+    # The collector is built + unit-tested, but the FMP institutional/analyst endpoints
+    # are paywalled (CVForge proxy returns a persistent 502, the direct free key 402), so
+    # enabling this would only bank null rows. Re-enable once a paid FMP tier or a CVForge
+    # allowlist addition lands (run_sentiment may then need repointing to the direct
+    # FmpClient). See docs/trend-collection-catalog.md + probe_fmp_sentiment.py.
+    # scheduler.add_job(
+    #     run_sentiment, "cron", day_of_week="mon", hour=17, minute=20,
+    #     name="sentiment",
+    # )
     # Prune raw tas_prints older than TAS_RETENTION_DAYS (default 30) — 02:40 ET.
     scheduler.add_job(run_prune_tas_prints, "cron", hour=2, minute=40, name="prune_tas_prints")
 

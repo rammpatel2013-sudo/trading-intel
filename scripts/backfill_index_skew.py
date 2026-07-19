@@ -1,8 +1,9 @@
 """One-shot backfill of ``index_skew_daily`` from Yahoo history.
 
-Pulls multi-year history for the three publicly-available Nations indices
-(``^VOLI``, ``^TDEX``, ``^SDEX``), then for each trading day in chronological
-order upserts the values + their trailing-252d percentile.
+Pulls multi-year history for the publicly-available Nations indices
+(``^VOLI``, ``^TDEX``, ``^SDEX``) plus the Cboe implied-correlation series
+(``^COR1M``, ``^COR3M``), then for each trading day in chronological order
+upserts the values + their trailing-252d percentile.
 
 What this script DOES NOT do:
 - Backfill the ``*_proxy`` columns (CallDex / PutDex / RiskDex) — those need
@@ -59,6 +60,15 @@ _BACKFILL_COLS = (
     "tdex_pctile_252d",
     "sdex",
     "sdex_pctile_252d",
+    "cor1m",
+    "cor1m_pctile_252d",
+    "cor3m",
+    "cor3m_pctile_252d",
+    "vixeq",
+    "vixeq_pctile_252d",
+    "dspx",
+    "dspx_pctile_252d",
+    "vixeq_vix_spread",
 )
 
 _PCTILE_WINDOW = 252
@@ -90,12 +100,21 @@ def _yf_history(symbol: str, *, period: str, start: str | None, end: str | None)
 
 
 def _build_panel(*, period: str, start: str | None, end: str | None) -> pd.DataFrame:
-    """Inner-join the three Nations closes on date so each row has all three."""
+    """Join the Nations + Cboe-correlation closes on date, one row per day."""
     voli = _yf_history("^VOLI", period=period, start=start, end=end)
     tdex = _yf_history("^TDEX", period=period, start=start, end=end)
     sdex = _yf_history("^SDEX", period=period, start=start, end=end)
+    cor1m = _yf_history("^COR1M", period=period, start=start, end=end)
+    cor3m = _yf_history("^COR3M", period=period, start=start, end=end)
+    vixeq = _yf_history("^VIXEQ", period=period, start=start, end=end)
+    dspx = _yf_history("^DSPX", period=period, start=start, end=end)
+    vix = _yf_history("^VIX", period=period, start=start, end=end)  # for the spread only
     panel = pd.concat(
-        {"voli": voli, "tdex": tdex, "sdex": sdex}, axis=1
+        {
+            "voli": voli, "tdex": tdex, "sdex": sdex, "cor1m": cor1m, "cor3m": cor3m,
+            "vixeq": vixeq, "dspx": dspx, "vix": vix,
+        },
+        axis=1,
     ).dropna(how="all")
     panel.index.name = "date"
     return panel.sort_index()
@@ -135,16 +154,30 @@ def backfill(
     voli_hist: list[float] = []
     tdex_hist: list[float] = []
     sdex_hist: list[float] = []
+    cor1m_hist: list[float] = []
+    cor3m_hist: list[float] = []
+    vixeq_hist: list[float] = []
+    dspx_hist: list[float] = []
 
     n_written = 0
     for row_date, row in panel.iterrows():
         voli = float(row["voli"]) if pd.notna(row["voli"]) else None
         tdex = float(row["tdex"]) if pd.notna(row["tdex"]) else None
         sdex = float(row["sdex"]) if pd.notna(row["sdex"]) else None
+        cor1m = float(row["cor1m"]) if pd.notna(row.get("cor1m")) else None
+        cor3m = float(row["cor3m"]) if pd.notna(row.get("cor3m")) else None
+        vixeq = float(row["vixeq"]) if pd.notna(row.get("vixeq")) else None
+        dspx = float(row["dspx"]) if pd.notna(row.get("dspx")) else None
+        vix = float(row["vix"]) if pd.notna(row.get("vix")) else None
 
         voli_p = skew_percentile(voli_hist[-_PCTILE_WINDOW:], voli) if voli is not None else None
         tdex_p = skew_percentile(tdex_hist[-_PCTILE_WINDOW:], tdex) if tdex is not None else None
         sdex_p = skew_percentile(sdex_hist[-_PCTILE_WINDOW:], sdex) if sdex is not None else None
+        cor1m_p = skew_percentile(cor1m_hist[-_PCTILE_WINDOW:], cor1m) if cor1m is not None else None
+        cor3m_p = skew_percentile(cor3m_hist[-_PCTILE_WINDOW:], cor3m) if cor3m is not None else None
+        vixeq_p = skew_percentile(vixeq_hist[-_PCTILE_WINDOW:], vixeq) if vixeq is not None else None
+        dspx_p = skew_percentile(dspx_hist[-_PCTILE_WINDOW:], dspx) if dspx is not None else None
+        spread = (vixeq - vix) if (vixeq is not None and vix is not None) else None
 
         record = {
             "date": row_date,
@@ -154,6 +187,15 @@ def backfill(
             "tdex_pctile_252d": tdex_p,
             "sdex": sdex,
             "sdex_pctile_252d": sdex_p,
+            "cor1m": cor1m,
+            "cor1m_pctile_252d": cor1m_p,
+            "cor3m": cor3m,
+            "cor3m_pctile_252d": cor3m_p,
+            "vixeq": vixeq,
+            "vixeq_pctile_252d": vixeq_p,
+            "dspx": dspx,
+            "dspx_pctile_252d": dspx_p,
+            "vixeq_vix_spread": spread,
         }
 
         if dry_run:
@@ -168,6 +210,14 @@ def backfill(
             tdex_hist.append(tdex)
         if sdex is not None:
             sdex_hist.append(sdex)
+        if cor1m is not None:
+            cor1m_hist.append(cor1m)
+        if cor3m is not None:
+            cor3m_hist.append(cor3m)
+        if vixeq is not None:
+            vixeq_hist.append(vixeq)
+        if dspx is not None:
+            dspx_hist.append(dspx)
 
     if not dry_run:
         session.commit()

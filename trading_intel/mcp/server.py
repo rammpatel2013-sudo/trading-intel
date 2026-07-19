@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import Settings, get_settings
+from trading_intel.mcp import em_tools as em
 from trading_intel.mcp import extra_tools as et
 from trading_intel.mcp import tools as t
 from trading_intel.memory.db import make_session_factory
@@ -108,6 +109,37 @@ def build_server(
         with session_factory() as session:
             return t.get_watchlist_flow(session, symbols, settings=settings)
 
+    # ── EM-break / gamma burn-off system (McGraw pattern) ──────────────
+    @mcp.tool()
+    def get_earnings_calendar(symbol: str | None = None, days: int = 30) -> dict[str, Any]:
+        """Upcoming earnings dates (banked earn_cal). Anchors the EM-break system."""
+        with session_factory() as session:
+            return em.get_earnings_calendar(session, symbol, days=days)
+
+    @mcp.tool()
+    def get_em_break(symbol: str) -> dict[str, Any]:
+        """How far the last earnings gap broke the pre-earnings expected move."""
+        with session_factory() as session:
+            return em.get_em_break(session, symbol)
+
+    @mcp.tool()
+    def get_gamma_burnoff(symbol: str) -> dict[str, Any]:
+        """Front-expiry gamma share, decay, phase + OPEX countdown (descriptive)."""
+        with session_factory() as session:
+            return em.get_gamma_burnoff(session, symbol)
+
+    @mcp.tool()
+    def get_vol_control_flow(index: str = "SPY", window: int = 21) -> dict[str, Any]:
+        """Vol-control (target-vol) buying pressure from the index RV roll-off."""
+        with session_factory() as session:
+            return em.get_vol_control_flow(session, index, window=window)
+
+    @mcp.tool()
+    def get_systematic_flow(index: str | None = None) -> dict[str, Any]:
+        """Aggregate systematic (vol-control + CTA + risk-parity) buying across indices."""
+        with session_factory() as session:
+            return em.get_systematic_flow(session, index)
+
     @mcp.tool()
     def rebuild_am_summary() -> dict[str, Any]:
         """Re-render today's AM summary from current stored data. No DB write."""
@@ -167,6 +199,12 @@ def build_server(
         """Call-wall / put-wall (top gamma-OI strikes) from the latest EOD chain."""
         with session_factory() as session:
             return et.get_walls(session, symbol, dte_max=dte_max)
+
+    @mcp.tool()
+    def get_straddle(symbol: str, dte_max: int = 400) -> dict[str, Any]:
+        """ATM straddle price + expected-move range + day-over-day decay (latest EOD chain)."""
+        with session_factory() as session:
+            return et.get_straddle(session, symbol, dte_max=dte_max)
 
     @mcp.tool()
     def get_oi_changes(symbol: str, dte_max: int = 60, top: int = 15) -> dict[str, Any]:
@@ -319,6 +357,23 @@ def build_server(
             )
 
     @mcp.tool()
+    def get_flow_intelligence(symbol: str, trade_date: str | None = None) -> dict[str, Any]:
+        """Flow-intelligence drill-in for one name from the option tape: net-premium
+        4-way (call-buy / put-sell / put-buy / call-sell + a bullish-minus-bearish
+        tilt), institutional-vs-retail split by print size, DTE-bucket premium, the
+        accumulation summary, and the most-active strikes. buy/sell is the tape
+        aggressor side (not an OI-change guess). trade_date is ISO YYYY-MM-DD; the
+        latest tape day is used if omitted.
+        """
+        from datetime import date
+
+        from trading_intel.mcp.flow_intelligence_tool import flow_intelligence
+
+        td = date.fromisoformat(trade_date) if trade_date else None
+        with session_factory() as session:
+            return flow_intelligence(session, symbol, trade_date=td)
+
+    @mcp.tool()
     def get_signals(symbol: str | None = None, days: int = 30, limit: int = 100) -> dict[str, Any]:
         """Recent rows from the validated signals table (read-only)."""
         with session_factory() as session:
@@ -336,6 +391,25 @@ def build_server(
         from trading_intel.reports import build
 
         return {"symbol": symbol.strip().upper(), "path": build(symbol, days=days), "found": True}
+
+    @mcp.tool()
+    def generate_vol_surface_report(symbol: str = "SPX") -> dict[str, Any]:
+        """Generate the vol-surface *changes* HTML report for an index ETF (SPX/QQQ/SPY).
+
+        Reads the banked ``surface_snapshots`` (near-money per-STRIKE × expiry IV grid), diffs
+        today vs the prior banked day (fixed-strike: each listed contract vs its own prior mark),
+        and reads the multi-day FIXED-STRIKE front-week vol *footprint* (the same call / put
+        strikes offered or bid day after day) to infer dealer positioning — long gamma (street
+        lightening) vs short gamma / crash bid — then cross-checks it against net GEX (confirm or
+        contradict). Returns the saved HTML path under ``reports/`` (surface + 3D + changes + skew
+        + term + a 'The read' footprint panel + a 'How to read this' legend). The footprint/changes
+        need >=2 banked days. Descriptive only (FlashAlpha rule 4) — GEX is the model, the surface
+        is the receipt.
+        """
+        from trading_intel.reports import build_vol_surface
+
+        path = build_vol_surface(symbol)
+        return {"symbol": symbol.strip().upper(), "path": path, "uri": Path(path).as_uri(), "found": True}
 
     @mcp.tool()
     def generate_eod_vol_report(days: int = 252) -> dict[str, Any]:

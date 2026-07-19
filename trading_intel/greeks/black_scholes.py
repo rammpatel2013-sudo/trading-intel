@@ -3,8 +3,9 @@
 Convex pre-computed greeks (gxoi/dxoi/...) remain the DEFAULT for snapshot and
 by-strike views. This module is used ONLY by views that synthetically shock spot
 or IV — the gamma-flip repricing (``flip_point.py``) and the spot-ladder MM
-gamma profile (``gamma_profile.py``). Keeping the BS math in one place avoids
-scattered ad-hoc pricing (ADR-002).
+gamma profile (``gamma_profile.py``) — plus, as of ADR-004, to synthesize the
+``vanna``/``charm`` columns for a first-order-only vendor (CVForge). Keeping the
+BS math in one place avoids scattered ad-hoc pricing (ADR-002).
 
 Conventions match the flip-point method documented in MEMORY (2026-05-21):
 
@@ -20,6 +21,7 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
+from scipy.special import ndtr
 
 _INV_SQRT_2PI = 1.0 / np.sqrt(2.0 * np.pi)
 _MIN_T = 1.0 / (365.0 * 24.0)  # floor time-to-expiry at ~1 hour to avoid /0
@@ -27,12 +29,31 @@ _MIN_T = 1.0 / (365.0 * 24.0)  # floor time-to-expiry at ~1 hour to avoid /0
 # Anything this large is clearly an epoch-day count, not a days-to-expiry value.
 _EPOCH_DAY_THRESHOLD = 10_000
 
-__all__ = ["bs_charm", "bs_gamma", "dollar_gamma", "norm_pdf", "years_to_expiry"]
+__all__ = [
+    "bs_call_price",
+    "bs_charm",
+    "bs_gamma",
+    "bs_put_price",
+    "bs_vanna",
+    "dollar_gamma",
+    "norm_cdf",
+    "norm_pdf",
+    "years_to_expiry",
+]
 
 
 def norm_pdf(x: np.ndarray) -> np.ndarray:
     """Standard normal PDF."""
     return _INV_SQRT_2PI * np.exp(-0.5 * x * x)
+
+
+def norm_cdf(x: np.ndarray) -> np.ndarray:
+    """Standard normal CDF (Phi), vectorized via ``scipy.special.ndtr``.
+
+    Uses the same scipy dependency the flip-point solver (``flip_point.py``)
+    already relies on. Needed to price the ATM straddle (``greeks/straddle.py``).
+    """
+    return ndtr(x)
 
 
 def bs_gamma(
@@ -76,6 +97,71 @@ def bs_charm(
     # as 1/√T near expiry; that's the well-known "charm explodes ATM into the
     # close" behaviour (MEMORY note on charm intuition).
     return -norm_pdf(d1) * (r / (sigma * sqrt_t) - d2 / (2.0 * t))
+
+
+def bs_vanna(
+    spot: float | np.ndarray,
+    strike: np.ndarray,
+    sigma: np.ndarray,
+    t: np.ndarray,
+    r: float = 0.0,
+) -> np.ndarray:
+    """Black-Scholes vanna (∂Δ/∂σ = ∂vega/∂S) for arrays of options, no-dividends.
+
+    ``vanna = -N'(d1) * d2 / σ`` — the cross-partial of value w.r.t. spot and
+    vol, expressed per 1.00 of vol (per unit sigma, NOT per vol-point). Identical
+    for calls and puts (Δ_put = Δ_call − 1, the constant drops under
+    differentiation), so the caller applies the dealer sign when aggregating into
+    vanna-hedging exposure.
+
+    Used to synthesize the ``vanna`` column for vendors that ship first-order
+    greeks only (e.g. CVForge), so ``exposures.compute_exposures`` stays
+    vendor-agnostic (ADR-002 precedent, extended in ADR-004). Matches
+    ``bs_gamma``/``bs_charm`` here: broadcasts against ``spot``, returns a numpy
+    array shaped like ``strike``. Validated three ways (analytic = vega-identity =
+    finite-difference) against a live SPY contract, 2026-07-12.
+    """
+    sqrt_t = np.sqrt(t)
+    d1 = (np.log(spot / strike) + (r + 0.5 * sigma**2) * t) / (sigma * sqrt_t)
+    d2 = d1 - sigma * sqrt_t
+    return -norm_pdf(d1) * d2 / sigma
+
+
+def bs_call_price(
+    spot: float | np.ndarray,
+    strike: np.ndarray,
+    sigma: np.ndarray,
+    t: np.ndarray,
+    r: float = 0.0,
+) -> np.ndarray:
+    """Black-Scholes call price, no dividends; broadcasts against ``spot``.
+
+    ``C = S*N(d1) - K*exp(-rT)*N(d2)``. Used to price the ATM straddle from each
+    leg's stored IV (``greeks/straddle.py``) -- an ADR-002 BS-synthesis use, since
+    the normalized chain carries ``iv`` but no option premium.
+    """
+    sqrt_t = np.sqrt(t)
+    d1 = (np.log(spot / strike) + (r + 0.5 * sigma**2) * t) / (sigma * sqrt_t)
+    d2 = d1 - sigma * sqrt_t
+    return spot * norm_cdf(d1) - strike * np.exp(-r * t) * norm_cdf(d2)
+
+
+def bs_put_price(
+    spot: float | np.ndarray,
+    strike: np.ndarray,
+    sigma: np.ndarray,
+    t: np.ndarray,
+    r: float = 0.0,
+) -> np.ndarray:
+    """Black-Scholes put price, no dividends; broadcasts against ``spot``.
+
+    ``P = K*exp(-rT)*N(-d2) - S*N(-d1)``. Satisfies put-call parity with
+    ``bs_call_price``: ``C - P = S - K*exp(-rT)``.
+    """
+    sqrt_t = np.sqrt(t)
+    d1 = (np.log(spot / strike) + (r + 0.5 * sigma**2) * t) / (sigma * sqrt_t)
+    d2 = d1 - sigma * sqrt_t
+    return strike * np.exp(-r * t) * norm_cdf(-d2) - spot * norm_cdf(-d1)
 
 
 def dollar_gamma(

@@ -98,6 +98,10 @@ ignore = ["ANN101", "ANN102", "S101"]   # missing self/cls, asserts in tests
 # intentional typography (γ, Δ, ×, →) in the rendered output are inherent.
 "scripts/ticker_report.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 "scripts/iv_tenor_report.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
+"scripts/swing_report.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
+"scripts/cv_extras.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
+"scripts/credit_income_scan.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
+"scripts/earnings_inflection.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 
 [tool.black]
 line-length = 100

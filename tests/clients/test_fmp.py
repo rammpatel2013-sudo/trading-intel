@@ -57,3 +57,32 @@ def test_news_and_failure_degrades():
     assert c.news("AAPL")[0]["title"] == "Apple ships chips"
     assert c.profile("AAPL") is None
     assert c.income_statement("AAPL") == []
+
+
+def test_shares_outstanding_from_shares_float():
+    c = _client({
+        "stable/shares-float": _Resp([
+            {"symbol": "SOXL", "date": "2026-07-14", "floatShares": 133000000,
+             "outstandingShares": 135450060, "source": "NASDAQ"}
+        ])
+    })
+    s = c.shares_outstanding("soxl")
+    assert s is not None
+    assert s.symbol == "SOXL" and s.shares_outstanding == 135450060
+    assert s.float_shares == 133000000 and s.source == "NASDAQ"
+
+
+def test_shares_outstanding_falls_back_to_quote():
+    # shares-float yields no usable count -> fall back to /quote sharesOutstanding.
+    c = _client({
+        "stable/shares-float": _Resp([]),
+        "stable/quote": _Resp([{"symbol": "TSLQ", "sharesOutstanding": 4200000}]),
+    })
+    s = c.shares_outstanding("TSLQ")
+    assert s is not None and s.shares_outstanding == 4200000 and s.source == "quote"
+
+
+def test_shares_outstanding_none_when_absent():
+    # Nothing relevant mapped -> both endpoints degrade to None -> None.
+    c = _client({"stable/news/stock": _Resp([])})
+    assert c.shares_outstanding("ZZZZ") is None

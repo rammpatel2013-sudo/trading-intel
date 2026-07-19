@@ -3,6 +3,7 @@
 Single source of truth. Instantiate Settings() once at the composition root
 (scheduler/runner.py or dashboard/Home.py) and inject downstream.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -54,8 +55,17 @@ class Settings(BaseSettings):
     # SEC EDGAR fair-access requires a descriptive User-Agent incl. a contact email.
     EDGAR_USER_AGENT: str = "trading-intel research (set EDGAR_USER_AGENT in .env)"
 
+    # ── CVForge (ConvexValue AI API — SECONDARY OptionsDataSource, ADR-004) ──
+    # Same backend as convexlib, exposed as a keyed REST+MCP API. Research tier:
+    # market-wide breadth (/screen, /query), historical option OHLC (/mas), and
+    # 157 FMP endpoints. Used for breadth + history + FMP; convexlib stays PRIMARY
+    # for the live regime engine (rule 1). Never logged (rule 2). Its /ai gateway
+    # is out of scope — scheduled LLM stays on local Ollama (rule 7).
+    CVFORGE_API_KEY: SecretStr = SecretStr("")
+    CVFORGE_BASE_URL: str = "https://tap.convexvalue.com/api/data"
+
     # ── Discord webhooks (multiple channels) ───────────────────────────
-    DISCORD_WEBHOOK_URL: SecretStr                       # general / AM summary
+    DISCORD_WEBHOOK_URL: SecretStr  # general / AM summary
     DISCORD_FLOW_WEBHOOK_URL: SecretStr = SecretStr("")
     DISCORD_IV_WEBHOOK_URL: SecretStr = SecretStr("")
     DISCORD_VEX_WEBHOOK_URL: SecretStr = SecretStr("")
@@ -122,7 +132,7 @@ class Settings(BaseSettings):
     # constant-maturity tenors (no per-strike rows persisted).
     IV_TENOR_SYMBOLS: str = "QQQ,SPY,SPX"  # roots to snapshot (comma list)
     IV_TENOR_DTE: str = "30,90"  # constant-maturity tenors in calendar days (1M/3M)
-    IV_TENOR_DELTAS: str = "15,25"  # wing |delta| points to store (ATM/50Δ always)
+    IV_TENOR_DELTAS: str = "15,25"  # wing |delta| points to store (ATM/50d always)
 
     # ── Options time & sales capture (Phase 3 NAS tape -> tas_prints) ──
     TAS_MIN_PREMIUM: float = 25_000.0  # keep prints with notional (price*size*100) >= this $
@@ -133,6 +143,50 @@ class Settings(BaseSettings):
 
     # ── Daily AM report ───────────────────────────────────────────────
     AM_REPORT_SEND_DISCORD: bool = False  # push AM report to Discord (client not built yet)
+
+    # ── LETF net creation/redemption (issuance) flow ───────────
+    # Leveraged/inverse ETFs snapshotted daily by scheduler/jobs/letf_flows.py.
+    # FMP stable serves only the CURRENT shares figure, so dshares is banked
+    # forward. Concentrated complexes feed the k(k-1)*assets*return EOD rebalance
+    # estimate that sits beside GEX/DEX. Descriptive only (rule 4).
+    LETF_SYMBOLS: str = (
+        "TQQQ,SQQQ,SOXL,SOXS,SPXL,SPXU,TNA,TZA,FAS,FAZ,LABU,LABD,"
+        "NUGT,DUST,JNUG,JDST,BOIL,KOLD,YINN,YANG,TSLL,TSLQ,NVDL,NVD"
+    )
+
+    # ── Factor scoring (ADR-005) ───────────────────────────────
+    # Universe for the weekly multi-factor job (empty -> the watchlist).
+    FACTOR_UNIVERSE: str = ""
+
+    # ── Sentiment (institutional 13F + analyst ratings/targets) ─
+    # Universe for the weekly sentiment snapshot job (empty -> the watchlist).
+    SENTIMENT_UNIVERSE: str = ""
+
+    # ── Per-name constant-maturity IV term (reads stored oi_chain_eod) ─
+    # Tenors (calendar days) for the per-name IV-term curve; complements the
+    # index-only iv_tenor job (watchlist universe).
+    IV_TERM_DTE: str = "30,60,90"
+
+    # ── Vol surface snapshots (full delta x expiry grid, index ETFs) ─
+    # Roots to bank the whole surface for (the vol-surface-changes board); n
+    # nearest liquid expiries kept per root.
+    SURFACE_SYMBOLS: str = "SPX,QQQ,SPY"
+    SURFACE_EXPIRIES: int = 12
+
+    # ── EM-break / gamma burn-off + systematic flow (McGraw pattern) ───
+    # See docs/em-break-system-plan.md + docs/learning/em-break-gamma-burnoff-digest.md.
+    EARNINGS_LOOKAHEAD_DAYS: int = 30  # earn_cal pull window (days ahead)
+    PRE_EARNINGS_SNAP_DAYS: int = 10  # snapshot the pre-earnings straddle within N days of a print
+    PRE_EARNINGS_TARGET_DTE: int = 30  # prefer the ~30-DTE expiry bracketing the earnings date
+    EM_BREAK_LOOKBACK_SESSIONS: int = 10  # post-earnings window for over-realization / re-entry
+    # Systematic vol-control flow proxy (index-level tailwind). AUM/target are
+    # ESTIMATES (flows/registry.py) — calibrate; consume flow $ as a percentile.
+    VOL_CONTROL_INDEX: str = "SPX,QQQ"  # index roots the vol-control bid keys off
+    VOL_CONTROL_AUM: float = 350e9  # overrides flows.registry vol_control default
+    VOL_TARGET: float = 0.10  # target annualized vol (decimal)
+    CTA_AUM: float = 300e9
+    RISK_PARITY_AUM: float = 150e9
+    RV_ROLLOFF_HORIZON: int = 10  # sessions to project the RV roll-off forward
 
     # ── Schwab (PARKED) ────────────────────────────────────────────────
     SCHWAB_APP_KEY: str = ""
@@ -187,6 +241,69 @@ class Settings(BaseSettings):
                 seen.add(d)
                 out.append(d)
         return sorted(out)
+
+    @property
+    def letf_symbols(self) -> list[str]:
+        """LETF roots to snapshot for net-issuance flow (upper, de-duped, ordered)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for tok in self.LETF_SYMBOLS.split(","):
+            s = tok.strip().upper()
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    @property
+    def factor_symbols(self) -> list[str]:
+        """Universe for factor scoring (FACTOR_UNIVERSE, else the watchlist)."""
+        syms = [s.strip().upper() for s in self.FACTOR_UNIVERSE.split(",") if s.strip()]
+        return syms or self.watchlist_symbols
+
+    @property
+    def sentiment_symbols(self) -> list[str]:
+        """Universe for sentiment snapshots (SENTIMENT_UNIVERSE, else the watchlist)."""
+        syms = [s.strip().upper() for s in self.SENTIMENT_UNIVERSE.split(",") if s.strip()]
+        return syms or self.watchlist_symbols
+
+    @property
+    def iv_term_dtes(self) -> list[int]:
+        """Constant-maturity tenors (days) for the per-name IV-term job."""
+        seen: set[int] = set()
+        out: list[int] = []
+        for tok in self.IV_TERM_DTE.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            dte = int(tok)
+            if dte not in seen:
+                seen.add(dte)
+                out.append(dte)
+        return sorted(out)
+
+    @property
+    def surface_symbols(self) -> list[str]:
+        """Index-ETF roots for the full vol-surface snapshot (upper, de-duped)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for tok in self.SURFACE_SYMBOLS.split(","):
+            s = tok.strip().upper()
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    @property
+    def vol_control_index_symbols(self) -> list[str]:
+        """Index roots the systematic vol-control bid keys off (upper, de-duped)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for tok in self.VOL_CONTROL_INDEX.split(","):
+            s = tok.strip().upper()
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
 
 
 _settings: Settings | None = None
