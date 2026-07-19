@@ -401,9 +401,7 @@ def render_markdown(result: RegimeBacktestResult) -> str:
     parts.append("## Per-state conditional returns\n\n")
     for h in cfg.horizons_days:
         parts.append(f"### Horizon = {h} trading days\n\n")
-        parts.append(
-            "| State | n | mean | median | IR | hit | lift vs baseline | p05 | p95 |\n"
-        )
+        parts.append("| State | n | mean | median | IR | hit | lift vs baseline | p05 | p95 |\n")
         parts.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n")
         for s in result.by_state:
             if s.horizon_days != h:
@@ -420,9 +418,7 @@ def render_markdown(result: RegimeBacktestResult) -> str:
         parts.append("## Per-(state, overlay) conditional returns\n\n")
         for h in cfg.horizons_days:
             parts.append(f"### Horizon = {h} trading days\n\n")
-            parts.append(
-                "| State | Overlays | n | mean | IR | hit | lift vs baseline |\n"
-            )
+            parts.append("| State | Overlays | n | mean | IR | hit | lift vs baseline |\n")
             parts.append("|---|---|---:|---:|---:|---:|---:|\n")
             for s in result.by_state_with_overlay:
                 if s.horizon_days != h:

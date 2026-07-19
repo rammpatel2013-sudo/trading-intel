@@ -1,4 +1,5 @@
 """Tests for trading_intel.backtest.regime_validate — SQLite, no network."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
@@ -106,9 +107,9 @@ def test_forward_returns_known_answer():
     ]
     # 1d forward returns from days 0..3 (last has no horizon target).
     rets = forward_returns(closes, [d for d, _ in closes], horizon_days=1)
-    assert rets.tolist() == pytest.approx([
-        101 / 100 - 1, 102 / 101 - 1, 103 / 102 - 1, 104 / 103 - 1
-    ], abs=1e-12)
+    assert rets.tolist() == pytest.approx(
+        [101 / 100 - 1, 102 / 101 - 1, 103 / 102 - 1, 104 / 103 - 1], abs=1e-12
+    )
 
 
 def test_forward_returns_skips_off_calendar_dates_using_next_session():
@@ -217,7 +218,8 @@ def test_run_backtest_groups_returns_by_state_and_overlay(session: Session):
     # Overlay split should give two CRASH_HEDGING rows: one with overlays=()
     # and one with overlays=("VIX_OPTIONS_RICH",).
     overlay_rows = [
-        s for s in result.by_state_with_overlay
+        s
+        for s in result.by_state_with_overlay
         if s.label == "CRASH_HEDGING" and s.horizon_days == 1
     ]
     assert {tuple(s.overlays) for s in overlay_rows} == {

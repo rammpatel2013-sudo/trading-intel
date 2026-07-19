@@ -80,3 +80,14 @@ def test_overwriter_call_supply_none_when_no_writing():
     r = overwriter_call_supply(changes)
     assert r["supply_led"] is False
     assert r["rebuild_strike"] is None
+
+
+def test_vol_control_cohort_uses_1m_trailing_rv():
+    # The vol-control cohort keys off 1-month (~21 session) trailing RV — the desk
+    # convention (Yamco 07/20: VCFs "invest on 1m trailing RV") and exactly what the
+    # index-level flow tool computes (rv_rolloff_projection window=21).
+    from trading_intel.flows.registry import ESTIMATOR_WINDOW
+
+    vc = cohort_for("vol_control")
+    assert vc.estimator == "rv_21"
+    assert ESTIMATOR_WINDOW["rv_21"] == 21

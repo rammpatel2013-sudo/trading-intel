@@ -17,6 +17,7 @@ from trading_intel.scheduler.jobs import (
     delta_flow,
     earnings_calendar,
     em_break_reentry,
+    em_break_validation,
     flow_snapshot,
     pre_earnings_straddle,
     gex_rolling,
@@ -198,6 +199,10 @@ def main() -> None:
         with session_factory() as session:
             em_break_reentry.run(session, settings=settings)
 
+    def run_em_break_validation() -> None:
+        with session_factory() as session:
+            em_break_validation.run(session, settings=settings)
+
     scheduler = BlockingScheduler(timezone=settings.TZ)
 
     # Greeks snapshot — 06:45 ET pre-market (see MEMORY.md schedule).
@@ -270,6 +275,15 @@ def main() -> None:
         hour=17,
         minute=0,
         name="em_break_reentry",
+    )
+    # P6 backtest: bank realized re-entry outcomes weekly (Sat 09:00, after factors).
+    scheduler.add_job(
+        run_em_break_validation,
+        "cron",
+        day_of_week="sat",
+        hour=9,
+        minute=0,
+        name="em_break_validation",
     )
     # Prune stale oi_chain_eod rows daily (retention via OI_CHAIN_RETENTION_DAYS).
     scheduler.add_job(run_prune_oi_chain, "cron", hour=2, minute=20, name="prune_oi_chain")

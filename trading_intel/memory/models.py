@@ -690,6 +690,38 @@ class AlertSent(Base):
     response_code: Mapped[int | None] = mapped_column(Integer)
 
 
+class SignalOutcome(Base):
+    """Realized outcome of a signal — the P6 backtest ledger (bank-forward).
+
+    The ``em_break_validation`` job walks ``quotes_daily`` forward from each banked
+    ``EM_BREAK_REENTRY`` signal and records whether the call-wall target or the
+    put-wall stop was hit first, with the R-multiple. Read-only analytics on top of
+    ``signals`` (never mutates it). One row per signal (unique ``signal_id``); an
+    OPEN trade is re-evaluated and overwritten until it closes. See
+    ``docs/em_break_backtest.md``.
+    """
+
+    __tablename__ = "signal_outcomes"
+    __table_args__ = (UniqueConstraint("signal_id", name="uq_signal_outcomes_signal"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    signal_id: Mapped[int] = mapped_column(ForeignKey("signals.id"))
+    symbol: Mapped[str] = mapped_column(String(16))
+    signal_type: Mapped[str] = mapped_column(String(64))
+    entry_date: Mapped[date] = mapped_column(Date)
+    entry: Mapped[float | None] = mapped_column(Float)
+    target: Mapped[float | None] = mapped_column(Float)
+    stop: Mapped[float | None] = mapped_column(Float)
+    result: Mapped[str | None] = mapped_column(String(8))  # win / loss / open
+    exit_date: Mapped[date | None] = mapped_column(Date)
+    exit_price: Mapped[float | None] = mapped_column(Float)
+    days_held: Mapped[int | None] = mapped_column(Integer)
+    r_multiple: Mapped[float | None] = mapped_column(Float)
+    conviction: Mapped[float | None] = mapped_column(Float)
+    max_days: Mapped[int | None] = mapped_column(Integer)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 # ── AM summaries ──────────────────────────────────────────────────────
 
 

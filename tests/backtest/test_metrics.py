@@ -1,4 +1,5 @@
 """Unit tests for trading_intel.backtest.metrics — pure NumPy, no DB."""
+
 from __future__ import annotations
 
 import math
@@ -60,24 +61,64 @@ def test_summarize_zero_std_ir_is_none():
 
 def test_lift_vs_baseline_simple():
     base = ReturnStats(
-        n=10, mean=0.001, median=0.0, std=0.01, ir=0.1, hit_rate=0.5,
-        p05=-0.02, p25=-0.005, p75=0.005, p95=0.02, min=-0.03, max=0.03,
+        n=10,
+        mean=0.001,
+        median=0.0,
+        std=0.01,
+        ir=0.1,
+        hit_rate=0.5,
+        p05=-0.02,
+        p25=-0.005,
+        p75=0.005,
+        p95=0.02,
+        min=-0.03,
+        max=0.03,
     )
     state = ReturnStats(
-        n=10, mean=0.005, median=0.004, std=0.012, ir=0.4, hit_rate=0.7,
-        p05=-0.01, p25=0.0, p75=0.01, p95=0.025, min=-0.02, max=0.04,
+        n=10,
+        mean=0.005,
+        median=0.004,
+        std=0.012,
+        ir=0.4,
+        hit_rate=0.7,
+        p05=-0.01,
+        p25=0.0,
+        p75=0.01,
+        p95=0.025,
+        min=-0.02,
+        max=0.04,
     )
     assert lift_vs_baseline(state, base) == pytest.approx(0.004, abs=1e-12)
 
 
 def test_lift_vs_baseline_none_when_either_missing():
     base = ReturnStats(
-        n=0, mean=None, median=None, std=None, ir=None, hit_rate=None,
-        p05=None, p25=None, p75=None, p95=None, min=None, max=None,
+        n=0,
+        mean=None,
+        median=None,
+        std=None,
+        ir=None,
+        hit_rate=None,
+        p05=None,
+        p25=None,
+        p75=None,
+        p95=None,
+        min=None,
+        max=None,
     )
     state = ReturnStats(
-        n=10, mean=0.005, median=0.004, std=0.012, ir=0.4, hit_rate=0.7,
-        p05=-0.01, p25=0.0, p75=0.01, p95=0.025, min=-0.02, max=0.04,
+        n=10,
+        mean=0.005,
+        median=0.004,
+        std=0.012,
+        ir=0.4,
+        hit_rate=0.7,
+        p05=-0.01,
+        p25=0.0,
+        p75=0.01,
+        p95=0.025,
+        min=-0.02,
+        max=0.04,
     )
     assert lift_vs_baseline(state, base) is None
     assert lift_vs_baseline(base, state) is None
