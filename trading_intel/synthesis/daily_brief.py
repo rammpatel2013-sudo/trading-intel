@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from trading_intel.config import Settings, get_settings
 from trading_intel.dashboard.chart_data import load_ohlc
 from trading_intel.mcp.extra_tools import (
+    get_flow_scorecard,
     get_research_note,
     get_research_watchlist,
     get_straddle,
@@ -135,11 +136,12 @@ def _doc_block(session: Session, doc_index: dict[str, Any] | None, vix_level: fl
     if spot and vix_level:
         mv = spot * (vix_level / 100.0) / _SQRT_252
         r16_lo, r16_hi = spot - mv, spot + mv
-    # Data-driven descriptive read (verbatim Doc prose swaps in once the letter body is stored).
-    note = get_research_note(session, _DOC_ROOT)
+    # Doc's stored daily-plan body (letter-body storage) if present, else a
+    # data-driven reconstruction from flip + regime.
+    note = get_research_note(session, "__DOC__")
     if note.get("found") and note.get("note_md"):
         expectation = note["note_md"][:600]
-        exp_src = f"Doc note {note.get('as_of') or ''}".strip()
+        exp_src = f"Doc letter {note.get('as_of') or ''}".strip()
     else:
         pos = "below" if below else "above"
         air = (
@@ -260,12 +262,20 @@ def _crosschecks(indices: list[dict[str, Any]], vix: dict[str, Any]) -> list[dic
     return out
 
 
+_LETTER_SOURCES = (
+    ("__DOC__", "Doc McGraw"),
+    ("__LONGSHORT__", "The Long & Short"),
+    ("__JAGUAR__", "Jaguar Analytics"),
+    ("__SITS__", "Special Situations"),
+)
+
+
 def _letters_block(session: Session) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    for sym, label in (("SPX", "Doc McGraw"), ("MKT", "The Long & Short"), ("SITS", "Special Situations")):
-        note = get_research_note(session, sym)
+    for key, label in _LETTER_SOURCES:
+        note = get_research_note(session, key)
         if note.get("found") and note.get("note_md"):
-            out.append({"src": label, "text": note["note_md"][:280]})
+            out.append({"src": label, "text": note["note_md"][:320]})
     return out
 
 
@@ -388,6 +398,77 @@ def _em_levels_block(session: Session) -> dict[str, Any] | None:
     }
 
 
+_MAG7 = ("AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA")
+
+
+def _mag7_block(session: Session) -> list[dict[str, Any]]:
+    """Mag7 gamma/vol snapshot — the mega-caps that drive the index."""
+    out: list[dict[str, Any]] = []
+    for sym in _MAG7:
+        rows = get_gamma_history(session, sym, days=3).get("rows") or []
+        last = rows[-1] if rows else None
+        if not last:
+            out.append({"symbol": sym, "found": False})
+            continue
+        spot, flip = last.get("spot"), last.get("gex_flip")
+        out.append(
+            {
+                "symbol": sym,
+                "spot": spot,
+                "flip": flip,
+                "vs_flip": ((spot - flip) / flip * 100.0) if (spot and flip) else None,
+                "gex": last.get("gex_total"),
+                "regime": last.get("regime"),
+                "atm_iv": last.get("atm_iv"),
+                "found": True,
+            }
+        )
+    return out
+
+
+def _flows_block(session: Session) -> list[dict[str, Any]]:
+    """Top single-name option-flow names by notional (our own tape roll-up)."""
+    sc = get_flow_scorecard(session, lookback_days=5, min_notional=1_000_000.0, limit=40)
+    rows = sorted(
+        sc.get("rows") or [], key=lambda r: (r.get("total_notional") or 0.0), reverse=True
+    )[:5]
+    return [
+        {
+            "root": r.get("root"),
+            "notional": r.get("total_notional"),
+            "net_delta": r.get("net_dollar_delta"),
+            "label": r.get("label"),
+            "score": r.get("accum_score"),
+        }
+        for r in rows
+    ]
+
+
+def _recap_block(
+    indices: list[dict[str, Any]],
+    em_levels: dict[str, Any] | None,
+    vix: dict[str, Any],
+    doc: dict[str, Any],
+) -> dict[str, Any]:
+    """Yesterday-vs-today: a data recap of our own tape + the desk 'what to expect'."""
+    facts: list[str] = []
+    spy = next((ix for ix in indices if ix.get("symbol") == "SPY"), None)
+    if spy and spy.get("spot_vs_flip_pct") is not None and spy.get("flip"):
+        side = "above" if spy["spot_vs_flip_pct"] > 0 else "below"
+        facts.append(f"SPY last {spy.get('spot')} — {side} its {spy['flip']:.0f} gamma flip")
+    if em_levels:
+        wk = next((r for r in (em_levels.get("rows") or []) if r.get("tenor") == "Weekly"), None)
+        if wk and wk.get("lower") and wk.get("upper"):
+            facts.append(f"{wk.get('status')} of the weekly rail ({wk['lower']:.0f}–{wk['upper']:.0f})")
+    if vix.get("vix") is not None:
+        facts.append(f"VIX {vix.get('vix')} / VVIX {vix.get('vvix')}")
+    return {
+        "recap": ("; ".join(facts) + ".") if facts else "",
+        "outlook": (doc.get("expectation") or "")[:400],
+        "outlook_src": doc.get("expectation_src"),
+    }
+
+
 def build_brief_context(session: Session, settings: Settings | None = None) -> dict[str, Any]:
     """Assemble the full daily-brief context dict from banked data."""
     settings = settings or get_settings()
@@ -396,12 +477,18 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
     doc_index = next((ix for ix in indices if ix["symbol"] == _DOC_ROOT), None)
     doc = _doc_block(session, doc_index, vix.get("vix"))
     em_levels = _em_levels_block(session)
+    recap = _recap_block(indices, em_levels, vix, doc)
+    mag7 = _mag7_block(session)
+    flows = _flows_block(session)
     learned, learned_total = _learned_block(session)
     ctx: dict[str, Any] = {
         "as_of": date.today().isoformat(),
         "subtitle": "pre-open daily brief · index gamma, Doc levels, letters",
         "through_line": _through_line(indices, vix),
+        "recap": recap,
         "indices": indices,
+        "mag7": mag7,
+        "flows": flows,
         "vix": vix,
         "doc": doc,
         "em_levels": em_levels,

@@ -37,6 +37,17 @@ def _ctx() -> dict:
             {"tenor": "Weekly", "iv_label": "VIX9D", "anchor_date": "2026-07-27", "anchor_spot": 7455,
              "em_pct": 1.30, "upper": 7552, "lower": 7358, "pos_pct": 28.4, "status": "near lower rail"},
         ]},
+        "recap": {"recap": "SPY above its flip; VIX 18.6.", "outlook": "Sell front vol into FOMC.",
+                  "outlook_src": "Doc letter 2026-07-28"},
+        "mag7": [
+            {"symbol": "TSLA", "spot": 313.0, "flip": 330.0, "vs_flip": -5.2, "gex": -500,
+             "regime": "short gamma (< flip, move-amplifying)", "atm_iv": 0.94, "found": True},
+            {"symbol": "AAPL", "spot": 312.85, "flip": 310.0, "vs_flip": 0.9, "gex": 6760,
+             "regime": "long gamma (> flip, move-damping)", "atm_iv": 0.333, "found": True},
+        ],
+        "flows": [
+            {"root": "NVDA", "notional": 45e6, "net_delta": 12e6, "label": "accumulation", "score": 62},
+        ],
         "letters": [{"src": "Doc McGraw", "text": "Respect the flip."}],
         "tracker": [{"src": "letters", "ticker": "CRM", "dir": "Bear", "note": "Fading Moat", "status": "surfaced"}],
         "learned": [{"symbol": "TSM", "themes": ["chip makers"], "sentiment": -0.5, "rationale": "memory drop"}],
@@ -53,6 +64,8 @@ def test_render_produces_full_html() -> None:
     assert "ladder" in html  # Doc level ladder SVG present
     assert "Expected-move rails" in html  # anchored EM rails section
     assert "near lower rail" in html or "mid-range" in html  # position read
+    assert "Mag7" in html and "TSLA" in html  # Mag7 index-driver panel
+    assert "Top option flow" in html and "Yesterday:" in html  # flows + recap
     assert html.count("<polyline") >= 1  # sparklines rendered
 
 

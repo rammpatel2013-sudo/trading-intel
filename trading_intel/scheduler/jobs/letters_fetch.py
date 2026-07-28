@@ -15,16 +15,19 @@ Manual run:
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
 import httpx
 import structlog
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.letters import substack
 from trading_intel.letters.sources import substack_sources
+from trading_intel.memory.models import ResearchNote
 from trading_intel.memory.watchlist_ingest import ingest_folder
 from trading_intel.synthesis.llm import LLMProvider
 
@@ -32,6 +35,59 @@ log = structlog.get_logger(__name__)
 
 #: Letters live under the research tree so the nightly research ingest also sees them.
 DEFAULT_LETTERS_DIR = Path("research/company/letters")
+
+#: Sender-slug fragment -> stable note key the daily brief reads for commentary.
+#: (The .md bodies live in the ephemeral --rm container; only the DB survives, so
+#: we persist the newest body per source as a ResearchNote.)
+_SOURCE_KEYS = {
+    "docmcgraw": "__DOC__",
+    "jaguaranalytics": "__JAGUAR__",
+    "longandshort": "__LONGSHORT__",
+    "specialsits": "__SITS__",
+}
+_NOTE_MAX_CHARS = 8000
+
+
+def _store_source_notes(session: Session, root: Path) -> int:
+    """Persist the newest letter body per source as a ResearchNote (rule 4)."""
+    if not root.is_dir():
+        return 0
+    today = date.today()
+    written = 0
+    for frag, key in _SOURCE_KEYS.items():
+        mds = [
+            f
+            for d in root.iterdir()
+            if d.is_dir() and frag in d.name
+            for f in d.glob("*.md")
+        ]
+        if not mds:
+            continue
+        newest = max(mds, key=lambda p: p.stat().st_mtime)
+        try:
+            raw = newest.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        # Drop the "# subject / From: / Date:" header block the saver prepends.
+        parts = raw.split("\n\n", 2)
+        body = (parts[-1] if len(parts) == 3 else raw)[:_NOTE_MAX_CHARS]
+        if len(body) < 80:
+            continue
+        stmt = (
+            pg_insert(ResearchNote)
+            .values(
+                symbol=key, as_of=today, note_md=body,
+                sources=newest.name[:128], model="letters",
+            )
+            .on_conflict_do_update(
+                index_elements=["symbol", "as_of"],
+                set_={"note_md": body, "sources": newest.name[:128]},
+            )
+        )
+        session.execute(stmt)
+        written += 1
+    session.commit()
+    return written
 
 
 def _fund_dir(root: Path, fund: str) -> Path:
@@ -74,14 +130,16 @@ def run(
         bound.warning("letters_fetch.gmail_failed", err=str(exc))
 
     result = ingest_folder(session, llm, research_dir=root, model=settings.LLM_TAGGING_MODEL)
+    notes = _store_source_notes(session, root)
     bound.info(
         "letters_fetch.done",
         saved=saved,
         ingested=result["ingested"],
         skipped=result["skipped"],
         new_symbols=result["new_symbols"],
+        source_notes=notes,
     )
-    return {"saved": saved, **result}
+    return {"saved": saved, "source_notes": notes, **result}
 
 
 def main() -> None:

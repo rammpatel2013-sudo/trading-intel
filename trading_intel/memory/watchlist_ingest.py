@@ -13,6 +13,7 @@ extracted text (CLAUDE.md rule 5).
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -32,6 +33,27 @@ log = structlog.get_logger(__name__)
 _SOURCE = "internal"
 _MIN_USABLE_CHARS = 100
 _UQ_COLS = ["symbol", "source_doc_id"]
+
+_TICKER_RE = re.compile(r"^[A-Z]{1,5}$")
+# Common non-ticker tokens the LLM extractor sometimes mislabels as symbols
+# (acronyms, currencies, misspellings, non-optionable share classes).
+_TICKER_STOP = {
+    "THE", "AND", "FOR", "USD", "EUR", "GBP", "ETF", "CEO", "CFO", "IPO", "GDP",
+    "FED", "SEC", "EPS", "AI", "US", "UK", "EU", "Q1", "Q2", "Q3", "Q4", "YOY",
+    "QOQ", "ATH", "NAV", "API", "PDF", "FAQ", "NVDIA", "GOOG", "BRKB", "SPXW",
+}
+
+
+def _is_valid_ticker(symbol: str | None) -> bool:
+    """Cheap optionability/validity gate for extracted symbols.
+
+    Keeps 1-5 uppercase letters only (drops fund tickers with digits/dots like
+    ``FVMAX``/``IPIA.FIL``, foreign symbols, and acronym false-positives). A
+    first-pass source-side filter so the DB stops storing junk; the report's
+    display filter remains as a backstop.
+    """
+    s = (symbol or "").strip().upper()
+    return bool(_TICKER_RE.match(s)) and s not in _TICKER_STOP
 
 
 def _get_or_create_document(session: Session, path: Path, *, sha: str, page_count: int) -> Document:
@@ -85,6 +107,9 @@ def ingest_research(
 
     doc = _get_or_create_document(session, path, sha=sha, page_count=page_count)
     candidates = extract_watchlist(llm, path.stem, text, model=model)
+    # Source-side junk gate: drop mis-tagged / non-optionable symbols before they
+    # ever reach the DB (misspellings, fund tickers, acronyms).
+    candidates = [c for c in candidates if _is_valid_ticker(c.symbol)]
 
     now = datetime.utcnow()
     records = [

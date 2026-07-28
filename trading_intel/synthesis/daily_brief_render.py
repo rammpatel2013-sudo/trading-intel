@@ -214,7 +214,7 @@ def _doc_section(ctx: dict[str, Any]) -> str:
             f'<div class="chip"><span class="lab">EM · straddle</span>'
             f'<b>{_fmt(doc.get("em_lo"),0)} – {_fmt(doc.get("em_hi"),0)}</b></div>'
         )
-    return f"""<h2 class="sec"><span class="n">02</span>Doc McGraw — levels &amp; what he expects today</h2>
+    return f"""<h2 class="sec"><span class="n">04</span>Doc McGraw — levels &amp; what he expects today</h2>
 <div class="card">
 <div class="expect"><div class="hd">Doc's read into today {f'· {_esc(src)}' if src else ''}</div>{_esc(exp)}</div>
 {_doc_ladder_svg(doc)}
@@ -259,7 +259,7 @@ def _em_section(ctx: dict[str, Any]) -> str:
             f'<td class="d">{_pos_bar(r.get("pos_pct"), st)}</td>'
             f'<td class="d {scls}">{_esc(st)}</td></tr>'
         )
-    return f"""<h2 class="sec"><span class="n">03</span>Expected-move rails — anchored at period open</h2>
+    return f"""<h2 class="sec"><span class="n">05</span>Expected-move rails — anchored at period open</h2>
 <div class="card">
 <div class="note" style="margin-top:0">SPX ≈ SPY×10 · current spot <b>{_fmt(cur, 0)}</b> ({_esc(em.get("as_of"))}). Quarterly / Monthly / Weekly rails are <b>fixed</b> at each period's opening spot × that period's implied move — they don't move within the period; only <b>Daily</b> re-anchors. Read today's price against the static rails.</div>
 <table><thead><tr><th class="d">Horizon</th><th class="d">Anchored</th><th>Lower</th><th>EM</th><th>Upper</th>
@@ -269,7 +269,7 @@ def _em_section(ctx: dict[str, Any]) -> str:
 
 def _vol_section(ctx: dict[str, Any]) -> str:
     v = ctx.get("vix") or {}
-    return f"""<h2 class="sec"><span class="n">04</span>Volatility state</h2>
+    return f"""<h2 class="sec"><span class="n">06</span>Volatility state</h2>
 <div class="card"><div class="lvl">
 <div class="chip"><span class="lab">VIX</span><b>{_fmt(v.get("vix"),2)}</b></div>
 <div class="chip"><span class="lab">VVIX</span><b>{_fmt(v.get("vvix"),1)}</b></div>
@@ -292,7 +292,7 @@ def _letters_section(ctx: dict[str, Any]) -> str:
     if tags:
         tagline = '<div class="note">Fresh tags today: ' + ", ".join(_esc(t) for t in tags[:12]) + "</div>"
     body = cards or '<div class="card note dim">No letter commentary stored yet.</div>'
-    return f'<h2 class="sec"><span class="n">05</span>Letters — market-structure commentary</h2><div class="two">{body}</div>{tagline}'
+    return f'<h2 class="sec"><span class="n">07</span>Letters — market-structure commentary</h2><div class="two">{body}</div>{tagline}'
 
 
 def _tracker_section(ctx: dict[str, Any]) -> str:
@@ -308,7 +308,7 @@ def _tracker_section(ctx: dict[str, Any]) -> str:
             f'<td class="d dim">{_esc(t.get("status"))}</td></tr>'
         )
     body = rows or '<tr><td colspan="5" class="dim">No tracked trades surfaced this period.</td></tr>'
-    return f"""<h2 class="sec"><span class="n">06</span>Trade tracker — Jaguar / Doc / Sits</h2>
+    return f"""<h2 class="sec"><span class="n">08</span>Trade tracker — Jaguar / Doc / Sits</h2>
 <div class="card"><table><thead><tr><th class="d">Src</th><th class="d">Ticker</th>
 <th class="d">Dir</th><th class="d">Note</th><th class="d">Status</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
@@ -325,7 +325,7 @@ def _learned_section(ctx: dict[str, Any]) -> str:
     body = items or '<li class="dim">No fresh names ingested.</li>'
     n = ctx.get("learned_total")
     hdr = f"{n} entries ingested" if n is not None else "Fresh watchlist adds"
-    return f"""<h2 class="sec"><span class="n">07</span>What I learned today</h2>
+    return f"""<h2 class="sec"><span class="n">09</span>What I learned today</h2>
 <div class="card"><div class="note" style="margin-top:0"><b>{hdr}</b> — top clean signals (junk filtered):</div>
 <ul class="clean">{body}</ul></div>"""
 
@@ -341,16 +341,89 @@ def _crosscheck_section(ctx: dict[str, Any]) -> str:
         )
     if not rows:
         return ""
-    return f"""<h2 class="sec"><span class="n">08</span>Cross-checks — letters vs. our tape</h2>
+    return f"""<h2 class="sec"><span class="n">10</span>Cross-checks — letters vs. our tape</h2>
 <div class="card"><table><thead><tr><th class="d">Claim</th><th class="d">Source</th>
 <th class="d">Our data</th><th class="d">Verdict</th></tr></thead><tbody>{rows}</tbody></table></div>"""
+
+
+def _recap_html(ctx: dict[str, Any]) -> str:
+    r = ctx.get("recap") or {}
+    recap, outlook = r.get("recap"), r.get("outlook")
+    if not recap and not outlook:
+        return ""
+    parts = []
+    if recap:
+        parts.append(f"<b>Yesterday:</b> {_esc(recap)}")
+    if outlook:
+        src = r.get("outlook_src") or ""
+        parts.append(f'<b>Today:</b> {_esc(outlook)} <span class="dim">({_esc(src)})</span>')
+    return f'<div class="recap">{"<br>".join(parts)}</div>'
+
+
+def _mag7_section(ctx: dict[str, Any]) -> str:
+    rows = ctx.get("mag7") or []
+    body = ""
+    any_found = False
+    for r in rows:
+        if not r.get("found"):
+            body += (
+                f'<tr><td class="d sym">{_esc(r.get("symbol"))}</td>'
+                '<td colspan="4" class="dim">no data</td></tr>'
+            )
+            continue
+        any_found = True
+        vf = r.get("vs_flip")
+        vcls = "neg" if (vf or 0) < 0 else "pos"
+        reg = r.get("regime") or ""
+        rcls = "t-short" if "short" in reg.lower() else "t-long" if "long" in reg.lower() else "t-mid"
+        iv = r.get("atm_iv")
+        body += (
+            f'<tr><td class="d sym">{_esc(r.get("symbol"))}</td>'
+            f'<td>{_fmt(r.get("spot"), 2)}</td>'
+            f'<td class="{vcls}">{_pct(vf)}</td>'
+            f'<td class="d"><span class="tag {rcls}">{_esc(reg.split(" (")[0])}</span></td>'
+            f'<td>{_fmt(iv * 100, 1) if iv is not None else "—"}%</td></tr>'
+        )
+    if not any_found:
+        return ""
+    return f"""<h2 class="sec"><span class="n">02</span>Mag7 — the index drivers</h2>
+<div class="card"><table><thead><tr><th class="d">Name</th><th>Spot</th><th>vs flip</th>
+<th class="d">Regime</th><th>ATM IV</th></tr></thead><tbody>{body}</tbody></table>
+<div class="note">The mega-caps that move the index. vs-flip green = above the gamma flip (long-γ), red = below (short-γ).</div></div>"""
+
+
+def _flows_section(ctx: dict[str, Any]) -> str:
+    rows = ctx.get("flows") or []
+    if not rows:
+        return (
+            '<h2 class="sec"><span class="n">03</span>Top option flow — biggest names</h2>'
+            '<div class="card"><div class="note dim">No flow roll-up yet '
+            "(populates once tas_daily_rollup has run).</div></div>"
+        )
+    body = ""
+    for r in rows:
+        lbl = r.get("label") or ""
+        lcls = "pos" if lbl == "accumulation" else "neg" if lbl == "distribution" else "dim"
+        nd = r.get("net_delta") or 0.0
+        body += (
+            f'<tr><td class="d sym">{_esc(r.get("root"))}</td>'
+            f'<td>${_fmt((r.get("notional") or 0.0) / 1e6, 1)}M</td>'
+            f'<td class="{"pos" if nd >= 0 else "neg"}">${_fmt(nd / 1e6, 1)}M</td>'
+            f'<td class="d {lcls}">{_esc(lbl)}</td>'
+            f'<td>{_fmt(r.get("score"), 0)}</td></tr>'
+        )
+    return f"""<h2 class="sec"><span class="n">03</span>Top option flow — biggest names (5-day)</h2>
+<div class="card"><table><thead><tr><th class="d">Name</th><th>Notional</th><th>Net Δ$</th>
+<th class="d">Read</th><th>Score</th></tr></thead><tbody>{body}</tbody></table>
+<div class="note">Largest single-name option flow by notional from our own tape (5-session roll-up); accumulation = persistent net buying.</div></div>"""
 
 
 _CSS = """*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:#1a2027;
 font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;padding:22px 14px 54px}
 .wrap{max-width:900px;margin:0 auto}h1{font-size:21px;margin:0 0 2px;color:#12233d}
 .sub{color:#5b6673;font-size:13px;margin:5px 0 4px}.sub b{color:#b26a00}
-.through{background:#eef4fd;border-left:3px solid #1f7ae0;border-radius:0 8px 8px 0;padding:10px 14px;margin:14px 0 20px;font-size:13.5px;color:#22303f}
+.through{background:#eef4fd;border-left:3px solid #1f7ae0;border-radius:0 8px 8px 0;padding:10px 14px;margin:14px 0 14px;font-size:13.5px;color:#22303f}
+.recap{background:#fff;border:1px solid #e2e7ee;border-left:3px solid #6f4bc0;border-radius:0 8px 8px 0;padding:11px 15px;margin:0 0 20px;font-size:13.5px;color:#33404f;line-height:1.6}
 h2.sec{font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:#0e6b76;margin:24px 0 11px;font-weight:700;border-bottom:1px solid #dfe4ea;padding-bottom:6px}
 h2.sec .n{color:#9aa5b1;margin-right:8px}
 .card{background:#fff;border:1px solid #e2e7ee;border-radius:11px;padding:14px 16px;margin-bottom:13px}
@@ -388,6 +461,8 @@ def render_html(ctx: dict[str, Any]) -> str:
     through = _esc(ctx.get("through_line") or "")
     body = (
         _index_board(ctx)
+        + _mag7_section(ctx)
+        + _flows_section(ctx)
         + _doc_section(ctx)
         + _em_section(ctx)
         + _vol_section(ctx)
@@ -402,6 +477,7 @@ def render_html(ctx: dict[str, Any]) -> str:
 <h1>📈 Trading-Intel Daily</h1>
 <div class="sub">{_esc(ctx.get('as_of'))} · {_esc(ctx.get('subtitle') or '')}</div>
 <div class="through"><b>Through-line:</b> {through}</div>
+{_recap_html(ctx)}
 {body}
 <div class="foot">Descriptive regime context only — <b>not trading signals</b> (FlashAlpha rule 4).<br>
 Generated by the letters pipeline · {_esc(ctx.get('provenance') or '')}</div>

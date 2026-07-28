@@ -17,6 +17,7 @@ import base64
 import re
 from pathlib import Path
 
+import httpx
 import structlog
 
 from trading_intel.letters.sources import gmail_senders
@@ -25,6 +26,34 @@ log = structlog.get_logger(__name__)
 
 _SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 _TAG = re.compile(r"(?s)<[^>]+>")
+# Public WordPress-upload PDFs linked in the email body (e.g. Jaguar's daily
+# First-Read / research notes). The paywalled ``/mp-files/`` links are NOT matched
+# here, and the %PDF sniff below drops any that resolve to a login page anyway.
+_LINK_PDF = re.compile(
+    r"https?://[^\s)>\"']+?/wp-content/uploads/[^\s)>\"']+?\.pdf", re.I
+)
+_MAX_PDF_BYTES = 12 * 1024 * 1024  # cap per linked PDF
+_MAX_LINK_PDFS = 15  # per message, so a link-heavy daily can't run away
+
+
+def _download_pdf(url: str) -> bytes | None:
+    """GET a public PDF link (size-capped). None on error, non-200, or non-PDF.
+
+    The %PDF magic-byte check means a gated link that redirects to an HTML login
+    page returns None instead of saving a junk 'PDF'.
+    """
+    try:
+        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+            resp = client.get(url)
+    except (httpx.HTTPError, OSError):
+        return None
+    if resp.status_code != 200:
+        return None
+    data = resp.content
+    ctype = resp.headers.get("content-type", "").lower()
+    if not data.startswith(b"%PDF") and "application/pdf" not in ctype:
+        return None
+    return data[:_MAX_PDF_BYTES]
 
 
 def _service(settings: object) -> object | None:
@@ -138,6 +167,18 @@ def fetch_new(
             )
             if att.get("data"):
                 dest.write_bytes(_b64(att["data"]))
+                saved.append(dest)
+
+        # Public wp-content PDFs LINKED in the body (Jaguar First-Read / research
+        # notes, etc.) — download so they flow through the same ingest as attachments.
+        for url in list(dict.fromkeys(_LINK_PDF.findall(body)))[:_MAX_LINK_PDFS]:
+            stem = _slug(Path(url.split("?")[0]).stem)
+            dest = fund_dir / f"{base}-link-{stem}.pdf"
+            if dest.exists():
+                continue
+            data = _download_pdf(url)
+            if data:
+                dest.write_bytes(data)
                 saved.append(dest)
     log.info("gmail.fetch_new.done", saved=len(saved), senders=len(gmail_senders()))
     return saved
