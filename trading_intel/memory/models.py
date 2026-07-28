@@ -1182,3 +1182,28 @@ class SurfaceSnapshot(Base):
     iv: Mapped[float | None] = mapped_column(Float)
     delta: Mapped[float | None] = mapped_column(Float)
     spot: Mapped[float | None] = mapped_column(Float)
+
+
+class EstimateSnapshot(Base):
+    """Weekly analyst EPS/revenue estimate snapshot (CVForge FMP).
+
+    One row per (symbol, ts) for the nearest upcoming fiscal period, banked
+    forward so the *revision* (this week's estimate vs a prior week's) can be
+    read as the trend — the highest-quality of the alignment signals. Written by
+    ``scheduler/jobs/estimate_snapshots.py``. Descriptive descriptor only
+    (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "estimate_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_estimate_snapshots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), ForeignKey("tickers.symbol"))
+    ts: Mapped[date] = mapped_column(Date)
+    period_date: Mapped[date | None] = mapped_column(Date)  # fiscal period the estimate is for
+    eps_avg: Mapped[float | None] = mapped_column(Float)
+    eps_high: Mapped[float | None] = mapped_column(Float)
+    eps_low: Mapped[float | None] = mapped_column(Float)
+    eps_num: Mapped[float | None] = mapped_column(Float)  # number of analysts
+    revenue_avg: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(32))
