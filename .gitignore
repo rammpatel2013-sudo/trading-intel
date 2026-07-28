@@ -76,3 +76,5 @@ cvx-probe/
 research/company/*
 !research/company/.gitkeep
 !research/company/README.md
+secrets/
+.yamco_tmp/

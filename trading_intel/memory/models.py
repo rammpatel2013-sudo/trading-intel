@@ -1005,6 +1005,31 @@ class WatchlistEntry(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class FilingHolding(Base):
+    """A 13F holding snapshot row (per fund CIK / report period / CUSIP).
+
+    Banked by the ``filings_fetch`` job from SEC EDGAR 13F information tables so a
+    fund's holdings can be diffed quarter-over-quarter (new / added / trimmed /
+    exited) and surfaced to the research watchlist. A 13F carries CUSIP + issuer,
+    not a ticker (``ticker`` is best-effort, resolved later). Descriptive research
+    context only — never a trade signal (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "filing_holdings"
+    __table_args__ = (UniqueConstraint("cik", "period", "cusip", name="uq_filing_holdings"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cik: Mapped[str] = mapped_column(String(10))
+    fund: Mapped[str | None] = mapped_column(String(64))
+    period: Mapped[str] = mapped_column(String(10))  # report date, YYYY-MM-DD
+    cusip: Mapped[str] = mapped_column(String(12))
+    issuer: Mapped[str | None] = mapped_column(String(128))
+    ticker: Mapped[str | None] = mapped_column(String(16))
+    value_usd: Mapped[float | None] = mapped_column(Float)
+    shares: Mapped[float | None] = mapped_column(Float)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class SwingFeature(Base):
     """Daily per-name swing feature snapshot (one row per symbol per trading day).
 

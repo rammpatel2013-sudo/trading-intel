@@ -64,11 +64,14 @@ def test_slugify():
 
 
 def test_discover_documents_filters_to_supported(tmp_path):
+    # PDFs, Word docs, and the text family (.txt/.md/.html — investor letters saved
+    # from RSS or a scrape) are supported; images and other binaries are ignored.
     (tmp_path / "a.pdf").write_bytes(b"%PDF-1.4")
     (tmp_path / "b.docx").write_bytes(b"PK")
     (tmp_path / "c.png").write_bytes(b"x")
     (tmp_path / "d.txt").write_text("x")
-    assert [p.name for p in discover_documents(tmp_path)] == ["a.pdf", "b.docx"]
+    (tmp_path / "e.md").write_text("x")
+    assert [p.name for p in discover_documents(tmp_path)] == ["a.pdf", "b.docx", "d.txt", "e.md"]
 
 
 @pytest.mark.skipif(not SAMPLE_PDF.exists(), reason="research sample not present")

@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     DISCORD_TRENDS_WEBHOOK_URL: SecretStr = SecretStr("")
     FLOW_ALERT_THRESHOLD: int = 10
 
+    # ── Telegram delivery (bot push) + Gmail letters lane ──────────────
+    TELEGRAM_BOT_TOKEN: SecretStr = SecretStr("")  # from @BotFather
+    TELEGRAM_CHAT_ID: str = ""  # your chat id (getUpdates)
+    GMAIL_CREDENTIALS_PATH: str = ""  # Google OAuth client credentials.json
+    GMAIL_TOKEN_PATH: str = ""  # stored gmail.readonly token.json
+
     # ── Database ───────────────────────────────────────────────────────
     DATABASE_URL: str
 

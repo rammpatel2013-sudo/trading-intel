@@ -38,9 +38,12 @@ class FakeLLM:
 
 
 def _sync_meth(session, llm, folder, **kw):
-    return sync_knowledge.sync_methodology(
-        session, llm, research_dir=folder, playbook_dir=folder, **kw
-    )
+    # Playbooks MUST land outside the scanned folder: .md is now a supported ingest
+    # type (investor letters), so writing playbooks into research_dir would make the
+    # next sync re-ingest the pipeline's own .md output. Prod keeps them separate too
+    # (research/doc vs docs/playbooks). A subdir is safe — discovery is non-recursive.
+    kw.setdefault("playbook_dir", folder / "playbooks")
+    return sync_knowledge.sync_methodology(session, llm, research_dir=folder, **kw)
 
 
 def _count(session, model) -> int:

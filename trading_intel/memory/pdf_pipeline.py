@@ -49,7 +49,8 @@ log = structlog.get_logger(__name__)
 
 PDF_EXTS = {".pdf"}
 DOCX_EXTS = {".docx"}
-SUPPORTED_EXTS = PDF_EXTS | DOCX_EXTS
+TEXT_EXTS = {".txt", ".md", ".html", ".htm"}  # investor letters saved from RSS / scrape
+SUPPORTED_EXTS = PDF_EXTS | DOCX_EXTS | TEXT_EXTS
 _SOURCE = "internal"
 _MIN_USABLE_CHARS = 100
 
@@ -119,12 +120,30 @@ def extract_docx(path: Path) -> tuple[str, int]:
     return "\n".join(parts), 0
 
 
+def extract_textfile(path: Path) -> tuple[str, int]:
+    """Read a plain-text / markdown / HTML file (HTML tags stripped). Page count 0.
+
+    Used for investor letters saved from Substack RSS or a site scrape, so they flow
+    through the same watchlist / knowledge ingestion as PDFs.
+    """
+    raw = path.read_text(encoding="utf-8", errors="ignore")
+    if path.suffix.lower() in {".html", ".htm"}:
+        raw = re.sub(r"(?is)<(script|style).*?</\1>", " ", raw)
+        raw = re.sub(r"(?s)<[^>]+>", " ", raw)
+        raw = raw.replace("&nbsp;", " ").replace("&amp;", "&")
+        raw = re.sub(r"[ \t]+", " ", raw)
+        raw = re.sub(r"\n\s*\n\s*\n+", "\n\n", raw)
+    return raw, 0
+
+
 def extract_text(path: Path) -> tuple[str, int]:
     ext = path.suffix.lower()
     if ext in PDF_EXTS:
         return extract_pdf(path)
     if ext in DOCX_EXTS:
         return extract_docx(path)
+    if ext in TEXT_EXTS:
+        return extract_textfile(path)
     raise TradingIntelError(f"Unsupported document type: {path.name}")
 
 

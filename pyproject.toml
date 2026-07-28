@@ -102,6 +102,13 @@ ignore = ["ANN101", "ANN102", "S101"]   # missing self/cls, asserts in tests
 "scripts/cv_extras.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 "scripts/credit_income_scan.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 "scripts/earnings_inflection.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
+# HTML/SVG-generating research + digest jobs, and the dense defensive FMP field-mapper —
+# inherent long lines / shorthand SVG locals, same as the report generators above.
+"trading_intel/scheduler/jobs/research_report.py" = ["E501", "N806", "RUF001", "RUF002", "RUF003"]
+"trading_intel/scheduler/jobs/letters_digest.py" = ["E501", "RUF001", "RUF002", "RUF003"]
+"trading_intel/research/enrich.py" = ["E501"]
+"scripts/probe_fmp_13f.py" = ["E501", "BLE001", "RUF100"]
+"scripts/probe_fmp_fundamentals.py" = ["E501", "BLE001", "RUF100"]
 
 [tool.black]
 line-length = 100
