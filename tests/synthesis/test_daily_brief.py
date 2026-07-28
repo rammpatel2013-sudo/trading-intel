@@ -31,6 +31,12 @@ def _ctx() -> dict:
         "doc": {"flip": 7458, "spot": 7413, "call_wall": 7600, "put_wall": 7400,
                 "em_lo": 7356, "em_hi": 7471, "r16_lo": 7326, "r16_hi": 7500,
                 "walls_stale": True, "expectation": "Spot below flip.", "expectation_src": "reconstructed"},
+        "em_levels": {"current_spot": 7413, "current_src": "SPY×10", "as_of": "2026-07-28", "rows": [
+            {"tenor": "Quarterly", "iv_label": "VIX3M", "anchor_date": "2026-07-01", "anchor_spot": 7420,
+             "em_pct": 10.1, "upper": 8170, "lower": 6670, "pos_pct": 49.5, "status": "mid-range (balanced)"},
+            {"tenor": "Weekly", "iv_label": "VIX9D", "anchor_date": "2026-07-27", "anchor_spot": 7455,
+             "em_pct": 1.30, "upper": 7552, "lower": 7358, "pos_pct": 28.4, "status": "near lower rail"},
+        ]},
         "letters": [{"src": "Doc McGraw", "text": "Respect the flip."}],
         "tracker": [{"src": "letters", "ticker": "CRM", "dir": "Bear", "note": "Fading Moat", "status": "surfaced"}],
         "learned": [{"symbol": "TSM", "themes": ["chip makers"], "sentiment": -0.5, "rationale": "memory drop"}],
@@ -45,6 +51,8 @@ def test_render_produces_full_html() -> None:
     assert "Trading-Intel Daily" in html
     assert "SPY" in html and "Zero-γ" in html
     assert "ladder" in html  # Doc level ladder SVG present
+    assert "Expected-move rails" in html  # anchored EM rails section
+    assert "near lower rail" in html or "mid-range" in html  # position read
     assert html.count("<polyline") >= 1  # sparklines rendered
 
 

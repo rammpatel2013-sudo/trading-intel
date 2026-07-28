@@ -226,9 +226,50 @@ def _doc_section(ctx: dict[str, Any]) -> str:
 {stale}</div>"""
 
 
+def _pos_bar(pos_pct: float | None, status: str) -> str:
+    """Horizontal bar showing where current spot sits between lower/upper rails."""
+    p = max(0.0, min(100.0, pos_pct if pos_pct is not None else 50.0))
+    x = 3 + (p / 100.0) * 144
+    s = status.lower()
+    color = "#c0392b" if ("below" in s or "lower" in s) else "#1a8a4a" if ("above" in s or "upper" in s) else "#b26a00"
+    return (
+        '<svg width="150" height="14" aria-hidden="true">'
+        '<line x1="3" y1="7" x2="147" y2="7" stroke="#d5dbe3" stroke-width="3"/>'
+        f'<circle cx="{x:.1f}" cy="7" r="4.5" fill="{color}"/></svg>'
+    )
+
+
+def _em_section(ctx: dict[str, Any]) -> str:
+    em = ctx.get("em_levels") or {}
+    rows = em.get("rows") or []
+    if not rows:
+        return ""
+    cur = em.get("current_spot")
+    body = ""
+    for r in rows:
+        st = r.get("status") or ""
+        s = st.lower()
+        scls = "arw-dn" if ("below" in s or "lower" in s) else "arw-up" if ("above" in s or "upper" in s) else "arw-flat"
+        body += (
+            f'<tr><td class="d sym">{_esc(r.get("tenor"))} <span class="dim">{_esc(r.get("iv_label"))}</span></td>'
+            f'<td class="d dim">{_esc(r.get("anchor_date"))} @ {_fmt(r.get("anchor_spot"), 0)}</td>'
+            f'<td>{_fmt(r.get("lower"), 0)}</td>'
+            f'<td>±{_fmt(r.get("em_pct"), 2)}%</td>'
+            f'<td>{_fmt(r.get("upper"), 0)}</td>'
+            f'<td class="d">{_pos_bar(r.get("pos_pct"), st)}</td>'
+            f'<td class="d {scls}">{_esc(st)}</td></tr>'
+        )
+    return f"""<h2 class="sec"><span class="n">03</span>Expected-move rails — anchored at period open</h2>
+<div class="card">
+<div class="note" style="margin-top:0">SPX ≈ SPY×10 · current spot <b>{_fmt(cur, 0)}</b> ({_esc(em.get("as_of"))}). Quarterly / Monthly / Weekly rails are <b>fixed</b> at each period's opening spot × that period's implied move — they don't move within the period; only <b>Daily</b> re-anchors. Read today's price against the static rails.</div>
+<table><thead><tr><th class="d">Horizon</th><th class="d">Anchored</th><th>Lower</th><th>EM</th><th>Upper</th>
+<th class="d">Spot in range</th><th class="d">Read</th></tr></thead>
+<tbody>{body}</tbody></table></div>"""
+
+
 def _vol_section(ctx: dict[str, Any]) -> str:
     v = ctx.get("vix") or {}
-    return f"""<h2 class="sec"><span class="n">03</span>Volatility state</h2>
+    return f"""<h2 class="sec"><span class="n">04</span>Volatility state</h2>
 <div class="card"><div class="lvl">
 <div class="chip"><span class="lab">VIX</span><b>{_fmt(v.get("vix"),2)}</b></div>
 <div class="chip"><span class="lab">VVIX</span><b>{_fmt(v.get("vvix"),1)}</b></div>
@@ -251,7 +292,7 @@ def _letters_section(ctx: dict[str, Any]) -> str:
     if tags:
         tagline = '<div class="note">Fresh tags today: ' + ", ".join(_esc(t) for t in tags[:12]) + "</div>"
     body = cards or '<div class="card note dim">No letter commentary stored yet.</div>'
-    return f'<h2 class="sec"><span class="n">04</span>Letters — market-structure commentary</h2><div class="two">{body}</div>{tagline}'
+    return f'<h2 class="sec"><span class="n">05</span>Letters — market-structure commentary</h2><div class="two">{body}</div>{tagline}'
 
 
 def _tracker_section(ctx: dict[str, Any]) -> str:
@@ -267,7 +308,7 @@ def _tracker_section(ctx: dict[str, Any]) -> str:
             f'<td class="d dim">{_esc(t.get("status"))}</td></tr>'
         )
     body = rows or '<tr><td colspan="5" class="dim">No tracked trades surfaced this period.</td></tr>'
-    return f"""<h2 class="sec"><span class="n">05</span>Trade tracker — Jaguar / Doc / Sits</h2>
+    return f"""<h2 class="sec"><span class="n">06</span>Trade tracker — Jaguar / Doc / Sits</h2>
 <div class="card"><table><thead><tr><th class="d">Src</th><th class="d">Ticker</th>
 <th class="d">Dir</th><th class="d">Note</th><th class="d">Status</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
@@ -284,7 +325,7 @@ def _learned_section(ctx: dict[str, Any]) -> str:
     body = items or '<li class="dim">No fresh names ingested.</li>'
     n = ctx.get("learned_total")
     hdr = f"{n} entries ingested" if n is not None else "Fresh watchlist adds"
-    return f"""<h2 class="sec"><span class="n">06</span>What I learned today</h2>
+    return f"""<h2 class="sec"><span class="n">07</span>What I learned today</h2>
 <div class="card"><div class="note" style="margin-top:0"><b>{hdr}</b> — top clean signals (junk filtered):</div>
 <ul class="clean">{body}</ul></div>"""
 
@@ -300,7 +341,7 @@ def _crosscheck_section(ctx: dict[str, Any]) -> str:
         )
     if not rows:
         return ""
-    return f"""<h2 class="sec"><span class="n">07</span>Cross-checks — letters vs. our tape</h2>
+    return f"""<h2 class="sec"><span class="n">08</span>Cross-checks — letters vs. our tape</h2>
 <div class="card"><table><thead><tr><th class="d">Claim</th><th class="d">Source</th>
 <th class="d">Our data</th><th class="d">Verdict</th></tr></thead><tbody>{rows}</tbody></table></div>"""
 
@@ -348,6 +389,7 @@ def render_html(ctx: dict[str, Any]) -> str:
     body = (
         _index_board(ctx)
         + _doc_section(ctx)
+        + _em_section(ctx)
         + _vol_section(ctx)
         + _letters_section(ctx)
         + _tracker_section(ctx)

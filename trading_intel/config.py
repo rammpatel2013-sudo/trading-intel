@@ -130,6 +130,16 @@ class Settings(BaseSettings):
     # GEX/DEX for these (index ETFs we only want the regime line for).
     CHAIN_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"
 
+    # ── Index roots always collected (aggregate GEX line + AM walls) ──────
+    # SPX/SPY/QQQ are excluded from the heavy per-strike EOD persister
+    # (CHAIN_EXCLUDE_ROOTS) and dropped from the single-name WATCHLIST — but the
+    # daily brief needs their net-GEX flip series and morning dealer walls. The
+    # greeks_snapshot job unions these in so the regime line never gaps when a
+    # letter stops surfacing an index (this is why SPX's net-GEX went stale
+    # Jun→Jul), and index_walls_am snapshots their per-strike chain once in the
+    # AM (settled-overnight OI -> fresh walls without the storage of intraday).
+    INDEX_ROOTS: str = "SPX,SPY,QQQ"
+
     # ── Constant-maturity forward IV (index ETFs) ─────────────────────
     # The index-ETF complement to skew_snapshots. These roots are excluded from
     # the per-strike persisters above, so the skew/surface pipeline has no chain
@@ -208,6 +218,18 @@ class Settings(BaseSettings):
     def chain_exclude_roots(self) -> set[str]:
         """Roots excluded from the per-strike chain persisters (set, upper)."""
         return {r.strip().upper() for r in self.CHAIN_EXCLUDE_ROOTS.split(",") if r.strip()}
+
+    @property
+    def index_roots(self) -> list[str]:
+        """Index roots always collected for net GEX + AM walls (upper, de-duped)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for tok in self.INDEX_ROOTS.split(","):
+            s = tok.strip().upper()
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
 
     @property
     def intraday_symbols(self) -> list[str]:

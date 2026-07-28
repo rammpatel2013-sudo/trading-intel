@@ -51,6 +51,13 @@ def run(
 
     ts = eastern_now().replace(second=0, microsecond=0)
     symbols = symbols or effective_symbols(session, settings)
+    # Always include the index roots (SPX/SPY/QQQ) so the aggregate GEX/flip
+    # line the daily brief reads never gaps when a letter stops surfacing an
+    # index (they're dropped from WATCHLIST and only entered here incidentally
+    # via the research watchlist — which is why SPX went stale Jun→Jul).
+    for root in getattr(settings, "index_roots", []):
+        if root not in symbols:
+            symbols = [*symbols, root]
     bound.info("greeks_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols))
 
     written = 0

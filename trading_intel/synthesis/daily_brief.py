@@ -12,13 +12,15 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
+import pandas as pd
 import structlog
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
+from trading_intel.dashboard.chart_data import load_ohlc
 from trading_intel.mcp.extra_tools import (
     get_research_note,
     get_research_watchlist,
@@ -40,6 +42,21 @@ _SQRT_252 = 15.8745
 _TICKER_RE = re.compile(r"^[A-Z]{1,5}$")
 # Obvious non-single-name tokens the LLM extractor sometimes emits.
 _JUNK = {"SPX", "SPXW", "NVDIA", "GOOG", "BRKB"}
+
+# Expected-move RAILS anchored at each period's open (widest→narrowest).
+# (label, vix_data IV field matched to the horizon, horizon in trading days).
+# Q/M/W rails are FIXED at the period-open spot × that period's implied move;
+# only Daily re-anchors each session, so you read today's price against static
+# weekly/monthly/quarterly rails. SPX levels use SPY closes ×10 (SPX ≈ SPY×10;
+# SPY is the maintained daily-quote series — SPX quotes_daily goes stale).
+_EM_PERIODS = (
+    ("Quarterly", "vix3m", 63),
+    ("Monthly", "vix", 21),
+    ("Weekly", "vix9d", 5),
+    ("Daily", "vix9d", 1),
+)
+_IV_LABEL = {"vix9d": "VIX9D", "vix": "VIX", "vix3m": "VIX3M"}
+_SPX_FROM_SPY = 10.0
 
 
 def _latest(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -252,6 +269,125 @@ def _letters_block(session: Session) -> list[dict[str, Any]]:
     return out
 
 
+def _period_boundaries(today: date) -> dict[str, date]:
+    """First calendar day of the current quarter / month / week (Mon) / day."""
+    q_month = ((today.month - 1) // 3) * 3 + 1
+    return {
+        "Quarterly": date(today.year, q_month, 1),
+        "Monthly": date(today.year, today.month, 1),
+        "Weekly": today - timedelta(days=today.weekday()),
+        "Daily": today,
+    }
+
+
+def _as_date(value: object) -> date | None:
+    if value is None:
+        return None
+    try:
+        return pd.Timestamp(value).date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _spy_closes(session: Session) -> list[tuple[date, float]]:
+    """Ascending (date, close) for SPY — the maintained daily-quote series."""
+    ohlc = load_ohlc(session, "SPY", days=160)
+    if ohlc is None or ohlc.empty:
+        return []
+    out: list[tuple[date, float]] = []
+    for _, r in ohlc.iterrows():
+        d = _as_date(r.get("date"))
+        c = r.get("close")
+        if d is not None and c is not None:
+            out.append((d, float(c)))
+    out.sort(key=lambda t: t[0])
+    return out
+
+
+def _anchor_on_or_after(series: list[tuple[date, float]], boundary: date) -> tuple[date, float] | None:
+    """First (date, close) at/after the period boundary (its opening print)."""
+    for d, v in series:
+        if d >= boundary:
+            return (d, v)
+    return series[-1] if series else None
+
+
+def _em_levels_block(session: Session) -> dict[str, Any] | None:
+    """SPX expected-move RAILS anchored at each period's open (fixed) + where
+    price sits now. Q/M/W rails don't move within the period; Daily re-anchors
+    each session, so today's price reads against static weekly/monthly/quarterly
+    rails. SPX ≈ SPY×10 (SPY is the maintained daily series). Rule 4.
+    """
+    closes = _spy_closes(session)
+    if len(closes) < 2:
+        return None
+    vrows = get_vix(session, days=160).get("rows") or []
+    vmap = {r["date"]: r for r in vrows if r.get("date")}
+    vdates = sorted(vmap)
+
+    cur_date, cur_spy = closes[-1]
+    cur_spx = cur_spy * _SPX_FROM_SPY
+    bounds = _period_boundaries(cur_date)
+
+    def _iv_on_or_after(boundary: date, key: str) -> float | None:
+        biso = boundary.isoformat()
+        for ds in vdates:
+            if ds >= biso and vmap[ds].get(key) is not None:
+                return vmap[ds][key]
+        return vmap[vdates[-1]].get(key) if vdates else None
+
+    out: list[dict[str, Any]] = []
+    for label, key, n in _EM_PERIODS:
+        if label == "Daily":
+            anc_date, anc_spy = cur_date, cur_spy
+            iv = _iv_on_or_after(cur_date, key)
+        else:
+            anc = _anchor_on_or_after(closes, bounds[label])
+            if anc is None:
+                continue
+            anc_date, anc_spy = anc
+            iv = _iv_on_or_after(anc_date, key)
+        if iv is None:
+            continue
+        anc_spx = anc_spy * _SPX_FROM_SPY
+        em_pct = iv * math.sqrt(n / 252.0)  # iv in vol points -> em_pct in %
+        upper = anc_spx * (1 + em_pct / 100.0)
+        lower = anc_spx * (1 - em_pct / 100.0)
+        width = upper - lower
+        pos = ((cur_spx - lower) / width * 100.0) if width > 0 else 50.0
+        if cur_spx > upper:
+            status = "▲ broke above (expansion)"
+        elif cur_spx < lower:
+            status = "▼ broke below (expansion)"
+        elif pos >= 80:
+            status = "near upper rail"
+        elif pos <= 20:
+            status = "near lower rail"
+        else:
+            status = "mid-range (balanced)"
+        out.append(
+            {
+                "tenor": label,
+                "iv_label": _IV_LABEL.get(key, key.upper()),
+                "anchor_date": anc_date.isoformat(),
+                "anchor_spot": anc_spx,
+                "em_pct": em_pct,
+                "upper": upper,
+                "lower": lower,
+                "pos_pct": max(0.0, min(100.0, pos)),
+                "status": status,
+            }
+        )
+    if not out:
+        return None
+    return {
+        "current_spot": cur_spx,
+        "current_src": "SPY×10",
+        "as_of": cur_date.isoformat(),
+        "rows": out,
+    }
+
+
 def build_brief_context(session: Session, settings: Settings | None = None) -> dict[str, Any]:
     """Assemble the full daily-brief context dict from banked data."""
     settings = settings or get_settings()
@@ -259,6 +395,7 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
     vix = _vix_block(session)
     doc_index = next((ix for ix in indices if ix["symbol"] == _DOC_ROOT), None)
     doc = _doc_block(session, doc_index, vix.get("vix"))
+    em_levels = _em_levels_block(session)
     learned, learned_total = _learned_block(session)
     ctx: dict[str, Any] = {
         "as_of": date.today().isoformat(),
@@ -267,6 +404,7 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "indices": indices,
         "vix": vix,
         "doc": doc,
+        "em_levels": em_levels,
         "letters": _letters_block(session),
         "fresh_tags": None,
         "tracker": _tracker_block(session),
