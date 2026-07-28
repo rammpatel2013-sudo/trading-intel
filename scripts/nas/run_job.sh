@@ -50,6 +50,7 @@ for job in "$@"; do
         echo "=== $(date '+%Y-%m-%d %H:%M:%S') start ${job} ==="
         "$DOCKER" run --rm --network "$NETWORK" \
             -v "${ENV_FILE}:/app/.env" \
+            -v "${REPO_DIR}/secrets:/app/secrets" \
             -e "DATABASE_URL=${DB_URL}" \
             "$IMAGE" sh -c "python -m trading_intel.scheduler.jobs.${job}"
         rc=$?
