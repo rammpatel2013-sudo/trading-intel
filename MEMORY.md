@@ -50,6 +50,49 @@ net-new OI. Near-ATM only (delta band 0.30–0.70).
 
 ---
 
+## Session 2026-07-19 build (BUILT — pending deploy)
+
+Two workstreams, all NAS-schedulable, code done. Deploy: em-break per
+`docs/DEPLOY_2026-07-18_em_break.md`; letters/research per
+`docs/DEPLOY_NEXT_SESSION_letters_research.md`. Pure cores execution-verified — the build
+env's mount lagged *edited* files, so run `pytest tests/letters tests/research tests/backtest`
+on the laptop to confirm.
+
+**1. EM-break follow-ups.** `vol_control` relabelled 1-month trailing RV (`rv_21` in
+`flows/registry.py`; the flow tools already computed on `window=21`). Three enrichment hooks
+wired into `scheduler/jobs/em_break_reentry.build_features` (`straddle_label` via get_straddle,
+`vrp_normalizing` via get_vol_richness, `overwriter_rebuilding` via oi_chain_eod ΔOI+ΔIV →
+`overwriter_call_supply`). **P6 backtest** built: `trading_intel/backtest/` — pure
+`em_break.evaluate_outcome`/`summarize`/`summarize_by_bucket` + `scaled_exit_r` (Yamco T1/T2/T3
+scale-out); `cases.py` (paths a+c, banked signals+quotes); `reconstruct.py` (path b, CVForge
+hist OHLC); weekly `em_break_validation` job → `signal_outcomes` (migration **0038**);
+`scripts/em_break_backtest.py`; drop-experimental criteria in `docs/em_break_backtest.md`.
+
+**2. Investor-letters → research → delivery pipeline.** Design `docs/investor_letters_pipeline.md`
++ `docs/ticker_research_report_plan.md`; tracker `Investor_Letters_Tracker.xlsx` (stock-analysis
+project, ~54 funds by lane). Chain (idempotent jobs):
+- `letters_fetch` — **Gmail lane (primary)** sender-allowlist (`letters.sources.GMAIL_SENDERS`) via
+  Gmail API (`letters/gmail_source.py`, gmail.readonly OAuth `GMAIL_TOKEN_PATH`; body + PDF
+  attachments; no-op if token absent) **+** Substack → `watchlist_ingest.ingest_folder` →
+  `watchlist_entries` research watchlist + knowledge.
+- `filings_fetch` — 13F via **CVForge FMP** `institutional-ownership/dates`+`extract?cik&year&quarter`
+  (tickers included; CONFIRMED not paywalled 2026-07-19 → also un-parks the sentiment collector) →
+  `filing_holdings` (migration **0039**) + QoQ diff → watchlist.
+- `research_report` — per research ticker: CVForge `aggs` 4h/day/wk → Weinstein **stage**
+  (`research/stage.py`); FMP fundamentals/institutional/analyst (`research/enrich.py`, self-adapting
+  field-picks, **no probe**); transcript; banked letter commentary → `reports/<SYM>_research.html`.
+- `letters_digest` — weekly HTML → **Telegram** (`clients/telegram.py` sendMessage + sendDocument)
+  + email. Delivery = Telegram (primary) + email draft + Discord.
+
+Gmail is the PRIMARY letters source (reaches LP-only/direct-email funds no scrape can). Key senders:
+SSR `info@specialsitsresearch.com` ("situation guy") + Jaguar `alerts@jaguaranalytics.com` (both PDF);
+aggregators HF Best Ideas / Buyside Digest / Acquirer's Multiple (compile many funds); Meditation /
+Gator / Deep Sail / Rhizome (direct). One-time deploy setup: 4 config fields (`TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID`, `GMAIL_TOKEN_PATH`, `GMAIL_CREDENTIALS_PATH`), a @BotFather bot + chat_id, a Gmail
+read-only OAuth token (`pip install google-api-python-client google-auth google-auth-oauthlib`).
+
+---
+
 ## HTML reports (template + guide)
 
 Reusable skeleton: **`reports/_report_template.html`** (self-contained, light-mode, inline-SVG
