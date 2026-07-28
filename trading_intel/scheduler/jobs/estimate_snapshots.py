@@ -17,6 +17,7 @@ Manual run:
 
 from __future__ import annotations
 
+import time
 import uuid
 from collections.abc import Callable
 from datetime import date
@@ -27,6 +28,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from trading_intel.clients.cvforge import CVForgeClient
+from trading_intel.clients.fmp import FmpClient
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import DataSourceError
 from trading_intel.memory.models import EstimateSnapshot, Ticker
@@ -40,9 +42,20 @@ _UPDATE = ("period_date", "eps_avg", "eps_high", "eps_low", "eps_num", "revenue_
 _EPS_AVG = ("estimatedEpsAvg", "epsAvg", "estimatedEpsAvgAnalyst")
 _EPS_HIGH = ("estimatedEpsHigh", "epsHigh")
 _EPS_LOW = ("estimatedEpsLow", "epsLow")
-_EPS_NUM = ("numberAnalystEstimatedEps", "numberAnalystsEstimatedEps", "numberAnalysts")
+_EPS_NUM = (
+    "numAnalystsEps",
+    "numberAnalystEstimatedEps",
+    "numberAnalystsEstimatedEps",
+    "numberAnalysts",
+)
 _REV_AVG = ("estimatedRevenueAvg", "revenueAvg")
 _DATE = ("date", "period", "fiscalDate")
+
+# FMP's stable ``analyst-estimates`` route REQUIRES ``period`` (annual|quarter);
+# omitting it 502s through the CVForge gateway. ``limit`` gives ``_pick_period``
+# a few fiscal years to choose the nearest-future estimate from. Confirmed
+# working via ``research/enrich.py::pull_analyst`` (period="annual").
+_ESTIMATE_PARAMS = {"period": "annual", "limit": 8}
 
 
 def _safe(fn: Callable[[], _T]) -> _T | None:
@@ -50,6 +63,35 @@ def _safe(fn: Callable[[], _T]) -> _T | None:
         return fn()
     except DataSourceError:
         return None
+
+
+def _fetch_estimates(
+    client: CVForgeClient,
+    fmp: FmpClient | None,
+    symbol: str,
+    *,
+    retries: int = 1,
+    pause: float = 0.5,
+) -> object | None:
+    """Nearest-period analyst estimates for one symbol, resiliently.
+
+    Primary is the CVForge FMP passthrough (paid tier, ADR-005) — the same route
+    ``research/enrich.py`` uses. That tier 502s sporadically on the FMP endpoints
+    (see enrich.py docstring), so a transient gateway failure is retried once.
+    Falls back to the direct stable FMP client (``settings.FMP_API``) when the
+    passthrough still yields nothing. Read-only; descriptive (rule 4)."""
+    params = {"symbol": symbol, **_ESTIMATE_PARAMS}
+    for attempt in range(retries + 1):
+        payload = _safe(lambda p=params: client.fmp("analyst-estimates", p))
+        if payload:
+            return payload
+        if attempt < retries:
+            time.sleep(pause)
+    if fmp is not None:
+        direct = fmp.analyst_estimates(symbol)
+        if direct:
+            return direct
+    return None
 
 
 def _num(rec: dict[str, Any], keys: tuple[str, ...]) -> float | None:
@@ -65,7 +107,9 @@ def _num(rec: dict[str, Any], keys: tuple[str, ...]) -> float | None:
 
 def _pick_period(payload: object, today: date) -> tuple[date | None, dict[str, Any] | None]:
     """From an FMP analyst-estimates payload, the nearest period on/after today."""
-    records = payload if isinstance(payload, list) else [payload] if isinstance(payload, dict) else []
+    records = (
+        payload if isinstance(payload, list) else [payload] if isinstance(payload, dict) else []
+    )
     dated: list[tuple[date | None, dict[str, Any]]] = []
     for rec in records:
         if not isinstance(rec, dict):
@@ -109,6 +153,7 @@ def run(
     *,
     settings: Settings | None = None,
     symbols: list[str] | None = None,
+    fmp: FmpClient | None = None,
 ) -> int:
     """Snapshot this week's analyst EPS/revenue estimates for the universe."""
     settings = settings or get_settings()
@@ -119,7 +164,7 @@ def run(
 
     rows: list[dict[str, Any]] = []
     for sym in syms:
-        payload = _safe(lambda s=sym: client.fmp("analyst-estimates", {"symbol": s}))
+        payload = _fetch_estimates(client, fmp, sym)
         if payload is None:
             continue
         row = _extract(sym, payload, as_of=as_of)
@@ -156,10 +201,11 @@ def main() -> None:
     )
     settings = get_settings()
     client = CVForgeClient(settings)
+    fmp = FmpClient(settings)
     session_factory = make_session_factory(settings)
     try:
         with session_factory() as session:
-            run(session, client, settings=settings)
+            run(session, client, settings=settings, fmp=fmp)
     finally:
         client.close()
 

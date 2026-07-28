@@ -60,12 +60,21 @@ def test_news_and_failure_degrades():
 
 
 def test_shares_outstanding_from_shares_float():
-    c = _client({
-        "stable/shares-float": _Resp([
-            {"symbol": "SOXL", "date": "2026-07-14", "floatShares": 133000000,
-             "outstandingShares": 135450060, "source": "NASDAQ"}
-        ])
-    })
+    c = _client(
+        {
+            "stable/shares-float": _Resp(
+                [
+                    {
+                        "symbol": "SOXL",
+                        "date": "2026-07-14",
+                        "floatShares": 133000000,
+                        "outstandingShares": 135450060,
+                        "source": "NASDAQ",
+                    }
+                ]
+            )
+        }
+    )
     s = c.shares_outstanding("soxl")
     assert s is not None
     assert s.symbol == "SOXL" and s.shares_outstanding == 135450060
@@ -74,10 +83,12 @@ def test_shares_outstanding_from_shares_float():
 
 def test_shares_outstanding_falls_back_to_quote():
     # shares-float yields no usable count -> fall back to /quote sharesOutstanding.
-    c = _client({
-        "stable/shares-float": _Resp([]),
-        "stable/quote": _Resp([{"symbol": "TSLQ", "sharesOutstanding": 4200000}]),
-    })
+    c = _client(
+        {
+            "stable/shares-float": _Resp([]),
+            "stable/quote": _Resp([{"symbol": "TSLQ", "sharesOutstanding": 4200000}]),
+        }
+    )
     s = c.shares_outstanding("TSLQ")
     assert s is not None and s.shares_outstanding == 4200000 and s.source == "quote"
 
@@ -86,3 +97,35 @@ def test_shares_outstanding_none_when_absent():
     # Nothing relevant mapped -> both endpoints degrade to None -> None.
     c = _client({"stable/news/stock": _Resp([])})
     assert c.shares_outstanding("ZZZZ") is None
+
+
+def test_analyst_estimates_list_and_fields():
+    c = _client(
+        {
+            "stable/analyst-estimates": _Resp(
+                [
+                    {
+                        "date": "2027-09-25",
+                        "epsAvg": 7.9,
+                        "revenueAvg": 4.6e11,
+                        "numAnalystsEps": 30,
+                    },
+                    {
+                        "date": "2026-09-26",
+                        "epsAvg": 7.1,
+                        "revenueAvg": 4.2e11,
+                        "numAnalystsEps": 32,
+                    },
+                ]
+            )
+        }
+    )
+    out = c.analyst_estimates("AAPL")
+    assert len(out) == 2
+    assert out[0]["epsAvg"] == 7.9 and out[1]["revenueAvg"] == 4.2e11
+
+
+def test_analyst_estimates_degrades_to_empty():
+    # analyst-estimates unmapped -> KeyError caught in _get -> [] (never raises).
+    c = _client({"stable/profile": _Resp([{"companyName": "x"}])})
+    assert c.analyst_estimates("AAPL") == []

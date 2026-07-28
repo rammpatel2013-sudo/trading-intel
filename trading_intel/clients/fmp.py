@@ -6,6 +6,7 @@ routes now 403 for free accounts. Free tier ~250 calls/day, 5y annual statements
 Every endpoint is best-effort and degrades to None / [] on failure. Descriptive
 research input only (rule 4). Key from ``settings.FMP_API``.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -53,6 +54,20 @@ class FmpClient:
     def income_statement(self, ticker: str, *, limit: int = 2) -> list[dict]:
         """Recent annual income statements (revenue, netIncome, margins, ...)."""
         data = self._get("income-statement", symbol=ticker, period="annual", limit=limit)
+        return data if isinstance(data, list) else []
+
+    def analyst_estimates(
+        self, ticker: str, *, period: str = "annual", limit: int = 8
+    ) -> list[dict]:
+        """Forward analyst EPS/revenue estimates (stable ``/analyst-estimates``).
+
+        Returns the list of estimated fiscal periods — each a dict with ``date``,
+        ``epsAvg``/``epsHigh``/``epsLow``, ``revenueAvg``, ``numAnalystsEps`` — or
+        ``[]`` on failure. ``period`` is ``annual`` or ``quarter`` and is REQUIRED
+        on this route (omitting it 502s upstream). This is the direct-key fallback
+        for the CVForge FMP passthrough used by ``estimate_snapshots``. Descriptive
+        research input only (rule 4)."""
+        data = self._get("analyst-estimates", symbol=ticker, period=period, limit=limit)
         return data if isinstance(data, list) else []
 
     def news(self, ticker: str, *, limit: int = 8) -> list[dict]:
