@@ -92,7 +92,7 @@ select = ["E", "F", "I", "N", "W", "B", "UP", "ANN", "S", "RUF"]
 ignore = ["ANN101", "ANN102", "S101"]   # missing self/cls, asserts in tests
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN", "S"]
+"tests/**" = ["ANN", "S", "E501", "RUF001", "RUF002", "RUF003"]
 "alembic/**" = ["ANN", "E501"]
 # Inline-HTML/plotly report generator: long lines, shorthand locals, and
 # intentional typography (γ, Δ, ×, →) in the rendered output are inherent.
@@ -111,6 +111,16 @@ ignore = ["ANN101", "ANN102", "S101"]   # missing self/cls, asserts in tests
 "trading_intel/earnings/alignment.py" = ["RUF001", "RUF002", "RUF003"]
 "trading_intel/scheduler/jobs/earnings_alignment.py" = ["E501", "RUF001", "RUF002", "RUF003"]
 "trading_intel/research/enrich.py" = ["E501"]
+# Jaguar daily-brief lane — inline-HTML renderer, LLM prompts, and typographic glyphs
+# (⚡ ⊕ → Δ γ – —) in the rendered brief, same posture as the digest jobs above.
+"trading_intel/jaguar/parse.py" = ["RUF001", "RUF002", "RUF003"]
+"trading_intel/jaguar/extract.py" = ["RUF001", "RUF002", "RUF003"]
+"trading_intel/jaguar/source.py" = ["RUF001", "RUF002", "RUF003"]
+"trading_intel/jaguar/structure.py" = ["RUF001", "RUF002", "RUF003"]
+"trading_intel/jaguar/brief.py" = ["E501", "ANN401", "RUF001", "RUF002", "RUF003"]
+"trading_intel/jaguar/render.py" = ["E501", "N806", "ANN401", "RUF001", "RUF002", "RUF003"]
+"trading_intel/market/breadth.py" = ["E501", "RUF001", "RUF002", "RUF003"]
+"trading_intel/scheduler/jobs/jaguar_brief.py" = ["E501", "RUF001", "RUF002", "RUF003"]
 "scripts/probe_fmp_13f.py" = ["E501", "BLE001", "RUF100"]
 "scripts/probe_fmp_fundamentals.py" = ["E501", "BLE001", "RUF100"]
 
