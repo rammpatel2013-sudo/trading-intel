@@ -21,6 +21,12 @@ dependencies = [
     "yfinance>=0.2.40",             # price fallback
     "httpx>=0.27.0",                # for CBOE scraping + generic HTTP
 
+    # Gmail letters lane (OAuth read of investor letters — gmail.readonly).
+    # Required in the NAS image, else letters_fetch / jaguar_brief silently read no mail.
+    "google-api-python-client>=2.100",
+    "google-auth>=2.30",
+    "google-auth-oauthlib>=1.2",
+
     # Numerical
     "numpy>=1.26",
     "pandas>=2.2",
