@@ -29,9 +29,7 @@ _TAG = re.compile(r"(?s)<[^>]+>")
 # Public WordPress-upload PDFs linked in the email body (e.g. Jaguar's daily
 # First-Read / research notes). The paywalled ``/mp-files/`` links are NOT matched
 # here, and the %PDF sniff below drops any that resolve to a login page anyway.
-_LINK_PDF = re.compile(
-    r"https?://[^\s)>\"']+?/wp-content/uploads/[^\s)>\"']+?\.pdf", re.I
-)
+_LINK_PDF = re.compile(r"https?://[^\s)>\"']+?/wp-content/uploads/[^\s)>\"']+?\.pdf", re.I)
 _MAX_PDF_BYTES = 12 * 1024 * 1024  # cap per linked PDF
 _MAX_LINK_PDFS = 15  # per message, so a link-heavy daily can't run away
 
@@ -132,8 +130,15 @@ def fetch_new(
     if svc is None:
         return []
     saved: list[Path] = []
+    # includeSpamTrash: the owner deletes read letters to declutter, so the daily job
+    # must still see mail sitting in Trash (Gmail retains it ~30d, well past our lookback).
+    # The sender allowlist in _query keeps this to trusted senders only, so pulling from
+    # spam/trash can't ingest anything untrusted.
     listing = (
-        svc.users().messages().list(userId="me", q=_query(days), maxResults=max_messages).execute()
+        svc.users()
+        .messages()
+        .list(userId="me", q=_query(days), maxResults=max_messages, includeSpamTrash=True)
+        .execute()
     )
     for ref in listing.get("messages", []):
         msg = svc.users().messages().get(userId="me", id=ref["id"], format="full").execute()
