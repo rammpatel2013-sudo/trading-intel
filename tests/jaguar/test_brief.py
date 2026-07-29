@@ -73,3 +73,42 @@ def test_build_degrades_and_renders():
     assert b["breadth"]["rows"][0][1] == "computing"  # no cvforge → degrades
     assert any(k == "New Trade Alert" for k, _ in b["changed"])
     assert any("Weekend Research" == k for k, _ in b["changed"])
+
+
+class _FakeCV:
+    """Stub CVForge: a chain with BSX Dec 50/60 calls so the spread prices."""
+
+    def chain(self, symbol):
+        import pandas as pd
+
+        exp = pd.Timestamp("2026-12-18")
+        return pd.DataFrame(
+            [
+                {
+                    "opt_kind": "call",
+                    "strike": 50.0,
+                    "iv": 0.4,
+                    "expiration": exp,
+                    "underlying_price": 48.0,
+                    "oi": 10000,
+                },
+                {
+                    "opt_kind": "call",
+                    "strike": 60.0,
+                    "iv": 0.4,
+                    "expiration": exp,
+                    "underlying_price": 48.0,
+                    "oi": 5000,
+                },
+            ]
+        )
+
+
+def test_structure_prices_from_chain():
+    _, b = brief.build_jaguar_brief(
+        _BareSession(), settings=_FakeSettings(), llm=_FakeLLM(), cvforge=_FakeCV(), core=CORE
+    )
+    bsx = next(t for t in b["trades"] if t["ticker"] == "BSX")
+    assert bsx["structure"]["max_risk"] is not None  # BS-priced off the chain IV
+    assert bsx["structure"]["target_pct"] is not None
+    assert bsx["structure"]["breakeven"] is not None

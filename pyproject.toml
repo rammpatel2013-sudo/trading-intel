@@ -114,6 +114,7 @@ ignore = ["ANN101", "ANN102", "S101"]   # missing self/cls, asserts in tests
 # Jaguar daily-brief lane — inline-HTML renderer, LLM prompts, and typographic glyphs
 # (⚡ ⊕ → Δ γ – —) in the rendered brief, same posture as the digest jobs above.
 "trading_intel/jaguar/parse.py" = ["RUF001", "RUF002", "RUF003"]
+"trading_intel/jaguar/pricing.py" = ["E501", "RUF001", "RUF002", "RUF003"]
 "trading_intel/jaguar/extract.py" = ["RUF001", "RUF002", "RUF003"]
 "trading_intel/jaguar/source.py" = ["RUF001", "RUF002", "RUF003"]
 "trading_intel/jaguar/structure.py" = ["RUF001", "RUF002", "RUF003"]

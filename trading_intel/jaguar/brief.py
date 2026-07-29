@@ -20,7 +20,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
-from trading_intel.jaguar import extract, parse, render, source
+from trading_intel.jaguar import extract, parse, pricing, render, source
 from trading_intel.jaguar.structure import call_spread, short_strike_for_move
 from trading_intel.market import breadth as breadth_mod
 from trading_intel.mcp.extra_tools import (
@@ -98,17 +98,50 @@ def _our_tape(session: Session, ticker: str) -> str:
     return " · ".join(bits)
 
 
-def _structure_for(c: parse.Callout) -> dict[str, Any] | None:
-    """One defined-risk call spread off the strike the smart money used (economics
-    fill live from our chain; strikes render either way)."""
+def _structure_for(
+    c: parse.Callout,
+    *,
+    cvforge: object | None = None,
+    chain_cache: dict[str, Any] | None = None,
+    ref_date: date | None = None,
+) -> dict[str, Any] | None:
+    """One defined-risk call spread off the strike the smart money used.
+
+    Legs price from the CVForge chain's stored IV when a chain is available, filling
+    MAX-RISK / TARGET; otherwise the strikes still render as "live-priced". The chain
+    is pulled once per ticker via ``chain_cache``.
+    """
     m = _STK.search(" ".join(c.contracts) or "") or _STK.search(c.text)
     if not m:
         return None
     month = m.group(1)[:3].title()
     long_strike = float(m.group(2))
     short_strike = short_strike_for_move(long_strike)
+
+    long_px = short_px = None
+    if cvforge is not None:
+        if chain_cache is not None and c.ticker in chain_cache:
+            chain = chain_cache[c.ticker]
+        else:
+            chain = _safe(lambda: cvforge.chain(c.ticker))
+            if chain_cache is not None:
+                chain_cache[c.ticker] = chain
+        if chain is not None:
+            marks = pricing.price_call_spread(
+                chain, month, long_strike, short_strike, ref_date=ref_date
+            )
+            long_px, short_px = marks.get("long_price"), marks.get("short_price")
+
     note = "Mirrors the strike/window the smart-money buyer chose; downside capped at the debit, sized for a strong multiple to the short strike."
-    st = call_spread(c.ticker, month, long_strike, short_strike, rationale=note)
+    st = call_spread(
+        c.ticker,
+        month,
+        long_strike,
+        short_strike,
+        long_price=long_px,
+        short_price=short_px,
+        rationale=note,
+    )
     return {
         "label": st.label,
         "max_risk": st.max_risk,
@@ -227,6 +260,8 @@ def build_jaguar_brief(
     live_body = live.get("body", "") or ""
 
     callouts = _rank(parse.parse_callouts(live_body))
+    chain_cache: dict[str, Any] = {}
+    ref_day = date.today()
     trades: list[dict[str, Any]] = []
     for c in callouts[:max_trades]:
         him = (
@@ -244,7 +279,9 @@ def build_jaguar_brief(
                 "flow": _flow_line(c),
                 "him": him,
                 "ours": _our_tape(session, c.ticker),
-                "structure": _structure_for(c),
+                "structure": _structure_for(
+                    c, cvforge=cvforge, chain_cache=chain_cache, ref_date=ref_day
+                ),
                 "links": [("his note", u) for u in c.links[:2]],
             }
         )
