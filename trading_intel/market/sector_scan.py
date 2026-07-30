@@ -97,6 +97,8 @@ def classify_sector(row: dict) -> dict:
         "call_wall": _fin(row.get("call_wall")),
         "put_wall": _fin(row.get("put_wall")),
         "footprint": row.get("footprint"),  # fixed-strike offered/bid read (Layer-2)
+        "rr25_shift": _fin(row.get("rr25_shift")),  # day-over-day 25Δ RR change (put↔call rotation)
+        "rr25_trend": row.get("rr25_trend"),
     }
 
 
@@ -197,6 +199,14 @@ def leap_flags(cls: dict, *, corr_regime: str | None) -> dict:
             for_.append("fixed-strike vol offered — nearby levels holding")
         elif "BREAK" in fp["read"]:
             against.append("fixed-strike vol bid — nearby levels fragile")
+
+    # Skew SHIFT (Layer-2): rr25 falling = demand rotating to the call side = the
+    # bullish LEAP-call tell; rising = defensive rotation to puts.
+    shift = cls.get("rr25_shift")
+    if shift is not None and shift < -0.005 and stab == "stable":
+        for_.append("skew rotating to the call side (bullish demand shift)")
+    elif shift is not None and shift > 0.01:
+        against.append("skew rotating to the put side (defensive)")
 
     dispersion_gate = bool(corr_regime and corr_regime.startswith("low"))
 

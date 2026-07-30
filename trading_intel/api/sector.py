@@ -98,26 +98,96 @@ def _ret(closes: list[float], n: int) -> float | None:
     return closes[-1] / closes[-n - 1] - 1.0
 
 
-def _corr_snapshot(session):
-    """Latest sector_corr_snapshots row projected to a sector_scan-shaped dict."""
-    from sqlalchemy import select
+def _wide_close_frame(source, symbols, *, period: str = "1y"):
+    """Wide daily-close frame (index=date, cols=symbol) for correlation/breadth trends."""
+    import pandas as pd
 
+    cols = {}
+    for sym in symbols:
+        try:
+            hist = source.daily_history(sym, period=period)
+        except Exception:  # noqa: BLE001 — best-effort per ticker
+            continue
+        if hist is None or getattr(hist, "empty", True) or "close" not in hist.columns:
+            continue
+        cols[sym] = hist.set_index("date")["close"]
+    return pd.DataFrame(cols).sort_index() if cols else pd.DataFrame()
+
+
+def _price_trends(frame, *, n: int = 30) -> dict:
+    """21d/63d avg PAIRWISE correlation, dispersion, and sector-breadth trends,
+    computed directly from the SPDR price frame — immediate, no DB accrual. The
+    last ``n`` sessions are returned as parallel lists (with ``dates``)."""
+    import numpy as np
+    import pandas as pd
+
+    from trading_intel.market.sector_correlation import (
+        avg_pairwise_corr,
+        compute_returns,
+        cross_sectional_dispersion,
+    )
+
+    out = {"dates": [], "corr21": [], "corr63": [], "dispersion": [], "breadth": []}
+    if frame is None or getattr(frame, "empty", True) or frame.shape[1] < 2:
+        return out
+    returns = compute_returns(frame).dropna(how="all")
+    if returns.empty:
+        return out
+    c21 = avg_pairwise_corr(returns, 21)
+    c63 = avg_pairwise_corr(returns, 63)
+    disp = cross_sectional_dispersion(returns)
+    up = (returns > 0).sum(axis=1)
+    tot = returns.notna().sum(axis=1)
+    breadth = up / tot.replace(0, np.nan)
+    idx = returns.index[-n:]
+
+    def _tl(s):
+        return [None if pd.isna(s.get(d)) else round(float(s.get(d)), 5) for d in idx]
+
+    out["dates"] = [str(d.date()) if hasattr(d, "date") else str(d) for d in idx]
+    out["corr21"], out["corr63"] = _tl(c21), _tl(c63)
+    out["dispersion"], out["breadth"] = _tl(disp), _tl(breadth)
+    return out
+
+
+def _corr_head(trends: dict) -> dict:
+    """Latest correlation regime from the price-derived trend (headline + gate)."""
     from trading_intel.market.sector_correlation import corr_regime
-    from trading_intel.memory.models import SectorCorrSnapshot
 
-    row = session.execute(
-        select(SectorCorrSnapshot).order_by(SectorCorrSnapshot.as_of.desc()).limit(1)
-    ).scalar_one_or_none()
-    if row is None:
-        return {}
-    a21 = _num(getattr(row, "avg_corr_21", None))
-    a63 = _num(getattr(row, "avg_corr_63", None))
+    def _last(lst):
+        for v in reversed(lst or []):
+            if v is not None:
+                return v
+        return None
+
+    a21 = _last(trends.get("corr21"))
+    a63 = _last(trends.get("corr63"))
     return {
-        "as_of": str(getattr(row, "as_of", "") or ""),
         "avg_corr": {"21d": a21, "63d": a63},
         "regime": {"21d": corr_regime(a21), "63d": corr_regime(a63)},
-        "dispersion": _num(getattr(row, "dispersion", None)),
+        "dispersion": _last(trends.get("dispersion")),
+        "as_of": trends["dates"][-1] if trends.get("dates") else None,
     }
+
+
+def _rr25_trend(session, symbol: str, *, n: int = 20) -> dict:
+    """rr25 history (ascending) + the latest day-over-day shift, from sector_snapshots.
+
+    A FALLING rr25 (put IV − call IV shrinking) = demand rotating to the call
+    side = the bullish LEAP-call tell. ``rr25_shift`` is latest − prior.
+    """
+    from sqlalchemy import select
+
+    from trading_intel.memory.models import SectorSnapshot
+
+    rows = session.execute(
+        select(SectorSnapshot.as_of, SectorSnapshot.rr25)
+        .where(SectorSnapshot.symbol == symbol)
+        .order_by(SectorSnapshot.as_of.asc())
+    ).all()
+    series = [_num(r) for _a, r in rows if r is not None][-n:]
+    shift = (series[-1] - series[-2]) if len(series) >= 2 else None
+    return {"rr25_trend": series, "rr25_shift": shift}
 
 
 def _latest_sector_extras(session, symbol: str) -> dict:
@@ -184,16 +254,18 @@ def build_sector(session, settings=None) -> dict:
     roots = list(getattr(settings, "sector_roots", None) or SECTOR_SPDRS)
 
     source = YFinancePriceSource()
+    frame = _wide_close_frame(source, roots, period="1y")
+
     spdr_today: dict[str, float | None] = {}
     rows: list[dict] = []
     latest_ts = None
     for sym in roots:
-        g = _latest_greeks(session, sym)
-        closes = _close_series(source, sym)
-        if len(closes) >= 2 and closes[-2]:
-            spdr_today[sym] = closes[-1] / closes[-2] - 1.0
+        if not getattr(frame, "empty", True) and sym in frame.columns:
+            closes = [float(x) for x in frame[sym].dropna().tolist()]
         else:
-            spdr_today[sym] = None
+            closes = _close_series(source, sym)
+        spdr_today[sym] = (closes[-1] / closes[-2] - 1.0) if (len(closes) >= 2 and closes[-2]) else None
+        g = _latest_greeks(session, sym)
         row = {
             "symbol": sym,
             "spot": g.get("spot") or (closes[-1] if closes else None),
@@ -207,14 +279,21 @@ def build_sector(session, settings=None) -> dict:
             "ret_63d": _ret(closes, 63),
         }
         row.update(_latest_sector_extras(session, sym))  # rr25 + walls + fixed-strike footprint
+        row.update(_rr25_trend(session, sym))  # rr25 history + day-over-day shift
         rows.append(row)
         if g.get("ts") is not None and (latest_ts is None or g["ts"] > latest_ts):
             latest_ts = g["ts"]
 
+    # Correlation + dispersion + breadth trends straight from prices (immediate).
+    trends = _price_trends(frame)
+    corr = _corr_head(trends)
+
     spy_closes = _close_series(source, _SPY)
     index_dir = (spy_closes[-1] / spy_closes[-2] - 1.0) if (len(spy_closes) >= 2 and spy_closes[-2]) else None
     internals = internals_health(spdr_today, index_dir)
+    internals["trend"] = trends.get("breadth")
 
-    corr = _corr_snapshot(session)
-    as_of = corr.get("as_of") or (latest_ts.isoformat() if latest_ts else None)
-    return assemble_sector(rows, corr=corr, internals=internals, as_of=as_of)
+    as_of = (latest_ts.isoformat() if latest_ts else None) or corr.get("as_of")
+    payload = assemble_sector(rows, corr=corr, internals=internals, as_of=as_of)
+    payload["trends"] = trends
+    return payload

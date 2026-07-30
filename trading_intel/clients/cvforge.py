@@ -117,7 +117,10 @@ class CVForgeClient:
         df["expiration"] = pd.to_datetime(df["expiration"], errors="coerce")
         df["opt_kind"] = df["opt_kind"].astype(str)
         df = df.dropna(subset=["strike", "iv", "underlying_price"])
-        df = df[df["iv"] > 0].reset_index(drop=True)
+        # Drop non-positive AND absurd IVs: CVForge occasionally returns garbage
+        # near-money rows (seen: XLF ~10.0 = 1000%) that would corrupt ATM IV /
+        # skew / the strike-IV grid. 5.0 (500%) is far above any real ETF vol.
+        df = df[(df["iv"] > 0) & (df["iv"] < 5.0)].reset_index(drop=True)
         if df.empty:
             return df
 
