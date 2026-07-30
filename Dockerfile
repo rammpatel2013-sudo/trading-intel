@@ -22,6 +22,7 @@ RUN pip install -e .
 
 # Copy app
 COPY trading_intel ./trading_intel
+COPY scripts ./scripts
 COPY alembic ./alembic
 COPY alembic.ini ./
 

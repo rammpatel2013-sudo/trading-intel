@@ -51,6 +51,7 @@ for job in "$@"; do
         "$DOCKER" run --rm --network "$NETWORK" \
             -v "${ENV_FILE}:/app/.env" \
             -v "${REPO_DIR}/secrets:/app/secrets" \
+            -v "${REPO_DIR}/scripts:/app/scripts" \
             -e "DATABASE_URL=${DB_URL}" \
             "$IMAGE" sh -c "python -m trading_intel.scheduler.jobs.${job}"
         rc=$?
