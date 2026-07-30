@@ -93,6 +93,10 @@ def classify_sector(row: dict) -> dict:
         "ret_21d": _fin(row.get("ret_21d")),
         "ret_63d": _fin(row.get("ret_63d")),
         "rr25": _fin(row.get("rr25")),  # optional skew (Layer-2); None until collected
+        "rr25_dte": row.get("rr25_dte"),
+        "call_wall": _fin(row.get("call_wall")),
+        "put_wall": _fin(row.get("put_wall")),
+        "footprint": row.get("footprint"),  # fixed-strike offered/bid read (Layer-2)
     }
 
 
@@ -185,6 +189,14 @@ def leap_flags(cls: dict, *, corr_regime: str | None) -> dict:
     rr = cls.get("rr25")
     if rr is not None and rr > 0 and stab == "stable":
         for_.append("put-rich skew — call side relatively cheap")
+
+    # Fixed-strike footprint (Layer-2): near-money vol offered = levels holding.
+    fp = cls.get("footprint") or {}
+    if not fp.get("pending") and fp.get("read"):
+        if "HOLD" in fp["read"]:
+            for_.append("fixed-strike vol offered — nearby levels holding")
+        elif "BREAK" in fp["read"]:
+            against.append("fixed-strike vol bid — nearby levels fragile")
 
     dispersion_gate = bool(corr_regime and corr_regime.startswith("low"))
 

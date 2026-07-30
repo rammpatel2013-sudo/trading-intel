@@ -1234,3 +1234,33 @@ class SectorCorrSnapshot(Base):
     matrix: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     computed_at: Mapped[datetime | None] = mapped_column(DateTime)
     source: Mapped[str] = mapped_column(String(32), default="yfinance")
+
+
+class SectorSnapshot(Base):
+    """Per-SPDR sector-layer snapshot (CVForge) — skew + walls + fixed-strike IV grid.
+
+    Complements the aggregate ``greeks_snapshots`` row (built from the SAME
+    CVForge chain): the 25Δ risk-reversal, the call/put gamma walls, and the
+    near-money per-strike IV grid whose day-over-day diff is the fixed-strike
+    "offered vs bid" footprint (wall holds vs breaks — "a wall is not a wall").
+    One row per (as_of, symbol, source). Descriptor only (FlashAlpha rule 4).
+    """
+
+    __tablename__ = "sector_snapshots"
+    __table_args__ = (UniqueConstraint("as_of", "symbol", "source", name="uq_sector_snap"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    as_of: Mapped[date] = mapped_column(Date)
+    symbol: Mapped[str] = mapped_column(String(16))
+    spot: Mapped[float | None] = mapped_column(Float)
+    net_gex: Mapped[float | None] = mapped_column(Float)
+    net_dex: Mapped[float | None] = mapped_column(Float)
+    gex_flip: Mapped[float | None] = mapped_column(Float)
+    atm_iv: Mapped[float | None] = mapped_column(Float)
+    rr25: Mapped[float | None] = mapped_column(Float)
+    rr25_dte: Mapped[int | None] = mapped_column(Integer)
+    call_wall: Mapped[float | None] = mapped_column(Float)
+    put_wall: Mapped[float | None] = mapped_column(Float)
+    strike_iv: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    computed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source: Mapped[str] = mapped_column(String(32), default="cvforge")

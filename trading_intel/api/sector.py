@@ -120,6 +120,45 @@ def _corr_snapshot(session):
     }
 
 
+def _latest_sector_extras(session, symbol: str) -> dict:
+    """Layer-2 extras for one SPDR: 25Δ skew + walls + the fixed-strike footprint.
+
+    Reads the two most recent ``sector_snapshots`` rows (latest + prior day) so the
+    strike-IV grids can be diffed into the offered/bid footprint. Everything is
+    None/pending-safe until the ``sector_greeks`` job has run (≥2 days for the
+    footprint).
+    """
+    from sqlalchemy import select
+
+    from trading_intel.greeks.skew_walls import fixed_strike_footprint
+    from trading_intel.memory.models import SectorSnapshot
+
+    recent = session.execute(
+        select(SectorSnapshot)
+        .where(SectorSnapshot.symbol == symbol)
+        .order_by(SectorSnapshot.as_of.desc())
+        .limit(2)
+    ).scalars().all()
+    if not recent:
+        return {
+            "rr25": None, "rr25_dte": None, "call_wall": None, "put_wall": None,
+            "footprint": {"pending": True, "read": None, "offered": 0, "bid": 0, "flat": 0},
+        }
+    latest = recent[0]
+    prior = recent[1] if len(recent) > 1 else None
+    fp = fixed_strike_footprint(
+        getattr(latest, "strike_iv", None),
+        getattr(prior, "strike_iv", None) if prior is not None else None,
+    )
+    return {
+        "rr25": _num(getattr(latest, "rr25", None)),
+        "rr25_dte": getattr(latest, "rr25_dte", None),
+        "call_wall": _num(getattr(latest, "call_wall", None)),
+        "put_wall": _num(getattr(latest, "put_wall", None)),
+        "footprint": fp,
+    }
+
+
 def assemble_sector(rows: list[dict], *, corr: dict, internals: dict, as_of: str | None) -> dict:
     """Pure: run the sector scan and wrap it with report metadata."""
     from trading_intel.market.sector_scan import build_sector_scan
@@ -167,6 +206,7 @@ def build_sector(session, settings=None) -> dict:
             "ret_21d": _ret(closes, 21),
             "ret_63d": _ret(closes, 63),
         }
+        row.update(_latest_sector_extras(session, sym))  # rr25 + walls + fixed-strike footprint
         rows.append(row)
         if g.get("ts") is not None and (latest_ts is None or g["ts"] > latest_ts):
             latest_ts = g["ts"]

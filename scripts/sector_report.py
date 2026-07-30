@@ -181,12 +181,34 @@ function candCard(){
   }).join("");
   return `<div class="card"><div class="lbl">LEAP-long candidates · context, not a signal</div><div class="cand">${items}</div></div>`;
 }
+function wallsCard(){
+  const priced=(P.sectors||[]).filter(s=>s.gamma_regime!=null);
+  if(!priced.length) return "";
+  const wdist=(w,spot)=>{ if(w==null||spot==null||!spot) return ""; const d=w/spot-1; return `<span class="mutv"> ${d>=0?"+":"−"}${Math.abs(d*100).toFixed(1)}%</span>`; };
+  const rows=priced.map(s=>{
+    const rr=s.rr25, rrc=rr==null?"mutv":(rr>=0?"neg":"pos");
+    const rrt=rr==null?"—":(rr>=0?"+":"−")+Math.abs(rr*100).toFixed(2);
+    const fp=s.footprint||{};
+    const fr=fp.pending?'<span class="mutv">2nd day</span>':(!fp.read?'<span class="mutv">—</span>':
+      fp.read.indexOf("HOLD")>=0?'<span class="pos">offered · hold</span>':
+      fp.read.indexOf("BREAK")>=0?'<span class="neg">bid · break</span>':'<span class="mutv">mixed</span>');
+    return `<tr><td class="l sym">${esc(s.symbol)}</td>
+      <td class="${rrc}">${rrt}</td>
+      <td>${s.call_wall==null?"—":Math.round(s.call_wall)}${wdist(s.call_wall,s.spot)}</td>
+      <td>${s.put_wall==null?"—":Math.round(s.put_wall)}${wdist(s.put_wall,s.spot)}</td>
+      <td class="l">${fr}</td></tr>`;
+  }).join("");
+  return `<div class="card"><div class="lbl">Skew · walls · fixed-strike conviction</div>
+    <table><thead><tr><th class="l">ETF</th><th>25Δ RR</th><th>call wall</th><th>put wall</th><th class="l">fixed-strike</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="empty" style="padding-top:8px">25Δ RR in vol pts (+ puts richer / fear). Walls = peak gamma-OI strike. Fixed-strike: near-money vol OFFERED day/day → level tends to HOLD; BID → tends to BREAK (fills on the 2nd day).</div></div>`;
+}
 function render(){
   $("asof").textContent = "as of "+String(P.as_of||"").replace("T"," ");
   const lead=(P.leaders||[]).join(" · ")||"—", lag=(P.laggards||[]).join(" · ")||"—";
   const banner=`<div class="card" style="display:flex;gap:14px"><div style="flex:1"><div class="lbl" style="margin-bottom:5px">Leaders</div><div class="pos" style="font-weight:700">${esc(lead)}</div></div>
     <div style="flex:1"><div class="lbl" style="margin-bottom:5px">Laggards</div><div class="neg" style="font-weight:700">${esc(lag)}</div></div></div>`;
-  $("body").innerHTML = gateCard()+internalsCard()+banner+tableCard()+candCard();
+  $("body").innerHTML = gateCard()+internalsCard()+banner+tableCard()+wallsCard()+candCard();
   const m=P.meta||{};
   $("footmeta").textContent = `${m.n_priced||0}/${m.n_sectors||(P.sectors||[]).length} sectors priced · source ${m.source||"—"} · correlation as of ${(P.correlation||{}).as_of||"—"}`;
 }
