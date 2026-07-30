@@ -86,7 +86,7 @@ def build_vol_surface(symbol: str) -> str:
     return str(_load(_VOL_SURFACE_SCRIPT, "_vol_surface_report_impl").build(symbol))
 
 
-def build_cockpit(*, symbols: tuple[str, ...] = ("SPX", "SPY"), settings: object = None) -> str:
+def build_cockpit(*, symbols: tuple[str, ...] | None = None, settings: object = None) -> str:
     """Generate the SPX/SPY dealer-positioning cockpit (one self-contained HTML) and return its path.
 
     Single source of truth is ``scripts/cockpit_report.py`` (the CLI), so the MCP

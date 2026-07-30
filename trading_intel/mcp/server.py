@@ -465,7 +465,7 @@ def build_server(
         """
         from trading_intel.reports import build_cockpit
 
-        roots = tuple(s.strip().upper() for s in symbols) if symbols else ("SPX", "SPY")
+        roots = tuple(s.strip().upper() for s in symbols) if symbols else None
         path = build_cockpit(symbols=roots, settings=settings)
         return {"path": path, "uri": Path(path).as_uri(), "found": True}
 

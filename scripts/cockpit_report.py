@@ -30,7 +30,7 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-_SYMBOLS: tuple[str, ...] = ("SPX", "SPY")
+_SYMBOLS: tuple[str, ...] = ("SPX", "SPY", "QQQ")  # fallback; real default = config INDEX_ROOTS
 _DEFAULT_OUT = Path("reports") / "cockpit.html"
 
 # Self-contained mobile cockpit. ``__COCKPIT_DATA__`` is replaced with the baked
@@ -301,27 +301,30 @@ def _collect(session, symbols: tuple[str, ...]) -> dict:
 
 def build(
     *,
-    symbols: tuple[str, ...] = _SYMBOLS,
+    symbols: tuple[str, ...] | None = None,
     out_path: str | None = None,
     settings: object = None,
     session: object = None,
 ) -> str:
-    """Render the latest positioning snapshot for ``symbols`` into one HTML file.
+    """Render the latest positioning snapshot into one HTML file.
 
-    Reads the Convex-fed DB via ``api.positioning.build_positioning`` (no vendor
-    calls) and bakes both payloads into a self-contained page. Opens its own
-    session unless one is passed. Returns the absolute path to the written file.
+    Symbols default to the configured index roots (``INDEX_ROOTS`` = SPX/SPY/QQQ)
+    when not given, so the set is driven from ``.env`` (no code change to add or
+    drop an index). Reads the Convex-fed DB via ``api.positioning.build_positioning``
+    (no vendor calls) and bakes every index payload into one self-contained page.
+    Opens its own session unless one is passed. Returns the absolute path.
     """
     from trading_intel.config import get_settings
 
     settings = settings or get_settings()
+    roots = tuple(symbols) if symbols else tuple(getattr(settings, "index_roots", None) or _SYMBOLS)
     if session is not None:
-        payloads = _collect(session, symbols)
+        payloads = _collect(session, roots)
     else:
         from trading_intel.memory.db import make_session_factory
 
         with make_session_factory(settings)() as s:
-            payloads = _collect(s, symbols)
+            payloads = _collect(s, roots)
 
     # Escape any "</" so embedded JSON can never terminate the <script> block early.
     data = json.dumps(payloads).replace("</", "<\\/")
@@ -334,7 +337,7 @@ def build(
 
 def run(
     *,
-    symbols: tuple[str, ...] = _SYMBOLS,
+    symbols: tuple[str, ...] | None = None,
     push: bool = True,
     settings: object = None,
 ) -> str:
@@ -347,7 +350,7 @@ def run(
         from trading_intel.clients.telegram import TelegramClient
 
         sent = TelegramClient(settings).send_document(
-            path, caption="SPX / SPY dealer-positioning cockpit"
+            path, caption="Index dealer-positioning cockpit (SPX / SPY / QQQ)"
         )
         log.info("cockpit.pushed", path=path, telegram_sent=sent)
     return path
@@ -362,7 +365,7 @@ def main() -> None:
     parser.add_argument(
         "--symbols",
         default=",".join(_SYMBOLS),
-        help="comma-separated index roots to bake in (default: SPX,SPY)",
+        help="comma-separated index roots to bake in (default: config INDEX_ROOTS = SPX,SPY,QQQ)",
     )
     args = parser.parse_args()
 
