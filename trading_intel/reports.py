@@ -17,6 +17,8 @@ _SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "ticker_report.py
 _EOD_VOL_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "eod_vol_report.py"
 _FLOW_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "flow_report.py"
 _VOL_SURFACE_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_surface_report.py"
+_COCKPIT_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "cockpit_report.py"
+_SECTOR_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "sector_report.py"
 
 
 def _load(path: Path, modname: str) -> ModuleType:
@@ -82,3 +84,30 @@ def build_vol_surface(symbol: str) -> str:
     against GEX) + a 'How to read this' legend. Reads banked ``surface_snapshots``.
     """
     return str(_load(_VOL_SURFACE_SCRIPT, "_vol_surface_report_impl").build(symbol))
+
+
+def build_cockpit(*, symbols: tuple[str, ...] = ("SPX", "SPY"), settings: object = None) -> str:
+    """Generate the SPX/SPY dealer-positioning cockpit (one self-contained HTML) and return its path.
+
+    Single source of truth is ``scripts/cockpit_report.py`` (the CLI), so the MCP
+    ``generate_cockpit_report`` tool produces the identical file. Reads the
+    Convex-fed DB via ``api.positioning.build_positioning`` — zero added vendor
+    calls; near-live at the scheduler cadence. Both symbols are baked in so the
+    SPX/SPY toggle works offline. Descriptor only (FlashAlpha rule 4).
+    """
+    return str(
+        _load(_COCKPIT_SCRIPT, "_cockpit_report_impl").build(symbols=symbols, settings=settings)
+    )
+
+
+def build_sector(*, settings: object = None) -> str:
+    """Generate the sector lead/lag + fragility report (one self-contained HTML) and return its path.
+
+    Single source of truth is ``scripts/sector_report.py`` (the CLI), so the MCP
+    ``generate_sector_report`` tool produces the identical file. Reads the
+    CVForge-fed ``greeks_snapshots`` (SPDRs, source ``cvforge``), the
+    ``sector_corr_snapshots`` regime, and free yfinance history — no Convex calls
+    (rule 1). Ranking + LEAP-setup flags come from the pure ``market.sector_scan``.
+    Descriptor only (FlashAlpha rule 4).
+    """
+    return str(_load(_SECTOR_SCRIPT, "_sector_report_impl").build(settings=settings))

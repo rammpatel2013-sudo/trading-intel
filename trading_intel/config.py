@@ -189,6 +189,14 @@ class Settings(BaseSettings):
     SURFACE_SYMBOLS: str = "SPX,QQQ,SPY"
     SURFACE_EXPIRIES: int = 12
 
+    # ── Sector SPDR universe (sector lead/lag + fragility report) ──────
+    # The 11 SPDR Select Sector ETFs. The sector layer is collected from
+    # CVForge (secondary source, generous cap) — NEVER Convex — so it never
+    # competes with the live regime engine for the 10/min Convex budget (rule 1).
+    # Feeds scheduler/jobs/sector_greeks.py (per-SPDR net GEX/DEX/flip/ATM IV,
+    # tagged source "cvforge" in greeks_snapshots) and the sector report.
+    SECTOR_ROOTS: str = "XLB,XLC,XLE,XLF,XLI,XLK,XLP,XLRE,XLU,XLV,XLY"
+
     # ── EM-break / gamma burn-off + systematic flow (McGraw pattern) ───
     # See docs/em-break-system-plan.md + docs/learning/em-break-gamma-burnoff-digest.md.
     EARNINGS_LOOKAHEAD_DAYS: int = 30  # earn_cal pull window (days ahead)
@@ -315,6 +323,18 @@ class Settings(BaseSettings):
         seen: set[str] = set()
         out: list[str] = []
         for tok in self.SURFACE_SYMBOLS.split(","):
+            s = tok.strip().upper()
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    @property
+    def sector_roots(self) -> list[str]:
+        """The 11 sector SPDR roots for the sector lead/lag report (upper, de-duped)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for tok in self.SECTOR_ROOTS.split(","):
             s = tok.strip().upper()
             if s and s not in seen:
                 seen.add(s)

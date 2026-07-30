@@ -162,9 +162,12 @@ class CVForgeClient:
         spot = float(df["underlying_price"].iloc[0])
         result = compute_exposures(df, spot)
         if result:
+            from trading_intel.greeks.exposures import positioning_extras
+            from trading_intel.greeks.flip_point import gex_flip
+
             result["symbol"] = symbol.upper()
             result["spot"] = spot
-            from trading_intel.greeks.exposures import positioning_extras
+            result["gex_flip"] = gex_flip(df, spot)  # parity with convex.py (sector flip cushion)
             result.update(positioning_extras(df, spot))
         return result
 

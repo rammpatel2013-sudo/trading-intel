@@ -451,6 +451,43 @@ def build_server(
         )
         return {"path": path, "uri": Path(path).as_uri(), "found": True}
 
+    @mcp.tool()
+    def generate_cockpit_report(symbols: list[str] | None = None) -> dict[str, Any]:
+        """Generate the SPX/SPY dealer-positioning cockpit (one self-contained HTML) and return its path.
+
+        Bakes both index payloads into a single mobile page you open from Telegram:
+        gamma regime + flip, expected move, net GEX/DEX with a DTE breakdown, the
+        delta-flip (zero-DEX) level, P/C + traded Δ-notional, and 25Δ risk-reversal
+        skew. Reads only the Convex-fed DB (``api.positioning``) — ZERO added vendor
+        calls, near-live at the scheduler cadence. ``symbols`` overrides the default
+        SPX/SPY roots. Returns the saved HTML path under ``reports/``. Descriptive
+        only (FlashAlpha rule 4).
+        """
+        from trading_intel.reports import build_cockpit
+
+        roots = tuple(s.strip().upper() for s in symbols) if symbols else ("SPX", "SPY")
+        path = build_cockpit(symbols=roots, settings=settings)
+        return {"path": path, "uri": Path(path).as_uri(), "found": True}
+
+    @mcp.tool()
+    def generate_sector_report() -> dict[str, Any]:
+        """Generate the sector lead/lag + fragility report (one self-contained HTML) and return its path.
+
+        Ranks the 11 SPDR sectors leader→laggard on gamma stability (long γ =
+        dealers dampen / stable; short γ = amplify / fragile), gamma-flip cushion,
+        21-day relative momentum, and vega cheapness (ATM IV percentile), gated by
+        the realized sector-correlation regime (low = dispersion, single-sector
+        bets diversify) plus a sector-breadth-vs-index internals read — then flags
+        LEAP-long candidates with rationale. Reads ONLY the CVForge-fed
+        greeks_snapshots (SPDRs), sector_corr_snapshots, and free yfinance history
+        — zero Convex calls (rule 1). Returns the saved HTML path under ``reports/``.
+        Descriptive only (FlashAlpha rule 4) — flags/context, not a trade signal.
+        """
+        from trading_intel.reports import build_sector
+
+        path = build_sector(settings=settings)
+        return {"path": path, "uri": Path(path).as_uri(), "found": True}
+
     return mcp
 
 

@@ -37,6 +37,7 @@ def run(
     *,
     settings: Settings | None = None,
     symbols: list[str] | None = None,
+    source_tag: str | None = None,
 ) -> None:
     """Snapshot watchlist Greeks into ``greeks_snapshots``.
 
@@ -50,15 +51,21 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="greeks_snapshot")
 
     ts = eastern_now().replace(second=0, microsecond=0)
-    symbols = symbols or effective_symbols(session, settings)
-    # Always include the index roots (SPX/SPY/QQQ) so the aggregate GEX/flip
-    # line the daily brief reads never gaps when a letter stops surfacing an
-    # index (they're dropped from WATCHLIST and only entered here incidentally
-    # via the research watchlist — which is why SPX went stale Jun→Jul).
-    for root in getattr(settings, "index_roots", []):
-        if root not in symbols:
-            symbols = [*symbols, root]
-    bound.info("greeks_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols))
+    _src = source_tag or _SOURCE
+    # Explicit symbols (e.g. the CVForge-fed sector SPDR job) run exactly as
+    # given: no index-root union, tagged with the caller's source. The default
+    # watchlist run (symbols=None) still unions the index roots (SPX/SPY/QQQ) so
+    # the aggregate GEX/flip line the daily brief reads never gaps when a letter
+    # stops surfacing an index (they're dropped from WATCHLIST — which is why
+    # SPX went stale Jun→Jul).
+    if symbols is None:
+        symbols = effective_symbols(session, settings)
+        for root in getattr(settings, "index_roots", []):
+            if root not in symbols:
+                symbols = [*symbols, root]
+    bound.info(
+        "greeks_snapshot.start", ts=ts.isoformat(), symbol_count=len(symbols), source=_src
+    )
 
     written = 0
     failed = 0
@@ -92,7 +99,7 @@ def run(
                 put_volume=exposures.get("put_volume"),
                 call_notional=exposures.get("call_notional"),
                 put_notional=exposures.get("put_notional"),
-                source=_SOURCE,
+                source=_src,
             )
             .on_conflict_do_nothing(index_elements=["symbol", "ts", "source"])
         )
