@@ -164,6 +164,8 @@ class CVForgeClient:
         if result:
             result["symbol"] = symbol.upper()
             result["spot"] = spot
+            from trading_intel.greeks.exposures import positioning_extras
+            result.update(positioning_extras(df, spot))
         return result
 
     # ── historical OHLC (stock or option ticker) - Research plan ───────

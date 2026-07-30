@@ -87,6 +87,11 @@ def run(
                 gex_flip=exposures.get("gex_flip"),
                 gex_rvol_ratio=None,  # needs 20d realized vol — populated later
                 atm_iv=exposures.get("atm_iv"),
+                dex_flip=exposures.get("dex_flip"),
+                call_volume=exposures.get("call_volume"),
+                put_volume=exposures.get("put_volume"),
+                call_notional=exposures.get("call_notional"),
+                put_notional=exposures.get("put_notional"),
                 source=_SOURCE,
             )
             .on_conflict_do_nothing(index_elements=["symbol", "ts", "source"])

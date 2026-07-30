@@ -87,6 +87,11 @@ class GreeksSnapshot(Base):
     gex_flip: Mapped[float | None] = mapped_column(Float)
     gex_rvol_ratio: Mapped[float | None] = mapped_column(Float)
     atm_iv: Mapped[float | None] = mapped_column(Float)
+    dex_flip: Mapped[float | None] = mapped_column(Float)
+    call_volume: Mapped[float | None] = mapped_column(Float)
+    put_volume: Mapped[float | None] = mapped_column(Float)
+    call_notional: Mapped[float | None] = mapped_column(Float)
+    put_notional: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="convex")  # convex, schwab_legacy, etc.
 
 
@@ -1207,3 +1212,25 @@ class EstimateSnapshot(Base):
     eps_num: Mapped[float | None] = mapped_column(Float)  # number of analysts
     revenue_avg: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str | None] = mapped_column(String(32))
+
+
+class SectorCorrSnapshot(Base):
+    """Daily realized sector-ETF correlation regime (11 SPDRs) — descriptor only.
+
+    Realized complement to the option-implied COR1M/COR3M in the VIX complex:
+    21d/63d average PAIRWISE correlation (off-diagonal only) + cross-sectional
+    dispersion, plus the latest correlation matrix. One row per (as_of, source).
+    """
+
+    __tablename__ = "sector_corr_snapshots"
+    __table_args__ = (UniqueConstraint("as_of", "source", name="uq_sector_corr_snap"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    as_of: Mapped[date] = mapped_column(Date)
+    avg_corr_21: Mapped[float | None] = mapped_column(Float)
+    avg_corr_63: Mapped[float | None] = mapped_column(Float)
+    dispersion: Mapped[float | None] = mapped_column(Float)
+    n_etfs: Mapped[int | None] = mapped_column(Integer)
+    matrix: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    computed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source: Mapped[str] = mapped_column(String(32), default="yfinance")

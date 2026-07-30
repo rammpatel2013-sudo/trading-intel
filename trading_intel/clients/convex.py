@@ -564,6 +564,8 @@ class ConvexClient(OptionsDataSource):
         result["symbol"] = symbol
         result["spot"] = spot
         result["gex_flip"] = gex_flip(chain_df, spot)
+        from trading_intel.greeks.exposures import positioning_extras
+        result.update(positioning_extras(chain_df, spot))
         return result
 
     # ── Generic API escape hatch (for endpoints convexlib doesn't wrap) ──

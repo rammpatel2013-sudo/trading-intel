@@ -102,3 +102,23 @@ def compute_exposures(chain: pd.DataFrame, spot: float) -> dict:
         "chex_total": chex_total,
         "atm_iv": atm_iv(df, spot),
     }
+
+
+def positioning_extras(chain: pd.DataFrame, spot: float) -> dict:
+    """Delta-flip + put/call volume + delta-notional from the SAME chain
+    ``compute_exposures`` already consumes — cockpit extras for ZERO extra vendor
+    calls. Descriptor only (rule 4)."""
+    from trading_intel.greeks.delta_flip import dex_flip
+    from trading_intel.greeks.delta_flow import delta_notional_split
+
+    out: dict = {"dex_flip": dex_flip(chain, spot)}
+    split = delta_notional_split(chain, spot)
+    if split is not None:
+        out["call_notional"] = split.call_notional_all
+        out["put_notional"] = split.put_notional_all
+    if chain is not None and "volume" in chain.columns and "opt_kind" in chain.columns:
+        side = chain["opt_kind"].astype(str).str.upper().str[0]
+        vol = pd.to_numeric(chain["volume"], errors="coerce").fillna(0.0)
+        out["call_volume"] = float(vol[side == "C"].sum())
+        out["put_volume"] = float(vol[side == "P"].sum())
+    return out
