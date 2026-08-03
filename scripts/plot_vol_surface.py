@@ -66,7 +66,7 @@ def main() -> None:
 
     out = Path(args.out) if args.out else Path("reports") / f"{symbol.lower()}_iv_surface.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.write_html(str(out), include_plotlyjs=True, full_html=True)
+    fig.write_html(str(out), include_plotlyjs="cdn", full_html=True)
     print(
         f"Wrote {out}  ({surface.n_expiries} expiries x "
         f"{len(surface.moneyness)} moneyness nodes, spot={spot:.2f})"

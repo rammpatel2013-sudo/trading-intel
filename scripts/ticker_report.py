@@ -236,7 +236,7 @@ def build(sym: str, *, days: int = 180) -> str:
     f2.update_layout(template="plotly_dark", height=520, width=1150, legend=dict(orientation="h", y=1.08),
                      margin=dict(l=55, r=58, t=44, b=26),
                      title=f"{sym} combined — price · flip · walls · skew (last {days_shown}d)")
-    combo = f2.to_html(full_html=False, include_plotlyjs=True)
+    combo = f2.to_html(full_html=False, include_plotlyjs="cdn")
 
     # ── detailed: price+SMA ; skew line + IV ──
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.07,

@@ -237,7 +237,7 @@ def main() -> None:
 
     out = Path(args.out) if args.out else Path("reports") / f"{symbol.lower()}_vol_dashboard.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    html = fig.to_html(include_plotlyjs=True, full_html=True)
+    html = fig.to_html(include_plotlyjs="cdn", full_html=True)
     html = html.replace("</body>", _md_to_html(report_md) + "</body>")
     out.write_text(html, encoding="utf-8")
     print(
