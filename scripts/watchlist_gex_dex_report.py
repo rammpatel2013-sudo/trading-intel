@@ -69,25 +69,33 @@ def _spark(dates, values, stale, *, gap_days, w=400, h=150):
     def Y(v):
         return mt + ph * (vmax - v) / (vmax - vmin)
 
-    pts = [(X(i), Y(v)) for i, v in enumerate(values)]
+    # int coords + CSS classes + ONE polyline per solid/dashed run (was one <line> per
+    # segment and inline fill/stroke on every element) -> ~55% smaller HTML, so mobile
+    # Telegram can open it. Pixel-identical render; classes are defined in _page's <style>.
+    pts = [(round(X(i)), round(Y(v))) for i, v in enumerate(values)]
     parts = [f'<rect width="{w}" height="{h}" fill="{BG_CARD}"/>']
     for tv in sorted({vmin + pad, 0.0, vmax - pad}):
-        yy = Y(tv)
-        parts.append(f'<line x1="{ml}" y1="{yy:.1f}" x2="{w - mr}" y2="{yy:.1f}" stroke="{GRID}"/>')
-        parts.append(f'<text x="{ml - 5}" y="{yy + 3:.1f}" fill="{AXIS}" font-size="9" text-anchor="end">{_fmt(tv)}</text>')
-    yz = Y(0.0)
-    parts.append(f'<line x1="{ml}" y1="{yz:.1f}" x2="{w - mr}" y2="{yz:.1f}" stroke="{RED}" stroke-width="1" stroke-dasharray="3,3" opacity="0.55"/>')
-    for i in range(n - 1):
-        gap = (dates[i + 1] - dates[i]).days > gap_days
-        suspect = stale[i] or stale[i + 1] or gap
-        dash = ' stroke-dasharray="6,4"' if suspect else ''
-        parts.append(f'<line x1="{pts[i][0]:.1f}" y1="{pts[i][1]:.1f}" x2="{pts[i + 1][0]:.1f}" y2="{pts[i + 1][1]:.1f}" stroke="{BLUE}" stroke-width="1.6"{dash}/>')
+        yy = round(Y(tv))
+        parts.append(f'<line class="g" x1="{ml}" y1="{yy}" x2="{w - mr}" y2="{yy}"/>')
+        parts.append(f'<text class="xe" x="{ml - 5}" y="{yy + 3}">{_fmt(tv)}</text>')
+    yz = round(Y(0.0))
+    parts.append(f'<line class="z" x1="{ml}" y1="{yz}" x2="{w - mr}" y2="{yz}"/>')
+    suspect = [stale[i] or stale[i + 1] or (dates[i + 1] - dates[i]).days > gap_days for i in range(n - 1)]
+    i = 0
+    while i < n - 1:
+        j = i
+        while j < n - 1 and suspect[j] == suspect[i]:
+            j += 1
+        cls = "l d" if suspect[i] else "l"
+        run = " ".join(f"{x},{y}" for x, y in pts[i:j + 1])
+        parts.append(f'<polyline class="{cls}" points="{run}"/>')
+        i = j
     for i, (px, py) in enumerate(pts):
-        col = AMBER if stale[i] else (RED if values[i] < 0 else BLUE)
-        parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="2.6" fill="{col}"/>')
+        cls = "s" if stale[i] else ("n" if values[i] < 0 else "p")
+        parts.append(f'<circle class="{cls}" cx="{px}" cy="{py}" r="2.6"/>')
     if n:
-        parts.append(f'<text x="{X(0):.1f}" y="{h - 8}" fill="{AXIS}" font-size="9" text-anchor="start">{dates[0]:%m-%d}</text>')
-        parts.append(f'<text x="{X(n - 1):.1f}" y="{h - 8}" fill="{AXIS}" font-size="9" text-anchor="end">{dates[-1]:%m-%d}</text>')
+        parts.append(f'<text class="xs" x="{round(X(0))}" y="{h - 8}">{dates[0]:%m-%d}</text>')
+        parts.append(f'<text class="xe" x="{round(X(n - 1))}" y="{h - 8}">{dates[-1]:%m-%d}</text>')
     body = "".join(parts)
     return f'<svg viewBox="0 0 {w} {h}" width="100%" xmlns="http://www.w3.org/2000/svg">{body}</svg>'
 
@@ -136,6 +144,7 @@ h1{{font-size:20px;margin:0 0 4px}}.sub{{color:#8a8f98;font-size:13px;margin:0 0
 .lbl{{font-size:11px;color:#8a8f98;margin-bottom:2px}}.lbl b{{font-weight:600}}
 .warn{{font-size:10px;color:{AMBER};border:1px solid {AMBER};border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}}
 .note{{color:#8a8f98;font-size:12px;margin-top:18px;line-height:1.5}}.note b{{color:#c7ccd4}}
+svg{{display:block}}.g{{stroke:{GRID}}}.z{{stroke:{RED};stroke-width:1;stroke-dasharray:3,3;opacity:.55}}.l{{fill:none;stroke:{BLUE};stroke-width:1.6}}.d{{stroke-dasharray:6,4}}.p{{fill:{BLUE}}}.n{{fill:{RED}}}.s{{fill:{AMBER}}}.xe{{fill:{AXIS};font-size:9px;text-anchor:end}}.xs{{fill:{AXIS};font-size:9px;text-anchor:start}}
 </style></head><body>
 <h1>Watchlist - Rolling Net GEX &amp; DEX</h1>
 <p class="sub">{n} tickers &middot; {days}-day window &middot; last snapshot per day &middot; {n_short} currently short-gamma (net GEX &lt; 0){skip_note} &middot; generated {generated}</p>
