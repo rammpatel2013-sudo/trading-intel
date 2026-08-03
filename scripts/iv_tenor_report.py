@@ -92,23 +92,26 @@ def _chart(dates, series, *, gap_days, iv_max, w=420, h=190):
 
     for _key, _label, col, vals in series:
         flags = _stale_flags(vals, iv_max=iv_max)
-        last_xy: tuple[float, float] | None = None
-        last_i = -1
-        for i, v in enumerate(vals):
-            if v is None or not (0 < v <= iv_max):
-                continue
-            px, py = sx(i), sy(v)
-            if last_xy is not None:
-                gap = (dates[i] - dates[last_i]).days > gap_days or (i - last_i) > 1
-                suspect = gap or flags[i] or flags[last_i]
-                dash = ' stroke-dasharray="5,4"' if suspect else ""
-                parts.append(
-                    f'<line x1="{last_xy[0]:.1f}" y1="{last_xy[1]:.1f}" x2="{px:.1f}" y2="{py:.1f}" '
-                    f'stroke="{col}" stroke-width="1.5"{dash}/>'
-                )
+        pres = [(i, sx(i), sy(v)) for i, v in enumerate(vals) if v is not None and 0 < v <= iv_max]
+        m = len(pres)
+        seg_suspect = []
+        for k in range(1, m):
+            i_cur, i_prev = pres[k][0], pres[k - 1][0]
+            gap = (dates[i_cur] - dates[i_prev]).days > gap_days or (i_cur - i_prev) > 1
+            seg_suspect.append(gap or flags[i_cur] or flags[i_prev])
+        # ONE polyline per solid/dashed run (was one <line> per segment) -> far smaller HTML
+        k = 0
+        while k < m - 1:
+            j = k
+            while j < m - 1 and seg_suspect[j] == seg_suspect[k]:
+                j += 1
+            pstr = " ".join(f"{round(x)},{round(y)}" for _, x, y in pres[k:j + 1])
+            dash = ' stroke-dasharray="5,4"' if seg_suspect[k] else ""
+            parts.append(f'<polyline points="{pstr}" fill="none" stroke="{col}" stroke-width="1.5"{dash}/>')
+            k = j
+        for i, px, py in pres:
             fill = BG_CARD if flags[i] else col
-            parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="2.2" fill="{fill}" stroke="{col}" stroke-width="1"/>')
-            last_xy, last_i = (px, py), i
+            parts.append(f'<circle cx="{round(px)}" cy="{round(py)}" r="2.2" fill="{fill}" stroke="{col}" stroke-width="1"/>')
 
     if n:
         parts.append(f'<text x="{sx(0):.1f}" y="{h - 8}" fill="{AXIS}" font-size="9" text-anchor="start">{dates[0]:%m-%d}</text>')
