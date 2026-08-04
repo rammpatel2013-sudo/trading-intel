@@ -7,11 +7,19 @@ prints worth ``min_premium`` notional (price*size*100), and upsert them into
 unique key ``(ts, symbol, price, size, source)`` dedupes overlap between runs
 (rule 5).
 
+Index prints (SPX/SPXW/SPY/QQQ) are normally excluded (covered by other jobs),
+but the BIG ones (notional >= the index floor) are UN-excluded here and stored
+as ``source='convex_index'`` — 0 extra Convex calls (they are already in the
+same market-wide response). Each print also carries the observed
+``exchange_sale_conditions`` code and derived tags (sweep / block / deep-ITM
+financing), plus a same-poll ``leg_group`` clustering size-matched legs of one
+structure (a vertical / fly / calendar / roll). ``side`` is the per-leg
+aggressor, NOT the trade's direction — never sum it (rule 4).
+
 The tape is live-only — after the 4pm close it returns zeroed trade fields, so
 the job self-guards market hours (``intraday_flow.is_market_hours``) and also
 skips a poll whose prints are all zero-notional. Rule 1: the only Convex entry
-point is the injected ``OptionsDataSource``. Rule 4: descriptive capture, no
-signals.
+point is the injected ``OptionsDataSource``.
 
 Manual run (ignores the market-hours guard):
     python -m trading_intel.scheduler.jobs.tas_capture_job
@@ -38,9 +46,15 @@ from trading_intel.timeutils import eastern_now
 log = structlog.get_logger(__name__)
 
 _SOURCE = "convex"
+_SOURCE_INDEX = "convex_index"
 _UQ_COLS = ["ts", "symbol", "price", "size", "source"]
 _INSERT_BATCH = 1000
 _CONTRACT_RE = re.compile(r"^\.?([A-Za-z]+)(\d{6})([CcPp])(\d+(?:\.\d+)?)$")
+_LEG_WINDOW_S = 2.0                       # legs within this window (same root) = one structure
+_SWEEP_CODES = frozenset({"I"})          # ISO / intermarket sweep
+_BLOCK_CODES = frozenset({"t", "m", "D"})  # negotiated / block prints on the tape
+_BLOCK_MIN_SIZE = 250                     # large single print = block even without a block code
+_INDEX_ETF = frozenset({"SPY", "QQQ"})   # index ETFs get a lower premium floor than SPX/SPXW
 
 
 def _f(value: object) -> float | None:
@@ -76,9 +90,23 @@ def _norm_cp(value: object) -> str | None:
     return c if c in {"C", "P"} else None
 
 
+def _index_floor(root: str, base: float) -> float:
+    """Index premium floor: full for SPX/SPXW, lower for the ETFs (SPY/QQQ)."""
+    return base * 0.4 if root in _INDEX_ETF else base
+
+
+def _is_financing(cp: str | None, delta: float | None, dte: int | None) -> bool:
+    """Deep-ITM call (synthetic long / financing) or long-dated high-delta LEAP."""
+    if cp != "C" or delta is None or dte is None:
+        return False
+    ad = abs(delta)
+    return ad >= 0.85 or (ad >= 0.70 and dte >= 365)
+
+
 def _row_record(
     row: pd.Series, *, captured_at: datetime, trade_date: date, min_premium: float,
     exclude: frozenset[str] = frozenset(),
+    index_roots: frozenset[str] = frozenset(), index_base_premium: float = 250_000.0,
 ) -> dict | None:
     """Build one ``tas_prints`` row from a tape row, or None if it's dropped."""
     price = _f(row.get("price"))
@@ -90,7 +118,6 @@ def _row_record(
         return None
 
     # Prefer the vendor's decoded columns; fall back to parsing the raw symbol.
-    # (Optional columns arrive as NaN, not None, when absent for a row.)
     raw = row.get("symbol")
     raw = str(raw) if pd.notna(raw) else None
     root = row.get("root")
@@ -110,11 +137,22 @@ def _row_record(
         raw = f".{root}{expiry_d:%y%m%d}{cp}{strike:g}"
     if raw is None:
         return None
-    if root is not None and root.upper() in exclude:
-        return None  # high-volume index/ETF roots covered by other jobs
+
+    ru = root.upper() if root else None
+    is_index = ru is not None and ru in index_roots
+    # Excluded roots are dropped UNLESS they are a big index print (un-excluded here).
+    if ru is not None and ru in exclude:
+        if not (is_index and notional >= _index_floor(ru, index_base_premium)):
+            return None  # small index / other high-volume root covered by other jobs
+    source = _SOURCE_INDEX if (is_index and ru in exclude) else _SOURCE
 
     ts = pd.to_datetime(row.get("time"), errors="coerce")
     ts_dt = ts.to_pydatetime() if pd.notna(ts) else captured_at
+
+    delta = _f(row.get("delta"))
+    dte = (expiry_d - trade_date).days if expiry_d is not None else None
+    cond = row.get("exchange_sale_conditions")
+    cond = str(cond).strip() if pd.notna(cond) else None
 
     return {
         "captured_at": captured_at,
@@ -132,27 +170,60 @@ def _row_record(
         "size": size,
         "notional": round(notional, 2),
         "spot": _f(row.get("spot")),
-        "delta": _f(row.get("delta")),
+        "delta": delta,
         "gamma": _f(row.get("gamma")),
         "vega": _f(row.get("vega")),
         "theta": _f(row.get("theta")),
         "iv": _f(row.get("iv") if pd.notna(row.get("iv")) else row.get("volatility")),
-        "source": _SOURCE,
+        "condition": cond,
+        "is_sweep": bool(cond in _SWEEP_CODES),
+        "is_block": bool((cond in _BLOCK_CODES) or (size >= _BLOCK_MIN_SIZE)),
+        "is_financing": _is_financing(cp, delta, dte),
+        "leg_group": None,  # filled by _assign_leg_groups over the whole poll
+        "source": source,
     }
+
+
+def _assign_leg_groups(recs: list[dict], window_s: float = _LEG_WINDOW_S) -> None:
+    """Tag size-matched, same-root, near-simultaneous legs with a shared group id.
+
+    A structure (vertical / fly / calendar / roll) prints its legs within the
+    same instant; both land in one poll. Singletons keep ``leg_group=None``.
+    """
+    order = sorted(range(len(recs)), key=lambda i: (recs[i]["root"] or "", recs[i]["ts"]))
+    cluster: list[int] = []
+
+    def flush(c: list[int]) -> None:
+        if len(c) >= 2:
+            gid = uuid.uuid4().hex[:24]
+            for i in c:
+                recs[i]["leg_group"] = gid
+
+    for i in order:
+        r = recs[i]
+        if cluster and r["root"] == recs[cluster[-1]]["root"] \
+                and abs((r["ts"] - recs[cluster[-1]]["ts"]).total_seconds()) <= window_s:
+            cluster.append(i)
+        else:
+            flush(cluster)
+            cluster = [i]
+    flush(cluster)
 
 
 def _records(
     df: pd.DataFrame, *, captured_at: datetime, trade_date: date, min_premium: float,
     exclude: frozenset[str] = frozenset(),
+    index_roots: frozenset[str] = frozenset(), index_base_premium: float = 250_000.0,
 ) -> list[dict]:
     out: list[dict] = []
     for _, row in df.iterrows():
         rec = _row_record(
-            row, captured_at=captured_at, trade_date=trade_date,
-            min_premium=min_premium, exclude=exclude,
+            row, captured_at=captured_at, trade_date=trade_date, min_premium=min_premium,
+            exclude=exclude, index_roots=index_roots, index_base_premium=index_base_premium,
         )
         if rec is not None:
             out.append(rec)
+    _assign_leg_groups(out)
     return out
 
 
@@ -168,7 +239,9 @@ def run(
     """Capture one poll of the market-wide tape into ``tas_prints`` (idempotent).
 
     ``min_premium`` / ``limit`` default to ``Settings.TAS_MIN_PREMIUM`` /
-    ``Settings.TAS_LIMIT`` (both overridable via ``.env``) when not passed.
+    ``Settings.TAS_LIMIT`` (both overridable via ``.env``) when not passed. Big
+    index prints above ``Settings.TAS_INDEX_MIN_PREMIUM`` are un-excluded and
+    stored as ``source='convex_index'``.
     """
     settings = settings or get_settings()
     min_premium = settings.TAS_MIN_PREMIUM if min_premium is None else min_premium
@@ -176,6 +249,8 @@ def run(
     exclude = frozenset(
         r.strip().upper() for r in str(settings.TAS_EXCLUDE_ROOTS).split(",") if r.strip()
     )
+    index_roots = frozenset(settings.index_roots) | {"SPXW"}
+    index_base = float(getattr(settings, "TAS_INDEX_MIN_PREMIUM", 250_000.0))
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="tas_capture")
 
@@ -205,8 +280,8 @@ def run(
 
     captured_at = now.replace(microsecond=0)
     records = _records(
-        df, captured_at=captured_at, trade_date=now.date(),
-        min_premium=min_premium, exclude=exclude,
+        df, captured_at=captured_at, trade_date=now.date(), min_premium=min_premium,
+        exclude=exclude, index_roots=index_roots, index_base_premium=index_base,
     )
     if not records:
         bound.info("tas_capture.no_qualifying_prints", polled=int(len(df)))
@@ -219,7 +294,8 @@ def run(
         stmt = _insert(TasPrint).values(batch).on_conflict_do_nothing(index_elements=_UQ_COLS)
         session.execute(stmt)
     session.commit()
-    bound.info("tas_capture.done", polled=int(len(df)), kept=len(records))
+    idx_kept = sum(1 for r in records if r["source"] == _SOURCE_INDEX)
+    bound.info("tas_capture.done", polled=int(len(df)), kept=len(records), index_kept=idx_kept)
 
 
 def main() -> None:

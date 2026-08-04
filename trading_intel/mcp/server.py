@@ -25,6 +25,8 @@ from trading_intel.config import Settings, get_settings
 from trading_intel.mcp import em_tools as em
 from trading_intel.mcp import extra_tools as et
 from trading_intel.mcp import tools as t
+from trading_intel.mcp import profile_tool as pt
+from trading_intel.mcp import index_bigtrades_tool as ibt
 from trading_intel.memory.db import make_session_factory
 from trading_intel.synthesis.llm import LLMProvider, OllamaProvider
 
@@ -201,6 +203,12 @@ def build_server(
             return et.get_walls(session, symbol, dte_max=dte_max)
 
     @mcp.tool()
+    def get_profile(symbol: str, span: float = 0.05, n_points: int = 141) -> dict[str, Any]:
+        """Per-strike dealer gamma/charm/vanna profile by spot (0DTE + all expiry)."""
+        with session_factory() as session:
+            return pt.get_profile(session, symbol, span=span, n_points=n_points)
+
+    @mcp.tool()
     def get_straddle(symbol: str, dte_max: int = 400) -> dict[str, Any]:
         """ATM straddle price + expected-move range + day-over-day decay (latest EOD chain)."""
         with session_factory() as session:
@@ -211,6 +219,17 @@ def build_server(
         """Biggest day-over-day open-interest changes per strike (latest EOD snapshot)."""
         with session_factory() as session:
             return et.get_oi_changes(session, symbol, dte_max=dte_max, top=top)
+
+    @mcp.tool()
+    def get_index_bigtrades(trade_date: str | None = None, limit: int = 60) -> dict[str, Any]:
+        """Biggest stored INDEX option prints (SPX/SPY/QQQ), grouped into structures.
+
+        Reads tas_prints source='convex_index'; groups size-matched legs by
+        leg_group (spreads / flies / calendars / rolls), singletons as outrights.
+        ``side`` is the per-leg aggressor, NOT the trade direction — never sum it.
+        """
+        with session_factory() as session:
+            return ibt.get_index_bigtrades(session, trade_date=trade_date, limit=limit)
 
     @mcp.tool()
     def get_gex_term(symbol: str) -> dict[str, Any]:

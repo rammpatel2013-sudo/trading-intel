@@ -863,6 +863,11 @@ class TasPrint(Base):
     vega: Mapped[float | None] = mapped_column(Float)
     theta: Mapped[float | None] = mapped_column(Float)
     iv: Mapped[float | None] = mapped_column(Float)
+    condition: Mapped[str | None] = mapped_column(String(8))  # exchange_sale_conditions code
+    is_sweep: Mapped[bool | None] = mapped_column(Boolean)  # ISO sweep (condition == 'I')
+    is_block: Mapped[bool | None] = mapped_column(Boolean)  # negotiated / large block
+    is_financing: Mapped[bool | None] = mapped_column(Boolean)  # deep-ITM call / LEAP (non-directional)
+    leg_group: Mapped[str | None] = mapped_column(String(24))  # same-poll structure cluster id
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 

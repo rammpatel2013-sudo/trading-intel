@@ -156,6 +156,7 @@ class Settings(BaseSettings):
     TAS_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"  # high-volume index roots (covered by other jobs)
     TAS_POLL_INTERVAL: int = 30  # seconds between polls (NAS capture daemon)
     TAS_RETENTION_DAYS: int = 30  # prune raw tas_prints older than this
+    TAS_INDEX_MIN_PREMIUM: float = 250_000.0  # un-exclude big index prints >= this $ (SPX/SPXW; ETFs use 0.4x)
 
     # ── Daily AM report ───────────────────────────────────────────────
     AM_REPORT_SEND_DISCORD: bool = False  # push AM report to Discord (client not built yet)
