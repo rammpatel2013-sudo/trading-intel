@@ -89,3 +89,24 @@ class TelegramClient:
         except (httpx.HTTPError, OSError) as exc:
             log.warning("telegram.send_document_error", err=str(exc))
             return False
+
+    def send_photo(self, path: str | Path, *, caption: str = "") -> bool:
+        """Send an image (report PNG preview) so it renders inline in Telegram."""
+        p = Path(path)
+        if not self.enabled or not p.is_file():
+            return False
+        url = _API.format(token=self._token, method="sendPhoto")
+        try:
+            with httpx.Client(timeout=60.0) as client, p.open("rb") as fh:
+                resp = client.post(
+                    url,
+                    data={"chat_id": self._chat_id, "caption": caption[:_MAX_CAPTION], "parse_mode": "HTML"},
+                    files={"photo": (p.name, fh)},
+                )
+            ok = resp.status_code == 200
+            if not ok:
+                log.warning("telegram.send_photo_failed", status=resp.status_code, body=resp.text[:200])
+            return ok
+        except (httpx.HTTPError, OSError) as exc:
+            log.warning("telegram.send_photo_error", err=str(exc))
+            return False
