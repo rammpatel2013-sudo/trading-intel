@@ -155,7 +155,7 @@ class _RecordingSession:
 def test_run_seeds_tickers_upserts_and_commits():
     source = _FakeSource({"QQQ": _chain()})
     session = _RecordingSession()
-    run(session, source, settings=_Settings())
+    run(session, source, settings=_Settings(), as_of=_AS_OF)
 
     assert source.calls == ["QQQ"]
     inserts = [e for e in session.executed if isinstance(e, Insert)]

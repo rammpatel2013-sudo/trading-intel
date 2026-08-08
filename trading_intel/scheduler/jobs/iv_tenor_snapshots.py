@@ -209,13 +209,14 @@ def run(
     *,
     settings: Settings | None = None,
     symbols: list[str] | None = None,
+    as_of: date | None = None,
 ) -> None:
     """Build today's constant-maturity IV rows and upsert them."""
     settings = settings or get_settings()
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="iv_tenor_snapshots")
 
-    as_of = eastern_now().date()
+    as_of = as_of or eastern_now().date()
     records = build_rows(source, settings, as_of=as_of, symbols=symbols)
     _ensure_tickers(session, {r["symbol"] for r in records})
     _upsert(session, records)

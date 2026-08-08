@@ -103,6 +103,19 @@ class FmpClient:
                 }
         return _parse_shares(ticker, row)
 
+    def grades_historical(self, ticker: str, *, limit: int = 20) -> list[dict]:
+        """Historical analyst grade actions (up/downgrades) — revision breadth.
+
+        Stable ``/grades-historical``; rows carry date/newGrade/previousGrade/
+        gradingCompany/action. ``[]`` on failure, descriptive (rule 4)."""
+        data = self._get("grades-historical", symbol=ticker, limit=limit)
+        return data if isinstance(data, list) else []
+
+    def price_target_consensus(self, ticker: str) -> dict | None:
+        """Consensus price target (targetHigh/Low/Median/Consensus), or None."""
+        data = self._get("price-target-consensus", symbol=ticker)
+        return data[0] if isinstance(data, list) and data else None
+
 
 def _parse_shares(ticker: str, row: dict | None) -> SharesSnapshot | None:
     """Normalize a raw FMP shares row into a ``SharesSnapshot`` (best-effort)."""

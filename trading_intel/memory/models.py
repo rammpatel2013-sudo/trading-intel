@@ -1269,3 +1269,56 @@ class SectorSnapshot(Base):
     strike_iv: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     computed_at: Mapped[datetime | None] = mapped_column(DateTime)
     source: Mapped[str] = mapped_column(String(32), default="cvforge")
+
+
+class KpiSnapshot(Base):
+    """Per-quarter operating KPIs extracted from the earnings call transcript.
+
+    NRR/cRPO/margin/customer-counts pulled by ``earnings.kpi_extract`` (local
+    Ollama) and banked per report so the swing dossier shows a trend, not a
+    point. Idempotent on (symbol, period_label). Descriptive only (rule 4)."""
+
+    __tablename__ = "kpi_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "period_label", name="uq_kpi_symbol_period"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), index=True)
+    period_label: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[date] = mapped_column(Date)
+    dbnrr_pct: Mapped[float | None] = mapped_column(Float)
+    revenue_growth_yoy_pct: Mapped[float | None] = mapped_column(Float)
+    gross_margin_pct: Mapped[float | None] = mapped_column(Float)
+    operating_margin_pct: Mapped[float | None] = mapped_column(Float)
+    crpo_growth_yoy_pct: Mapped[float | None] = mapped_column(Float)
+    rpo_growth_yoy_pct: Mapped[float | None] = mapped_column(Float)
+    customers_over_100k: Mapped[float | None] = mapped_column(Float)
+    customers_over_1m: Mapped[float | None] = mapped_column(Float)
+    fcf_margin_pct: Mapped[float | None] = mapped_column(Float)
+    guidance_direction: Mapped[str | None] = mapped_column(String(16))
+    one_line_kpi_read: Mapped[str | None] = mapped_column(String(256))
+    source: Mapped[str | None] = mapped_column(String(32))
+
+
+class ShortInterestSnapshot(Base):
+    """FINRA short data — daily Reg SHO short-volume proxy + optional settled SI.
+
+    Banked by ``scheduler.jobs.short_interest_snapshots``. Idempotent on
+    (symbol, ts, source). Descriptive only (rule 4)."""
+
+    __tablename__ = "short_interest_snapshots"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "source", name="uq_shortint_symbol_ts_source"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), index=True)
+    ts: Mapped[date] = mapped_column(Date)
+    source: Mapped[str] = mapped_column(String(24))
+    short_volume: Mapped[float | None] = mapped_column(Float)
+    total_volume: Mapped[float | None] = mapped_column(Float)
+    short_volume_ratio: Mapped[float | None] = mapped_column(Float)
+    short_volume_ratio_avg: Mapped[float | None] = mapped_column(Float)
+    short_interest: Mapped[float | None] = mapped_column(Float)
+    avg_daily_volume: Mapped[float | None] = mapped_column(Float)
+    days_to_cover: Mapped[float | None] = mapped_column(Float)
+    settlement_date: Mapped[date | None] = mapped_column(Date)
