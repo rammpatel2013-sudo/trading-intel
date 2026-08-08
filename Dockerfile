@@ -20,6 +20,9 @@ WORKDIR /app
 COPY pyproject.toml ./
 RUN pip install -e .
 
+# Headless browser for report PNG previews (swing dossier -> Telegram image).
+RUN pip install playwright && python -m playwright install --with-deps chromium
+
 # Copy app
 COPY trading_intel ./trading_intel
 COPY scripts ./scripts
