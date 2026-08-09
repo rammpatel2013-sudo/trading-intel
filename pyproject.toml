@@ -34,6 +34,7 @@ dependencies = [
     "scipy>=1.13",
     "scikit-learn>=1.5",            # K-Means for VEGA zones
     "ta>=0.11",                     # technical indicators (MACD/Bollinger/ATR) for the MCP technicals tool
+    "pysentiment2>=0.1.3",          # Loughran-McDonald earnings-call tone (swing dossier §8); pure-lexicon, NAS-safe
 
     # DB
     "sqlalchemy>=2.0",
@@ -80,6 +81,13 @@ dev = [
     "pre-commit>=3.7",
     "ipython>=8.25",
     "freezegun>=1.5",
+]
+# FinBERT (finbert-tone) = optional best-effort 2nd-opinion tone in the swing dossier §8.
+# Heavy (transformers+torch) — install on a laptop-run dossier only; the NAS (3.8GB) skips it
+# and the dossier degrades to the Loughran-McDonald lexicon automatically.
+finbert = [
+    "transformers>=4.40",
+    "torch>=2.2",
 ]
 
 [project.scripts]

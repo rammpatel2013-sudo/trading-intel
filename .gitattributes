@@ -1,0 +1,6 @@
+# Keep shell scripts LF so the NAS /bin/sh never sees a CR (a \r breaks the shebang
+# and every command). Scoped to scripts on purpose — NO tree-wide `* text=auto`,
+# which would trigger the CRLF re-normalization churn we avoid by never `git add -A`.
+*.sh text eol=lf
+# Windows batch stays CRLF.
+*.bat text eol=crlf

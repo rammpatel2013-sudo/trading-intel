@@ -1,4 +1,4 @@
-"""CBOE client - VVIX, VIX term structure, and skew indices (Cboe SKEW + SDEX).
+"""CBOE client - VVIX, VIX term structure, skew indices, and VIX1D (1-day IV).
 
 The only module that scrapes CBOE (CLAUDE.md rule 1). Reads the public delayed-
 quote JSON feed CBOE serves from its CDN.
@@ -13,20 +13,28 @@ Skew indices added per ADR-003:
 - ``_SKEW``   - Cboe SKEW Index, BKM third-moment estimator over OTM SPX
 - ``SDEX``    - Nations SkewDex Large-Cap, ATM vs 1-sigma-OTM-put SPY skew
 
-All reads degrade gracefully to ``None`` so a CBOE outage / shape change never
-brings down the snapshot job.
+1-day implied vol (the "SVIX / -1 day IV" the vol-divergence report reads):
+- ``_VIX1D``  - Cboe 1-Day Volatility Index (0DTE SPX expected vol), live quote,
+  plus the full daily history CSV (``VIX1D_History.csv``, 2022-05-13 onward).
+
+All reads degrade gracefully to ``None`` / ``[]`` so a CBOE outage / shape change
+never brings down the snapshot job.
 """
 
 from __future__ import annotations
+
+from datetime import date, datetime
 
 import structlog
 
 log = structlog.get_logger(__name__)
 
 _BASE = "https://cdn.cboe.com/api/global/delayed_quotes/quotes/{sym}.json"
+_HISTORY_CSV = "https://cdn.cboe.com/api/global/us_indices/daily_prices/{name}_History.csv"
 
 VVIX_SYM = "_VVIX"
 TERM_SYMS = {"VIX9D": "_VIX9D", "VIX": "_VIX", "VIX3M": "_VIX3M", "VIX6M": "_VIX6M"}
+VIX1D_SYM = "_VIX1D"  # Cboe 1-Day Volatility Index (0DTE SPX expected vol)
 
 # Skew index symbols. Per ADR-003 section 3.2, the Nations SDEX is the primary
 # signal input; Cboe SKEW is a cross-check on third-moment regime changes.
@@ -55,6 +63,20 @@ class CboeClient:
             log.warning("cboe.fetch_failed", sym=sym, error=str(exc))
             return None
 
+    def _get_text(self, url: str) -> str | None:
+        try:
+            if self._client is not None:
+                resp = self._client.get(url)
+            else:
+                import httpx
+
+                resp = httpx.get(url, timeout=self._timeout)
+            resp.raise_for_status()
+            return resp.text
+        except Exception as exc:  # network / shape - degrade to None
+            log.warning("cboe.fetch_text_failed", url=url, error=str(exc))
+            return None
+
     @staticmethod
     def _parse_price(payload: dict | None) -> float | None:
         if not payload:
@@ -74,6 +96,34 @@ class CboeClient:
 
     def vvix(self) -> float | None:
         return self.quote(VVIX_SYM)
+
+    def vix1d(self) -> float | None:
+        """Cboe VIX1D (1-Day Volatility Index) live/last quote. None on failure."""
+        return self.quote(VIX1D_SYM)
+
+    def vix1d_history(self) -> list[tuple[date, float]]:
+        """Full daily VIX1D close history as ``[(date, close), ...]`` ascending.
+
+        Parses the public ``VIX1D_History.csv`` (``DATE,OPEN,HIGH,LOW,CLOSE``,
+        m/d/Y dates, 2022-05-13 onward). Returns ``[]`` on any fetch/parse error
+        so the report degrades rather than dies.
+        """
+        txt = self._get_text(_HISTORY_CSV.format(name="VIX1D"))
+        if not txt:
+            return []
+        out: list[tuple[date, float]] = []
+        for line in txt.splitlines()[1:]:
+            parts = line.split(",")
+            if len(parts) < 5:
+                continue
+            try:
+                d = datetime.strptime(parts[0].strip(), "%m/%d/%Y").date()
+                c = float(parts[4])
+            except (ValueError, IndexError):
+                continue
+            out.append((d, c))
+        out.sort(key=lambda t: t[0])
+        return out
 
     def skew_index(self) -> float | None:
         """Cboe SKEW Index (30d, model-free third moment of SPX) close.
