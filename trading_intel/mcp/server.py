@@ -27,6 +27,7 @@ from trading_intel.mcp import extra_tools as et
 from trading_intel.mcp import tools as t
 from trading_intel.mcp import profile_tool as pt
 from trading_intel.mcp import index_bigtrades_tool as ibt
+from trading_intel.mcp import telegram_tool as tgt
 from trading_intel.memory.db import make_session_factory
 from trading_intel.synthesis.llm import LLMProvider, OllamaProvider
 
@@ -506,6 +507,8 @@ def build_server(
 
         path = build_sector(settings=settings)
         return {"path": path, "uri": Path(path).as_uri(), "found": True}
+
+    tgt.register(mcp, settings)
 
     return mcp
 
