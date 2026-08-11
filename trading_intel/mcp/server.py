@@ -292,6 +292,17 @@ def build_server(
             return et.get_iv_tenor(session, symbols=symbols, tenor_dte=tenor_dte, days=days)
 
     @mcp.tool()
+    def get_vol_surface_cm(symbol: str = "SPX", compare_sessions: int = 5) -> dict[str, Any]:
+        """Constant-maturity delta-vol surface (the ^SPX vol-surface-changes board).
+
+        The full smile (5Δ..50Δ ATM, both wings) at fixed forward rungs
+        (7/14/21/30/60/90d) for today + a prior compare date (~weekly), so the
+        vol CHANGE is same-horizon. Returns rows_now / rows_prior for the board.
+        """
+        with session_factory() as session:
+            return et.get_vol_surface_cm(session, symbol=symbol, compare_sessions=compare_sessions)
+
+    @mcp.tool()
     def get_rv_rolloff(
         symbol: str = "SPY",
         window: int = 21,

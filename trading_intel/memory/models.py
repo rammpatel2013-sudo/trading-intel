@@ -1439,3 +1439,33 @@ class GexTransitionDaily(Base):
     fwd10: Mapped[float | None] = mapped_column(Float)
     fwd21: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(48), default="gamma_history+iv_tenor")
+
+
+class VolSurfaceCM(Base):
+    """Constant-maturity delta-vol surface — the ^SPX vol-surface-changes board.
+
+    One row per (symbol, trading day, constant-maturity rung, delta, wing). The
+    full smile (5Δ..50Δ ATM, both wings) is interpolated in total-variance space
+    onto FIXED forward horizons (``dte`` rungs 7/14/21/30/60/90d) every EOD, so
+    the "fixed timeframe" rolls forward automatically (today's 90d ≈ Sep; a month
+    on ≈ Oct) and the day-over-day / weekly vol CHANGE is always same-horizon —
+    no roll discontinuity. Populated by ``scheduler/jobs/vol_surface_cm.py`` from
+    a live chain + ``greeks.surface.build_delta_surface`` + the iv_tenor
+    ``cm_interp``. ``near_expiry`` is the nearest real listed expiry to the rung
+    (display label only). Regime descriptor (FlashAlpha rule 4) — emits no signal.
+    """
+
+    __tablename__ = "vol_surface_cm"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", "dte", "delta", "side", name="uq_vol_surface_cm"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[date] = mapped_column(Date)  # trading day (EOD)
+    dte: Mapped[int] = mapped_column(Integer)  # constant-maturity rung in days (7/14/21/30/60/90)
+    delta: Mapped[float] = mapped_column(Float)  # |delta| grid point, 5..50 (50 ≡ ATM)
+    side: Mapped[str] = mapped_column(String(4))  # 'call' (+Δ upside) | 'put' (-Δ downside)
+    iv: Mapped[float | None] = mapped_column(Float)  # interpolated IV (decimal)
+    spot: Mapped[float | None] = mapped_column(Float)  # underlying at capture
+    near_expiry: Mapped[date | None] = mapped_column(Date)  # nearest real expiry (display label)

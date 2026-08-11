@@ -23,6 +23,9 @@ _GEX_TRANSITION_SCRIPT = (
     Path(__file__).resolve().parent.parent / "scripts" / "gex_transition_report.py"
 )
 _VOL_REGIME_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_regime_report.py"
+_VOL_SURFACE_CM_SCRIPT = (
+    Path(__file__).resolve().parent.parent / "scripts" / "vol_surface_cm_report.py"
+)
 
 
 def _load(path: Path, modname: str) -> ModuleType:
@@ -143,5 +146,19 @@ def build_vol_regime(*, settings: object = None, session: object = None) -> str:
     return str(
         _load(_VOL_REGIME_SCRIPT, "_vol_regime_report_impl").build(
             settings=settings, session=session
+        )
+    )
+
+
+def build_vol_surface_cm(symbol: str = "SPX", *, settings: object = None, session: object = None) -> str:
+    """Generate the constant-maturity vol-surface-changes board (self-contained HTML); return its path.
+
+    Single source of truth is ``scripts/vol_surface_cm_report.py``. Reads
+    ``vol_surface_cm`` (today + a ~weekly-prior date) via ``get_vol_surface_cm`` and
+    the pure ``market.vol_surface_cm`` assembly/read. Descriptor only (rule 4).
+    """
+    return str(
+        _load(_VOL_SURFACE_CM_SCRIPT, "_vol_surface_cm_report_impl").build(
+            symbol, settings=settings, session=session
         )
     )

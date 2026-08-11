@@ -149,6 +149,9 @@ class Settings(BaseSettings):
     IV_TENOR_SYMBOLS: str = "QQQ,SPY,SPX,IWM"  # roots to snapshot (comma list); IWM = RTY proxy for RTY-SPX vol spread
     IV_TENOR_DTE: str = "30,90"  # constant-maturity tenors in calendar days (1M/3M)
     IV_TENOR_DELTAS: str = "15,25"  # wing |delta| points to store (ATM/50d always)
+    # Constant-maturity delta-vol surface (the ^SPX vol-surface-changes board)
+    VOL_SURFACE_CM_SYMBOLS: str = "SPX"  # roots for the CM delta-vol surface job
+    VOL_SURFACE_CM_DTES: str = "7,14,21,30,60,90"  # constant-maturity rungs (calendar days)
 
     # ── Options time & sales capture (Phase 3 NAS tape -> tas_prints) ──
     TAS_MIN_PREMIUM: float = 25_000.0  # keep prints with notional (price*size*100) >= this $
@@ -255,6 +258,26 @@ class Settings(BaseSettings):
         seen: set[int] = set()
         out: list[int] = []
         for tok in self.IV_TENOR_DTE.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            dte = int(tok)
+            if dte not in seen:
+                seen.add(dte)
+                out.append(dte)
+        return sorted(out)
+
+    @property
+    def vol_surface_cm_symbols(self) -> list[str]:
+        """Roots for the constant-maturity delta-vol surface job (set, upper)."""
+        return [s.strip().upper() for s in self.VOL_SURFACE_CM_SYMBOLS.split(",") if s.strip()]
+
+    @property
+    def vol_surface_cm_dtes(self) -> list[int]:
+        """Constant-maturity rungs (calendar days), ascending and de-duplicated."""
+        seen: set[int] = set()
+        out: list[int] = []
+        for tok in self.VOL_SURFACE_CM_DTES.split(","):
             tok = tok.strip()
             if not tok:
                 continue

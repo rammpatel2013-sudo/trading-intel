@@ -64,6 +64,7 @@ from trading_intel.memory.models import (
     SurfaceReport,
     VixData,
     VolRichness,
+    VolSurfaceCM,
     WatchlistEntry,
 )
 from trading_intel.prices.realized_vol import rv_rolloff_projection
@@ -1071,4 +1072,66 @@ def get_signals(
         "rows": recs,
         "count": len(recs),
         "found": bool(recs),
+    }
+
+
+def get_vol_surface_cm(
+    session: Session,
+    *,
+    symbol: str = "SPX",
+    compare_sessions: int = 5,
+) -> dict[str, Any]:
+    """Constant-maturity delta-vol surface — today + a prior compare date.
+
+    Reads ``vol_surface_cm`` (the full smile at fixed forward rungs). Returns the
+    latest banked day plus the day ``compare_sessions`` trading days earlier
+    (default 5 ≈ weekly) so the report/read can diff the surface at a FIXED
+    horizon. Descriptor only (FlashAlpha rule 4).
+    """
+    sym = symbol.strip().upper()
+    max_ts = session.execute(
+        select(func.max(VolSurfaceCM.ts)).where(VolSurfaceCM.symbol == sym)
+    ).scalar()
+    if max_ts is None:
+        return {"symbol": sym, "found": False, "rows_now": [], "rows_prior": []}
+
+    dates = session.execute(
+        select(VolSurfaceCM.ts)
+        .where(VolSurfaceCM.symbol == sym, VolSurfaceCM.ts <= max_ts)
+        .distinct()
+        .order_by(VolSurfaceCM.ts.desc())
+    ).scalars().all()
+    prior_ts = None
+    if len(dates) > compare_sessions:
+        prior_ts = dates[compare_sessions]
+    elif len(dates) > 1:
+        prior_ts = dates[-1]
+
+    def _rows(ts) -> list[dict[str, Any]]:
+        rows = session.execute(
+            select(VolSurfaceCM)
+            .where(VolSurfaceCM.symbol == sym, VolSurfaceCM.ts == ts)
+            .order_by(VolSurfaceCM.dte.asc(), VolSurfaceCM.delta.asc())
+        ).scalars().all()
+        return [
+            {
+                "ts": _iso_day(r.ts),
+                "dte": r.dte,
+                "delta": _num(r.delta),
+                "side": r.side,
+                "iv": _num(r.iv),
+                "spot": _num(r.spot),
+                "near_expiry": (_iso_day(r.near_expiry) if r.near_expiry else None),
+            }
+            for r in rows
+        ]
+
+    return {
+        "symbol": sym,
+        "found": True,
+        "ts_now": _iso_day(max_ts),
+        "ts_prior": (_iso_day(prior_ts) if prior_ts else None),
+        "compare_sessions": compare_sessions,
+        "rows_now": _rows(max_ts),
+        "rows_prior": (_rows(prior_ts) if prior_ts else []),
     }
