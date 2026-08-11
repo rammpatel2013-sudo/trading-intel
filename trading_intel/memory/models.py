@@ -1402,3 +1402,40 @@ class NewsletterScenario(Base):
     consequence: Mapped[str | None] = mapped_column(String(256))
     direction: Mapped[str | None] = mapped_column(String(12))  # bullish | bearish | neutral
     confidence: Mapped[str | None] = mapped_column(String(12))  # high | medium | low
+
+
+class GexTransitionDaily(Base):
+    """Daily dealer-gamma transition state — the "quiet unwind" detector.
+
+    One EOD row per (symbol, trading day). Banks the state series so it never
+    re-gaps and so forward returns (fwd5/10/21) can accumulate for eventual
+    in-house validation of the taken-as-given cReserve edge. Populated by
+    ``scheduler/jobs/gex_transition.py`` from the clean reads (net GEX via
+    ``get_gamma_history`` EOD, ATM IV via ``iv_tenor_snapshots``).
+
+    ``d_gex_z`` is the unit-free trigger input (z of ΔGEX vs its own trailing
+    distribution); ``state`` is one of base / gex_drop / quiet_unwind /
+    confirmed / rebuild. Descriptor / research track only (FlashAlpha rule 4) —
+    NOT a write to the ``signals`` table.
+    """
+
+    __tablename__ = "gex_transition_daily"
+    __table_args__ = (
+        UniqueConstraint("symbol", "ts", name="uq_gex_transition_daily"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    ts: Mapped[date] = mapped_column(Date)  # trading day (EOD)
+    net_gex: Mapped[float | None] = mapped_column(Float)  # EOD net signed GEX (normalised)
+    d_gex: Mapped[float | None] = mapped_column(Float)  # day-over-day ΔGEX (contiguous only)
+    d_gex_z: Mapped[float | None] = mapped_column(Float)  # z of ΔGEX vs trailing distribution
+    atm_iv: Mapped[float | None] = mapped_column(Float)  # clean ATM IV, vol points (iv_tenor)
+    d_iv_pt: Mapped[float | None] = mapped_column(Float)  # day-over-day ΔIV, vol points
+    state: Mapped[str | None] = mapped_column(String(24))  # base/gex_drop/quiet_unwind/confirmed/rebuild
+    spot: Mapped[float | None] = mapped_column(Float)
+    flip: Mapped[float | None] = mapped_column(Float)  # gamma flip level
+    fwd5: Mapped[float | None] = mapped_column(Float)  # forward 5d return (filled later)
+    fwd10: Mapped[float | None] = mapped_column(Float)
+    fwd21: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(48), default="gamma_history+iv_tenor")

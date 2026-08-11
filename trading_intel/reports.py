@@ -19,6 +19,10 @@ _FLOW_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "flow_report
 _VOL_SURFACE_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_surface_report.py"
 _COCKPIT_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "cockpit_report.py"
 _SECTOR_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "sector_report.py"
+_GEX_TRANSITION_SCRIPT = (
+    Path(__file__).resolve().parent.parent / "scripts" / "gex_transition_report.py"
+)
+_VOL_REGIME_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_regime_report.py"
 
 
 def _load(path: Path, modname: str) -> ModuleType:
@@ -111,3 +115,33 @@ def build_sector(*, settings: object = None) -> str:
     Descriptor only (FlashAlpha rule 4).
     """
     return str(_load(_SECTOR_SCRIPT, "_sector_report_impl").build(settings=settings))
+
+
+def build_gex_transition(*, settings: object = None, session: object = None) -> str:
+    """Generate the SPX GEX-Transition Signal report (self-contained HTML); return its path.
+
+    Single source of truth is ``scripts/gex_transition_report.py``. Reads the
+    banked net-GEX (``get_gamma_history`` EOD) + clean ATM IV (``get_iv_tenor``)
+    and classifies the dealer-gamma "quiet unwind" state via the pure
+    ``market.gex_transition`` machine. The edge is taken as given — the report
+    only surfaces state. Descriptor only (FlashAlpha rule 4).
+    """
+    return str(
+        _load(_GEX_TRANSITION_SCRIPT, "_gex_transition_report_impl").build(
+            settings=settings, session=session
+        )
+    )
+
+
+def build_vol_regime(*, settings: object = None, session: object = None) -> str:
+    """Generate the SPX Vol-Regime & Skew Monitor (self-contained HTML); return its path.
+
+    Single source of truth is ``scripts/vol_regime_report.py``. Reads
+    ``get_index_skew`` / ``get_iv_tenor`` / ``get_vix`` and renders the trend-chart
+    grid + skew/convexity/term/dispersion detail. Descriptor only (rule 4).
+    """
+    return str(
+        _load(_VOL_REGIME_SCRIPT, "_vol_regime_report_impl").build(
+            settings=settings, session=session
+        )
+    )

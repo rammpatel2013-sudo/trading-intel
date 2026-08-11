@@ -23,6 +23,8 @@ from trading_intel.config import Settings, get_settings
 from trading_intel.dashboard.chart_data import load_ohlc
 from trading_intel.mcp.extra_tools import (
     get_flow_scorecard,
+    get_index_skew,
+    get_iv_tenor,
     get_research_note,
     get_research_watchlist,
     get_straddle,
@@ -31,6 +33,7 @@ from trading_intel.mcp.extra_tools import (
     get_walls,
 )
 from trading_intel.mcp.tools import get_gamma_history
+from trading_intel.market.gex_transition import compute as _gex_compute
 from trading_intel.api.market_read import build_market_read
 from trading_intel.api.newsletter import build_newsletter_signals
 from trading_intel.synthesis.daily_brief_render import render_html
@@ -471,6 +474,70 @@ def _recap_block(
     }
 
 
+def _gex_transition_block(session: Session) -> dict[str, Any] | None:
+    """SPX dealer-gamma "quiet unwind" state for the Doc section (best-effort).
+
+    Reads net GEX (EOD) + CLEAN ATM IV (``iv_tenor``) and classifies today's
+    state via the pure ``market.gex_transition`` machine. The edge is taken as
+    given; this only surfaces the state. Descriptor only (FlashAlpha rule 4).
+    """
+    try:
+        gamma = get_gamma_history(session, _DOC_ROOT, days=120).get("rows") or []
+        iv = get_iv_tenor(session, symbols=[_DOC_ROOT], tenor_dte=30, days=120).get("rows") or []
+        if not gamma:
+            return None
+        res = _gex_compute(gamma, iv, tenor_dte=30)
+        cur = res.latest
+        if cur is None:
+            return None
+        rows = [r for r in res.rows if r.net_gex is not None][-10:]
+        over = ((cur.spot / cur.flip - 1.0) * 100.0) if (cur.spot and cur.flip) else None
+        return {
+            "state": cur.state,
+            "net_gex": cur.net_gex,
+            "d_gex_z": cur.d_gex_z,
+            "d_iv_pt": cur.d_iv_pt,
+            "atm_iv": cur.atm_iv,
+            "flip": cur.flip,
+            "spot": cur.spot,
+            "over_pct": over,
+            "firing": cur.state in ("quiet_unwind", "confirmed", "gex_drop"),
+            "strip": [
+                {"d": r.date.strftime("%m-%d"), "gex": r.net_gex, "z": r.d_gex_z, "state": r.state}
+                for r in rows
+            ],
+        }
+    except Exception:  # noqa: BLE001 — best-effort; brief renders without it
+        log.warning("daily_brief.gex_transition_failed", exc_info=True)
+        return None
+
+
+def _vol_skew_block(session: Session) -> dict[str, Any] | None:
+    """Compact skew / dispersion reads for the vol section (best-effort)."""
+    try:
+        rows = get_index_skew(session, days=30).get("rows") or []
+        if not rows:
+            return None
+
+        def _last(key: str) -> Any:
+            for r in reversed(rows):
+                if r.get(key) is not None:
+                    return r.get(key)
+            return None
+
+        return {
+            "rr_pctile": _last("spx_rr_pctile_252d"),
+            "sdex_pctile": _last("sdex_pctile_252d"),
+            "cor1m": _last("cor1m"),
+            "cor1m_pctile": _last("cor1m_pctile_252d"),
+            "vvix_vix": _last("vvix_vix_ratio"),
+            "dspx": _last("dspx"),
+        }
+    except Exception:  # noqa: BLE001
+        log.warning("daily_brief.vol_skew_failed", exc_info=True)
+        return None
+
+
 def build_brief_context(session: Session, settings: Settings | None = None) -> dict[str, Any]:
     """Assemble the full daily-brief context dict from banked data."""
     settings = settings or get_settings()
@@ -503,6 +570,8 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "flows": flows,
         "vix": vix,
         "doc": doc,
+        "gex_transition": _gex_transition_block(session),
+        "vol_skew": _vol_skew_block(session),
         "em_levels": em_levels,
         "letters": _letters_block(session),
         "fresh_tags": None,

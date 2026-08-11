@@ -191,6 +191,92 @@ def _doc_ladder_svg(doc: dict[str, Any]) -> str:
     return f'<div class="ladderwrap">{"".join(parts)}</div>'
 
 
+_GX_COLOR = {
+    "quiet_unwind": "#d1495b",
+    "confirmed": "#e08a1e",
+    "gex_drop": "#e08a1e",
+    "rebuild": "#2f9e6f",
+    "base": "#93a0b3",
+}
+_GX_LABEL = {
+    "quiet_unwind": "QUIET UNWIND",
+    "confirmed": "CONFIRMED DROP",
+    "gex_drop": "GEX DROP",
+    "rebuild": "REBUILD",
+    "base": "BASE",
+}
+
+
+def _gex_transition_html(ctx: dict[str, Any]) -> str:
+    """Dealer-gamma "quiet unwind" state block for the Doc section (self-contained)."""
+    gx = ctx.get("gex_transition")
+    if not gx:
+        return ""
+    st = gx.get("state") or "base"
+    col = _GX_COLOR.get(st, "#93a0b3")
+    lab = _GX_LABEL.get(st, "BASE")
+    z, div, ng, over = gx.get("d_gex_z"), gx.get("d_iv_pt"), gx.get("net_gex"), gx.get("over_pct")
+    zt = f"{z:+.1f}σ" if isinstance(z, (int, float)) else "—"
+    dvt = f"{div:+.2f}pt" if isinstance(div, (int, float)) else "—"
+    ngt = f"{ng:.0f}" if isinstance(ng, (int, float)) else "—"
+    ovt = f"+{over:.1f}% &gt; flip" if isinstance(over, (int, float)) else ""
+    cells = ""
+    for c in gx.get("strip", []):
+        cc = _GX_COLOR.get(c.get("state"), "#93a0b3")
+        g = c.get("gex")
+        gt = f"{g:.0f}" if isinstance(g, (int, float)) else "—"
+        cells += (
+            f'<div style="flex:1;text-align:center;border:1px solid #e6e9ef;border-top:3px solid {cc};'
+            f'border-radius:6px;padding:4px 2px;min-width:0">'
+            f'<div style="font-size:8.5px;color:#9aa3b2">{_esc(c.get("d"))}</div>'
+            f'<div style="font-size:11px;font-weight:800;color:{cc}">{gt}</div></div>'
+        )
+    if gx.get("firing"):
+        read = (
+            "Fast GEX drop with IV pinned — the quiet unwind the backtest flags bearish."
+            if st == "quiet_unwind"
+            else "Fast GEX move — watch closely (IV confirming or ambiguous)."
+        )
+    else:
+        read = (
+            "No quiet-unwind. Slow bleed = noise; watch for a fast net-GEX drop "
+            "(ΔGEX ≤ −1.5σ) while IV stays pinned."
+        )
+    return (
+        f'<div style="margin-top:10px;border:1px solid #e6e9ef;border-left:4px solid {col};'
+        f'border-radius:8px;padding:9px 11px;background:#fafbfc">'
+        f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        f'<b style="color:{col};font-size:13px">GEX transition: {_esc(lab)}</b>'
+        f'<span style="font-size:9px;font-weight:800;color:#fff;background:#2f6df0;border-radius:4px;'
+        f'padding:1px 5px">NEW</span>'
+        f'<span style="margin-left:auto;font-size:11px;color:#55607a">ΔGEX <b>{zt}</b> · '
+        f'ΔIV <b>{dvt}</b> · net <b>{ngt}</b> {("· " + ovt) if ovt else ""}</span></div>'
+        f'<div style="display:flex;gap:3px;margin-top:7px">{cells}</div>'
+        f'<div style="font-size:11.5px;color:#55607a;margin-top:6px">{read}</div></div>'
+    )
+
+
+def _vol_skew_chips(ctx: dict[str, Any]) -> str:
+    """Compact skew / dispersion chips for the vol section."""
+    vs = ctx.get("vol_skew")
+    if not vs:
+        return ""
+
+    def _pctile(x: Any) -> str:
+        return f"{int(round(x * 100))}%ile" if isinstance(x, (int, float)) else "—"
+
+    parts = []
+    if vs.get("rr_pctile") is not None:
+        parts.append(f'<div class="chip"><span class="lab">25Δ skew</span><b>{_pctile(vs.get("rr_pctile"))}</b></div>')
+    if vs.get("cor1m") is not None:
+        parts.append(f'<div class="chip"><span class="lab">Impl corr 1M</span><b>{_fmt(vs.get("cor1m"),1)}</b></div>')
+    if vs.get("vvix_vix") is not None:
+        parts.append(f'<div class="chip"><span class="lab">VVIX/VIX</span><b>{_fmt(vs.get("vvix_vix"),2)}</b></div>')
+    if vs.get("dspx") is not None:
+        parts.append(f'<div class="chip"><span class="lab">DSPX</span><b>{_fmt(vs.get("dspx"),1)}</b></div>')
+    return "".join(parts)
+
+
 def _doc_section(ctx: dict[str, Any]) -> str:
     doc = ctx.get("doc") or {}
     exp = doc.get("expectation") or "Doc's daily read will appear here once the letter body is stored."
@@ -223,6 +309,7 @@ def _doc_section(ctx: dict[str, Any]) -> str:
 <div class="chip"><span class="lab">Spot</span><b>{_fmt(doc.get("spot"),0)}</b></div>
 <div class="chip"><span class="lab">Call wall</span><b>{_fmt(doc.get("call_wall"),0)}</b></div>
 {straddle_rail}{r16}</div>
+{_gex_transition_html(ctx)}
 {stale}</div>"""
 
 
@@ -277,6 +364,7 @@ def _vol_section(ctx: dict[str, Any]) -> str:
 <div class="chip"><span class="lab">Term 9d−3m</span><b>{_fmt(v.get("term"),2)}</b></div>
 <div class="chip"><span class="lab">VRP</span><b>{_fmt(v.get("vrp"),1)}</b></div>
 <div class="chip"><span class="lab">Vega zone</span><b>{_esc(v.get("vega_zone"))}</b></div>
+{_vol_skew_chips(ctx)}
 </div><div class="note">{_esc(ctx.get("vol_note") or "")}</div></div>"""
 
 

@@ -146,7 +146,7 @@ class Settings(BaseSettings):
     # for them; the iv_tenor_snapshots job pulls a LIVE chain, builds the surface
     # in memory, and stores only ATM IV + the configured delta wings at fixed
     # constant-maturity tenors (no per-strike rows persisted).
-    IV_TENOR_SYMBOLS: str = "QQQ,SPY,SPX"  # roots to snapshot (comma list)
+    IV_TENOR_SYMBOLS: str = "QQQ,SPY,SPX,IWM"  # roots to snapshot (comma list); IWM = RTY proxy for RTY-SPX vol spread
     IV_TENOR_DTE: str = "30,90"  # constant-maturity tenors in calendar days (1M/3M)
     IV_TENOR_DELTAS: str = "15,25"  # wing |delta| points to store (ATM/50d always)
 
