@@ -32,6 +32,9 @@ _OUT = Path("reports")
 def _telegram_summary(ctx: dict[str, Any]) -> str:
     """Compact HTML text summary pushed alongside the HTML document."""
     lines = [f"<b>📈 Trading-Intel Daily {ctx.get('as_of')}</b>"]
+    mr = ctx.get("market_read") or {}
+    if mr.get("narrative"):
+        lines.append(f"🧭 <b>Read:</b> {_html.escape(str(mr['narrative']))}")
     for ix in ctx.get("indices") or []:
         vf = ix.get("spot_vs_flip_pct")
         arrow = "▼" if (vf or 0) < 0 else "▲"

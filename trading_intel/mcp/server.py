@@ -526,6 +526,42 @@ def build_server(
         with session_factory() as session:
             return build_breadth(session)
 
+    @mcp.tool()
+    def get_newsletter_signals() -> dict[str, Any]:
+        """Latest LEVELS + IF-THEN SCENARIOS the tracked newsletters stated.
+
+        Per source (Doc / VolSignals / Kurt / Norseman): the concrete levels the
+        author gave (gamma flip, call/put walls, Bull/Bear Line, expected move, …)
+        and their conditional scenarios ("if SPX holds X → grind Y; lose X → air
+        Z"). Extracted by a local-Ollama pass over the stored letter bodies. Use to
+        cross-check the author's stated levels against our computed flip/walls and
+        to see which if-then branch is live vs current price. Reads only
+        ``newsletter_levels`` / ``newsletter_scenarios`` — no vendor calls.
+        Descriptor only (rule 4). ``{found: False}`` until the extractor has run.
+        """
+        from trading_intel.api.newsletter import build_newsletter_signals
+
+        with session_factory() as session:
+            return build_newsletter_signals(session)
+
+    @mcp.tool()
+    def get_market_read(symbol: str = "SPX") -> dict[str, Any]:
+        """The fused market read — one narrative from all four pillars.
+
+        Reconciles REGIME (Norseman Bull/Bear Line + breadth), MECHANICS (dealer
+        gamma/delta/flip + expected move), WEATHER (VIX + term structure + VVIX
+        vol-of-vol), and the newsletter if-then scenarios into: the path of least
+        resistance, a levels ladder, trigger conditions (ours + the authors'),
+        cross-pillar fragility flags, a confluence score, and a one-line
+        narrative. Reads only banked DB rows (positioning / breadth / newsletter /
+        VIX) — no vendor calls. Describes the interaction of the pillars; it does
+        NOT emit a trade signal (rule 4).
+        """
+        from trading_intel.api.market_read import build_market_read
+
+        with session_factory() as session:
+            return build_market_read(session, symbol=symbol)
+
     tgt.register(mcp, settings)
 
     return mcp

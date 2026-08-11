@@ -1360,3 +1360,45 @@ class BreadthSnapshot(Base):
     # breadth-vs-price divergence
     divergence_state: Mapped[str | None] = mapped_column(String(16))
     divergence_len: Mapped[int | None] = mapped_column(Integer)
+
+
+class NewsletterLevel(Base):
+    """A concrete price/vol LEVEL a newsletter stated (Doc gamma flip / walls,
+    Norseman Bull/Bear Line, VolSignals/Kurt gamma levels, …).
+
+    Banked by ``scheduler.jobs.letters_fetch`` via the local-Ollama
+    ``synthesis.newsletter_extract`` pass. Used to CROSS-CHECK the author's stated
+    number against our computed value and as interim data. Idempotent upsert on
+    (source, as_of, name). Descriptive only (rule 4)."""
+
+    __tablename__ = "newsletter_levels"
+    __table_args__ = (UniqueConstraint("source", "as_of", "name", name="uq_nl_source_asof_name"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(24), index=True)  # DOC | VOLSIGNALS | KURT | NORSEMAN
+    as_of: Mapped[date] = mapped_column(Date)
+    name: Mapped[str] = mapped_column(String(40))  # gamma_flip | call_wall | bull_bear_line | ...
+    value: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(12))
+    note: Mapped[str | None] = mapped_column(String(160))
+
+
+class NewsletterScenario(Base):
+    """A conditional IF-THEN scenario a newsletter narrated ("if SPX holds X →
+    grind Y; lose X → air Z") — Doc's "if vol does this, price does that".
+
+    Banked alongside ``NewsletterLevel``. Feeds the if-then / trigger layer of the
+    synthesis engine. Idempotent upsert on (source, as_of, idx). Descriptive
+    only (rule 4)."""
+
+    __tablename__ = "newsletter_scenarios"
+    __table_args__ = (UniqueConstraint("source", "as_of", "idx", name="uq_ns_source_asof_idx"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(24), index=True)
+    as_of: Mapped[date] = mapped_column(Date)
+    idx: Mapped[int] = mapped_column(Integer)  # position in the letter (0-based)
+    trigger: Mapped[str] = mapped_column(String(256))
+    consequence: Mapped[str | None] = mapped_column(String(256))
+    direction: Mapped[str | None] = mapped_column(String(12))  # bullish | bearish | neutral
+    confidence: Mapped[str | None] = mapped_column(String(12))  # high | medium | low

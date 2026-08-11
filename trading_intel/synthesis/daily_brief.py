@@ -31,6 +31,8 @@ from trading_intel.mcp.extra_tools import (
     get_walls,
 )
 from trading_intel.mcp.tools import get_gamma_history
+from trading_intel.api.market_read import build_market_read
+from trading_intel.api.newsletter import build_newsletter_signals
 from trading_intel.synthesis.daily_brief_render import render_html
 
 log = structlog.get_logger(__name__)
@@ -481,10 +483,20 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
     mag7 = _mag7_block(session)
     flows = _flows_block(session)
     learned, learned_total = _learned_block(session)
+    try:
+        market_read = build_market_read(session, symbol="SPX")
+    except Exception:  # noqa: BLE001 — synthesis is best-effort; brief renders without it
+        market_read = None
+    try:
+        newsletter = build_newsletter_signals(session)
+    except Exception:  # noqa: BLE001
+        newsletter = None
     ctx: dict[str, Any] = {
         "as_of": date.today().isoformat(),
-        "subtitle": "pre-open daily brief · index gamma, Doc levels, letters",
+        "subtitle": "pre-open daily brief · synthesis read, index gamma, Doc levels, letters",
         "through_line": _through_line(indices, vix),
+        "market_read": market_read,
+        "newsletter": newsletter,
         "recap": recap,
         "indices": indices,
         "mag7": mag7,

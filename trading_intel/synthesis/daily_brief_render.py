@@ -453,14 +453,82 @@ ul.clean{margin:6px 0 0;padding-left:18px;font-size:13px}ul.clean li{margin:5px 
 .verdict{font-weight:700}.ok{color:#1a8a4a}.warn{color:#b26a00}.bad{color:#c0392b}
 .flag{background:#fbf6e9;border:1px dashed #e3c98a;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#7a5b12;margin-top:10px}
 .ladderwrap{width:100%;overflow-x:auto}svg.ladder{display:block;margin:6px auto;max-width:540px;width:100%;height:auto}
-.foot{color:#9aa5b1;font-size:11.5px;margin-top:24px;text-align:center;line-height:1.7;border-top:1px solid #e2e7ee;padding-top:14px}"""
+.foot{color:#9aa5b1;font-size:11.5px;margin-top:24px;text-align:center;line-height:1.7;border-top:1px solid #e2e7ee;padding-top:14px}
+.mrmeta{margin:11px 0 6px;font-size:13px}.mrmeta .path{color:#33404f;margin-left:9px}
+.trigs{margin-top:12px}.trigs .hd,.overlay .hd{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#6b7684;font-weight:700;margin-bottom:6px}
+.overlay{margin-top:13px}.overlay th.l,.overlay td.l{text-align:left}
+.quote .src{color:#9aa5b1;font-size:11px;font-weight:400}"""
+
+
+def _stated_vs_ours(ctx: dict[str, Any], mech: dict[str, Any]) -> str:
+    """Doc's stated gamma flip vs our computed flip — the cross-check overlay."""
+    ns = ctx.get("newsletter") or {}
+    doc = (ns.get("sources") or {}).get("DOC") or {}
+    doc_levels = {lv.get("name"): lv.get("value") for lv in (doc.get("levels") or [])}
+    ours_flip = mech.get("gex_flip")
+    pairs = [
+        ("Gamma flip", ours_flip, doc_levels.get("gamma_flip")),
+        ("Call wall", None, doc_levels.get("call_wall")),
+        ("Put wall", None, doc_levels.get("put_wall")),
+    ]
+    pairs = [(lab, o, s) for (lab, o, s) in pairs if o is not None or s is not None]
+    if not pairs:
+        return ""
+    rows = "".join(
+        f'<tr><td class="l">{lab}</td><td>{_fmt(o, 0) if o is not None else "—"}</td>'
+        f'<td>{_fmt(s, 0) if s is not None else "—"}</td></tr>'
+        for (lab, o, s) in pairs
+    )
+    return (
+        '<div class="overlay"><div class="hd">Stated vs ours</div>'
+        '<table><thead><tr><th class="l">level</th><th>ours</th><th>Doc</th></tr></thead>'
+        f"<tbody>{rows}</tbody></table></div>"
+    )
+
+
+def _market_read_section(ctx: dict[str, Any]) -> str:
+    """The fused synthesis read — path, levels, triggers, confluence, narrative."""
+    mr = ctx.get("market_read") or {}
+    if not mr:
+        return ""
+    mech = mr.get("mechanics") or {}
+    confl = mr.get("confluence") or {}
+    score = confl.get("score") or "—"
+    bg, fg = ("#e6f6ee", "#0b7a43") if "constructive" in score else (
+        ("#fdecec", "#b3261e") if "defensive" in score else ("#fbf3e2", "#8a5a12")
+    )
+    chips = "".join(
+        f'<div class="chip"><span class="lab">{_esc(lv.get("name"))}</span>'
+        f'<b>{_fmt(lv.get("value"), 0)}</b></div>'
+        for lv in (mr.get("levels") or [])
+    )
+    flags = "".join(f'<div class="flag">{_esc(f)}</div>' for f in (mr.get("cross_pillar_flags") or []))
+    trigs = "".join(
+        f'<div class="quote"><b>{_esc(t.get("trigger"))}</b> → {_esc(t.get("consequence") or "")}'
+        f' <span class="src">{_esc(t.get("source"))}</span></div>'
+        for t in (mr.get("triggers") or [])[:6]
+    )
+    overlay = _stated_vs_ours(ctx, mech)
+    return (
+        '<h2 class="sec"><span class="n">00</span>Market read — the fused board</h2>'
+        '<div class="card">'
+        f'<div class="through">{_esc(mr.get("narrative") or "")}</div>'
+        f'<div class="mrmeta"><span class="pill" style="background:{bg};color:{fg}">{_esc(score)}</span>'
+        f'<span class="path">{_esc(mr.get("path") or "")}</span></div>'
+        + (f'<div class="lvl">{chips}</div>' if chips else "")
+        + overlay
+        + (f'<div class="trigs"><div class="hd">Triggers to watch</div>{trigs}</div>' if trigs else "")
+        + flags
+        + "</div>"
+    )
 
 
 def render_html(ctx: dict[str, Any]) -> str:
     """Render the full daily-brief HTML from the context dict."""
     through = _esc(ctx.get("through_line") or "")
     body = (
-        _index_board(ctx)
+        _market_read_section(ctx)
+        + _index_board(ctx)
         + _mag7_section(ctx)
         + _flows_section(ctx)
         + _doc_section(ctx)

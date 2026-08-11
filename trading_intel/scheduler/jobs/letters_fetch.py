@@ -21,13 +21,14 @@ from xml.etree.ElementTree import ParseError
 
 import httpx
 import structlog
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.letters import substack
 from trading_intel.letters.sources import substack_sources
-from trading_intel.memory.models import ResearchNote
+from trading_intel.memory.models import NewsletterLevel, NewsletterScenario, ResearchNote
 from trading_intel.memory.watchlist_ingest import ingest_folder
 from trading_intel.synthesis.llm import LLMProvider
 
@@ -44,8 +45,24 @@ _SOURCE_KEYS = {
     "jaguaranalytics": "__JAGUAR__",
     "longandshort": "__LONGSHORT__",
     "specialsits": "__SITS__",
+    # added 2026-08-11 — the positioning/timing sources. Fragments match the
+    # sender-slug folder names; if a source's letters land in a differently-named
+    # folder its note just stays empty until the fragment is corrected.
+    "volsignals": "__VOLSIGNALS__",
+    "lumida": "__LUMIDA__",
+    "kurt": "__KURT__",
+    "norseman": "__NORSEMAN__",
 }
 _NOTE_MAX_CHARS = 8000
+
+#: The subset of stored notes we run the local-Ollama levels/scenarios extractor on
+#: (Doc/VolSignals/Kurt/Norseman give levels + if-then; the flow/prose sources don't).
+_SIGNAL_SOURCES = {
+    "__DOC__": "DOC",
+    "__VOLSIGNALS__": "VOLSIGNALS",
+    "__KURT__": "KURT",
+    "__NORSEMAN__": "NORSEMAN",
+}
 
 
 def _store_source_notes(session: Session, root: Path) -> int:
@@ -90,6 +107,65 @@ def _store_source_notes(session: Session, root: Path) -> int:
     return written
 
 
+def _extract_source_signals(
+    session: Session, llm: LLMProvider, *, model: str | None = None
+) -> int:
+    """Local-Ollama pass over the stored letter bodies → newsletter_levels + scenarios.
+
+    Reads the newest ResearchNote per signal source (DOC / VOLSIGNALS / KURT /
+    NORSEMAN), pulls the stated LEVELS + IF-THEN SCENARIOS
+    (``synthesis.newsletter_extract``), and idempotently upserts them keyed on
+    (source, as_of[, name | idx]). Rule 7 (local model), rule 4 (descriptive).
+    Skips a source cleanly when its note is missing / the model returns nothing.
+    """
+    from trading_intel.synthesis.newsletter_extract import extract_newsletter
+
+    today = date.today()
+    n = 0
+    for key, label in _SIGNAL_SOURCES.items():
+        note = session.execute(
+            select(ResearchNote)
+            .where(ResearchNote.symbol == key)
+            .order_by(ResearchNote.as_of.desc())
+        ).scalars().first()
+        if note is None or not note.note_md:
+            continue
+        read = extract_newsletter(label, note.note_md, llm, model=model)
+        if read.empty:
+            continue
+        for lv in read.levels:
+            session.execute(
+                pg_insert(NewsletterLevel)
+                .values(
+                    source=label, as_of=today, name=lv["name"],
+                    value=lv["value"], unit=lv["unit"], note=lv["note"],
+                )
+                .on_conflict_do_update(
+                    constraint="uq_nl_source_asof_name",
+                    set_={"value": lv["value"], "unit": lv["unit"], "note": lv["note"]},
+                )
+            )
+        for i, sc in enumerate(read.scenarios):
+            session.execute(
+                pg_insert(NewsletterScenario)
+                .values(
+                    source=label, as_of=today, idx=i, trigger=sc["trigger"],
+                    consequence=sc["consequence"], direction=sc["direction"],
+                    confidence=sc["confidence"],
+                )
+                .on_conflict_do_update(
+                    constraint="uq_ns_source_asof_idx",
+                    set_={
+                        "trigger": sc["trigger"], "consequence": sc["consequence"],
+                        "direction": sc["direction"], "confidence": sc["confidence"],
+                    },
+                )
+            )
+        n += 1
+    session.commit()
+    return n
+
+
 def _fund_dir(root: Path, fund: str) -> Path:
     slug = "".join(ch if ch.isalnum() else "-" for ch in fund.lower()).strip("-")
     return root / (slug or "fund")
@@ -131,6 +207,7 @@ def run(
 
     result = ingest_folder(session, llm, research_dir=root, model=settings.LLM_TAGGING_MODEL)
     notes = _store_source_notes(session, root)
+    signals = _extract_source_signals(session, llm, model=settings.LLM_TAGGING_MODEL)
     bound.info(
         "letters_fetch.done",
         saved=saved,
@@ -138,8 +215,9 @@ def run(
         skipped=result["skipped"],
         new_symbols=result["new_symbols"],
         source_notes=notes,
+        signals=signals,
     )
-    return {"saved": saved, "source_notes": notes, **result}
+    return {"saved": saved, "source_notes": notes, "signals": signals, **result}
 
 
 def main() -> None:
