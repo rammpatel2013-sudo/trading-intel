@@ -23,11 +23,18 @@ REM        For the FIRST ship that introduces it, run the NAS step by hand once
 REM        (see pending-deploys / deploy-automation), then ship.bat works forever.
 REM ============================================================================
 setlocal enabledelayedexpansion
-cd /d "%~dp0.."
+REM capture the script dir NOW — the arg-collect `shift` loop below also shifts %0,
+REM so %~dp0 must not be read after it (it would drift to a file arg's folder).
+set "HERE=%~dp0"
+cd /d "%HERE%.."
 
 if "%~1"=="" goto usage
 set "MSG=%~1"
 set "JOBS=%~2"
+REM no-jobs sentinel = "none" / "-" / empty. IMPORTANT: PowerShell DROPS a literal
+REM "" argument (shifting everything left), so from PowerShell pass "none", not "".
+if /i "!JOBS!"=="none" set "JOBS="
+if "!JOBS!"=="-" set "JOBS="
 shift
 shift
 
@@ -41,7 +48,7 @@ goto collect
 if "!FILES!"=="" goto usage
 
 echo ==== [1/3] laptop: compile + commit + push ====
-call "%~dp0deploy.bat" "!MSG!" !FILES!
+call "%HERE%deploy.bat" "!MSG!" !FILES!
 if !errorlevel! neq 0 ( echo [FAIL] laptop deploy — aborting. & exit /b 1 )
 
 echo.
@@ -51,7 +58,9 @@ if !errorlevel! neq 0 ( echo [FAIL] alembic upgrade — aborting before NAS. & e
 
 echo.
 echo ==== [3/3] NAS: rebuild + run jobs (enter NAS + sudo password when prompted) ====
-ssh -t drmithil@192.168.1.211 "sudo sh /var/services/homes/drmithil/trading-intel/scripts/nas/deploy.sh --run !JOBS!"
+set "RUNARG="
+if defined JOBS set "RUNARG=--run !JOBS!"
+ssh -t drmithil@192.168.1.211 "sudo sh /var/services/homes/drmithil/trading-intel/scripts/nas/deploy.sh !RUNARG!"
 if !errorlevel! neq 0 ( echo [WARN] NAS step returned nonzero — check output above. & exit /b 1 )
 
 echo.
