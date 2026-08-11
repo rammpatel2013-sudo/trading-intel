@@ -134,3 +134,128 @@ def fetch_closes(
         if len(closes) >= 60:
             out[sym] = list(reversed(closes[:days]))  # FMP returns newest-first → oldest→newest
     return out
+
+
+# ── Bull/Bear Line + cumulative A-D line + McClellan + divergence ──────────────
+# The regime half of breadth (Norseman method + the synthesis engine). All pure
+# (numbers-in → numbers-out) and unit-tested; the collector banks a daily
+# ``breadth_snapshots`` row so the A-D line and the divergence-duration read
+# (which need history) can accumulate. Descriptor only (rule 4).
+
+def weekly_last_closes(dated_closes: Sequence[tuple]) -> list[float]:
+    """Collapse ``(date, close)`` daily rows to ONE last close per ISO week.
+
+    Oldest→newest. Skips ``None`` closes. Used to feed ``bull_bear_line`` (Norseman
+    ratchets on the *weekly* close).
+    """
+    by_week: dict[tuple[int, int], tuple] = {}
+    for d, c in dated_closes:
+        if c is None or d is None:
+            continue
+        iso = d.isocalendar()
+        key = (iso[0], iso[1])
+        prev = by_week.get(key)
+        if prev is None or d >= prev[0]:
+            by_week[key] = (d, float(c))
+    return [by_week[k][1] for k in sorted(by_week)]
+
+
+def bull_bear_line(weekly_closes: Sequence[float], *, pct: float = 0.10) -> float | None:
+    """Norseman Bull/Bear Line = ``(1 − pct)`` × the highest weekly close TO DATE.
+
+    Ratchets UP with every new weekly-closing high, never down (it's just the
+    running max × 0.90). ``None`` if there is no history.
+    """
+    highs = [float(c) for c in weekly_closes if c is not None]
+    return (1.0 - pct) * max(highs) if highs else None
+
+
+def ad_line_next(prev_ad_line: float | None, advancers: int, decliners: int) -> int:
+    """Cumulative Advance-Decline line: prior level + today's net (adv − decl)."""
+    base = 0 if prev_ad_line is None else int(prev_ad_line)
+    return base + int(advancers) - int(decliners)
+
+
+def _ema(series: Sequence[float], span: int) -> float | None:
+    vals = [float(x) for x in series if x is not None]
+    if not vals:
+        return None
+    k = 2.0 / (span + 1.0)
+    e = vals[0]
+    for x in vals[1:]:
+        e = x * k + e * (1.0 - k)
+    return e
+
+
+def mcclellan(
+    net_adv_series: Sequence[float], prev_summation: float | None = None
+) -> tuple[float | None, float | None]:
+    """McClellan Oscillator (EMA19 − EMA39 of daily net advances) + Summation Index.
+
+    ``net_adv_series`` = oldest→newest daily (advancers − decliners). Summation =
+    ``prev_summation`` + today's oscillator (seeded from today's oscillator when no
+    prior is supplied). Returns ``(oscillator, summation)`` — either may be ``None``.
+    """
+    if len([x for x in net_adv_series if x is not None]) < 2:
+        return None, prev_summation
+    e19 = _ema(net_adv_series, 19)
+    e39 = _ema(net_adv_series, 39)
+    if e19 is None or e39 is None:
+        return None, prev_summation
+    osc = e19 - e39
+    summ = osc if prev_summation is None else float(prev_summation) + osc
+    return osc, summ
+
+
+def breadth_divergence(
+    price_series: Sequence[float], ad_series: Sequence[float], *, lookback: int = 12
+) -> dict:
+    """Cumulative A-D line vs price over ``lookback`` points → divergence read.
+
+    Returns ``{state, length, detail}`` with ``state`` ∈ {confirming, bearish_div,
+    bullish_div, none}. ``bearish_div`` = price at a new window high while the A-D
+    line is NOT (breadth lagging — the classic top-warning "gap", Norseman's read);
+    ``bullish_div`` = the mirror at lows; ``confirming`` = both make the high.
+    ``length`` = trailing run of sessions the divergence has held (its duration).
+    """
+    p = [float(x) for x in price_series if x is not None]
+    a = [float(x) for x in ad_series if x is not None]
+    n = min(len(p), len(a))
+    if n < 3:
+        return {"state": "none", "length": 0, "detail": "building"}
+    p = p[-min(lookback, n):]
+    a = a[-min(lookback, n):]
+    price_high = p[-1] >= max(p)
+    ad_high = a[-1] >= max(a)
+    price_low = p[-1] <= min(p)
+    ad_low = a[-1] <= min(a)
+    if price_high and ad_high:
+        state = "confirming"
+    elif price_high and not ad_high:
+        state = "bearish_div"
+    elif price_low and not ad_low:
+        state = "bullish_div"
+    else:
+        state = "none"
+
+    length = 0
+    m = len(p)
+    if state == "bearish_div":
+        for i in range(m - 1, 0, -1):
+            if p[i] >= max(p[: i + 1]) and a[i] < max(a[: i + 1]):
+                length += 1
+            else:
+                break
+    elif state == "bullish_div":
+        for i in range(m - 1, 0, -1):
+            if p[i] <= min(p[: i + 1]) and a[i] > min(a[: i + 1]):
+                length += 1
+            else:
+                break
+    detail = {
+        "confirming": "breadth confirms price (no gap)",
+        "bearish_div": "price up, breadth lagging — top-warning gap",
+        "bullish_div": "price down, breadth firmer — washout",
+        "none": "no clear divergence",
+    }[state]
+    return {"state": state, "length": length, "detail": detail}

@@ -508,6 +508,24 @@ def build_server(
         path = build_sector(settings=settings)
         return {"path": path, "uri": Path(path).as_uri(), "found": True}
 
+    @mcp.tool()
+    def get_breadth() -> dict[str, Any]:
+        """S&P-wide market breadth + the Norseman Bull/Bear Line regime read.
+
+        Returns the latest banked breadth row + short trends: the cumulative
+        Advance-Decline line (+ trend), % of S&P names above their 50/200-day MA,
+        new-highs/lows, McClellan oscillator + summation, and the regime line —
+        the Bull/Bear Line (0.90 x running-max weekly SPX-equivalent close), spot
+        vs the line, and the A-D-line-vs-price divergence read (state + duration).
+        Reads only ``breadth_snapshots`` (banked daily by the breadth job) — no
+        vendor calls. Descriptor only (rule 4). ``{found: False}`` until the
+        collector has run at least once.
+        """
+        from trading_intel.api.breadth import build_breadth
+
+        with session_factory() as session:
+            return build_breadth(session)
+
     tgt.register(mcp, settings)
 
     return mcp

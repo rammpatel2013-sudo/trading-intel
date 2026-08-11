@@ -29,7 +29,7 @@ RUN=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-build) BUILD=0 ;;
-    --run) shift; RUN="$1" ;;
+    --run) shift; RUN="$*"; break ;;  # greedy: everything after --run is the job list
     *) echo "deploy.sh: unknown arg: $1" >&2; exit 2 ;;
   esac
   shift

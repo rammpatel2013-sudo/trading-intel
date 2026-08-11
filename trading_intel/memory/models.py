@@ -1322,3 +1322,41 @@ class ShortInterestSnapshot(Base):
     avg_daily_volume: Mapped[float | None] = mapped_column(Float)
     days_to_cover: Mapped[float | None] = mapped_column(Float)
     settlement_date: Mapped[date | None] = mapped_column(Date)
+
+
+class BreadthSnapshot(Base):
+    """Daily market-breadth + regime row (one per calendar day, per source).
+
+    Banked by ``scheduler.jobs.breadth``. The constituent columns (advancers /
+    decliners / %-above-MA / new-highs-lows / McClellan) come from the S&P-wide
+    FMP-constituent compute (``market.breadth``); ``ad_line`` is the CUMULATIVE
+    Advance-Decline line (prior level + today's net). ``bull_bear_line`` is the
+    Norseman regime floor (0.90 × running-max weekly SPX-equivalent close, from
+    the maintained SPY series ×10). ``divergence_*`` is the A-D-line-vs-price read.
+    Idempotent upsert on (ts, source). Descriptive only (rule 4)."""
+
+    __tablename__ = "breadth_snapshots"
+    __table_args__ = (UniqueConstraint("ts", "source", name="uq_breadth_ts_source"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ts: Mapped[date] = mapped_column(Date, index=True)
+    source: Mapped[str] = mapped_column(String(24), default="fmp_sp500")
+    # constituent breadth
+    advancers: Mapped[int | None] = mapped_column(Integer)
+    decliners: Mapped[int | None] = mapped_column(Integer)
+    net_adv: Mapped[int | None] = mapped_column(Integer)
+    ad_line: Mapped[float | None] = mapped_column(Float)  # cumulative A-D line
+    new_highs: Mapped[int | None] = mapped_column(Integer)
+    new_lows: Mapped[int | None] = mapped_column(Integer)
+    pct_above_50: Mapped[int | None] = mapped_column(Integer)
+    pct_above_200: Mapped[int | None] = mapped_column(Integer)
+    mcclellan_osc: Mapped[float | None] = mapped_column(Float)
+    mcclellan_sum: Mapped[float | None] = mapped_column(Float)
+    n_constituents: Mapped[int | None] = mapped_column(Integer)
+    # regime line (Norseman Bull/Bear Line, SPX-equivalent)
+    spx_close: Mapped[float | None] = mapped_column(Float)
+    bull_bear_line: Mapped[float | None] = mapped_column(Float)
+    above_bbl: Mapped[bool | None] = mapped_column(Boolean)
+    # breadth-vs-price divergence
+    divergence_state: Mapped[str | None] = mapped_column(String(16))
+    divergence_len: Mapped[int | None] = mapped_column(Integer)

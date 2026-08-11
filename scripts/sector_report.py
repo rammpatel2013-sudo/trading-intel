@@ -2,17 +2,17 @@
 
 Canonical generator + CLI for the sector report (see MEMORY ``sector-report``).
 Mirrors ``scripts/cockpit_report.py``: layout defined once here, the HTML
-template INLINED (a module string) so nothing lives in a separate asset file a
-stray ``.gitignore`` rule could drop. ``trading_intel.reports.build_sector``
-loads this module's ``build()`` so the MCP ``generate_sector_report`` tool
-produces the identical file.
+template INLINED. ``trading_intel.reports.build_sector`` loads this module's
+``build()`` so the MCP ``generate_sector_report`` tool produces the identical file.
 
-Reads the CVForge-fed ``greeks_snapshots`` (SPDRs, source ``cvforge``) + the
-``sector_snapshots`` skew/walls, and computes the correlation / dispersion /
-breadth TRENDS live from free yfinance history — NO Convex calls (rule 1). The
-brain (ranking + LEAP flags) is the pure ``market.sector_scan``. Descriptor only
-(FlashAlpha rule 4): lead/lag + flags, never a trade signal — LEAP selection
-stays in validated ``strategies/``.
+PHONE RULE (report-deploy-workflow): rendered ENTIRELY SERVER-SIDE — every card,
+table, and sparkline is a static HTML/SVG string emitted by Python, NO
+client-side <script>, NO CDN — so it opens in Telegram's in-app phone viewer.
+
+Reads the CVForge-fed ``greeks_snapshots`` (SPDRs) + ``sector_snapshots``, and
+computes correlation / dispersion / breadth TRENDS from free yfinance history —
+NO Convex calls (rule 1). The brain (ranking + LEAP flags) is the pure
+``market.sector_scan``. Descriptor only (FlashAlpha rule 4).
 
 Run:
     python scripts/sector_report.py            # build + push to Telegram
@@ -20,7 +20,8 @@ Run:
 """
 from __future__ import annotations
 
-import json
+import html as _html
+import math
 from pathlib import Path
 
 import structlog
@@ -29,13 +30,319 @@ log = structlog.get_logger(__name__)
 
 _DEFAULT_OUT = Path("reports") / "sector.html"
 
-_TEMPLATE_HTML = r"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Sector Lead / Lag · Fragility</title>
-<style>
+
+# ── formatting + tiny helpers (server-side ports of the old JS) ──────────────
+def _finite(x: object) -> bool:
+    return isinstance(x, (int, float)) and math.isfinite(x)
+
+
+def _g(o: object, k: str, d: object = None) -> object:
+    return o.get(k, d) if isinstance(o, dict) else d
+
+
+def _pct(x: object, d: int = 1) -> str:
+    return f"{float(x) * 100:.{d}f}%" if _finite(x) else "—"
+
+
+def _spct(x: object, d: int = 1) -> str:
+    if not _finite(x):
+        return "—"
+    x = float(x)
+    return ("+" if x >= 0 else "−") + f"{abs(x) * 100:.{d}f}%"
+
+
+def _abbr(x: object, d: int = 1) -> str:
+    if not _finite(x):
+        return "—"
+    x = float(x)
+    s = "−" if x < 0 else ""
+    a = abs(x)
+    if a >= 1e9:
+        return f"{s}{a / 1e9:.{d}f}B"
+    if a >= 1e6:
+        return f"{s}{a / 1e6:.{d}f}M"
+    if a >= 1e3:
+        return f"{s}{a / 1e3:.{d}f}K"
+    return f"{s}{a:.{d}f}"
+
+
+def _esc(s: object) -> str:
+    return _html.escape("" if s is None else str(s))
+
+
+def _spark(vals: object, w: int = 88, h: int = 22, color: str = "#5aa9e6", fill: bool = False) -> str:
+    v = [float(x) if _finite(x) else None for x in (vals or [])]
+    ok = [x for x in v if x is not None]
+    if len(ok) < 2:
+        return '<span class="mutv" style="font-size:9.5px">building…</span>'
+    mn, mx = min(ok), max(ok)
+    rg = (mx - mn) or 1
+    n = len(v)
+    xy = []
+    for i, x in enumerate(v):
+        if x is None:
+            continue
+        xy.append((i / (n - 1) * w, h - 2 - ((x - mn) / rg) * (h - 4)))
+    d = " ".join(("L" if i else "M") + f"{px:.1f} {py:.1f}" for i, (px, py) in enumerate(xy))
+    lx, ly = xy[-1]
+    area = (
+        f'<path d="{d} L {lx:.1f} {h} L {xy[0][0]:.1f} {h} Z" fill="{color}" opacity="0.10"/>'
+        if fill
+        else ""
+    )
+    return (
+        f'<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" style="vertical-align:middle">'
+        f'{area}<path d="{d}" fill="none" stroke="{color}" stroke-width="1.5"/>'
+        f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="1.9" fill="{color}"/></svg>'
+    )
+
+
+def _shift_label(sh: object) -> str:
+    if not _finite(sh):
+        return '<span class="mutv">— building</span>'
+    sh = float(sh)
+    v = f"{abs(sh * 100):.2f}"
+    if sh < -0.0005:
+        return f'<span class="pos">▼ {v} → calls</span>'
+    if sh > 0.0005:
+        return f'<span class="neg">▲ {v} → puts</span>'
+    return '<span class="mutv">flat</span>'
+
+
+# ── card renderers ───────────────────────────────────────────────────────────
+def _gate_card(P: dict) -> str:
+    c = _g(P, "correlation", {}) or {}
+    t = _g(P, "trends", {}) or {}
+    open_ = _g(c, "gate_open")
+    lbl = str(_g(c, "regime_label") or "n/a").split(" — ")[0].upper()
+    cls = "grn" if open_ else ("red" if lbl == "HIGH" else "amb")
+    avg = _g(c, "avg_corr", {}) or {}
+    a21, a63 = _g(avg, "21d"), _g(avg, "63d")
+    disp = _g(c, "dispersion")
+    big = "OPEN — dispersion" if open_ else f"CAUTION — {lbl.lower()} correlation"
+    sub = (
+        "sectors decoupled — a single-sector LEAP actually isolates that sector"
+        if open_
+        else "sectors move together — a single-sector LEAP is mostly index beta"
+    )
+    return (
+        '<div class="card"><div class="lbl">Correlation gate · single-sector bets</div>'
+        f'<div class="gate"><div><div class="big">{_esc(big)}</div>'
+        f'<div class="sub">{sub}</div></div>'
+        f'<div class="pill {cls}">{"GO" if open_ else "GATE"}</div></div>'
+        '<div class="metrics">'
+        f'<div>AVG CORR 21D<b>{"—" if a21 is None else f"{float(a21):.2f}"}</b></div>'
+        f'<div>AVG CORR 63D<b>{"—" if a63 is None else f"{float(a63):.2f}"}</b></div>'
+        f'<div>DISPERSION<b>{"—" if disp is None else f"{float(disp) * 100:.2f}"}</b></div></div>'
+        '<div class="sparks">'
+        f'<div><span>corr 21d</span>{_spark(_g(t, "corr21"), color="#5aa9e6")}</div>'
+        f'<div><span>corr 63d</span>{_spark(_g(t, "corr63"), color="#8a7fe0")}</div>'
+        f'<div><span>dispersion</span>{_spark(_g(t, "dispersion"), color="#f4b942")}</div>'
+        "</div></div>"
+    )
+
+
+def _internals_card(P: dict) -> str:
+    i = _g(P, "internals", {}) or {}
+    if not _g(i, "n"):
+        return ""
+    healthy = _g(i, "healthy")
+    col = "amb" if healthy is None else ("grn" if healthy else "red")
+    trend = _g(i, "trend") or []
+    spk = ""
+    if [x for x in trend if x is not None]:
+        c = "#ff5d6a" if col == "red" else ("#2fe0a6" if col == "grn" else "#f4b942")
+        ndays = len([x for x in trend if x is not None])
+        spk = (
+            f'<div class="sparks"><div><span>% sectors up · {ndays}d</span>'
+            f"{_spark(trend, color=c, fill=True)}</div></div>"
+        )
+    idx_up = _g(i, "index_up")
+    idx_txt = "—" if idx_up is None else ("up" if idx_up else "down")
+    pill = "MIXED" if healthy is None else ("HEALTHY" if healthy else "FRAGILE")
+    return (
+        '<div class="card"><div class="lbl">Market internals · sector breadth vs index</div>'
+        f'<div class="gate"><div><div class="big">{_g(i, "n_up", 0)}/{_g(i, "n", 0)} sectors up '
+        f'<span class="mutv" style="font-weight:400">· SPY {idx_txt}</span></div>'
+        f'<div class="sub">{_esc(_g(i, "divergence", ""))}</div></div>'
+        f'<div class="pill {col}">{pill}</div></div>{spk}</div>'
+    )
+
+
+def _banner(P: dict) -> str:
+    lead = " · ".join(_g(P, "leaders", []) or []) or "—"
+    lag = " · ".join(_g(P, "laggards", []) or []) or "—"
+    return (
+        '<div class="card" style="display:flex;gap:14px">'
+        '<div style="flex:1"><div class="lbl" style="margin-bottom:5px">Leaders</div>'
+        f'<div class="pos" style="font-weight:700">{_esc(lead)}</div></div>'
+        '<div style="flex:1"><div class="lbl" style="margin-bottom:5px">Laggards</div>'
+        f'<div class="neg" style="font-weight:700">{_esc(lag)}</div></div></div>'
+    )
+
+
+def _howto_card(P: dict) -> str:
+    gate = _g(_g(P, "correlation", {}) or {}, "gate_open")
+    gtxt = "OPEN" if gate else "gated"
+    gcls = "pos" if gate else "neg"
+    return (
+        '<div class="card how"><div class="lbl">How to read this → finding a LEAP-long</div><ol>'
+        f'<li><b>Gate first.</b> The correlation gate must be OPEN (low / dispersion) or a single-sector '
+        f'LEAP is really just index beta. Right now: <b class="{gcls}">{gtxt}</b>.</li>'
+        "<li><b>Pick from the leaders.</b> Long-gamma (stable) sector, above its gamma flip (cushion "
+        "under spot), positive 21-day momentum — the top of the ranking.</li>"
+        "<li><b>Buy cheap vega.</b> A LEAP is long vega, so favour a LOW ATM-IV percentile — you want "
+        "implied vol cheap at entry.</li>"
+        "<li><b>The skew shift is the trigger.</b> Watch the 25Δ RR rotate from put-rich toward the call "
+        "side (▼ falling) — that's real money starting to bid calls, early accumulation, the LEAP-call "
+        "window. Rising RR (▲, fear bidding puts) = wait.</li>"
+        "<li><b>Confirm at the wall.</b> The call wall above spot is the target / resistance. If "
+        "fixed-strike vol there is OFFERED the wall pins (favour call spreads into it); if it's BID the "
+        "level is set to break (favour straight calls).</li></ol>"
+        '<div class="empty">These are descriptor flags, not a signal — size and pick the actual contract '
+        "in your validated strategy layer.</div></div>"
+    )
+
+
+def _iv_cell(s: dict) -> str:
+    ivp = _g(s, "iv_pctile")
+    if ivp is None:
+        atm = _g(s, "atm_iv")
+        return f'<td>{"—" if atm is None else _pct(atm)}<span class="mutv"> ·—</span></td>'
+    ivp = float(ivp)
+    cls = "pos" if ivp < 0.35 else ("neg" if ivp > 0.7 else "mutv")
+    return f'<td>{_pct(_g(s, "atm_iv"))} <span class="{cls}">{round(ivp * 100)}p</span></td>'
+
+
+def _table_card(P: dict) -> str:
+    rows = []
+    for s in _g(P, "sectors", []) or []:
+        if _g(s, "gamma_regime") is None:
+            rows.append(
+                f'<tr><td class="l">{_g(s, "rank", "")}</td>'
+                f'<td class="l sym">{_esc(_g(s, "symbol"))}</td>'
+                '<td class="l"><span class="tag na">pending</span></td>'
+                '<td colspan="4" class="mutv" style="text-align:left">awaiting CVForge snapshot</td>'
+                '<td><span class="setup na">n/a</span></td></tr>'
+            )
+            continue
+        stab = _g(s, "stability") or "na"
+        stab_txt = "long γ" if stab == "stable" else ("short γ" if stab == "fragile" else "—")
+        mom = _g(s, "ret_21d")
+        momc = "mutv" if mom is None else ("pos" if float(mom) >= 0 else "neg")
+        cush = _g(s, "gflip_cushion")
+        cushc = "mutv" if cush is None else ("pos" if float(cush) >= 0 else "neg")
+        lead_score = _g(s, "lead_score")
+        leap = _g(s, "leap") or None
+        setup = _g(leap, "setup") if leap else "na"
+        rows.append(
+            "<tr>"
+            f'<td class="l">{_g(s, "rank", "")}</td>'
+            f'<td class="l sym">{_esc(_g(s, "symbol"))}</td>'
+            f'<td class="l"><span class="tag {stab}">{stab_txt}</span></td>'
+            f'<td class="{cushc}">{_spct(cush)}</td>'
+            f"{_iv_cell(s)}"
+            f'<td class="{momc}">{_spct(mom)}</td>'
+            f'<td>{"—" if lead_score is None else f"{float(lead_score):.2f}"}</td>'
+            f'<td><span class="setup {setup or "na"}">{setup or "n/a"}</span></td></tr>'
+        )
+    return (
+        '<div class="card"><div class="lbl">Lead → lag · fragility ranking</div>'
+        '<table><thead><tr><th class="l">#</th><th class="l">ETF</th><th class="l">γ regime</th>'
+        '<th>flip cush</th><th>ATM IV·pct</th><th>21d</th><th>score</th><th>LEAP</th>'
+        f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+    )
+
+
+def _walls_card(P: dict) -> str:
+    priced = [s for s in (_g(P, "sectors", []) or []) if _g(s, "gamma_regime") is not None]
+    if not priced:
+        return ""
+    # sort by rr25_shift ascending (most call-side / most negative first), None last
+    priced = sorted(priced, key=lambda s: (_g(s, "rr25_shift") is None, _g(s, "rr25_shift") if _finite(_g(s, "rr25_shift")) else 0.0))
+
+    def wdist(w: object, spot: object) -> str:
+        if w is None or not spot:
+            return ""
+        r = float(w) / float(spot) - 1
+        return f' <span class="mutv">{"+" if r >= 0 else "−"}{abs(r) * 100:.1f}%</span>'
+
+    items = []
+    for s in priced:
+        rr = _g(s, "rr25")
+        rrt = "—" if rr is None else (("+" if float(rr) >= 0 else "−") + f"{abs(float(rr)) * 100:.2f}")
+        rrc = "mutv" if rr is None else ("neg" if float(rr) >= 0 else "pos")
+        fp = _g(s, "footprint", {}) or {}
+        if _g(fp, "pending"):
+            fr = '<span class="mutv">fx: 2nd day</span>'
+        else:
+            read = str(_g(fp, "read") or "")
+            if not read:
+                fr = ""
+            elif "HOLD" in read:
+                fr = '<span class="pos">fx: offered · hold</span>'
+            elif "BREAK" in read:
+                fr = '<span class="neg">fx: bid · break</span>'
+            else:
+                fr = '<span class="mutv">fx: mixed</span>'
+        sh = _g(s, "rr25_shift")
+        skcol = "#2fe0a6" if (_finite(sh) and float(sh) < 0) else ("#ff5d6a" if (_finite(sh) and float(sh) > 0) else "#6c777d")
+        cw, pw, spot = _g(s, "call_wall"), _g(s, "put_wall"), _g(s, "spot")
+        items.append(
+            '<div class="skrow"><div class="skh">'
+            f'<span class="sym">{_esc(_g(s, "symbol"))}</span>'
+            f'<span class="{rrc}" style="font-family:var(--mono)">RR {rrt}</span>'
+            f"{_shift_label(sh)}</div>"
+            f'<div class="skmid">{_spark(_g(s, "rr25_trend"), w=130, h=24, color=skcol)}</div>'
+            f'<div class="skf"><span class="mutv">walls</span> '
+            f'{"—" if cw is None else round(float(cw))}{wdist(cw, spot)} '
+            f'<span class="mutv">/</span> {"—" if pw is None else round(float(pw))}{wdist(pw, spot)} · {fr}</div></div>'
+        )
+    return (
+        '<div class="card"><div class="lbl">Skew shift · put ↔ call rotation '
+        '<span style="color:#3a4448;font-weight:400;letter-spacing:0;text-transform:none">'
+        f'· most call-side first</span></div>{"".join(items)}'
+        '<div class="empty" style="padding-top:8px">25Δ RR = put IV − call IV (+ puts richer / fear). '
+        "A FALLING RR (▼ → calls) = demand rotating to the call side = the bullish LEAP-call tell; rising "
+        "(▲ → puts) = defensive. Walls = peak gamma-OI strike. fx = fixed-strike vol offered (hold) / bid "
+        "(break); the shift + fx fill on the 2nd day of history.</div></div>"
+    )
+
+
+def _cand_card(P: dict) -> str:
+    cands = [
+        s
+        for s in (_g(P, "sectors", []) or [])
+        if _g(s, "leap") and _g(_g(s, "leap"), "setup") == "candidate"
+    ]
+    if not cands:
+        return (
+            '<div class="card"><div class="lbl">LEAP-long candidates</div>'
+            '<div class="empty">No sector clears the candidate bar right now (needs a stable/long-gamma '
+            "tape, ≥2 supporting reads, and the dispersion gate open). Watch the table above.</div></div>"
+        )
+    items = []
+    for s in cands:
+        leap = _g(s, "leap", {}) or {}
+        fors = "".join(
+            f'<div class="r"><span class="k">+</span> {_esc(r)}</div>' for r in (_g(leap, "for") or [])
+        )
+        ags = "".join(
+            f'<div class="r ag"><span class="k">−</span> {_esc(r)}</div>' for r in (_g(leap, "against") or [])
+        )
+        items.append(
+            '<div class="item"><div class="hd">'
+            f'<div class="s">{_esc(_g(s, "symbol"))} '
+            f'<span class="mutv" style="font-size:11px;font-weight:400">#{_g(s, "rank")}</span></div>'
+            f'<span class="setup candidate">candidate</span></div>{fors}{ags}</div>'
+        )
+    return (
+        '<div class="card"><div class="lbl">LEAP-long candidates · context, not a signal</div>'
+        f'<div class="cand">{"".join(items)}</div></div>'
+    )
+
+
+_STYLE = r"""<style>
   :root{
     --bg:#08090a; --card:#111618; --card2:#0d1214; --edge:#1c2427;
     --grn:#2fe0a6; --grn-dim:#1c8e6c; --red:#ff5d6a; --red-dim:#9e3540;
@@ -107,177 +414,44 @@ _TEMPLATE_HTML = r"""<!DOCTYPE html>
   .foot{margin-top:12px;padding:0 4px}
   .foot p{font-size:10.5px;color:#5a656a;line-height:1.6;margin-bottom:5px}
   .empty{font-size:11.5px;color:var(--mut);padding:8px 2px;line-height:1.5}
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="top"><h1 id="title">Sector Lead / Lag</h1><div class="as" id="asof"></div></div>
-  <div id="body"></div>
-  <div class="foot">
-    <p id="footmeta"></p>
-    <p><b>Descriptor only.</b> Lead/lag &amp; fragility read + LEAP-setup FLAGS with rationale — not a trade signal. Long gamma = dealers dampen (stable); short gamma = dealers amplify (fragile). Correlation is the go / no-go gate: low = single-sector bets diversify; high = index beta. Actual LEAP selection stays in the validated strategy layer.</p>
-  </div>
-</div>
-<script>
-const P = __SECTOR_DATA__;
-const $ = id => document.getElementById(id);
-const pct=(x,d=1)=>x==null||!isFinite(x)?"—":(x*100).toFixed(d)+"%";
-const spct=(x,d=1)=>x==null||!isFinite(x)?"—":(x>=0?"+":"−")+Math.abs(x*100).toFixed(d)+"%";
-const abbr=(x,d=1)=>{if(x==null||!isFinite(x))return"—";const s=x<0?"−":"",a=Math.abs(x);
-  if(a>=1e9)return s+(a/1e9).toFixed(d)+"B";if(a>=1e6)return s+(a/1e6).toFixed(d)+"M";if(a>=1e3)return s+(a/1e3).toFixed(d)+"K";return s+a.toFixed(d);};
-const esc=s=>String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+</style>"""
 
-function spark(vals,{w=88,h=22,color="#5aa9e6",fill=false}={}){
-  const v=(vals||[]).map(x=>x==null||!isFinite(x)?null:+x);
-  const ok=v.filter(x=>x!=null);
-  if(ok.length<2) return `<span class="mutv" style="font-size:9.5px">building…</span>`;
-  const mn=Math.min(...ok),mx=Math.max(...ok),rg=(mx-mn)||1,n=v.length;
-  const xy=v.map((x,i)=> x==null?null:[i/(n-1)*w, h-2-((x-mn)/rg)*(h-4)]).filter(Boolean);
-  const d=xy.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
-  const last=xy[xy.length-1];
-  const area=fill?`<path d="${d} L ${last[0].toFixed(1)} ${h} L ${xy[0][0].toFixed(1)} ${h} Z" fill="${color}" opacity="0.10"/>`:"";
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="vertical-align:middle">${area}<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5"/><circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="1.9" fill="${color}"/></svg>`;
-}
-function shiftLabel(sh){
-  if(sh==null) return `<span class="mutv">— building</span>`;
-  const v=Math.abs(sh*100).toFixed(2);
-  if(sh<-0.0005) return `<span class="pos">▼ ${v} → calls</span>`;
-  if(sh>0.0005) return `<span class="neg">▲ ${v} → puts</span>`;
-  return `<span class="mutv">flat</span>`;
-}
 
-function gateCard(){
-  const c=P.correlation||{}, t=P.trends||{}, open=c.gate_open;
-  const lbl=(c.regime_label||"n/a").split(" — ")[0].toUpperCase();
-  const cls=open?"grn":(lbl==="HIGH"?"red":"amb");
-  const a21=(c.avg_corr||{})["21d"], a63=(c.avg_corr||{})["63d"];
-  return `<div class="card"><div class="lbl">Correlation gate · single-sector bets</div>
-    <div class="gate"><div>
-      <div class="big">${open?"OPEN — dispersion":"CAUTION — "+lbl.toLowerCase()+" correlation"}</div>
-      <div class="sub">${open?"sectors decoupled — a single-sector LEAP actually isolates that sector":"sectors move together — a single-sector LEAP is mostly index beta"}</div>
-    </div><div class="pill ${cls}">${open?"GO":"GATE"}</div></div>
-    <div class="metrics">
-      <div>AVG CORR 21D<b>${a21==null?"—":a21.toFixed(2)}</b></div>
-      <div>AVG CORR 63D<b>${a63==null?"—":a63.toFixed(2)}</b></div>
-      <div>DISPERSION<b>${c.dispersion==null?"—":(c.dispersion*100).toFixed(2)}</b></div>
-    </div>
-    <div class="sparks">
-      <div><span>corr 21d</span>${spark(t.corr21,{color:"#5aa9e6"})}</div>
-      <div><span>corr 63d</span>${spark(t.corr63,{color:"#8a7fe0"})}</div>
-      <div><span>dispersion</span>${spark(t.dispersion,{color:"#f4b942"})}</div>
-    </div></div>`;
-}
-function internalsCard(){
-  const i=P.internals||{};
-  if(i.n==null||!i.n) return "";
-  const col=i.healthy==null?"amb":(i.healthy?"grn":"red");
-  const spk=(i.trend&&i.trend.filter(x=>x!=null).length)?`<div class="sparks"><div><span>% sectors up · ${i.trend.filter(x=>x!=null).length}d</span>${spark(i.trend,{color:(col==='red'?'#ff5d6a':col==='grn'?'#2fe0a6':'#f4b942'),fill:true})}</div></div>`:"";
-  return `<div class="card"><div class="lbl">Market internals · sector breadth vs index</div>
-    <div class="gate"><div>
-      <div class="big">${i.n_up}/${i.n} sectors up <span class="mutv" style="font-weight:400">· SPY ${i.index_up==null?"—":(i.index_up?"up":"down")}</span></div>
-      <div class="sub">${esc(i.divergence||"")}</div>
-    </div><div class="pill ${col}">${i.healthy==null?"MIXED":(i.healthy?"HEALTHY":"FRAGILE")}</div></div>${spk}</div>`;
-}
-function howToCard(){
-  const gate=(P.correlation||{}).gate_open;
-  return `<div class="card how"><div class="lbl">How to read this → finding a LEAP-long</div>
-    <ol>
-      <li><b>Gate first.</b> The correlation gate must be OPEN (low / dispersion) or a single-sector LEAP is really just index beta. Right now: <b class="${gate?'pos':'neg'}">${gate?'OPEN':'gated'}</b>.</li>
-      <li><b>Pick from the leaders.</b> Long-gamma (stable) sector, above its gamma flip (cushion under spot), positive 21-day momentum — the top of the ranking.</li>
-      <li><b>Buy cheap vega.</b> A LEAP is long vega, so favour a LOW ATM-IV percentile — you want implied vol cheap at entry.</li>
-      <li><b>The skew shift is the trigger.</b> Watch the 25Δ RR rotate from put-rich toward the call side (▼ falling) — that's real money starting to bid calls, early accumulation, the LEAP-call window. Rising RR (▲, fear bidding puts) = wait.</li>
-      <li><b>Confirm at the wall.</b> The call wall above spot is the target / resistance. If fixed-strike vol there is OFFERED the wall pins (favour call spreads into it); if it's BID the level is set to break (favour straight calls).</li>
-    </ol>
-    <div class="empty">These are descriptor flags, not a signal — size and pick the actual contract in your validated strategy layer.</div></div>`;
-}
-function ivCell(s){
-  if(s.iv_pctile==null) return `<td>${s.atm_iv==null?"—":pct(s.atm_iv)}<span class="mutv"> ·—</span></td>`;
-  const cls=s.iv_pctile<0.35?"pos":(s.iv_pctile>0.7?"neg":"mutv");
-  return `<td>${pct(s.atm_iv)} <span class="${cls}">${Math.round(s.iv_pctile*100)}p</span></td>`;
-}
-function tableCard(){
-  const rows=(P.sectors||[]).map(s=>{
-    if(s.gamma_regime==null){
-      return `<tr><td class="l">${s.rank||""}</td><td class="l sym">${esc(s.symbol)}</td>
-        <td class="l"><span class="tag na">pending</span></td><td colspan="4" class="mutv" style="text-align:left">awaiting CVForge snapshot</td>
-        <td><span class="setup na">n/a</span></td></tr>`;
-    }
-    const stab=s.stability||"na";
-    const mom=s.ret_21d, momc=mom==null?"mutv":(mom>=0?"pos":"neg");
-    const cush=s.gflip_cushion, cushc=cush==null?"mutv":(cush>=0?"pos":"neg");
-    return `<tr>
-      <td class="l">${s.rank||""}</td>
-      <td class="l sym">${esc(s.symbol)}</td>
-      <td class="l"><span class="tag ${stab}">${stab==="stable"?"long γ":stab==="fragile"?"short γ":"—"}</span></td>
-      <td class="${cushc}">${spct(cush)}</td>
-      ${ivCell(s)}
-      <td class="${momc}">${spct(mom)}</td>
-      <td>${s.lead_score==null?"—":s.lead_score.toFixed(2)}</td>
-      <td><span class="setup ${s.leap?s.leap.setup:'na'}">${s.leap?s.leap.setup:"n/a"}</span></td>
-    </tr>`;
-  }).join("");
-  return `<div class="card"><div class="lbl">Lead → lag · fragility ranking</div>
-    <table><thead><tr>
-      <th class="l">#</th><th class="l">ETF</th><th class="l">γ regime</th>
-      <th>flip cush</th><th>ATM IV·pct</th><th>21d</th><th>score</th><th>LEAP</th>
-    </tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-function wallsCard(){
-  const priced=(P.sectors||[]).filter(s=>s.gamma_regime!=null);
-  if(!priced.length) return "";
-  const arr=[...priced].sort((a,b)=>{const x=a.rr25_shift,y=b.rr25_shift;
-    if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; return x-y;});
-  const wdist=(w,spot)=> w==null||!spot?"":` <span class="mutv">${(w/spot-1>=0?"+":"−")}${Math.abs((w/spot-1)*100).toFixed(1)}%</span>`;
-  const items=arr.map(s=>{
-    const rr=s.rr25, rrt=rr==null?"—":(rr>=0?"+":"−")+Math.abs(rr*100).toFixed(2), rrc=rr==null?"mutv":(rr>=0?"neg":"pos");
-    const fp=s.footprint||{};
-    const fr=fp.pending?'<span class="mutv">fx: 2nd day</span>':(!fp.read?'':
-      fp.read.indexOf("HOLD")>=0?'<span class="pos">fx: offered · hold</span>':
-      fp.read.indexOf("BREAK")>=0?'<span class="neg">fx: bid · break</span>':'<span class="mutv">fx: mixed</span>');
-    const skcol=(s.rr25_shift!=null&&s.rr25_shift<0)?"#2fe0a6":(s.rr25_shift!=null&&s.rr25_shift>0)?"#ff5d6a":"#6c777d";
-    return `<div class="skrow">
-      <div class="skh"><span class="sym">${esc(s.symbol)}</span>
-        <span class="${rrc}" style="font-family:var(--mono)">RR ${rrt}</span>
-        ${shiftLabel(s.rr25_shift)}</div>
-      <div class="skmid">${spark(s.rr25_trend,{w:130,h:24,color:skcol})}</div>
-      <div class="skf"><span class="mutv">walls</span> ${s.call_wall==null?"—":Math.round(s.call_wall)}${wdist(s.call_wall,s.spot)} <span class="mutv">/</span> ${s.put_wall==null?"—":Math.round(s.put_wall)}${wdist(s.put_wall,s.spot)} · ${fr}</div>
-    </div>`;
-  }).join("");
-  return `<div class="card"><div class="lbl">Skew shift · put ↔ call rotation <span style="color:#3a4448;font-weight:400;letter-spacing:0;text-transform:none">· most call-side first</span></div>
-    ${items}
-    <div class="empty" style="padding-top:8px">25Δ RR = put IV − call IV (+ puts richer / fear). A FALLING RR (▼ → calls) = demand rotating to the call side = the bullish LEAP-call tell; rising (▲ → puts) = defensive. Walls = peak gamma-OI strike. fx = fixed-strike vol offered (hold) / bid (break); the shift + fx fill on the 2nd day of history.</div></div>`;
-}
-function candCard(){
-  const cands=(P.sectors||[]).filter(s=>s.leap&&(s.leap.setup==="candidate"));
-  if(!cands.length) return `<div class="card"><div class="lbl">LEAP-long candidates</div>
-    <div class="empty">No sector clears the candidate bar right now (needs a stable/long-gamma tape, ≥2 supporting reads, and the dispersion gate open). Watch the table above.</div></div>`;
-  const items=cands.map(s=>{
-    const fors=(s.leap.for||[]).map(r=>`<div class="r"><span class="k">+</span> ${esc(r)}</div>`).join("");
-    const ags=(s.leap.against||[]).map(r=>`<div class="r ag"><span class="k">−</span> ${esc(r)}</div>`).join("");
-    return `<div class="item"><div class="hd"><div class="s">${esc(s.symbol)} <span class="mutv" style="font-size:11px;font-weight:400">#${s.rank}</span></div>
-      <span class="setup candidate">candidate</span></div>${fors}${ags}</div>`;
-  }).join("");
-  return `<div class="card"><div class="lbl">LEAP-long candidates · context, not a signal</div><div class="cand">${items}</div></div>`;
-}
-function render(){
-  $("asof").textContent = "as of "+String(P.as_of||"").replace("T"," ");
-  const lead=(P.leaders||[]).join(" · ")||"—", lag=(P.laggards||[]).join(" · ")||"—";
-  const banner=`<div class="card" style="display:flex;gap:14px"><div style="flex:1"><div class="lbl" style="margin-bottom:5px">Leaders</div><div class="pos" style="font-weight:700">${esc(lead)}</div></div>
-    <div style="flex:1"><div class="lbl" style="margin-bottom:5px">Laggards</div><div class="neg" style="font-weight:700">${esc(lag)}</div></div></div>`;
-  $("body").innerHTML = gateCard()+internalsCard()+banner+howToCard()+tableCard()+wallsCard()+candCard();
-  const m=P.meta||{};
-  $("footmeta").textContent = `${m.n_priced||0}/${m.n_sectors||(P.sectors||[]).length} sectors priced · source ${m.source||"—"} · correlation as of ${(P.correlation||{}).as_of||"—"}`;
-}
-render();
-</script>
-</body>
-</html>
-"""
+def _render_html_str(P: dict) -> str:
+    as_of = str(_g(P, "as_of") or "").replace("T", " ")
+    m = _g(P, "meta", {}) or {}
+    n_sec = _g(m, "n_sectors") or len(_g(P, "sectors", []) or [])
+    footmeta = (
+        f'{_g(m, "n_priced", 0)}/{n_sec} sectors priced · source {_esc(_g(m, "source", "—"))} '
+        f'· correlation as of {_esc(_g(_g(P, "correlation", {}) or {}, "as_of", "—"))}'
+    )
+    body = (
+        _gate_card(P)
+        + _internals_card(P)
+        + _banner(P)
+        + _howto_card(P)
+        + _table_card(P)
+        + _walls_card(P)
+        + _cand_card(P)
+    )
+    return (
+        '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">\n'
+        "<title>Sector Lead / Lag · Fragility</title>\n"
+        f"{_STYLE}\n</head>\n<body>\n<div class=\"app\">\n"
+        f'<div class="top"><h1>Sector Lead / Lag</h1><div class="as">as of {_esc(as_of)}</div></div>\n'
+        f'<div class="body">{body}</div>\n'
+        '<div class="foot">'
+        f"<p>{footmeta}</p>"
+        "<p><b>Descriptor only.</b> Lead/lag &amp; fragility read + LEAP-setup FLAGS with rationale — not "
+        "a trade signal. Long gamma = dealers dampen (stable); short gamma = dealers amplify (fragile). "
+        "Correlation is the go / no-go gate: low = single-sector bets diversify; high = index beta. Actual "
+        "LEAP selection stays in the validated strategy layer.</p></div>\n</div>\n</body>\n</html>\n"
+    )
 
 
 def _render_html(payload: dict, out_path: str | None) -> str:
-    data = json.dumps(payload).replace("</", "<\\/")
-    html = _TEMPLATE_HTML.replace("__SECTOR_DATA__", data)
+    html = _render_html_str(payload)
     out = (Path(out_path) if out_path else _DEFAULT_OUT).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
@@ -285,9 +459,10 @@ def _render_html(payload: dict, out_path: str | None) -> str:
 
 
 def build(*, out_path: str | None = None, settings: object = None, session: object = None) -> str:
-    """Assemble the sector payload from the DB and bake it into one HTML file.
+    """Assemble the sector payload from the DB and render it into one HTML file.
 
-    Opens its own session unless one is passed. Returns the absolute path.
+    Rendered entirely server-side (no <script>) so it opens on the phone. Opens
+    its own session unless one is passed. Returns the absolute path.
     """
     from trading_intel.api.sector import build_sector
     from trading_intel.config import get_settings
@@ -312,9 +487,7 @@ def run(*, push: bool = True, settings: object = None) -> str:
     if push:
         from trading_intel.clients.telegram import TelegramClient
 
-        sent = TelegramClient(settings).send_document(
-            path, caption="Sector lead/lag + fragility"
-        )
+        sent = TelegramClient(settings).send_document(path, caption="Sector lead/lag + fragility")
         log.info("sector_report.pushed", path=path, telegram_sent=sent)
     return path
 
