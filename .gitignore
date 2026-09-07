@@ -78,3 +78,13 @@ research/company/*
 !research/company/README.md
 secrets/
 .yamco_tmp/
+
+# Deploy staging artifacts + scratch (2026-09-07). These are build byproducts of
+# the ship flow, not source: the .tgz archives are what gets curl'd to the NAS,
+# the .diff files are review scratch, _to_delete/ holds dirs the device bridge
+# could not rm, and "Claude outputs/" is session scratch.
+*.tgz
+*_changes.diff
+_to_delete/
+_probe_write.txt
+Claude outputs/

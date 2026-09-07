@@ -64,7 +64,9 @@ def _flow_from_extras(extras):
         }
     return {
         "pending": False, "call_volume": cv, "put_volume": pv,
-        "pc_ratio": (pv / cv) if (cv and cv > 0) else None,
+        # Guard pv too: a snapshot row can carry call_volume with put_volume
+        # still NULL (partial exposures() enrichment), and None / float raises.
+        "pc_ratio": (pv / cv) if (cv and cv > 0 and pv is not None) else None,
         "call_notional": cn, "put_notional": pn,
     }
 
@@ -76,16 +78,23 @@ def assemble_cockpit(symbol, *, gamma_hist, gex_term, straddle, skew30, skew0, e
     summ = (gamma_hist or {}).get("summary") or {}
     ex = extras or {}
 
-    spot = _num(last.get("spot")) or _num((gex_term or {}).get("spot")) or _num((straddle or {}).get("spot"))
-    gflip = _num(last.get("gex_flip"))
-    regime_str = str(last.get("regime") or summ.get("current_regime") or "")
-    if regime_str:
-        short = "short" in regime_str.lower()
+    # Prefer the latest (minute-resolution) greeks_snapshots row so an intraday
+    # run differs from the EOD one; fall back to the daily gamma_history row.
+    spot = (_num(ex.get("spot")) or _num(last.get("spot"))
+            or _num((gex_term or {}).get("spot")) or _num((straddle or {}).get("spot")))
+    gflip = _num(ex.get("gex_flip")) if ex.get("gex_flip") is not None else _num(last.get("gex_flip"))
+    snap_gt = _num(ex.get("gex_total"))
+    if snap_gt is not None:
+        short = snap_gt < 0
     else:
-        gt = _num(last.get("gex_total"))
-        short = None if gt is None else gt < 0
+        regime_str = str(last.get("regime") or summ.get("current_regime") or "")
+        if regime_str:
+            short = "short" in regime_str.lower()
+        else:
+            gt = _num(last.get("gex_total"))
+            short = None if gt is None else gt < 0
 
-    dex_total = _num(last.get("dex_total"))
+    dex_total = _num(ex.get("dex_total")) if ex.get("dex_total") is not None else _num(last.get("dex_total"))
     dflip = _num(ex.get("dex_flip"))  # from the enriched snapshot row
     lean = "net long delta" if (dex_total or 0) > 0 else "net short delta" if (dex_total or 0) < 0 else "flat"
 
@@ -105,7 +114,7 @@ def assemble_cockpit(symbol, *, gamma_hist, gex_term, straddle, skew30, skew0, e
     flow = _flow_from_extras(ex)
     return {
         "symbol": symbol,
-        "as_of": as_of or last.get("date") or datetime.now().isoformat(timespec="seconds"),
+        "as_of": as_of or ex.get("ts") or last.get("date") or datetime.now().isoformat(timespec="seconds"),
         "spot": spot,
         "regime": {
             "label": None if short is None else ("short gamma" if short else "long gamma"),
@@ -114,7 +123,7 @@ def assemble_cockpit(symbol, *, gamma_hist, gex_term, straddle, skew30, skew0, e
             "dist_to_flip": ((spot - gflip) / spot) if (gflip and spot) else None,
         },
         "expected_move": em,
-        "gex": {"total": _num((gex_term or {}).get("gex_total")), "near_tenor": _num(summ.get("current_gex")),
+        "gex": {"total": (snap_gt if snap_gt is not None else _num((gex_term or {}).get("gex_total"))), "near_tenor": _num(summ.get("current_gex")),
                 "by_dte": _bucket_gex((gex_term or {}).get("term"))},
         "dex": {
             "total": dex_total, "flip": dflip, "lean": lean,
@@ -126,7 +135,7 @@ def assemble_cockpit(symbol, *, gamma_hist, gex_term, straddle, skew30, skew0, e
             "rr25_30d": _rr(skew30, "rr_25d"),
             "rr10_30d": _rr(skew30, "rr_10d"),
             "rr25_0dte": _rr(skew0, "rr_25d"),
-            "atm_iv": _rr(skew30, "atm_iv") or _num(last.get("atm_iv")),
+            "atm_iv": _rr(skew30, "atm_iv") or _num(last.get("atm_iv")) or _num(ex.get("atm_iv")),
         },
         "meta": {"source": "convex-db", "flow_pending": flow["pending"]},
     }
@@ -147,6 +156,12 @@ def _latest_extras(session, symbol: str) -> dict:
     if row is None:
         return {}
     return {
+        "ts": row.ts.isoformat() if getattr(row, "ts", None) else None,
+        "spot": getattr(row, "spot", None),
+        "gex_total": getattr(row, "gex_total", None),
+        "dex_total": getattr(row, "dex_total", None),
+        "gex_flip": getattr(row, "gex_flip", None),
+        "atm_iv": getattr(row, "atm_iv", None),
         "dex_flip": getattr(row, "dex_flip", None),
         "call_volume": getattr(row, "call_volume", None),
         "put_volume": getattr(row, "put_volume", None),
