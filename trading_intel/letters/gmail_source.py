@@ -79,6 +79,16 @@ def _slug(s: str, n: int = 60) -> str:
     return (re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:n]) or "letter"
 
 
+def _iso_date(raw: str) -> str:
+    """``Sun, 6 Sep 2026 17:56:00 -0400`` -> ``2026-09-06``; ``nodate`` if unparseable."""
+    from email.utils import parsedate_to_datetime
+
+    try:
+        return parsedate_to_datetime(raw).date().isoformat()
+    except (TypeError, ValueError, IndexError):
+        return "nodate"
+
+
 def _header(payload: dict, name: str) -> str:
     for h in payload.get("headers", []):
         if h.get("name", "").lower() == name.lower():
@@ -145,13 +155,18 @@ def fetch_new(
         payload = msg.get("payload", {})
         sender = _header(payload, "From")
         subject = _header(payload, "Subject")
-        date_str = _header(payload, "Date")[:16].replace(",", "").strip() or "nodate"
+        # RFC-2822 -> ISO. The old form sliced the raw header to 16 chars and then
+        # slugged that to 12 ("thu-13-aug-2"), which dropped the year and made
+        # filenames unsortable, so "newest letter" resolved by file mtime instead
+        # of by letter date. ISO keeps filenames lexicographically sortable and
+        # gives _store_source_notes a real date to stamp the note with.
+        date_str = _iso_date(_header(payload, "Date"))
         body, attachments = _walk_body_and_attachments(payload)
 
         addr = (re.search(r"[\w.\-+]+@[\w.\-]+", sender) or [None])[0] if sender else None
         fund_dir = out_dir / _slug(addr or sender or "gmail")
         fund_dir.mkdir(parents=True, exist_ok=True)
-        base = f"{_slug(date_str, 12)}-{_slug(subject)}"
+        base = f"{date_str}-{_slug(subject)}"
 
         md = fund_dir / f"{base}.md"
         if not md.exists() and len(body) > 80:

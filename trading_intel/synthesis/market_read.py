@@ -17,6 +17,9 @@ NOT emit a trade call. See [[market-synthesis-engine]].
 from __future__ import annotations
 
 from typing import Any
+from datetime import date, timedelta
+
+from trading_intel.vol.vix_calendar import is_market_holiday
 
 _VVIX_ELEVATED = 110.0  # vol-of-vol above this = fragility flag (descriptor threshold)
 _BREADTH_WEAK = 40      # % above 200-DMA below this = weak breadth
@@ -99,17 +102,52 @@ def _levels_ladder(mech: dict) -> list[dict]:
     return sorted(rows, key=lambda r: r["value"])
 
 
-def _newsletter_triggers(newsletter: dict) -> list[dict]:
+#: Newsletter if-then scenarios older than this many TRADING days are dropped.
+#: They are written about a specific session's catalyst; carried forward they
+#: read as today's plan. The 2026-09-07 brief listed "PPI confirms the softer
+#: inflation read" as a live trigger — that PPI print was 2026-08-13.
+_TRIGGER_MAX_AGE_SESSIONS = 3
+
+
+def _newsletter_triggers(newsletter: dict, today: date | None = None) -> list[dict]:
+    """If-then scenarios from the letters — CURRENT ones only, each dated."""
+    today = today or date.today()
     out: list[dict] = []
     for src, blk in (newsletter or {}).get("sources", {}).items():
+        as_of = _to_date((blk or {}).get("as_of"))
+        if as_of is None:
+            continue
+        age = _sessions_since(as_of, today)
+        if age > _TRIGGER_MAX_AGE_SESSIONS:
+            continue
         for sc in (blk or {}).get("scenarios", []) or []:
             out.append({
-                "source": src,
+                "source": src if age == 0 else f"{src} ({as_of:%b %d})",
                 "trigger": sc.get("trigger"),
                 "consequence": sc.get("consequence"),
                 "direction": sc.get("direction"),
+                "as_of": as_of.isoformat(),
+                "age_sessions": age,
             })
     return out
+
+
+def _to_date(v: object) -> date | None:
+    if isinstance(v, date):
+        return v
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def _sessions_since(start: date, end: date) -> int:
+    n, d = 0, start
+    while d < end:
+        d += timedelta(days=1)
+        if not is_market_holiday(d):
+            n += 1
+    return n
 
 
 def build_read(
@@ -179,7 +217,7 @@ def build_read(
         triggers.append({"source": "ours", "trigger": "VIX term flips to backwardation (9d > 3m)",
                          "consequence": "weather turns to stress", "direction": "bearish"})
     if reg["bull_bear_line"] is not None:
-        triggers.append({"source": "ours", "trigger": f"weekly close below the Bull/Bear Line {reg['bull_bear_line']:.0f}",
+        triggers.append({"source": "ours · Norseman method", "trigger": f"weekly close below the Bull/Bear Line {reg['bull_bear_line']:.0f}",
                          "consequence": "Norseman bear-prepare (a 10% close = a test)", "direction": "bearish"})
     triggers.extend(_newsletter_triggers(newsletter))
 

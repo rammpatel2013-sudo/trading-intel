@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from trading_intel.vol.vix_calendar import is_market_holiday
+
 # ── tunable thresholds (defaults; override per call as the sample banks) ──────
 DEFAULT_K = 1.5  # |ΔGEX z| sigma threshold for a "fast" move
 DEFAULT_IV_FLAT_PT = 0.5  # |ΔIV| ≤ this (vol pts) == "pinned"
@@ -64,12 +66,18 @@ def eod_gex_series(gamma_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     read is the last row on each date. Returns ``[{date, gex, spot, flip,
     atm_iv_raw}]`` sorted ascending. ``atm_iv_raw`` is the noisy gamma-history IV
     (fallback only — prefer the iv_tenor map).
+
+    WEEKENDS AND MARKET HOLIDAYS ARE DROPPED. ``greeks_snapshot`` runs seven days
+    a week: on a closed day spot is frozen at the prior close while the greeks
+    are re-derived from a stale chain, so net GEX drifts on its own. Those rows
+    used to enter the series as real sessions, which put fake ΔGEX steps into the
+    z-score and let a Saturday/Sunday pair read as a two-day gamma collapse.
     """
     by_date: dict[date, dict[str, Any]] = {}
     for r in gamma_rows or []:
         d = _as_date(r.get("date") or r.get("ts"))
         g = r.get("gex_total")
-        if d is None or g is None:
+        if d is None or g is None or is_market_holiday(d):
             continue
         by_date[d] = {
             "date": d,

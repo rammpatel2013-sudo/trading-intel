@@ -94,6 +94,16 @@ GMAIL_SENDERS: tuple[str, ...] = (
     "docmcgraw@substack.com",
     "jaredhstocks@substack.com",
     "longandshortmkts@substack.com",
+    # positioning / timing sources added 2026-08-11. Their note keys were added
+    # to letters_fetch._SOURCE_KEYS at the time but the senders were never added
+    # here, so __VOLSIGNALS__ / __LUMIDA__ / __KURT__ / __NORSEMAN__ could never
+    # populate — the Gmail lane simply never fetched them.
+    # (addresses verified against the live inbox 2026-09-07 — each returns mail
+    # on a from: query, and each slugs to a folder name _SOURCE_KEYS matches.)
+    "volsignals@volsignals.com",
+    "lumidaledger@mail.beehiiv.com",
+    "kurtsaltrichter+gamma-report@substack.com",
+    "norsemanmarkettiming@substack.com",
 )
 
 

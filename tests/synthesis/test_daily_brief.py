@@ -65,7 +65,7 @@ def test_render_produces_full_html() -> None:
     assert "Expected-move rails" in html  # anchored EM rails section
     assert "near lower rail" in html or "mid-range" in html  # position read
     assert "Mag7" in html and "TSLA" in html  # Mag7 index-driver panel
-    assert "Top option flow" in html and "Yesterday:" in html  # flows + recap
+    assert "Top option flow" in html and "Last session:" in html  # flows + recap
     assert html.count("<polyline") >= 1  # sparklines rendered
 
 

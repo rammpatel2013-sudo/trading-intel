@@ -1,6 +1,8 @@
 """Unit tests for the market synthesis brain (pure; dicts in → read out)."""
 from __future__ import annotations
 
+from datetime import date
+
 from trading_intel.synthesis.market_read import build_read
 
 
@@ -58,14 +60,39 @@ def test_narrow_breadth_plus_short_gamma_fragility():
     assert "air pocket" in r["path"]
 
 
-def test_triggers_include_flip_and_bbl_and_newsletter():
-    news = {"sources": {"DOC": {"scenarios": [
+def _news(as_of):
+    return {"sources": {"DOC": {"as_of": as_of, "scenarios": [
         {"trigger": "SPX loses 6300", "consequence": "air to 6250", "direction": "bearish"}]}}}
-    r = build_read(_pos(amp=False), _breadth(True, "confirming"), _vol(), news)
+
+
+def test_triggers_include_flip_and_bbl_and_newsletter():
+    r = build_read(_pos(amp=False), _breadth(True, "confirming"), _vol(),
+                   _news(date.today().isoformat()))
     kinds = {t["source"] for t in r["triggers"]}
     assert "ours" in kinds and "DOC" in kinds
     assert any("gamma flip" in t["trigger"] for t in r["triggers"] if t["source"] == "ours")
-    assert any("Bull/Bear Line" in t["trigger"] for t in r["triggers"] if t["source"] == "ours")
+    # the Bull/Bear Line is OUR computation of Norseman's published method — the
+    # source string says so rather than implying Norseman published this call.
+    assert any("Bull/Bear Line" in t["trigger"] for t in r["triggers"]
+               if t["source"].startswith("ours"))
+
+
+def test_stale_newsletter_scenarios_are_dropped():
+    """A scenario written about last month's catalyst is not today's trigger.
+
+    The 2026-09-07 brief listed "PPI confirms the softer inflation read" as a
+    live trigger; that PPI print was 2026-08-13.
+    """
+    r = build_read(_pos(amp=False), _breadth(True, "confirming"), _vol(),
+                   _news("2026-08-13"))
+    assert not [t for t in r["triggers"] if t["source"].startswith("DOC")]
+    assert [t for t in r["triggers"] if t["source"].startswith("ours")]
+
+
+def test_undated_newsletter_scenarios_are_dropped():
+    news = {"sources": {"DOC": {"scenarios": [{"trigger": "x", "consequence": "y"}]}}}
+    r = build_read(_pos(amp=False), _breadth(True, "confirming"), _vol(), news)
+    assert not [t for t in r["triggers"] if t["source"].startswith("DOC")]
 
 
 def test_levels_ladder_sorted_and_has_spot():

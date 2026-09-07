@@ -109,6 +109,23 @@ def _row_index(ix: dict[str, Any]) -> str:
     )
 
 
+def _vix_oi_caption(vix: dict[str, Any]) -> str:
+    """Peak put / call OI strikes, described by where they sit relative to spot.
+
+    The old caption read "floor 17 · wall 20" with VIX at 14.32 — calling a
+    strike 2.7 points ABOVE spot a floor. These are peak-OI strikes, not a
+    bracket, so they are named for what they are.
+    """
+    lvl, put, call = vix.get("vix"), vix.get("floor"), vix.get("call_wall")
+    bits = []
+    if put is not None:
+        where = "below" if (lvl is not None and put < lvl) else "above"
+        bits.append(f"peak put OI {_fmt(put,0)} ({where} spot)")
+    if call is not None:
+        bits.append(f"peak call OI {_fmt(call,0)}")
+    return " · ".join(bits) or "no VIX chain stored"
+
+
 def _index_board(ctx: dict[str, Any]) -> str:
     rows = "".join(_row_index(ix) for ix in ctx.get("indices", []))
     vix = ctx.get("vix") or {}
@@ -118,10 +135,10 @@ def _index_board(ctx: dict[str, Any]) -> str:
         f'{_esc(vix.get("asof"))}</span></td>'
         f'<td>{_fmt(vix.get("vix"), 2)}</td>'
         '<td class="d dim">n/a — vol index'
-        f'<span class="cap">floor {_fmt(vix.get("floor"),0)} · wall {_fmt(vix.get("call_wall"),0)}</span></td>'
-        '<td class="c"><span class="pill pill-mid">'
-        f'{_pct((vix.get("call_oi_share") or 0)*100,0)} call-wt</span></td>'
-        '<td class="d"><span class="tag t-mid">tail-hedge bid</span></td>'
+        f'<span class="cap">{_vix_oi_caption(vix)}</span></td>'
+        '<td class="c dim">—</td>'
+        f'<td class="d"><span class="tag t-mid">call-weighted OI '
+        f'{_pct((vix.get("call_oi_share") or 0)*100,0)}</span></td>'
         f'<td class="d">VVIX <b>{_fmt(vix.get("vvix"),1)}</b></td>'
         "</tr>"
     )
@@ -138,13 +155,38 @@ def _index_board(ctx: dict[str, Any]) -> str:
 <div class="note">{_esc(ctx.get("board_note") or "")}</div></div>"""
 
 
+def _declutter(ys: list[float], *, gap: float = 12.0, lo: float = 14.0, hi: float = 288.0) -> list[float]:
+    """Push overlapping label y-positions apart, preserving order.
+
+    The ladder is linearly scaled, so on a pinned day the put wall, the flip and
+    spot can all land inside 12px while the call wall sits 250px away — three
+    labels printed on top of each other. The LINES stay at their true y (the
+    geometry must not lie); only the text is nudged, and a leader connects them.
+    """
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    out = list(ys)
+    prev = -1e9
+    for i in order:
+        v = max(out[i], prev + gap, lo)
+        out[i] = v
+        prev = v
+    # If the nudging ran past the bottom, pull the whole stack back up.
+    over = max(out, default=0) - hi
+    if over > 0:
+        shift = min(over, min(out, default=0) - lo)
+        if shift > 0:
+            out = [v - shift for v in out]
+    return out
+
+
 def _doc_ladder_svg(doc: dict[str, Any]) -> str:
     """Vertical SPX level ladder scaled to the day's levels (pure SVG)."""
     flip = doc.get("flip")
     spot = doc.get("spot")
     cw = doc.get("call_wall")
     em_hi, em_lo = doc.get("em_hi"), doc.get("em_lo")
-    pts = [p for p in (flip, spot, cw, em_hi, em_lo, doc.get("put_wall")) if p]
+    pw = doc.get("put_wall")
+    pts = [p for p in (flip, spot, cw, em_hi, em_lo, pw) if p]
     if len(pts) < 2 or flip is None or spot is None:
         return '<div class="note dim">Level ladder unavailable — need flip + spot.</div>'
     top = max(pts) * 1.004
@@ -155,18 +197,21 @@ def _doc_ladder_svg(doc: dict[str, Any]) -> str:
     def y(price: float) -> float:
         return y0 + (top - price) / rng * (y1 - y0)
 
-    def line(price: float, color: str, wide: float, dash: str, label: str, lc: str) -> str:
-        if price is None:
-            return ""
-        yy = y(price)
-        d = f'stroke-dasharray="{dash}"' if dash else ""
-        return (
-            f'<line x1="60" y1="{yy:.1f}" x2="360" y2="{yy:.1f}" stroke="{color}" '
-            f'stroke-width="{wide}" {d}/>'
-            f'<text x="366" y="{yy+3:.1f}" font-size="10.5" fill="{lc}">{_esc(label)}</text>'
-            f'<text x="54" y="{yy+3:.1f}" font-size="9.5" fill="#8a93a0" text-anchor="end">'
-            f'{price:,.0f}</text>'
-        )
+    # (price, colour, width, dash, label, label-colour) in draw order.
+    items: list[tuple[float, str, float, str, str, str]] = []
+    if cw:
+        items.append((cw, "#2e9e5b", 1.4, "", f"call wall {cw:,.0f} · resistance", "#2e9e5b"))
+    if pw and not (cw and abs(pw - cw) / (cw or 1) <= 0.002):
+        items.append((pw, "#8a93a0", 1.0, "3 2", f"put wall {pw:,.0f}", "#8a93a0"))
+    items.append((flip, "#0e8f9c", 2.4, "7 3", f"◄ ZERO-γ FLIP {flip:,.0f}", "#0e8f9c"))
+    items.append((spot, "#111", 1.6, "", f"● SPOT {spot:,.0f}", "#111"))
+    if em_hi:
+        items.append((em_hi, "#8e6fd0", 1.0, "2 3", f"EM+ {em_hi:,.0f}", "#8e6fd0"))
+    if em_lo:
+        items.append((em_lo, "#8e6fd0", 1.0, "2 3", f"EM− {em_lo:,.0f}", "#8e6fd0"))
+
+    true_y = [y(p) for p, *_ in items]
+    lab_y = _declutter(true_y)
 
     parts = ['<svg class="ladder" viewBox="0 0 540 300" role="img" aria-label="SPX level ladder">']
     if cw:
@@ -174,19 +219,27 @@ def _doc_ladder_svg(doc: dict[str, Any]) -> str:
             f'<rect x="60" y="{y(cw):.1f}" width="300" height="{max(2,y(cw*0.995)-y(cw)):.1f}" '
             f'fill="#2e9e5b" opacity="0.10"/>'
         )
-    if flip:
-        parts.append(f'<rect x="60" y="{y(flip):.1f}" width="300" height="{y1-y(flip):.1f}" fill="#c0392b" opacity="0.05"/>')
+    parts.append(
+        f'<rect x="60" y="{y(flip):.1f}" width="300" height="{y1-y(flip):.1f}" '
+        f'fill="#c0392b" opacity="0.05"/>'
+    )
     parts.append(f'<line x1="60" y1="{y0}" x2="60" y2="{y1}" stroke="#d5dbe3" stroke-width="1"/>')
-    parts.append(line(cw, "#2e9e5b", 1.4, "", f"call wall {cw:,.0f} · resistance" if cw else "", "#2e9e5b"))
-    pw = doc.get("put_wall")
-    if pw and cw and abs(pw - cw) / (cw or 1) > 0.002:
-        parts.append(line(pw, "#8a93a0", 1.0, "3 2", f"put wall {pw:,.0f}", "#8a93a0"))
-    parts.append(line(flip, "#0e8f9c", 2.4, "7 3", f"◄ ZERO-γ FLIP {flip:,.0f}", "#0e8f9c"))
-    parts.append(line(spot, "#111", 1.6, "", f"● SPOT {spot:,.0f}", "#111"))
-    if em_hi:
-        parts.append(line(em_hi, "#8e6fd0", 1.0, "2 3", f"EM+ {em_hi:,.0f}", "#8e6fd0"))
-    if em_lo:
-        parts.append(line(em_lo, "#8e6fd0", 1.0, "2 3", f"EM− {em_lo:,.0f}", "#8e6fd0"))
+    for (price, color, wide, dash, label, lc), ty, ly in zip(items, true_y, lab_y):
+        d = f' stroke-dasharray="{dash}"' if dash else ""
+        parts.append(
+            f'<line x1="60" y1="{ty:.1f}" x2="360" y2="{ty:.1f}" stroke="{color}" '
+            f'stroke-width="{wide}"{d}/>'
+        )
+        if abs(ly - ty) > 1.5:  # leader from the line to its nudged label
+            parts.append(
+                f'<path d="M360 {ty:.1f} L364 {ty:.1f} L364 {ly:.1f}" fill="none" '
+                f'stroke="{color}" stroke-width="0.7" opacity="0.55"/>'
+            )
+        parts.append(
+            f'<text x="368" y="{ly+3:.1f}" font-size="10.5" fill="{lc}">{_esc(label)}</text>'
+            f'<text x="54" y="{ty+3:.1f}" font-size="9.5" fill="#8a93a0" text-anchor="end">'
+            f'{price:,.0f}</text>'
+        )
     parts.append("</svg>")
     return f'<div class="ladderwrap">{"".join(parts)}</div>'
 
@@ -277,17 +330,50 @@ def _vol_skew_chips(ctx: dict[str, Any]) -> str:
     return "".join(parts)
 
 
+_STALE_BADGE = (
+    '<span style="font-size:9.5px;font-weight:800;color:#fff;background:#c0392b;'
+    'border-radius:4px;padding:1px 6px;margin-left:7px;letter-spacing:.4px">{}</span>'
+)
+
+
 def _doc_section(ctx: dict[str, Any]) -> str:
     doc = ctx.get("doc") or {}
+    age = doc.get("letter_age") or {}
+    fresh = bool(age.get("fresh"))
     exp = doc.get("expectation") or "Doc's daily read will appear here once the letter body is stored."
     src = doc.get("expectation_src") or ""
-    stale = ""
-    if doc.get("walls_stale"):
-        stale = (
-            '<div class="flag"><b>Build note:</b> wall levels are from the last stored index chain '
-            "(indices are excluded from per-strike collection). The AM index snapshot makes these "
-            "strike-by-strike live; flip, regime and EM rails are fresh.</div>"
+
+    # The header used to read "Doc McGraw — levels & what he expects today" and
+    # "Doc's read into today" regardless of how old the stored letter was, so an
+    # Aug 13 daily plan was published as today's expectation. The heading now
+    # follows the data: Doc's words when they are current, our own read when
+    # they are not, with the stale letter still quoted but clearly dated.
+    if fresh:
+        head = "Doc McGraw — levels &amp; what he expects today"
+        hd = f"Doc's read into today · {_esc(src)}"
+        badge = ""
+    else:
+        head = "SPX levels — our read (no current Doc letter)"
+        hd = f"Our data-driven read · {_esc(src)}"
+        badge = _STALE_BADGE.format(_esc((age.get("label") or "stale").upper()))
+
+    stale_note = ""
+    if not fresh and doc.get("stale_quote"):
+        stale_note = (
+            '<div class="flag"><b>Last stored Doc letter '
+            f'({_esc(age.get("as_of") or "undated")}, {_esc(age.get("label") or "stale")}){badge}</b> — '
+            "kept for context only; its levels and scenarios are withheld from the "
+            f'triggers and level chips above.<br><span class="dim">{_esc(doc.get("stale_quote"))}</span></div>'
         )
+
+    walls_caveat = ""
+    if doc.get("walls_stale"):
+        walls_caveat = (
+            '<div class="flag"><b>Wall levels stale:</b> newest stored index chain is '
+            f'{_esc(doc.get("walls_as_of") or "unknown")}. Run <code>index_walls_am</code> to '
+            "refresh strike-by-strike; flip, regime and EM rails are current.</div>"
+        )
+
     r16 = ""
     if doc.get("r16_lo") and doc.get("r16_hi"):
         r16 = (
@@ -300,17 +386,18 @@ def _doc_section(ctx: dict[str, Any]) -> str:
             f'<div class="chip"><span class="lab">EM · straddle</span>'
             f'<b>{_fmt(doc.get("em_lo"),0)} – {_fmt(doc.get("em_hi"),0)}</b></div>'
         )
-    return f"""<h2 class="sec"><span class="n">04</span>Doc McGraw — levels &amp; what he expects today</h2>
+    wall_lab = "Call wall" + (" (stale)" if doc.get("walls_stale") else "")
+    return f"""<h2 class="sec"><span class="n">04</span>{head}</h2>
 <div class="card">
-<div class="expect"><div class="hd">Doc's read into today {f'· {_esc(src)}' if src else ''}</div>{_esc(exp)}</div>
+<div class="expect"><div class="hd">{hd}</div>{_esc(exp)}</div>
 {_doc_ladder_svg(doc)}
 <div class="lvl">
 <div class="chip"><span class="lab">Zero-γ flip</span><b>{_fmt(doc.get("flip"),0)}</b></div>
 <div class="chip"><span class="lab">Spot</span><b>{_fmt(doc.get("spot"),0)}</b></div>
-<div class="chip"><span class="lab">Call wall</span><b>{_fmt(doc.get("call_wall"),0)}</b></div>
+<div class="chip"><span class="lab">{wall_lab}</span><b>{_fmt(doc.get("call_wall"),0)}</b></div>
 {straddle_rail}{r16}</div>
 {_gex_transition_html(ctx)}
-{stale}</div>"""
+{stale_note}{walls_caveat}</div>"""
 
 
 def _pos_bar(pos_pct: float | None, status: str) -> str:
@@ -348,7 +435,7 @@ def _em_section(ctx: dict[str, Any]) -> str:
         )
     return f"""<h2 class="sec"><span class="n">05</span>Expected-move rails — anchored at period open</h2>
 <div class="card">
-<div class="note" style="margin-top:0">SPX ≈ SPY×10 · current spot <b>{_fmt(cur, 0)}</b> ({_esc(em.get("as_of"))}). Quarterly / Monthly / Weekly rails are <b>fixed</b> at each period's opening spot × that period's implied move — they don't move within the period; only <b>Daily</b> re-anchors. Read today's price against the static rails.</div>
+<div class="note" style="margin-top:0">Current spot <b>{_fmt(cur, 0)}</b> — the index board's SPX, the same figure used everywhere above. <b>Anchors</b> are SPY closes ×10 ({_esc(em.get("as_of"))}), which run a few points under cash SPX (a persistent index-vs-ETF basis), so an anchor will not match the board's spot for the same date — SPY is the maintained daily series and the rails only need a consistent origin. Quarterly / Monthly / Weekly rails are <b>fixed</b> at each period's opening spot × that period's implied move; only <b>Daily</b> re-anchors.</div>
 <table><thead><tr><th class="d">Horizon</th><th class="d">Anchored</th><th>Lower</th><th>EM</th><th>Upper</th>
 <th class="d">Spot in range</th><th class="d">Read</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
@@ -371,35 +458,59 @@ def _vol_section(ctx: dict[str, Any]) -> str:
 def _letters_section(ctx: dict[str, Any]) -> str:
     cards = ""
     for lt in ctx.get("letters", []):
+        fresh = bool(lt.get("fresh"))
+        age = lt.get("age_label") or ""
+        badge = (
+            f'<span class="dim" style="font-size:10.5px"> · {_esc(age)}</span>' if fresh
+            else _STALE_BADGE.format(_esc(age.upper() or "STALE"))
+        )
         cards += (
-            f'<div class="card"><div class="quote"><span class="src">{_esc(lt.get("src"))}</span> — '
-            f'{_esc(lt.get("text"))}</div></div>'
+            f'<div class="card"><div class="quote"><span class="src">{_esc(lt.get("src"))}</span>'
+            f'{badge} — {_esc(lt.get("text"))}</div></div>'
         )
     tags = ctx.get("fresh_tags") or []
     tagline = ""
     if tags:
         tagline = '<div class="note">Fresh tags today: ' + ", ".join(_esc(t) for t in tags[:12]) + "</div>"
     body = cards or '<div class="card note dim">No letter commentary stored yet.</div>'
-    return f'<h2 class="sec"><span class="n">07</span>Letters — market-structure commentary</h2><div class="two">{body}</div>{tagline}'
+    return (
+        '<h2 class="sec"><span class="n">07</span>Letters — market-structure commentary</h2>'
+        f'<div class="two">{body}</div>{tagline}'
+    )
 
 
 def _tracker_section(ctx: dict[str, Any]) -> str:
     rows = ""
+    mentions = 0
     for t in ctx.get("tracker", []):
         d = (t.get("dir") or "").lower()
         dcls = "neg" if "bear" in d else "pos" if "bull" in d else "dim"
+        if t.get("mention_only"):
+            mentions += 1
+        scls = "dim" if t.get("mention_only") else "pos"
         rows += (
             f'<tr><td class="d src">{_esc(t.get("src"))}</td>'
             f'<td class="d sym">{_esc(t.get("ticker"))}</td>'
             f'<td class="d {dcls}">{_esc(t.get("dir"))}</td>'
             f'<td class="d">{_esc(t.get("note"))}</td>'
-            f'<td class="d dim">{_esc(t.get("status"))}</td></tr>'
+            f'<td class="d {scls}">{_esc(t.get("status"))}</td></tr>'
         )
-    body = rows or '<tr><td colspan="5" class="dim">No tracked trades surfaced this period.</td></tr>'
-    return f"""<h2 class="sec"><span class="n">08</span>Trade tracker — Jaguar / Doc / Sits</h2>
+    if not rows:
+        return (
+            '<h2 class="sec"><span class="n">08</span>Trade tracker — letters</h2>'
+            '<div class="card"><div class="note dim">No letter ideas cleared the '
+            "direction / subject checks today.</div></div>"
+        )
+    note = (
+        "<b>thesis</b> = the letter argued a view on the name; <b>named only</b> = the "
+        "letter mentioned it without one, so no direction is shown. Rows whose tagged "
+        "direction contradicts their own text, or whose text is about a different "
+        "company, are dropped rather than published."
+    )
+    return f"""<h2 class="sec"><span class="n">08</span>Trade tracker — letters</h2>
 <div class="card"><table><thead><tr><th class="d">Src</th><th class="d">Ticker</th>
-<th class="d">Dir</th><th class="d">Note</th><th class="d">Status</th></tr></thead>
-<tbody>{body}</tbody></table></div>"""
+<th class="d">Dir</th><th class="d">Note</th><th class="d">Basis</th></tr></thead>
+<tbody>{rows}</tbody></table><div class="note">{note}</div></div>"""
 
 
 def _learned_section(ctx: dict[str, Any]) -> str:
@@ -434,17 +545,39 @@ def _crosscheck_section(ctx: dict[str, Any]) -> str:
 <th class="d">Our data</th><th class="d">Verdict</th></tr></thead><tbody>{rows}</tbody></table></div>"""
 
 
+def _session_banner(ctx: dict[str, Any]) -> str:
+    """Name the session the numbers describe, and say so loudly when closed.
+
+    The 2026-09-07 edition called itself a "pre-open daily brief" on Labor Day
+    and stamped its board rows 2026-09-06, a Sunday.
+    """
+    sd = ctx.get("session_date")
+    if not sd:
+        return ""
+    if ctx.get("is_market_open_today"):
+        return f'<div class="sub dim">Data through the <b>{_esc(sd)}</b> close.</div>'
+    return (
+        '<div class="flag" style="margin:8px 0 0"><b>US equity market closed today.</b> '
+        f'Every number below is the <b>{_esc(sd)}</b> session — nothing has re-priced since.</div>'
+    )
+
+
 def _recap_html(ctx: dict[str, Any]) -> str:
-    r = ctx.get("recap") or {}
-    recap, outlook = r.get("recap"), r.get("outlook")
-    if not recap and not outlook:
+    rc = ctx.get("recap") or {}
+    recap, outlook = rc.get("recap"), rc.get("outlook")
+    if not (recap or outlook):
         return ""
     parts = []
     if recap:
-        parts.append(f"<b>Yesterday:</b> {_esc(recap)}")
+        parts.append(f"<b>Last session:</b> {_esc(recap)}")
     if outlook:
-        src = r.get("outlook_src") or ""
-        parts.append(f'<b>Today:</b> {_esc(outlook)} <span class="dim">({_esc(src)})</span>')
+        # Labelled by provenance, not by wishful thinking. This block used to say
+        # "Today:" over whatever text _doc_block returned, which on a stale run
+        # was a three-week-old letter pasted in raw.
+        lead = "<b>Into today:</b>" if rc.get("outlook_fresh") else "<b>Our read:</b>"
+        src = rc.get("outlook_src")
+        tail = f' <span class="dim">({_esc(src)})</span>' if src else ""
+        parts.append(f"{lead} {_esc(outlook)}{tail}")
     return f'<div class="recap">{"<br>".join(parts)}</div>'
 
 
@@ -489,21 +622,40 @@ def _flows_section(ctx: dict[str, Any]) -> str:
             "(populates once tas_daily_rollup has run).</div></div>"
         )
     body = ""
+    conflicts = 0
     for r in rows:
         lbl = r.get("label") or ""
         lcls = "pos" if lbl == "accumulation" else "neg" if lbl == "distribution" else "dim"
         nd = r.get("net_delta") or 0.0
+        mark = ""
+        if r.get("tilt_conflict"):
+            conflicts += 1
+            mark = ' <span class="dim" title="label disagrees with buy-tilt">⚠︎</span>'
+        obs = r.get("days_observed")
+        obs_cell = f'{_fmt(obs, 0)}/5' if obs is not None else "—"
         body += (
             f'<tr><td class="d sym">{_esc(r.get("root"))}</td>'
-            f'<td>${_fmt((r.get("notional") or 0.0) / 1e6, 1)}M</td>'
+            f'<td>${_fmt((r.get("premium") or 0.0) / 1e6, 1)}M</td>'
             f'<td class="{"pos" if nd >= 0 else "neg"}">${_fmt(nd / 1e6, 1)}M</td>'
-            f'<td class="d {lcls}">{_esc(lbl)}</td>'
+            f'<td class="c dim">{obs_cell}</td>'
+            f'<td class="d {lcls}">{_esc(lbl)}{mark}</td>'
             f'<td>{_fmt(r.get("score"), 0)}</td></tr>'
         )
+    note = (
+        "Ranked by <b>premium traded</b> over the last 5 sessions (our own tape). "
+        "<b>Premium</b> is dollars of option premium; <b>Net Δ$</b> is delta-notional — "
+        "different units, so Net Δ$ legitimately exceeds premium. "
+        "<b>Days</b> = sessions with qualifying prints out of 5."
+    )
+    if conflicts:
+        note += (
+            f" ⚠︎ marks {conflicts} row(s) whose read disagrees with their own "
+            "buy-tilt — treat the label as unconfirmed."
+        )
     return f"""<h2 class="sec"><span class="n">03</span>Top option flow — biggest names (5-day)</h2>
-<div class="card"><table><thead><tr><th class="d">Name</th><th>Notional</th><th>Net Δ$</th>
-<th class="d">Read</th><th>Score</th></tr></thead><tbody>{body}</tbody></table>
-<div class="note">Largest single-name option flow by notional from our own tape (5-session roll-up); accumulation = persistent net buying.</div></div>"""
+<div class="card"><table><thead><tr><th class="d">Name</th><th>Premium</th><th>Net &Delta;$</th>
+<th class="c">Days</th><th class="d">Read</th><th>Score</th></tr></thead><tbody>{body}</tbody></table>
+<div class="note">{note}</div></div>"""
 
 
 _CSS = """*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:#1a2027;
@@ -548,28 +700,55 @@ ul.clean{margin:6px 0 0;padding-left:18px;font-size:13px}ul.clean li{margin:5px 
 .quote .src{color:#9aa5b1;font-size:11px;font-weight:400}"""
 
 
+#: The extractor emits ``key_support`` / ``key_resistance`` / ``expected_move``;
+#: this table used to look up ``gamma_flip`` / ``call_wall`` / ``put_wall`` only,
+#: so Doc's column was permanently "—" even when he had stated levels — and the
+#: "ours" side was hard-coded to None for both walls. Map both vocabularies.
+_LEVEL_ALIASES: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    ("Gamma flip", ("gamma_flip", "flip", "zero_gamma"), "gex_flip"),
+    ("Resistance / call wall", ("call_wall", "key_resistance", "resistance"), "call_wall"),
+    ("Support / put wall", ("put_wall", "key_support", "support"), "put_wall"),
+)
+
+
 def _stated_vs_ours(ctx: dict[str, Any], mech: dict[str, Any]) -> str:
-    """Doc's stated gamma flip vs our computed flip — the cross-check overlay."""
+    """Doc's stated levels vs our computed ones — the cross-check overlay.
+
+    Suppressed entirely when the stored letter is stale: comparing today's flip
+    against three-week-old stated levels invites reading the gap as a signal.
+    """
     ns = ctx.get("newsletter") or {}
-    doc = (ns.get("sources") or {}).get("DOC") or {}
-    doc_levels = {lv.get("name"): lv.get("value") for lv in (doc.get("levels") or [])}
-    ours_flip = mech.get("gex_flip")
-    pairs = [
-        ("Gamma flip", ours_flip, doc_levels.get("gamma_flip")),
-        ("Call wall", None, doc_levels.get("call_wall")),
-        ("Put wall", None, doc_levels.get("put_wall")),
-    ]
-    pairs = [(lab, o, s) for (lab, o, s) in pairs if o is not None or s is not None]
+    doc_src = (ns.get("sources") or {}).get("DOC") or {}
+    if not (ctx.get("doc") or {}).get("letter_age", {}).get("fresh"):
+        return ""
+    stated = {
+        (lv.get("name") or "").lower(): lv.get("value")
+        for lv in (doc_src.get("levels") or [])
+    }
+    ours_src = {
+        "gex_flip": mech.get("gex_flip"),
+        "call_wall": (ctx.get("doc") or {}).get("call_wall"),
+        "put_wall": (ctx.get("doc") or {}).get("put_wall"),
+    }
+    pairs = []
+    for label, aliases, our_key in _LEVEL_ALIASES:
+        said = next((stated[a] for a in aliases if stated.get(a) is not None), None)
+        ours = ours_src.get(our_key)
+        if said is not None or ours is not None:
+            pairs.append((label, ours, said))
     if not pairs:
         return ""
     rows = "".join(
         f'<tr><td class="l">{lab}</td><td>{_fmt(o, 0) if o is not None else "—"}</td>'
-        f'<td>{_fmt(s, 0) if s is not None else "—"}</td></tr>'
-        for (lab, o, s) in pairs
+        f'<td>{_fmt(sd, 0) if sd is not None else "—"}</td>'
+        f'<td class="dim">{_fmt(abs(o - sd), 0) if (o is not None and sd is not None) else "—"}</td></tr>'
+        for (lab, o, sd) in pairs
     )
+    asof = _esc(doc_src.get("as_of") or "")
     return (
-        '<div class="overlay"><div class="hd">Stated vs ours</div>'
-        '<table><thead><tr><th class="l">level</th><th>ours</th><th>Doc</th></tr></thead>'
+        f'<div class="overlay"><div class="hd">Stated vs ours{f" · Doc {asof}" if asof else ""}</div>'
+        '<table><thead><tr><th class="l">level</th><th>ours</th><th>Doc</th>'
+        '<th>gap</th></tr></thead>'
         f"<tbody>{rows}</tbody></table></div>"
     )
 
@@ -632,6 +811,7 @@ def render_html(ctx: dict[str, Any]) -> str:
 <style>{_CSS}</style></head><body><div class="wrap">
 <h1>📈 Trading-Intel Daily</h1>
 <div class="sub">{_esc(ctx.get('as_of'))} · {_esc(ctx.get('subtitle') or '')}</div>
+{_session_banner(ctx)}
 <div class="through"><b>Through-line:</b> {through}</div>
 {_recap_html(ctx)}
 {body}

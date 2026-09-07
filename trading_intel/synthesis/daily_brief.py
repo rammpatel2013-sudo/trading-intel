@@ -17,6 +17,7 @@ from typing import Any
 
 import pandas as pd
 import structlog
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
@@ -36,7 +37,9 @@ from trading_intel.mcp.tools import get_gamma_history
 from trading_intel.market.gex_transition import compute as _gex_compute
 from trading_intel.api.market_read import build_market_read
 from trading_intel.api.newsletter import build_newsletter_signals
+from trading_intel.letters.clean import clean_body, snippet
 from trading_intel.synthesis.daily_brief_render import render_html
+from trading_intel.vol.vix_calendar import is_market_holiday
 
 log = structlog.get_logger(__name__)
 
@@ -64,6 +67,53 @@ _EM_PERIODS = (
 _IV_LABEL = {"vix9d": "VIX9D", "vix": "VIX", "vix3m": "VIX3M"}
 _SPX_FROM_SPY = 10.0
 
+#: A stored letter older than this many TRADING days no longer speaks for today:
+#: it is still quoted (with its age) but its levels and scenarios are withheld
+#: from the triggers/levels blocks so a stale number can never drive a read.
+_STALE_LETTER_DAYS = 3
+
+
+def _trading_sessions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse raw snapshot rows to ONE row per real trading session, ascending.
+
+    Two things made the board wrong before this existed. ``get_gamma_history``
+    returns one row per collector snapshot, so a single date can carry three or
+    four rows — ``rows[-10:]`` labelled "the last 10 sessions" was really about
+    three days of intraday noise. And ``greeks_snapshot`` runs seven days a week:
+    on a weekend or holiday spot is frozen at the prior close while the greeks
+    are re-derived from a stale chain, so ``rows[-1]`` could report a Sunday, and
+    the drift between two closed days read as a real move in net GEX.
+
+    Keeps the LAST snapshot of each open session (the EOD read) and drops closed
+    days entirely.
+    """
+    by_day: dict[date, dict[str, Any]] = {}
+    for r in rows or []:
+        d = _as_date(r.get("date") or r.get("ts"))
+        if d is None or is_market_holiday(d):
+            continue
+        by_day[d] = {**r, "session": d}
+    return [by_day[d] for d in sorted(by_day)]
+
+
+def _trading_days_between(start: date, end: date) -> int:
+    """Count of open sessions strictly after ``start``, up to and including ``end``."""
+    if end <= start:
+        return 0
+    n, d = 0, start
+    while d < end:
+        d += timedelta(days=1)
+        if not is_market_holiday(d):
+            n += 1
+    return n
+
+
+def _prev_session(d: date) -> date:
+    """The most recent open session at or before ``d``."""
+    while is_market_holiday(d):
+        d -= timedelta(days=1)
+    return d
+
 
 def _latest(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     return rows[-1] if rows else None
@@ -71,7 +121,7 @@ def _latest(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 def _index_block(session: Session, symbol: str) -> dict[str, Any] | None:
     hist = get_gamma_history(session, symbol, days=_BOARD_DAYS)
-    rows = hist.get("rows") or []
+    rows = _trading_sessions(hist.get("rows") or [])
     last = _latest(rows)
     if last is None:
         return {"symbol": symbol, "spot": None, "flip": None, "regime": None,
@@ -87,7 +137,8 @@ def _index_block(session: Session, symbol: str) -> dict[str, Any] | None:
         "spot_vs_flip_pct": vf,
         "flip_series": [r.get("gex_flip") for r in tail],
         "gex_series": [r.get("gex_total") for r in tail],
-        "asof": last.get("date"),
+        "asof": (last.get("session") or _as_date(last.get("date")) or date.today()).isoformat(),
+        "sessions": len(rows),
     }
 
 
@@ -128,7 +179,37 @@ def _vix_block(session: Session) -> dict[str, Any]:
     }
 
 
-def _doc_block(session: Session, doc_index: dict[str, Any] | None, vix_level: float | None) -> dict[str, Any]:
+def _letter_age(note: dict[str, Any], today: date) -> dict[str, Any]:
+    """Age a stored letter in trading days and decide whether it still speaks.
+
+    ``get_research_note`` hands back the newest note for a source with no notion
+    of whether "newest" is recent. On 2026-09-07 the newest ``__DOC__`` note was
+    an Aug 13 daily plan and the brief printed its levels under "Doc's read into
+    today". Everything downstream now goes through this: ``fresh`` gates the
+    levels and scenarios, ``label`` is what the reader sees.
+    """
+    as_of = _as_date(note.get("as_of"))
+    if as_of is None:
+        return {"as_of": None, "age": None, "fresh": False, "label": "undated"}
+    age = _trading_days_between(as_of, _prev_session(today))
+    return {
+        "as_of": as_of.isoformat(),
+        "age": age,
+        "fresh": age <= _STALE_LETTER_DAYS,
+        "label": (
+            "today's letter" if age == 0
+            else f"{age} session{'s' if age != 1 else ''} old"
+        ),
+    }
+
+
+def _doc_block(
+    session: Session,
+    doc_index: dict[str, Any] | None,
+    vix_level: float | None,
+    today: date | None = None,
+) -> dict[str, Any]:
+    today = today or date.today()
     walls = get_walls(session, _DOC_ROOT, dte_max=60)
     strad = get_straddle(session, _DOC_ROOT, dte_max=7)
     flip = (doc_index or {}).get("flip")
@@ -141,12 +222,28 @@ def _doc_block(session: Session, doc_index: dict[str, Any] | None, vix_level: fl
     if spot and vix_level:
         mv = spot * (vix_level / 100.0) / _SQRT_252
         r16_lo, r16_hi = spot - mv, spot + mv
-    # Doc's stored daily-plan body (letter-body storage) if present, else a
-    # data-driven reconstruction from flip + regime.
+
+    # Walls: report REAL staleness. This used to be ``bool(walls.get("as_of"))``,
+    # which is true whenever a snapshot exists at all — so the "wall levels are
+    # from the last stored index chain" caveat printed on every single run,
+    # including runs where the chain was collected that morning. A caveat that is
+    # always on is a caveat nobody reads.
+    walls_as_of = _as_date(walls.get("as_of"))
+    walls_age = (
+        _trading_days_between(walls_as_of, _prev_session(today))
+        if walls_as_of else None
+    )
+    walls_stale = walls_age is None or walls_age > 1
+
+    # Doc's stored daily-plan body, but only where it is still current.
     note = get_research_note(session, "__DOC__")
-    if note.get("found") and note.get("note_md"):
-        expectation = note["note_md"][:600]
-        exp_src = f"Doc letter {note.get('as_of') or ''}".strip()
+    age = _letter_age(note, today) if note.get("found") else {
+        "as_of": None, "age": None, "fresh": False, "label": "no letter stored"
+    }
+    body = clean_body(note.get("note_md")) if note.get("found") else ""
+    if body and age["fresh"]:
+        expectation = snippet(body, 600)
+        exp_src = f"Doc letter {age['as_of']} · {age['label']}"
     else:
         pos = "below" if below else "above"
         air = (
@@ -161,20 +258,25 @@ def _doc_block(session: Session, doc_index: dict[str, Any] | None, vix_level: fl
             if (spot and flip)
             else "Flip/spot unavailable — Doc read pending."
         )
-        exp_src = "reconstructed from flip + regime"
+        exp_src = "our data — no current Doc letter"
     return {
         "flip": flip,
         "spot": spot,
         "below": below,
         "call_wall": walls.get("call_wall"),
         "put_wall": walls.get("put_wall"),
+        "walls_as_of": walls_as_of.isoformat() if walls_as_of else None,
         "em_lo": em_lo,
         "em_hi": em_hi,
         "r16_lo": r16_lo,
         "r16_hi": r16_hi,
-        "walls_stale": bool(walls.get("as_of")),
+        "walls_stale": walls_stale,
         "expectation": expectation,
         "expectation_src": exp_src,
+        "letter_age": age,
+        # The stale body is still worth READING — it just must not be presented
+        # as today's plan, and its levels stay out of the triggers block.
+        "stale_quote": snippet(body, 420) if (body and not age["fresh"]) else "",
     }
 
 
@@ -185,15 +287,61 @@ def _is_clean_ticker(sym: str | None) -> bool:
     return bool(_TICKER_RE.match(s)) and s not in _JUNK
 
 
+def _tradeable(session: Session) -> set[str]:
+    """Symbols we actually hold market data for — the optionability gate.
+
+    The letter extractor emits anything ticker-SHAPED, so policy and macro
+    acronyms ride onto the watchlist and then into the brief: the 2026-09-07
+    edition published ``USMCA`` as a bull idea. A real name has hundreds of
+    greeks/quote rows; ``USMCA`` has zero of each. One existence query settles
+    it without a hand-maintained stoplist.
+    """
+    try:
+        rows = session.execute(
+            text(
+                "SELECT symbol FROM greeks_snapshots "
+                "UNION SELECT symbol FROM quotes_daily"
+            )
+        ).scalars().all()
+        return {str(r).strip().upper() for r in rows}
+    except Exception:  # noqa: BLE001 — a failed gate must not empty the section
+        log.warning("daily_brief.tradeable_gate_failed", exc_info=True)
+        return set()
+
+
+#: A rationale describing a BASKET or theme is not a single-name call. AAPL
+#: shipped Bull on "Industrial and Auto Analog Recovery basket includes ...".
+_THEME_WORDS = ("basket", "screen", "universe", "complex", "cohort",
+                "these names", "the group", "sector rotation")
+
+#: A rationale that only records THAT a letter named the ticker, not what it
+#: argued. These are worth surfacing but must not sit beside a real thesis
+#: wearing the same "Bull"/"Bear" badge: "The document mentions $WMT as part of
+#: the BTO Thursday morning trade" is not a call on Walmart, and "OPEX is
+#: scheduled for Friday trading" is about expiration, not the ticker OPEX.
+_MENTION_ONLY = ("document mentions", "is mentioned", "mentioned as", "mentioned in",
+                 "often referenced", "primary focus of the document",
+                 "discussed in detail", "is scheduled for", "as part of the",
+                 "the document")
+
+
+def _is_mention_only(rationale: str) -> bool:
+    low = (rationale or "").lower()
+    return any(w in low for w in _MENTION_ONLY)
+
+
 def _learned_block(session: Session) -> tuple[list[dict[str, Any]], int]:
     wl = get_research_watchlist(session, active_only=True, limit=200)
     rows = wl.get("rows") or []
     total = len(rows)
+    tradeable = _tradeable(session)
     seen: set[str] = set()
     clean: list[dict[str, Any]] = []
     for r in rows:
         sym = (r.get("symbol") or "").strip().upper()
         if not _is_clean_ticker(sym) or sym in seen:
+            continue
+        if tradeable and sym not in tradeable:
             continue
         seen.add(sym)
         clean.append(
@@ -205,15 +353,63 @@ def _learned_block(session: Session) -> tuple[list[dict[str, Any]], int]:
     return clean, total
 
 
+#: Words that flip the plain reading of a rationale. Used to catch rows where the
+#: tagger's sentiment contradicts its own text — e.g. FMX came through tagged
+#: Bear on "significant future growth potential".
+_BULL_WORDS = ("growth", "undervalued", "upside", "beat", "positive", "strong",
+               "promising", "accelerat", "approval", "potential", "outperform")
+_BEAR_WORDS = ("deceleration", "deteriorat", "miss", "weak", "soft", "decline",
+               "downgrade", "slowdown", "risk", "falling", "overvalued", "cut")
+
+
+def _direction_agrees(sentiment: float, rationale: str) -> bool:
+    """True when the rationale's own wording matches the tagged direction.
+
+    The tagger emits a sentiment score with a confidence, and both can be high
+    while the sentence says the opposite. A row that fails this check is dropped
+    rather than published with a direction we cannot stand behind.
+    """
+    t = (rationale or "").lower()
+    bull = sum(w in t for w in _BULL_WORDS)
+    bear = sum(w in t for w in _BEAR_WORDS)
+    if bull == bear:
+        return True  # no signal either way — defer to the tagger
+    return (bull > bear) == (sentiment > 0)
+
+
+def _mentions_subject(sym: str, rationale: str) -> bool:
+    """True unless the rationale is plainly about a DIFFERENT company.
+
+    ``AAPL — "Abbott's settlements are expected to positively impact Apple's
+    stock"`` shipped as a bull call on Apple sourced from a note about Abbott.
+    We can't resolve every name, but a rationale whose FIRST named company is a
+    possessive that doesn't match the ticker is a mis-attribution worth dropping.
+    """
+    t = (rationale or "").strip()
+    if not t:
+        return False
+    low = t.lower()
+    if any(w in low for w in _THEME_WORDS):
+        return False
+    lead = re.match(r"^([A-Z][A-Za-z&.\-]{2,})(?:'s|’s)\b", t)
+    if not lead:
+        return True
+    name = lead.group(1).upper()
+    return name.startswith(sym[:3]) or sym.startswith(name[:3])
+
+
 def _tracker_block(session: Session) -> list[dict[str, Any]]:
     """High-conviction ideas surfaced from the trade-idea letters (data-driven).
 
     Structured trade parsing (exact strikes/structures) is a follow-up that needs
-    letter-body extraction; for now this surfaces the strongest source-tagged names.
+    letter-body extraction; for now this surfaces the strongest source-tagged
+    names, minus the rows whose direction or subject the text contradicts.
     """
     wl = get_research_watchlist(session, active_only=True, limit=200)
+    tradeable = _tradeable(session)
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
+    dropped = 0
     for r in wl.get("rows") or []:
         sym = (r.get("symbol") or "").strip().upper()
         sent, conf = r.get("sentiment"), r.get("confidence")
@@ -221,14 +417,30 @@ def _tracker_block(session: Session) -> list[dict[str, Any]]:
             continue
         if abs(sent) < 0.8 or conf < 0.8:
             continue
+        if tradeable and sym not in tradeable:
+            dropped += 1
+            continue
+        rationale = (r.get("rationale") or "").strip()
+        if not _direction_agrees(sent, rationale) or not _mentions_subject(sym, rationale):
+            dropped += 1
+            continue
         seen.add(sym)
+        mention = _is_mention_only(rationale)
         out.append(
-            {"src": "letters", "ticker": sym, "dir": "Bull" if sent > 0 else "Bear",
-             "note": (r.get("rationale") or "")[:90], "status": "surfaced"}
+            {"src": "letters", "ticker": sym,
+             # A bare mention carries no direction we can stand behind, so the
+             # direction badge is withheld rather than guessed.
+             "dir": "—" if mention else ("Bull" if sent > 0 else "Bear"),
+             "note": snippet(rationale, 90),
+             "status": "named only" if mention else "thesis",
+             "mention_only": mention}
         )
-        if len(out) >= 8:
+        if len(out) >= 12:
             break
-    return out
+    if dropped:
+        log.info("daily_brief.tracker_rows_dropped", n=dropped)
+    out.sort(key=lambda r: r["mention_only"])  # theses first, mentions after
+    return out[:8]
 
 
 def _through_line(indices: list[dict[str, Any]], vix: dict[str, Any]) -> str:
@@ -246,23 +458,66 @@ def _through_line(indices: list[dict[str, Any]], vix: dict[str, Any]) -> str:
     return (("; ".join(parts) + ".") if parts else "Mixed index gamma.") + tail
 
 
-def _crosschecks(indices: list[dict[str, Any]], vix: dict[str, Any]) -> list[dict[str, Any]]:
+#: Claims we can mechanically verify against our own tape, and the phrasings a
+#: letter uses to make them. A row is emitted ONLY when a current letter actually
+#: contains the claim — the old version hard-coded both rows and stamped them
+#: "Doc / L&S" whether or not either letter had said anything of the kind, which
+#: made a template look like verification.
+_CLAIM_PROBES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Dealers short-gamma / move-amplifying",
+     ("short gamma", "short-gamma", "negative gamma", "move-amplif", "amplify moves")),
+    ("Tail-hedge bid into events",
+     ("tail hedge", "tail-hedge", "crash bid", "vvix", "put bid", "hedging demand")),
+    ("Compressed / pinned range",
+     ("pinned", "pin ", "compressed range", "chop zone", "range-bound", "low energy")),
+)
+
+
+def _crosschecks(
+    indices: list[dict[str, Any]],
+    vix: dict[str, Any],
+    letters: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Letter claims vs our tape — only for claims a CURRENT letter actually made.
+
+    Each row names the sources whose fresh text contains the claim. When no
+    current letter makes a checkable claim the section is empty, which is the
+    honest output: nothing was claimed, so nothing was checked.
+    """
+    corpus = [
+        (l.get("src") or "?", (l.get("text") or "").lower())
+        for l in (letters or [])
+        if l.get("fresh") and l.get("text")
+    ]
     below = [ix["symbol"] for ix in indices if (ix.get("spot_vs_flip_pct") or 0) < 0]
-    out = [{
-        "claim": "Dealers short-gamma / move-amplifying",
-        "source": "Doc / L&S",
-        "our": f"{', '.join(below)} below flip" if below else "all indices above flip",
-        "verdict": "✅ confirmed" if below else "◻︎ not today",
-        "cls": "ok" if below else "dim",
-    }]
     vvix = vix.get("vvix")
-    if vvix is not None:
+    pinned = not below and all(
+        abs(ix.get("spot_vs_flip_pct") or 0) < 1.0 for ix in indices
+    )
+
+    def _ours(claim: str) -> tuple[str, bool]:
+        if claim.startswith("Dealers short-gamma"):
+            return (f"{', '.join(below)} below flip" if below else "all indices above flip",
+                    bool(below))
+        if claim.startswith("Tail-hedge"):
+            return (f"VVIX {vvix:.0f}, VIX call-wall {vix.get('call_wall') or '—'}"
+                    if vvix is not None else "VVIX unavailable",
+                    bool(vvix is not None and vvix > 95))
+        return ("all indices within 1% of flip" if pinned else "spot dispersed from flip",
+                pinned)
+
+    out: list[dict[str, Any]] = []
+    for claim, probes in _CLAIM_PROBES:
+        srcs = sorted({src for src, txt in corpus if any(pr in txt for pr in probes)})
+        if not srcs:
+            continue
+        ours, agrees = _ours(claim)
         out.append({
-            "claim": "Tail-hedge bid into events",
-            "source": "Doc",
-            "our": f"VVIX {vvix:.0f}, VIX call-wall {vix.get('call_wall') or '—'}",
-            "verdict": "✅ confirmed" if vvix > 95 else "⚠️ muted",
-            "cls": "ok" if vvix > 95 else "warn",
+            "claim": claim,
+            "source": " / ".join(srcs),
+            "our": ours,
+            "verdict": "✅ confirmed" if agrees else "◻︎ not in our data",
+            "cls": "ok" if agrees else "dim",
         })
     return out
 
@@ -275,12 +530,31 @@ _LETTER_SOURCES = (
 )
 
 
-def _letters_block(session: Session) -> list[dict[str, Any]]:
+def _letters_block(session: Session, today: date | None = None) -> list[dict[str, Any]]:
+    """Newest stored body per source, cleaned of email chrome and age-stamped.
+
+    Bodies used to be sliced raw (``note_md[:320]``), which is how Substack's
+    "View this post on the web at ..." preamble and Mailchimp's inline CSS sheet
+    ended up rendered as market commentary.
+    """
+    today = today or date.today()
     out: list[dict[str, Any]] = []
     for key, label in _LETTER_SOURCES:
         note = get_research_note(session, key)
-        if note.get("found") and note.get("note_md"):
-            out.append({"src": label, "text": note["note_md"][:320]})
+        if not (note.get("found") and note.get("note_md")):
+            continue
+        body = clean_body(note["note_md"])
+        if len(body) < 40:
+            continue
+        age = _letter_age(note, today)
+        out.append({
+            "src": label,
+            "text": snippet(body, 320),
+            "as_of": age["as_of"],
+            "age": age["age"],
+            "age_label": age["label"],
+            "fresh": age["fresh"],
+        })
     return out
 
 
@@ -327,7 +601,9 @@ def _anchor_on_or_after(series: list[tuple[date, float]], boundary: date) -> tup
     return series[-1] if series else None
 
 
-def _em_levels_block(session: Session) -> dict[str, Any] | None:
+def _em_levels_block(
+    session: Session, spot_override: float | None = None
+) -> dict[str, Any] | None:
     """SPX expected-move RAILS anchored at each period's open (fixed) + where
     price sits now. Q/M/W rails don't move within the period; Daily re-anchors
     each session, so today's price reads against static weekly/monthly/quarterly
@@ -341,7 +617,12 @@ def _em_levels_block(session: Session) -> dict[str, Any] | None:
     vdates = sorted(vmap)
 
     cur_date, cur_spy = closes[-1]
-    cur_spx = cur_spy * _SPX_FROM_SPY
+    # The RAILS are anchored on SPY closes, but "where is price now" must be the
+    # SAME number the rest of the brief prints. This block used to fall back to
+    # the last SPY close x10 while the board showed the live greeks spot, so one
+    # page carried 7,702 (SPY x10) and 7,719 (greeks) for SPX simultaneously.
+    cur_spx = float(spot_override) if spot_override else cur_spy * _SPX_FROM_SPY
+    spot_src = "index board" if spot_override else "SPY x10"
     bounds = _period_boundaries(cur_date)
 
     def _iv_on_or_after(boundary: date, key: str) -> float | None:
@@ -374,10 +655,14 @@ def _em_levels_block(session: Session) -> dict[str, Any] | None:
             status = "▲ broke above (expansion)"
         elif cur_spx < lower:
             status = "▼ broke below (expansion)"
-        elif pos >= 80:
-            status = "near upper rail"
-        elif pos <= 20:
-            status = "near lower rail"
+        elif pos >= 85:
+            status = "at the upper rail"
+        elif pos >= 65:
+            status = "upper third"
+        elif pos <= 15:
+            status = "at the lower rail"
+        elif pos <= 35:
+            status = "lower third"
         else:
             status = "mid-range (balanced)"
         out.append(
@@ -397,7 +682,8 @@ def _em_levels_block(session: Session) -> dict[str, Any] | None:
         return None
     return {
         "current_spot": cur_spx,
-        "current_src": "SPY×10",
+        "current_src": spot_src,
+        "anchor_src": "SPY×10",
         "as_of": cur_date.isoformat(),
         "rows": out,
     }
@@ -410,7 +696,7 @@ def _mag7_block(session: Session) -> list[dict[str, Any]]:
     """Mag7 gamma/vol snapshot — the mega-caps that drive the index."""
     out: list[dict[str, Any]] = []
     for sym in _MAG7:
-        rows = get_gamma_history(session, sym, days=3).get("rows") or []
+        rows = _trading_sessions(get_gamma_history(session, sym, days=8).get("rows") or [])
         last = rows[-1] if rows else None
         if not last:
             out.append({"symbol": sym, "found": False})
@@ -432,21 +718,39 @@ def _mag7_block(session: Session) -> list[dict[str, Any]]:
 
 
 def _flows_block(session: Session) -> list[dict[str, Any]]:
-    """Top single-name option-flow names by notional (our own tape roll-up)."""
+    """Top single-name option-flow names by premium traded (our own tape).
+
+    ``total_notional`` is PREMIUM traded; ``net_dollar_delta`` is DELTA-notional.
+    They are different units and routinely differ by 5x, so printing them in
+    adjacent unlabelled "$" columns produced rows like "EWY $48.7M / $136.4M" —
+    a net that appears to exceed the total. Both are carried through with their
+    unit named, and ``tilt_conflict`` flags a row whose label disagrees with its
+    own buy-tilt so the render can mark it instead of asserting it.
+    """
     sc = get_flow_scorecard(session, lookback_days=5, min_notional=1_000_000.0, limit=40)
     rows = sorted(
         sc.get("rows") or [], key=lambda r: (r.get("total_notional") or 0.0), reverse=True
     )[:5]
-    return [
-        {
-            "root": r.get("root"),
-            "notional": r.get("total_notional"),
-            "net_delta": r.get("net_dollar_delta"),
-            "label": r.get("label"),
-            "score": r.get("accum_score"),
-        }
-        for r in rows
-    ]
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        tilt, label = r.get("buy_tilt"), (r.get("label") or "")
+        out.append(
+            {
+                "root": r.get("root"),
+                "premium": r.get("total_notional"),
+                "net_delta": r.get("net_dollar_delta"),
+                "label": label,
+                "score": r.get("accum_score"),
+                "days_observed": r.get("days_observed"),
+                "buy_tilt": tilt,
+                "tilt_conflict": bool(
+                    tilt is not None
+                    and ((tilt < 0 and label == "accumulation")
+                         or (tilt > 0 and label == "distribution"))
+                ),
+            }
+        )
+    return out
 
 
 def _recap_block(
@@ -460,7 +764,9 @@ def _recap_block(
     spy = next((ix for ix in indices if ix.get("symbol") == "SPY"), None)
     if spy and spy.get("spot_vs_flip_pct") is not None and spy.get("flip"):
         side = "above" if spy["spot_vs_flip_pct"] > 0 else "below"
-        facts.append(f"SPY last {spy.get('spot')} — {side} its {spy['flip']:.0f} gamma flip")
+        facts.append(
+            f"SPY last {spy.get('spot'):,.2f} — {side} its {spy['flip']:,.2f} gamma flip"
+        )
     if em_levels:
         wk = next((r for r in (em_levels.get("rows") or []) if r.get("tenor") == "Weekly"), None)
         if wk and wk.get("lower") and wk.get("upper"):
@@ -469,8 +775,9 @@ def _recap_block(
         facts.append(f"VIX {vix.get('vix')} / VVIX {vix.get('vvix')}")
     return {
         "recap": ("; ".join(facts) + ".") if facts else "",
-        "outlook": (doc.get("expectation") or "")[:400],
+        "outlook": snippet(doc.get("expectation") or "", 400),
         "outlook_src": doc.get("expectation_src"),
+        "outlook_fresh": bool((doc.get("letter_age") or {}).get("fresh")),
     }
 
 
@@ -541,14 +848,19 @@ def _vol_skew_block(session: Session) -> dict[str, Any] | None:
 def build_brief_context(session: Session, settings: Settings | None = None) -> dict[str, Any]:
     """Assemble the full daily-brief context dict from banked data."""
     settings = settings or get_settings()
+    today = date.today()
+    # The brief is written FOR a trading session. Dating it date.today() meant the
+    # 2026-09-07 edition called itself a "pre-open daily brief" on Labor Day.
+    session_date = _prev_session(today)
     indices = [b for s in _INDEX_ROOTS if (b := _index_block(session, s)) is not None]
     vix = _vix_block(session)
     doc_index = next((ix for ix in indices if ix["symbol"] == _DOC_ROOT), None)
-    doc = _doc_block(session, doc_index, vix.get("vix"))
-    em_levels = _em_levels_block(session)
+    doc = _doc_block(session, doc_index, vix.get("vix"), today)
+    em_levels = _em_levels_block(session, (doc_index or {}).get("spot"))
     recap = _recap_block(indices, em_levels, vix, doc)
     mag7 = _mag7_block(session)
     flows = _flows_block(session)
+    letters = _letters_block(session, today)
     learned, learned_total = _learned_block(session)
     try:
         market_read = build_market_read(session, symbol="SPX")
@@ -559,8 +871,14 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
     except Exception:  # noqa: BLE001
         newsletter = None
     ctx: dict[str, Any] = {
-        "as_of": date.today().isoformat(),
-        "subtitle": "pre-open daily brief · synthesis read, index gamma, Doc levels, letters",
+        "as_of": today.isoformat(),
+        "session_date": session_date.isoformat(),
+        "is_market_open_today": not is_market_holiday(today),
+        "subtitle": (
+            "pre-open daily brief · synthesis read, index gamma, Doc levels, letters"
+            if not is_market_holiday(today)
+            else f"market closed today · data through the {session_date:%b %d} session"
+        ),
         "through_line": _through_line(indices, vix),
         "market_read": market_read,
         "newsletter": newsletter,
@@ -573,15 +891,17 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "gex_transition": _gex_transition_block(session),
         "vol_skew": _vol_skew_block(session),
         "em_levels": em_levels,
-        "letters": _letters_block(session),
+        "letters": letters,
         "fresh_tags": None,
         "tracker": _tracker_block(session),
         "learned": learned,
         "learned_total": learned_total,
-        "crosschecks": _crosschecks(indices, vix),
+        "crosschecks": _crosschecks(indices, vix, letters),
         "board_note": (
             "Flip trend and net-GEX sparklines run left→right over the last "
-            f"{_SPARK_POINTS} sessions. Spot-vs-flip colored green (long γ) / red (short γ)."
+            f"{_SPARK_POINTS} TRADING sessions — one EOD point per open day "
+            "(weekends and market holidays excluded). Spot-vs-flip colored "
+            "green (long γ) / red (short γ)."
         ),
         "vol_note": "VRP positive = implied rich vs realized; elevated VVIX = paying up for the vol path.",
         "provenance": "index γ + VIX + walls/straddle via trading-intel NAS · letters ingest (research watchlist).",

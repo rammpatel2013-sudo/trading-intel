@@ -14,8 +14,9 @@ Manual run:
 
 from __future__ import annotations
 
+import re
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
@@ -27,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.letters import substack
+from trading_intel.letters.clean import clean_body
 from trading_intel.letters.sources import substack_sources
 from trading_intel.memory.models import NewsletterLevel, NewsletterScenario, ResearchNote
 from trading_intel.memory.watchlist_ingest import ingest_folder
@@ -65,11 +67,36 @@ _SIGNAL_SOURCES = {
 }
 
 
+def _letter_date(raw: str, path: Path) -> date:
+    """The letter's own date, from the ``Date:`` header the saver writes.
+
+    Falls back to the file mtime, then today. Stamping the note with the LETTER's
+    date (not the fetch date) is what lets the daily brief tell a fresh letter
+    from a stale one — ``as_of=today`` made a three-week-old body look current.
+    """
+    m = re.search(r"^Date:\s*(\d{4}-\d{2}-\d{2})\s*$", raw, re.M)
+    if m:
+        try:
+            return date.fromisoformat(m.group(1))
+        except ValueError:
+            pass
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime).date()
+    except OSError:
+        return date.today()
+
+
 def _store_source_notes(session: Session, root: Path) -> int:
-    """Persist the newest letter body per source as a ResearchNote (rule 4)."""
+    """Persist the newest letter body per source as a ResearchNote (rule 4).
+
+    Needs no LLM — see the ordering note in ``run``. The body is passed through
+    ``letters.clean.clean_body`` so the Substack "view on the web" preamble, the
+    inline Mailchimp/Substack CSS sheet, tracking URLs and unsubscribe footers
+    never reach the report; the note is keyed on the LETTER's date so a stalled
+    fetch can no longer masquerade as today's read.
+    """
     if not root.is_dir():
         return 0
-    today = date.today()
     written = 0
     for frag, key in _SOURCE_KEYS.items():
         mds = [
@@ -80,20 +107,23 @@ def _store_source_notes(session: Session, root: Path) -> int:
         ]
         if not mds:
             continue
-        newest = max(mds, key=lambda p: p.stat().st_mtime)
+        # Filenames are ISO-dated, so lexical order == chronological order;
+        # mtime breaks the tie for same-day letters.
+        newest = max(mds, key=lambda p: (p.name, p.stat().st_mtime))
         try:
             raw = newest.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
         # Drop the "# subject / From: / Date:" header block the saver prepends.
         parts = raw.split("\n\n", 2)
-        body = (parts[-1] if len(parts) == 3 else raw)[:_NOTE_MAX_CHARS]
+        body = clean_body(parts[-1] if len(parts) == 3 else raw)[:_NOTE_MAX_CHARS]
         if len(body) < 80:
             continue
+        as_of = _letter_date(raw, newest)
         stmt = (
             pg_insert(ResearchNote)
             .values(
-                symbol=key, as_of=today, note_md=body,
+                symbol=key, as_of=as_of, note_md=body,
                 sources=newest.name[:128], model="letters",
             )
             .on_conflict_do_update(
@@ -202,12 +232,40 @@ def run(
         from trading_intel.letters import gmail_source
 
         saved += len(gmail_source.fetch_new(settings, root))
-    except (OSError, ValueError) as exc:
-        bound.warning("letters_fetch.gmail_failed", err=str(exc))
+    except Exception as exc:  # noqa: BLE001 — one lane must never abort the run
+        bound.warning("letters_fetch.gmail_failed", err=str(exc), exc_info=True)
 
-    result = ingest_folder(session, llm, research_dir=root, model=settings.LLM_TAGGING_MODEL)
-    notes = _store_source_notes(session, root)
-    signals = _extract_source_signals(session, llm, model=settings.LLM_TAGGING_MODEL)
+    # ── LLM-FREE LEG FIRST, EVERY LEG ISOLATED ──────────────────────────────
+    # Storing the raw letter body needs no model; ``ingest_folder`` and
+    # ``_extract_source_signals`` both need Ollama. They used to run in the
+    # order ingest -> store -> signals with no exception handling, so a single
+    # Ollama outage aborted run() before the body was ever written. Because
+    # ``_store_source_notes`` only ever overwrites on success, the last good
+    # note then sat in the DB indefinitely and the daily brief rendered it as
+    # "today" — that is how an Aug 13 letter led the 2026-09-07 brief. Now the
+    # body always lands and the model work is best-effort on top of it.
+    try:
+        notes = _store_source_notes(session, root)
+    except Exception as exc:  # noqa: BLE001
+        session.rollback()
+        bound.error("letters_fetch.notes_failed", err=str(exc), exc_info=True)
+        notes = 0
+
+    result: dict = {"ingested": 0, "skipped": 0, "new_symbols": 0}
+    try:
+        result = ingest_folder(
+            session, llm, research_dir=root, model=settings.LLM_TAGGING_MODEL
+        )
+    except Exception as exc:  # noqa: BLE001 — tagging is best-effort (needs Ollama)
+        session.rollback()
+        bound.error("letters_fetch.ingest_failed", err=str(exc), exc_info=True)
+
+    try:
+        signals = _extract_source_signals(session, llm, model=settings.LLM_TAGGING_MODEL)
+    except Exception as exc:  # noqa: BLE001 — levels/scenarios are best-effort
+        session.rollback()
+        bound.error("letters_fetch.signals_failed", err=str(exc), exc_info=True)
+        signals = 0
     bound.info(
         "letters_fetch.done",
         saved=saved,

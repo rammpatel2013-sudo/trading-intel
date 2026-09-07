@@ -37,8 +37,11 @@ def test_gap_breaks_delta():
 
 
 def test_clean_iv_preferred_over_noisy_gamma_iv():
-    gamma = _gamma([("2026-08-08", 140, 7756, 7693, 0.094), ("2026-08-10", 149, 7753, 7698, 0.121)])
-    iv = _iv([("2026-08-08", 0.1220), ("2026-08-10", 0.1224)])
+    # Fri -> Mon. (This fixture used to start on 2026-08-08, a SATURDAY; the
+    # series now drops closed days, so a weekend date yields no prior session
+    # and therefore no delta at all.)
+    gamma = _gamma([("2026-08-07", 140, 7756, 7693, 0.094), ("2026-08-10", 149, 7753, 7698, 0.121)])
+    iv = _iv([("2026-08-07", 0.1220), ("2026-08-10", 0.1224)])
     res = gt.compute(gamma, iv)
     last = res.latest
     # clean ΔIV = 12.24 - 12.20 = +0.04 pt, NOT the +2.7pt the noisy gamma IV would give
@@ -57,3 +60,20 @@ def test_latest_state_base_on_flat_tape():
               ("2026-08-10", 0.1224)])
     res = gt.compute(gamma, iv)
     assert res.latest.state == gt.STATE_BASE
+
+
+def test_closed_days_never_enter_the_series():
+    """greeks_snapshot runs 7 days a week; only open sessions are real points.
+
+    2026-09-05 Sat, 09-06 Sun, 09-07 Labor Day all carried rows with a frozen
+    spot and re-derived greeks, and their drift entered ΔGEX as real moves.
+    """
+    gamma = _gamma([
+        ("2026-09-03", 213, 7748, 7685, 0.079),
+        ("2026-09-04", 25, 7718, 7701, 0.072),
+        ("2026-09-05", 25, 7718, 7702, 0.072),
+        ("2026-09-06", 9, 7719, 7704, 0.094),
+        ("2026-09-07", 1, 7719, 7708, 0.101),
+    ])
+    dates = [str(r["date"]) for r in gt.eod_gex_series(gamma)]
+    assert dates == ["2026-09-03", "2026-09-04"]

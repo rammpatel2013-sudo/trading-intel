@@ -29,6 +29,13 @@ DOCKER="/usr/local/bin/docker"
 # overrides the host-IP DATABASE_URL in .env. Copy the exact value your existing
 # intraday/flow tasks already use.
 DB_URL="postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel"
+# Ollama runs on the LAPTOP, not the NAS (the DS923+ has 3.8GB RAM and cannot
+# host a 7B). The .env value is "http://localhost:11434", which is correct when a
+# job is run FROM the laptop but resolves to the CONTAINER inside `docker run`,
+# so every LLM leg failed here silently. Same problem, same fix as DB_URL above:
+# override it at the docker boundary. If the laptop is asleep the LLM legs just
+# degrade — letters_fetch stores the letter bodies regardless (see its run()).
+OLLAMA_URL="http://192.168.1.175:11434"
 # ─────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -53,6 +60,7 @@ for job in "$@"; do
             -v "${REPO_DIR}/secrets:/app/secrets" \
             -v "${REPO_DIR}/scripts:/app/scripts" \
             -e "DATABASE_URL=${DB_URL}" \
+            -e "OLLAMA_HOST=${OLLAMA_URL}" \
             "$IMAGE" sh -c "python -m trading_intel.scheduler.jobs.${job}"
         rc=$?
         echo "=== $(date '+%Y-%m-%d %H:%M:%S') ${job} EXIT ${rc} ==="
