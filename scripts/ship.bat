@@ -4,6 +4,17 @@ REM  trading-intel — ONE-COMMAND end-to-end ship (laptop -> GitHub -> DB -> NA
 REM
 REM  Usage:
 REM    scripts\ship.bat "commit message" "nas jobs" path\file1 [path\file2 ...]
+REM    scripts\ship.bat "commit message" "nas jobs" --staged      <- no path list
+REM
+REM  POWERSHELL TRAPS (both silent, both bite):
+REM    1. line continuation is a BACKTICK, not ^ . A ^ makes PowerShell run this
+REM       with NO file args (usage error) and then execute each following line as
+REM       its own command.
+REM    2. PowerShell DROPS a literal "" argument, shifting every path left by one
+REM       -- your first file becomes the <nas jobs> value. Pass none, never "".
+REM    Safest from PowerShell: put paths in an array and splat, or use --staged.
+REM       $f = @('"'"'scripts\nas\run_job.sh'"'"','"'"'trading_intel\config.py'"'"')
+REM       scripts\ship.bat "msg" none $f
 REM
 REM  Example:
 REM    scripts\ship.bat "feat: breadth + report fix" "breadth cockpit_report sector_report" ^
