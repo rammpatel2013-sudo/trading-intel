@@ -33,7 +33,7 @@ import pandas as pd
 # ── config ───────────────────────────────────────────────────────────────────
 INDEX_ROOTS: tuple[str, ...] = ("SPX", "SPXW", "SPY", "QQQ")
 PREMIUM_FLOOR: dict[str, float] = {"SPX": 250_000, "SPXW": 250_000, "SPY": 100_000, "QQQ": 100_000}
-_DEFAULT_OUT = Path("reports") / "index_bigtrades.html"
+_DEFAULT_OUT = Path("reports") / f"index_bigtrades_{date.today().isoformat()}.html"
 _CLUSTER_WINDOW_S = 2.0   # legs within this many seconds (same root) = one structure
 _VALID_COLS = (
     "time", "symbol", "bid_price", "ask_price", "price", "theo", "size", "value",

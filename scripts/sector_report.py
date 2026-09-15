@@ -22,13 +22,14 @@ from __future__ import annotations
 
 import html as _html
 import math
+from datetime import date
 from pathlib import Path
 
 import structlog
 
 log = structlog.get_logger(__name__)
 
-_DEFAULT_OUT = Path("reports") / "sector.html"
+_DEFAULT_OUT = Path("reports") / f"sector_{date.today().isoformat()}.html"
 
 
 # ── formatting + tiny helpers (server-side ports of the old JS) ──────────────

@@ -102,7 +102,7 @@ class Settings(BaseSettings):
 
     # ── EOD wide chain (OI/flow change study) ──────────────────────────
     OI_CHAIN_WINDOW_DAYS: int = 180  # expirations within this DTE are stored
-    OI_CHAIN_RETENTION_DAYS: int = 90  # prune oi_chain_eod rows older than this
+    OI_CHAIN_RETENTION_DAYS: int = 365  # prune oi_chain_eod rows older than this (12mo)
 
     # ── Intraday live GEX (delta-band per-strike, pruned EOD) ──────────
     LIVE_GEX_SYMBOLS: str = ""  # comma list; empty -> effective watchlist (heavy)

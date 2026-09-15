@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import html as _html
 import math
+from datetime import date
 from pathlib import Path
 
 import structlog
@@ -29,7 +30,7 @@ import structlog
 log = structlog.get_logger(__name__)
 
 _SYMBOLS: tuple[str, ...] = ("SPX", "SPY", "QQQ")  # fallback; real default = config INDEX_ROOTS
-_DEFAULT_OUT = Path("reports") / "cockpit.html"
+_DEFAULT_OUT = Path("reports") / f"cockpit_{date.today().isoformat()}.html"
 
 
 # ── number formatting (server-side ports of the old JS helpers) ──────────────

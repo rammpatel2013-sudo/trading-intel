@@ -32,7 +32,7 @@ from trading_intel.memory.models import OiChainEod, TasDailyContract, TasDailyFl
 
 log = structlog.get_logger(__name__)
 
-_DEFAULT_OUT = Path("reports") / "aggressive_flow.html"
+_DEFAULT_OUT = Path("reports") / f"aggressive_flow_{date.today().isoformat()}.html"
 
 # ── Sector groups: {display name: member roots}. Edit / extend freely; the report
 # renders one card per group (the grid wraps). A name is used by at most one group

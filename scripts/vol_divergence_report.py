@@ -31,7 +31,7 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-_DEFAULT_OUT = Path("reports") / "vol_divergence.html"
+_DEFAULT_OUT = Path("reports") / f"vol_divergence_{date.today().isoformat()}.html"
 _RV_WINDOW = 5           # fallback realized-vol window (auto-picked at runtime, see _best_window)
 _WIN_CANDIDATES = (3, 5, 10, 20)   # realized windows tried; the one most correlated to VIX1D wins
 _LOOKBACK = 252          # window for z-scores / correlations

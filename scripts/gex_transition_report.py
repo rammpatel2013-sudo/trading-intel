@@ -21,6 +21,7 @@ Run:
 from __future__ import annotations
 
 import html as _html
+from datetime import date
 from pathlib import Path
 
 import structlog
@@ -38,7 +39,7 @@ log = structlog.get_logger(__name__)
 _SYMBOL = "SPX"
 _TENOR = 30
 _WINDOW = 14  # sessions shown in the strip / charts
-_DEFAULT_OUT = Path("reports") / "gex_transition.html"
+_DEFAULT_OUT = Path("reports") / f"gex_transition_{date.today().isoformat()}.html"
 
 _BLUE = "#2f6df0"
 _RED = "#d1495b"

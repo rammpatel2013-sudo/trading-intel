@@ -50,6 +50,11 @@ fi
 "$DOCKER" network create "$NETWORK" 2>/dev/null || true
 "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
 
+# Report jobs write to a RELATIVE Path("reports") and the image sets WORKDIR /app,
+# so the HTML lands at /app/reports inside the container. Without this bind mount
+# `docker run --rm` deletes it on exit and the Telegram message is the only copy.
+mkdir -p "$REPO_DIR/reports"
+
 status=0
 for job in "$@"; do
     log="$HOME_DIR/ti_${job}.log"
@@ -59,6 +64,7 @@ for job in "$@"; do
             -v "${ENV_FILE}:/app/.env" \
             -v "${REPO_DIR}/secrets:/app/secrets" \
             -v "${REPO_DIR}/scripts:/app/scripts" \
+            -v "${REPO_DIR}/reports:/app/reports" \
             -e "DATABASE_URL=${DB_URL}" \
             -e "OLLAMA_HOST=${OLLAMA_URL}" \
             "$IMAGE" sh -c "python -m trading_intel.scheduler.jobs.${job}"

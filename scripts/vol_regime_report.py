@@ -25,7 +25,7 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-_DEFAULT_OUT = Path("reports") / "vol_regime.html"
+_DEFAULT_OUT = Path("reports") / f"vol_regime_{date.today().isoformat()}.html"
 _WIN = 20  # trend window (trading days)
 _RED = "#d1495b"
 _AMBER = "#e08a1e"
