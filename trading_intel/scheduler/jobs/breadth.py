@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from trading_intel.config import Settings, get_settings
 from trading_intel.market import breadth as bm
 from trading_intel.memory.models import BreadthSnapshot, QuoteDaily
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 
 log = structlog.get_logger(__name__)
 
@@ -54,6 +54,11 @@ def _spx_equiv_weeklies(session: Session) -> tuple[list[float], float | None]:
 def run(session: Session, settings: Settings, *, client: object | None = None) -> dict:
     """Compute + bank one breadth row for today. Returns the persisted values."""
     as_of = eastern_now().date()
+    if not is_trading_session(as_of):
+        # Weekend/holiday runs would re-bank Friday's stale constituent counts as
+        # a new session and cumulate them into ad_line. Skip, don't upsert.
+        log.info("breadth.skipped_non_session", as_of=str(as_of))
+        return {"skipped": "not_a_trading_session", "as_of": str(as_of)}
 
     # 1) constituent breadth (best-effort — never crashes the row)
     cvforge = client

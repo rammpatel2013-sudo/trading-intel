@@ -37,7 +37,7 @@ def run(
 ) -> str:
     """Build the flow report and push to Telegram. Returns the written path."""
     from trading_intel.config import get_settings
-    from trading_intel.reports import build_flow
+    from trading_intel.reports import build_flow_sides
 
     settings = settings or get_settings()
 
@@ -52,7 +52,7 @@ def run(
             log.warning("flow_report.llm_unavailable", err=str(exc))
             llm = None
 
-    path = build_flow(
+    paths = build_flow_sides(
         lookback_days=lookback_days,
         recent_days=recent_days,
         min_notional=min_notional,
@@ -62,11 +62,15 @@ def run(
     if push:
         from trading_intel.clients.telegram import TelegramClient
 
-        sent = TelegramClient(settings).send_document(
-            path, caption="EOD option flow — accumulation / distribution"
-        )
-        log.info("flow_report.pushed", path=str(path), telegram_sent=sent)
-    return str(Path(path))
+        tg = TelegramClient(settings)
+        captions = {
+            "equity": "EOD option flow \u2014 EQUITY (single names)",
+            "index": "EOD option flow \u2014 INDEX / ETF",
+        }
+        for sd, p in paths.items():
+            sent = tg.send_document(p, caption=captions[sd])
+            log.info("flow_report.pushed", side=sd, path=str(p), telegram_sent=sent)
+    return ", ".join(str(Path(p)) for p in paths.values())
 
 
 def main() -> None:

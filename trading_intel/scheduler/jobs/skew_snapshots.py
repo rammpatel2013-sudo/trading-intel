@@ -37,7 +37,7 @@ from trading_intel.memory.models import (
     SkewSnapshot,
     VixData,
 )
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 from trading_intel.vol.skew import (
     butterfly,
     compose_label,
@@ -45,6 +45,7 @@ from trading_intel.vol.skew import (
     risk_reversal,
     shift_vs_slide,
     skew_percentile,
+    horizon_covered,
 )
 from trading_intel.vol.vix_beta import abnormal_rr_change, vix_beta
 from trading_intel.watchlist import effective_symbols
@@ -53,6 +54,10 @@ log = structlog.get_logger(__name__)
 
 #: Locked horizons (calendar days) for the term-structure of skew.
 HORIZONS: tuple[int, ...] = (30, 60, 90, 180, 365)
+
+#: Expiries to span when building the delta surface. Must reach the longest
+#: entry in HORIZONS or those tenors cannot be represented at all.
+_SURFACE_EXPIRIES = 14
 
 _UQ_COLS = ["symbol", "ts", "horizon_dte"]
 _UPDATE_COLS = (
@@ -196,6 +201,8 @@ def _surface_atm_at_horizon(surface: DeltaSurface, horizon: int) -> float | None
     if surface.n_expiries == 0:
         return None
     j = int(np.argmin(np.abs(surface.dte - horizon)))
+    if not horizon_covered(surface.dte[j], horizon):
+        return None  # tenor not listed — do not pass off a nearer expiry as it
     val = float(surface.atm_iv[j])
     return val if np.isfinite(val) else None
 
@@ -219,7 +226,12 @@ def build_rows(
         if chain is None:
             continue
         try:
-            surface = build_delta_surface(chain, ref=as_of)
+            # n_expiries defaults to 3 (the nearest liquid expiries). This job asks
+            # for HORIZONS up to 365d, so the default ladder tops out weeks away and
+            # every horizon snaps onto the same near-dated column -> five identical
+            # rows per symbol-day. Span the listed ladder instead; horizons that are
+            # still not covered now come back NULL via the tolerance guard.
+            surface = build_delta_surface(chain, n_expiries=_SURFACE_EXPIRIES, ref=as_of)
         except ComputationError:
             continue
         if surface.n_expiries == 0:

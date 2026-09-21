@@ -62,8 +62,12 @@ def build_flow(
     min_notional: float = 1_000_000.0,
     llm: object = None,
     settings: object = None,
+    side: str = "both",
 ) -> str:
     """Generate the EOD option-tape Flow Report and return the written HTML path.
+
+    ``side`` is 'equity' | 'index' | 'both'; the equity and index tape are
+    delivered as separate documents (see ``build_flow_sides``).
 
     Single source of truth is ``scripts/flow_report.py`` (the CLI), so the MCP
     ``generate_flow_report`` tool produces the identical report. Reads the durable
@@ -77,8 +81,28 @@ def build_flow(
             min_notional=min_notional,
             llm=llm,
             settings=settings,
+            side=side,
         )
     )
+
+
+def build_flow_sides(
+    *,
+    lookback_days: int = 21,
+    recent_days: int = 5,
+    min_notional: float = 1_000_000.0,
+    llm: object = None,
+    settings: object = None,
+) -> dict[str, str]:
+    """Equity and index flow reports as two separate files: ``{side: path}``."""
+    impl = _load(_FLOW_SCRIPT, "_flow_report_impl")
+    return {
+        sd: str(impl.build(
+            lookback_days=lookback_days, recent_days=recent_days,
+            min_notional=min_notional, llm=llm, settings=settings, side=sd,
+        ))
+        for sd in ("equity", "index")
+    }
 
 
 def build_vol_surface(symbol: str) -> str:

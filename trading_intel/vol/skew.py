@@ -67,14 +67,33 @@ RR_EXTREME_CALL_BIAS_PTS = -2.0
 # ── Surface coordinate readouts ────────────────────────────────────────
 
 
+#: A horizon is only "covered" when a real expiry sits within this tolerance.
+#: Without it ``argmin`` silently snaps a 365d request onto whatever the longest
+#: listed expiry happens to be, so 180d and 365d resolve to the SAME column and
+#: the stored term-structure of skew becomes one tenor copied five times
+#: (observed 2026-09-21: 118/125 symbol-days identical across all horizons).
+HORIZON_TOL_DAYS = 25
+HORIZON_TOL_FRAC = 0.25
+
+
+def horizon_covered(dte_actual: float, horizon_dte: int) -> bool:
+    """Whether ``dte_actual`` is close enough to stand in for ``horizon_dte``."""
+    return abs(float(dte_actual) - horizon_dte) <= max(
+        HORIZON_TOL_DAYS, HORIZON_TOL_FRAC * horizon_dte
+    )
+
+
 def _expiry_index(surface: DeltaSurface, horizon_dte: int) -> int | None:
     """Index of the expiry whose DTE is closest to ``horizon_dte``.
 
-    ``None`` when the surface has no expiries — callers short-circuit to NaN.
+    ``None`` when the surface has no expiries, or when the nearest expiry is too
+    far from the requested horizon to represent it — a cold row is honest, a
+    duplicate of a different tenor is not.
     """
     if surface.n_expiries == 0:
         return None
-    return int(np.argmin(np.abs(surface.dte - horizon_dte)))
+    j = int(np.argmin(np.abs(surface.dte - horizon_dte)))
+    return j if horizon_covered(surface.dte[j], horizon_dte) else None
 
 
 def _delta_index(surface: DeltaSurface, delta: float) -> int:

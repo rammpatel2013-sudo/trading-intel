@@ -57,7 +57,137 @@ _LIFECYCLE_COLS = [
     "first_date",
     "last_date",
     "build_side",
+    "legged_notional",
+    "leg_share",
 ]
+
+# Index roots are ranked on the same notional scale as single names, so one blended
+# table is always ~all index. Worse, the biggest index prints are BOXES (deep-ITM
+# call + deep-ITM put, same expiry) -- interest-rate financing with no directional
+# content -- so they must be dropped, not merely separated.
+_INDEX_ROOTS = frozenset({"SPX", "SPXW", "XSP", "SPY", "QQQ", "IWM", "NDX", "RUT", "VIX"})
+_DEEP_DELTA = 0.85      # |delta| at/above this = deep ITM, ~no convexity
+_LEAP_DELTA = 0.70      # lower bar when it is also long-dated
+_LEAP_DTE = 365
+_DEEP_MONEY = 0.10      # fallback when avg_delta is null: 10% ITM
+_ITM_PAD = 0.02         # a leg counts as ITM for box-pairing at >=2% in the money
+_PAIR_MIN_NOTIONAL = 5e7  # both legs must be institutional size to call it a box
+_MULTILEG_SHARE = 0.50    # >=50% of premium printed inside a leg_group -> packaged
+
+
+def _deep_itm(cp, delta, dte, spot, strike) -> bool:
+    """Lone deep-ITM / LEAP financing print. Mirrors tas_capture_job._is_financing,
+    but reads the ROLL-UP columns -- tas_daily_contract has no is_financing column,
+    so the raw tape tag never reaches the report."""
+    ad = abs(delta) if delta is not None and pd.notna(delta) else None
+    if ad is not None:
+        if ad >= _DEEP_DELTA:
+            return True
+        return bool(ad >= _LEAP_DELTA and dte is not None and dte >= _LEAP_DTE)
+    if spot and strike and pd.notna(spot) and pd.notna(strike) and spot > 0:
+        if cp == "C":
+            return strike <= spot * (1 - _DEEP_MONEY)
+        if cp == "P":
+            return strike >= spot * (1 + _DEEP_MONEY)
+    return False
+
+
+def _itm(cp, spot, strike, pad: float = _ITM_PAD) -> bool:
+    """Simply in-the-money by `pad`. Used for STRUCTURAL box detection."""
+    if not (spot and strike) or pd.isna(spot) or pd.isna(strike) or spot <= 0:
+        return False
+    return strike <= spot * (1 - pad) if cp == "C" else strike >= spot * (1 + pad)
+
+
+def classify_contracts(df: pd.DataFrame, *, as_of: date,
+                       index_roots: frozenset[str] | None = None) -> pd.DataFrame:
+    """Tag lifecycle rows is_index / is_financing / is_box_leg. Pure.
+
+    Box detection is STRUCTURAL, not delta-thresholded, on purpose: an SPX 8000 put
+    against a 7,700 spot is only ~0.68 delta, so a deep-ITM delta gate misses the put
+    leg of every box and leaves it looking like genuine one-sided put flow. The real
+    signature is a big ITM CALL and a big ITM PUT on the SAME expiry.
+    """
+    if df is None or df.empty:
+        return df
+    roots = index_roots or _INDEX_ROOTS
+    out = df.copy()
+    out["is_index"] = out["root"].astype(str).str.upper().isin(roots)
+
+    def _dte(e):
+        try:
+            return (pd.to_datetime(e).date() - as_of).days
+        except Exception:
+            return None
+
+    dtes = out["expiry"].map(_dte)
+    out["is_financing"] = [
+        _deep_itm(cp, dl, dt, sp, st)
+        for cp, dl, dt, sp, st in zip(
+            out["cp"], out.get("avg_delta"), dtes, out.get("avg_spot"), out["strike"]
+        )
+    ]
+
+    itm_mask = pd.Series(
+        [_itm(c, s, k) for c, s, k in zip(out["cp"], out.get("avg_spot"), out["strike"])],
+        index=out.index,
+    )
+    out["is_box_leg"] = False
+    big = out[out["total_notional"].fillna(0.0) >= _PAIR_MIN_NOTIONAL]
+    for (root, exp), g in big.groupby(["root", "expiry"], dropna=False):
+        gm = itm_mask.reindex(g.index).fillna(False)
+        has_c = bool(((g["cp"] == "C") & gm).any())
+        has_p = bool(((g["cp"] == "P") & gm).any())
+        if has_c and has_p:
+            out.loc[(out["root"] == root) & (out["expiry"] == exp) & itm_mask,
+                    "is_box_leg"] = True
+    out["is_financing"] = out["is_financing"] | out["is_box_leg"]
+
+    # Scope the whole filter to INDEX roots. A box spread is an interest-rate
+    # product -- single names have no financing market that trades at this size --
+    # whereas a deep-ITM single-name call is usually STOCK REPLACEMENT, i.e. exactly
+    # the directional build this report exists to surface. Suppressing those would
+    # hide good flow to fix an index problem.
+    out["is_financing"] = out["is_financing"] & out["is_index"]
+    out["is_box_leg"] = out["is_box_leg"] & out["is_index"]
+
+    legs = (
+        pd.to_numeric(out["leg_share"], errors="coerce").fillna(0.0)
+        if "leg_share" in out.columns
+        else pd.Series(0.0, index=out.index)
+    )
+    dte_s = pd.Series(list(dtes), index=out.index)
+
+    def _label(i) -> str:
+        if bool(out.at[i, "is_box_leg"]):
+            return "box"
+        if bool(out.at[i, "is_financing"]):
+            d = dte_s.at[i]
+            return "LEAP" if (d is not None and pd.notna(d) and d >= _LEAP_DTE) else "deep-ITM"
+        if legs.at[i] >= _MULTILEG_SHARE:
+            return "multi-leg"
+        return ""
+
+    out["structure"] = [_label(i) for i in out.index]
+    return out
+
+
+def split_contracts(df: pd.DataFrame) -> dict[str, Any]:
+    """Split classified rows into index / equity, financing suppressed from both."""
+    if df is None or df.empty:
+        return {"equity": df, "index": df, "n_financing": 0, "n_boxes": 0}
+    live = df[~df["is_financing"]]
+    return {
+        "equity": live[~live["is_index"]].reset_index(drop=True),
+        "index": live[live["is_index"]].reset_index(drop=True),
+        # surfaced, not hidden: a filter you cannot inspect is a filter you
+        # cannot trust, and these rows are real money worth eyeballing
+        "structures": df[df["is_financing"]]
+        .sort_values("total_notional", ascending=False)
+        .reset_index(drop=True),
+        "n_financing": int(df["is_financing"].sum()),
+        "n_boxes": int(df["is_box_leg"].sum()),
+    }
 
 
 def _as_day(values: pd.Series) -> pd.Series:
@@ -162,7 +292,10 @@ def contract_lifecycle(
 
     df = contracts.copy()
     df["trade_date"] = _as_day(df["trade_date"])
-    for col in ("total_notional", "net_dollar_delta", "total_size", "spot", "avg_delta"):
+    for col in ("total_notional", "net_dollar_delta", "total_size", "spot",
+                "avg_delta", "legged_notional"):
+        if col not in df.columns:
+            df[col] = None
         df[col] = pd.to_numeric(df.get(col), errors="coerce")
 
     g = df.groupby(["root", "expiry", "strike", "cp"], dropna=False)
@@ -173,6 +306,7 @@ def contract_lifecycle(
         total_size=("total_size", "sum"),
         avg_spot=("spot", "mean"),
         avg_delta=("avg_delta", "mean"),
+        legged_notional=("legged_notional", "sum"),
         first_date=("trade_date", "min"),
         last_date=("trade_date", "max"),
     ).reset_index()
@@ -182,6 +316,11 @@ def contract_lifecycle(
     ].copy()
     if out.empty:
         return pd.DataFrame(columns=_LIFECYCLE_COLS)
+
+    # share of this contract's premium that printed inside a multi-leg structure
+    _tot = pd.to_numeric(out["total_notional"], errors="coerce").astype(float)
+    _leg = pd.to_numeric(out["legged_notional"], errors="coerce").astype(float).fillna(0.0)
+    out["leg_share"] = (_leg / _tot.where(_tot > 0)).fillna(0.0).clip(0.0, 1.0)
 
     out["build_side"] = out["cum_net_dollar_delta"].map(
         lambda v: "accumulation" if v > 0 else ("distribution" if v < 0 else "neutral")
@@ -248,10 +387,38 @@ def load_daily_contract(
                 "total_size": r.total_size,
                 "spot": r.spot,
                 "avg_delta": r.avg_delta,
+                "legged_notional": getattr(r, "legged_notional", None),
             }
             for r in rows
         ]
     )
+
+
+def watchlist_symbols(session: Session, settings: object | None = None) -> set[str]:
+    """The monitored universe = active ``tickers`` rows ∪ config WATCHLIST.
+
+    The tape is market-wide, so without this the report answers "what moved
+    anywhere" rather than "what moved in the names I actually follow".
+    """
+    out: set[str] = set()
+    try:
+        from trading_intel.memory.models import Ticker
+
+        rows = session.execute(
+            select(Ticker.symbol).where(Ticker.is_active.is_(True))
+        ).scalars()
+        out |= {str(x).upper() for x in rows if x}
+    except Exception:  # pragma: no cover - table shape drift
+        pass
+    try:
+        if settings is None:
+            from trading_intel.config import get_settings
+
+            settings = get_settings()
+        out |= {str(x).upper() for x in getattr(settings, "watchlist_symbols", [])}
+    except Exception:  # pragma: no cover
+        pass
+    return out
 
 
 # ── assembly ───────────────────────────────────────────────────────────
@@ -281,6 +448,29 @@ def _records(df: pd.DataFrame) -> list[dict[str, Any]]:
     return [{k: _num(v) for k, v in row.items()} for row in df.to_dict("records")]
 
 
+
+def _trend_ends(side: pd.DataFrame, top: int) -> pd.DataFrame:
+    """Top accumulators AND top distributors for one side.
+
+    ``head(top)`` alone keeps only the strongest buyers, so the distribution
+    table for that side renders empty no matter how heavy the selling was. The
+    frame is score-sorted, so both ends must be kept.
+    """
+    if side is None or side.empty:
+        return side if side is not None else pd.DataFrame()
+    if len(side) <= 2 * top:
+        return side
+    return pd.concat([side.head(top), side.tail(top)])
+
+
+def _trend_side(trend: pd.DataFrame, *, index_side: bool) -> pd.DataFrame:
+    """Split the accumulation-trend frame into index vs single-name roots."""
+    if trend is None or trend.empty or "root" not in trend.columns:
+        return trend if trend is not None else pd.DataFrame()
+    mask = trend["root"].astype(str).str.upper().isin(_INDEX_ROOTS)
+    return trend[mask] if index_side else trend[~mask]
+
+
 def build_flow_report(
     session: Session,
     *,
@@ -308,7 +498,23 @@ def build_flow_report(
         min_notional=min_notional,
         min_days=min_days,
     )
-    lifecycle = contract_lifecycle(contracts, min_notional=min_notional, top=top)
+    wide = contract_lifecycle(
+        contracts, min_notional=min_notional, top=max(top * 10, 250)
+    )
+    wide = classify_contracts(wide, as_of=end)
+    split = split_contracts(wide)
+    lifecycle = wide.head(top)
+
+    wl = watchlist_symbols(session)
+    if wl and not wide.empty:
+        roots = wide["root"].astype(str).str.upper()
+        wl_contracts = wide[roots.isin(wl) & ~wide["is_financing"]].head(top)
+    else:
+        wl_contracts = wide.head(0)
+    if wl and not trend.empty:
+        wl_trend = trend[trend["root"].astype(str).str.upper().isin(wl)].head(top)
+    else:
+        wl_trend = trend.head(0)
     churn = new_vs_fading(
         daily, recent_days=recent_days, prior_days=prior_days, min_notional=min_notional
     )
@@ -318,9 +524,29 @@ def build_flow_report(
         "lookback_days": lookback_days,
         "recent_days": recent_days,
         "trend": _records(trend),
+        # Index and single-name tape are different animals: one is hedging/overlay
+        # flow on a handful of roots, the other is directional single-stock
+        # positioning. Ranking them in one table lets SPX/SPY dominate every
+        # leaderboard, so the trend frame is split the same way contracts are.
+        "trend_equity": _records(_trend_ends(_trend_side(trend, index_side=False), top)),
+        "trend_index": _records(_trend_ends(_trend_side(trend, index_side=True), top)),
         "contracts": _records(lifecycle),
+        "contracts_equity": _records(split["equity"].head(top)),
+        "contracts_index": _records(split["index"].head(top)),
+        "contracts_structures": _records(split["structures"].head(top)),
+        "contracts_watchlist": _records(wl_contracts),
+        "trend_watchlist": _records(wl_trend),
+        "watchlist_size": len(wl),
+        "contracts_suppressed": {
+            "financing": split["n_financing"], "boxes": split["n_boxes"]
+        },
         "new": churn["new"],
         "fading": churn["fading"],
-        "count": {"trend": len(trend), "contracts": len(lifecycle)},
+        "count": {
+            "trend": len(trend),
+            "contracts": len(lifecycle),
+            "contracts_equity": int(len(split["equity"])),
+            "contracts_index": int(len(split["index"])),
+        },
         "found": found,
     }

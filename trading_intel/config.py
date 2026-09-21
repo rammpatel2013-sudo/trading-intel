@@ -191,6 +191,9 @@ class Settings(BaseSettings):
     # Roots to bank the whole surface for (the vol-surface-changes board); n
     # nearest liquid expiries kept per root.
     SURFACE_SYMBOLS: str = "SPX,QQQ,SPY"
+    #: Focus list for the per-name vol board (CVForge-fed; ~1y of /mas rebuilds
+    #: per name, so keep this short).
+    VOL_BOARD_SYMBOLS: str = "SPY,QQQ,META"
     SURFACE_EXPIRIES: int = 12
 
     # ── Sector SPDR universe (sector lead/lag + fragility report) ──────

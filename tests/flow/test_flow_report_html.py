@@ -78,10 +78,38 @@ def test_key_findings_mentions_leaders() -> None:
 def test_render_html_structure() -> None:
     html = _load().render_html(_rep())
     assert "<!doctype html>" in html.lower()
-    assert "EOD Flow Report" in html
+    assert "EOD Flow" in html
     assert "AAA" in html and "BBB" in html
     assert "<table" in html
     assert "$5.0M" in html  # net-delta money formatting
+
+
+def test_render_html_sides_are_separate_documents() -> None:
+    """Equity and index render as their own reports, each titled for its side."""
+    mod = _load()
+    eq = mod.render_html(_rep(), side="equity")
+    ix = mod.render_html(_rep(), side="index")
+    assert "Equity (single names)" in eq and "Index / ETF" not in eq.split("<h1>")[1][:80]
+    assert "Index / ETF" in ix
+    # index page must not lead with single-name sections
+    assert "Accumulation leaders &mdash; equity" not in ix
+    assert "Accumulation leaders &mdash; index" not in eq
+    for doc in (eq, ix):
+        assert "<script" not in doc  # phone rule: server-side render only
+
+
+def test_key_findings_are_scoped_to_side() -> None:
+    """The index report must never headline a single-stock ticker."""
+    mod = _load()
+    rep = _rep()
+    rep["trend_equity"] = [t for t in rep["trend"] if t["root"] == "AAA"]
+    rep["trend_index"] = [dict(t, root="SPX") for t in rep["trend"] if t["root"] == "BBB"]
+    rep["contracts_equity"] = rep.get("contracts", [])
+    rep["contracts_index"] = []
+    eq_text = " ".join(mod.key_findings(rep, side="equity"))
+    ix_text = " ".join(mod.key_findings(rep, side="index"))
+    assert "AAA" in eq_text and "SPX" not in eq_text
+    assert "SPX" in ix_text and "AAA" not in ix_text
 
 
 def test_money_formatter() -> None:

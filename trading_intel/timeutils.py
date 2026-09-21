@@ -25,3 +25,24 @@ def eastern_now() -> datetime:
     always Eastern no matter what timezone the host runs in.
     """
     return datetime.now(EASTERN).replace(tzinfo=None)
+
+
+_US_MARKET_HOLIDAYS_2026 = frozenset({
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+})
+
+
+def is_trading_session(d=None) -> bool:
+    """True when ``d`` (default: today, Eastern) is a US equity trading session.
+
+    Collectors that write one row per session MUST gate on this. Without it a
+    weekend run re-reads the vendor's stale Friday values and banks them as a
+    new session, which for a CUMULATIVE series is not a duplicate row but a
+    permanent corruption: the 2026 breadth A-D line was walked down ~190 points
+    every Saturday and Sunday before this gate existed.
+    """
+    d = d or eastern_now().date()
+    if d.weekday() >= 5:
+        return False
+    return d.isoformat() not in _US_MARKET_HOLIDAYS_2026

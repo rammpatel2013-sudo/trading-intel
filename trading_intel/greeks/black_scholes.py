@@ -17,6 +17,8 @@ own stored IV and it stays fixed as spot moves.
 """
 from __future__ import annotations
 
+import math
+
 from datetime import date
 
 import numpy as np
@@ -205,3 +207,78 @@ def years_to_expiry(expiration: pd.Series, ref: date) -> np.ndarray:
         parsed = pd.to_datetime(expiration, errors="coerce")
         years = (parsed - ref_ts).dt.total_seconds().to_numpy() / (365.0 * 24 * 3600)
     return np.maximum(years, _MIN_T)
+
+
+def implied_vol(
+    price: float,
+    spot: float,
+    strike: float,
+    t: float,
+    r: float = 0.0,
+    *,
+    is_call: bool = True,
+    lo: float = 1e-3,
+    hi: float = 5.0,
+    iters: int = 60,
+) -> float | None:
+    """Implied vol from an option PRICE by bisection on the BS price.
+
+    The inverse of ``bs_call_price``/``bs_put_price``. Needed to rebuild a
+    HISTORICAL IV series from contract close prices (CVForge ``/mas`` serves
+    daily option OHLC but no historical Greeks), so a fixed-strike vol trend can
+    be reconstructed without a Greeks time-series.
+
+    Returns ``None`` when the price is not arbitrage-consistent (below intrinsic
+    or outside the vol bracket) rather than clamping — a silently clamped IV
+    would show up as a flat line and read as signal.
+    """
+    if not (price > 0 and spot > 0 and strike > 0) or t <= 0:
+        return None
+    intrinsic = max(0.0, (spot - strike) if is_call else (strike - spot))
+    if price < intrinsic - 1e-6:
+        return None
+    fn = bs_call_price if is_call else bs_put_price
+    k = np.array([strike], dtype=float)
+    tt = np.array([t], dtype=float)
+
+    def _px(sigma: float) -> float:
+        return float(fn(spot, k, np.array([sigma], dtype=float), tt, r)[0])
+
+    if price < _px(lo) or price > _px(hi):
+        return None
+    a, b = lo, hi
+    for _ in range(iters):
+        mid = 0.5 * (a + b)
+        if _px(mid) > price:
+            b = mid
+        else:
+            a = mid
+    return 0.5 * (a + b)
+
+
+def forward_from_parity(call_px: float, put_px: float, strike: float, t: float, r: float = 0.0) -> float | None:
+    """Implied forward from put-call parity: ``F = K + (C - P) * e^{rT}``.
+
+    Avoids assuming a dividend yield. Required for dividend-paying underlyings
+    (bond/equity ETFs especially): solving IV against SPOT overstates the forward,
+    which drives call IVs too low and put IVs too high, with the error growing in
+    T. Observed live on TLT 361d — call solved 5.1 vs put 16.2 against a ~11.7
+    vendor mark; parity collapses the two onto each other.
+    """
+    if not (strike > 0 and t > 0) or call_px is None or put_px is None:
+        return None
+    f = strike + (float(call_px) - float(put_px)) * math.exp(r * t)
+    return f if f > 0 else None
+
+
+def implied_vol_fwd(
+    price: float, forward: float, strike: float, t: float, r: float = 0.0, *, is_call: bool = True
+) -> float | None:
+    """Implied vol against a FORWARD (Black-76), via the spot-BS solver.
+
+    BS with no dividends has forward ``S*e^{rT}``, so pricing off ``S_eff =
+    F*e^{-rT}`` reproduces Black-76 exactly and lets one solver serve both.
+    """
+    if forward is None or not forward > 0:
+        return None
+    return implied_vol(price, forward * math.exp(-r * t), strike, t, r, is_call=is_call)
