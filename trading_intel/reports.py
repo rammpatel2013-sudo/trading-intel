@@ -17,6 +17,8 @@ _SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "ticker_report.py
 _EOD_VOL_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "eod_vol_report.py"
 _FLOW_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "flow_report.py"
 _VOL_SURFACE_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_surface_report.py"
+_BREADTH_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "breadth_report.py"
+_VOL_BOARD_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_board_report.py"
 _COCKPIT_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "cockpit_report.py"
 _SECTOR_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "sector_report.py"
 _GEX_TRANSITION_SCRIPT = (
@@ -184,5 +186,21 @@ def build_vol_surface_cm(symbol: str = "SPX", *, settings: object = None, sessio
     return str(
         _load(_VOL_SURFACE_CM_SCRIPT, "_vol_surface_cm_report_impl").build(
             symbol, settings=settings, session=session
+        )
+    )
+
+
+def build_breadth(*, days: int = 120, settings: object = None) -> str:
+    """Market-breadth board (A-D line, participation, new H/L, McClellan)."""
+    return str(
+        _load(_BREADTH_SCRIPT, "_breadth_report_impl").build(days=days, settings=settings)
+    )
+
+
+def build_vol_board(symbol: str, *, days: int = 400, settings: object = None) -> str:
+    """Per-name vol board: spot/skew30/fixed-strike vol, realized skew, CM term."""
+    return str(
+        _load(_VOL_BOARD_SCRIPT, "_vol_board_impl").build(
+            symbol, days=days, settings=settings
         )
     )

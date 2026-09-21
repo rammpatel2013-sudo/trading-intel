@@ -26,16 +26,10 @@ def _symbols(settings) -> list[str]:  # noqa: ANN001
 
 def run(session=None, settings=None, *, push: bool = True, symbols=None) -> str:
     """Build a vol board per symbol and push each to Telegram."""
-    import sys
-    from pathlib import Path
-
     from trading_intel.config import get_settings
+    from trading_intel.reports import build_vol_board
 
     settings = settings or get_settings()
-    scripts = Path(__file__).resolve().parents[2] / "scripts"
-    if str(scripts) not in sys.path:
-        sys.path.insert(0, str(scripts))
-    import vol_board_report as impl  # noqa: PLC0415
 
     tg = None
     if push:
@@ -46,7 +40,7 @@ def run(session=None, settings=None, *, push: bool = True, symbols=None) -> str:
     written: list[str] = []
     for sym in (symbols or _symbols(settings)):
         try:
-            path = impl.build(sym, settings=settings)
+            path = build_vol_board(sym, settings=settings)
         except Exception as exc:  # noqa: BLE001 - one bad name must not kill the run
             log.warning("vol_board_report.failed", symbol=sym, error=str(exc)[:160])
             continue

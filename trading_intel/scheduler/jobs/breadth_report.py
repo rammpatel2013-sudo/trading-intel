@@ -17,18 +17,11 @@ log = structlog.get_logger(__name__)
 
 def run(session=None, settings=None, *, push: bool = True, days: int = 120) -> str:
     """Build the breadth board and push to Telegram. Returns the written path."""
-    import sys
-    from pathlib import Path
-
     from trading_intel.config import get_settings
+    from trading_intel.reports import build_breadth
 
     settings = settings or get_settings()
-    scripts = Path(__file__).resolve().parents[2] / "scripts"
-    if str(scripts) not in sys.path:
-        sys.path.insert(0, str(scripts))
-    import breadth_report as impl  # noqa: PLC0415
-
-    path = impl.build(days=days, settings=settings)
+    path = build_breadth(days=days, settings=settings)
     if push:
         from trading_intel.clients.telegram import TelegramClient
 
