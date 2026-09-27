@@ -204,10 +204,25 @@ def build_server(
             return et.get_walls(session, symbol, dte_max=dte_max)
 
     @mcp.tool()
-    def get_profile(symbol: str, span: float = 0.05, n_points: int = 141) -> dict[str, Any]:
-        """Per-strike dealer gamma/charm/vanna profile by spot (0DTE + all expiry)."""
+    def get_profile(
+        symbol: str,
+        span: float = 0.05,
+        n_points: int = 141,
+        as_of: str | None = None,
+        spot_ref: float | None = None,
+    ) -> dict[str, Any]:
+        """Per-strike dealer gamma/charm/vanna profile by spot (0DTE + all expiry).
+
+        ``as_of`` (YYYY-MM-DD) = the book as of that day's EOD chain (before/after
+        comparisons); ``spot_ref`` pins the spot ladder so two dates share a grid.
+        """
+        from datetime import date as _date
+
+        d = _date.fromisoformat(as_of) if as_of else None
         with session_factory() as session:
-            return pt.get_profile(session, symbol, span=span, n_points=n_points)
+            return pt.get_profile(
+                session, symbol, span=span, n_points=n_points, as_of=d, spot_ref=spot_ref
+            )
 
     @mcp.tool()
     def get_straddle(symbol: str, dte_max: int = 400) -> dict[str, Any]:
@@ -536,6 +551,21 @@ def build_server(
 
         with session_factory() as session:
             return build_breadth(session)
+
+    @mcp.tool()
+    def get_chain_history(symbol: str, days: int = 250) -> dict[str, Any]:
+        """Daily per-name options-chain history from the never-pruned roll-up.
+
+        One row per session from ``oi_chain_daily`` (kept forever, unlike the
+        pruned per-strike ``oi_chain_eod``): call/put OI + volume + OI change,
+        put/call OI ratio, net GEX (calls − puts gxoi), net DEX/VEX, the 0–60 DTE
+        call/put walls with their gxoi, ~30-DTE ATM IV, and spot. Use it to trend
+        walls, positioning and IV over months. Reads DB only. Descriptor (rule 4).
+        """
+        from trading_intel.api.chain_history import build_chain_history
+
+        with session_factory() as session:
+            return build_chain_history(session, symbol, days=days)
 
     @mcp.tool()
     def get_norseman_regime() -> dict[str, Any]:

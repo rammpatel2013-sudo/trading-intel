@@ -127,6 +127,43 @@ class GreeksChain(Base):
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
+class OiChainDaily(Base):
+    """Never-pruned per-(symbol, day) roll-up of ``oi_chain_eod``.
+
+    ``oi_chain_eod`` is ~6M rows and pruned at ``OI_CHAIN_RETENTION_DAYS``; this
+    keeps the few numbers the reports trend over forever (~450 rows/day): OI and
+    volume by side, net greek-OI exposures, the 60-DTE call/put walls and a
+    ~30-DTE ATM IV. Written by ``scheduler.jobs.oi_chain_daily`` (idempotent
+    upsert on (symbol, ts)). Descriptor only (rule 4).
+    """
+
+    __tablename__ = "oi_chain_daily"
+    __table_args__ = (UniqueConstraint("symbol", "ts", name="uq_oi_chain_daily"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), index=True)
+    ts: Mapped[date] = mapped_column(Date, index=True)
+    source: Mapped[str | None] = mapped_column(String(24))
+    spot: Mapped[float | None] = mapped_column(Float)
+    call_oi: Mapped[int | None] = mapped_column(BigInteger)
+    put_oi: Mapped[int | None] = mapped_column(BigInteger)
+    call_volume: Mapped[int | None] = mapped_column(BigInteger)
+    put_volume: Mapped[int | None] = mapped_column(BigInteger)
+    call_oi_change: Mapped[int | None] = mapped_column(BigInteger)
+    put_oi_change: Mapped[int | None] = mapped_column(BigInteger)
+    net_gxoi: Mapped[float | None] = mapped_column(Float)
+    call_gxoi: Mapped[float | None] = mapped_column(Float)
+    put_gxoi: Mapped[float | None] = mapped_column(Float)
+    net_dxoi: Mapped[float | None] = mapped_column(Float)
+    net_vxoi: Mapped[float | None] = mapped_column(Float)
+    call_wall: Mapped[float | None] = mapped_column(Float)  # max call gxoi strike, dte<=60
+    call_wall_gxoi: Mapped[float | None] = mapped_column(Float)
+    put_wall: Mapped[float | None] = mapped_column(Float)  # max |put gxoi| strike, dte<=60
+    put_wall_gxoi: Mapped[float | None] = mapped_column(Float)
+    atm_iv_30d: Mapped[float | None] = mapped_column(Float)  # avg iv, 20-45 DTE, strike nearest spot
+    n_contracts: Mapped[int | None] = mapped_column(Integer)
+
+
 class OiChainEod(Base):
     """End-of-day wide (~180d) per-strike chain for the OI/flow change study.
 
@@ -938,6 +975,10 @@ class TasDailyContract(Base):
     sell_notional: Mapped[float | None] = mapped_column(Float)
     net_dollar_delta: Mapped[float | None] = mapped_column(Float)
     dominant_side: Mapped[str | None] = mapped_column(String(8))
+    # Notional that printed as part of a multi-leg structure (tas_prints.leg_group
+    # is not null). The tape already clusters legs; without carrying the total here
+    # the roll-up discarded it and the report had to re-infer structures badly.
+    legged_notional: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 

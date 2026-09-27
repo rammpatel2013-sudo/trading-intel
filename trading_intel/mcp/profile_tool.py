@@ -18,6 +18,7 @@ Wire in server.py:
 """
 from __future__ import annotations
 
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import pandas as pd
@@ -28,18 +29,18 @@ from trading_intel.greeks.exposure_profile import greek_profiles
 from trading_intel.memory.models import GreeksSnapshot, OiChainEod
 
 
-def _latest_oi_ts(session: Session, sym: str):
-    return session.execute(
-        select(OiChainEod.ts).where(OiChainEod.symbol == sym).order_by(OiChainEod.ts.desc())
-    ).scalars().first()
+def _latest_oi_ts(session: Session, sym: str, as_of: date | None = None):
+    q = select(OiChainEod.ts).where(OiChainEod.symbol == sym)
+    if as_of is not None:
+        q = q.where(OiChainEod.ts < datetime.combine(as_of + timedelta(days=1), time.min))
+    return session.execute(q.order_by(OiChainEod.ts.desc())).scalars().first()
 
 
-def _latest_spot(session: Session, sym: str) -> float | None:
-    row = session.execute(
-        select(GreeksSnapshot.spot)
-        .where(GreeksSnapshot.symbol == sym)
-        .order_by(GreeksSnapshot.ts.desc())
-    ).first()
+def _latest_spot(session: Session, sym: str, as_of: date | None = None) -> float | None:
+    q = select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym)
+    if as_of is not None:
+        q = q.where(GreeksSnapshot.ts < datetime.combine(as_of + timedelta(days=1), time.min))
+    row = session.execute(q.order_by(GreeksSnapshot.ts.desc())).first()
     return float(row[0]) if row and row[0] is not None else None
 
 
@@ -50,6 +51,8 @@ def get_profile(
     span: float = 0.05,
     n_points: int = 141,
     dte_max: int = 400,
+    as_of: date | None = None,
+    spot_ref: float | None = None,
 ) -> dict[str, Any]:
     """Spot-ladder gamma/charm/vanna profiles for ``symbol`` from the latest EOD chain.
 
@@ -57,10 +60,13 @@ def get_profile(
     ``{spot_ref: [...], gamma/charm/vanna: {all, by_expiry, flip}}`` — JSON-safe.
     Consumers build the 0DTE-shaded view by summing the near expiries in
     ``by_expiry``.
+
+    ``as_of`` reads the newest chain ON/BEFORE that day (before/after books);
+    ``spot_ref`` pins the spot ladder so two dates overlay on one grid.
     """
     sym = symbol.upper()
-    ts = _latest_oi_ts(session, sym)
-    spot = _latest_spot(session, sym)
+    ts = _latest_oi_ts(session, sym, as_of)
+    spot = spot_ref if spot_ref is not None else _latest_spot(session, sym, as_of)
     if ts is None or spot is None:
         return {"symbol": sym, "found": False, "reason": "no oi_chain_eod snapshot or spot"}
 
