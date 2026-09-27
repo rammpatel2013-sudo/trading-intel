@@ -28,6 +28,7 @@ _VOL_REGIME_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "vol_r
 _VOL_SURFACE_CM_SCRIPT = (
     Path(__file__).resolve().parent.parent / "scripts" / "vol_surface_cm_report.py"
 )
+_SKEW_VANNA_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "skew_vanna_report.py"
 
 
 def _load(path: Path, modname: str) -> ModuleType:
@@ -185,6 +186,15 @@ def build_vol_surface_cm(symbol: str = "SPX", *, settings: object = None, sessio
     """
     return str(
         _load(_VOL_SURFACE_CM_SCRIPT, "_vol_surface_cm_report_impl").build(
+            symbol, settings=settings, session=session
+        )
+    )
+
+
+def build_skew_vanna(symbol: str = "SPX", *, settings: object = None, session: object = None) -> str:
+    """SPX skew & vanna report (normalized skew, wing skews, smile shift, dealer vanna)."""
+    return str(
+        _load(_SKEW_VANNA_SCRIPT, "_skew_vanna_report_impl").build(
             symbol, settings=settings, session=session
         )
     )

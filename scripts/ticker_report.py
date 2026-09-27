@@ -349,6 +349,13 @@ def build(sym: str, *, days: int = 180) -> str:
     else:
         tas_html = "<p class='muted'>No prints captured yet today.</p>"
 
+    try:  # tape & catalysts (volume/money-flow, revenue, tagged news)
+        from trading_intel.api.tape_catalysts import build_tape_catalysts, render_section
+        from sqlalchemy.orm import Session as _Sess
+        with _Sess(eng) as _s:
+            tape_html = render_section(build_tape_catalysts(_s, sym))
+    except Exception as exc:  # noqa: BLE001 — optional section never breaks the report
+        tape_html = f"<p class='muted'>tape &amp; catalysts unavailable: {html.escape(str(exc)[:120])}</p>"
     css = (
         "body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0f1115;color:#e6e8eb}"
         ".wrap{max-width:1180px;margin:0 auto;padding:22px}h1{font-size:22px;margin:0 0 2px}.sub{color:#9aa4b2;font-size:12.5px;margin:0 0 14px}"
@@ -377,6 +384,7 @@ def build(sym: str, *, days: int = 180) -> str:
 <div><h3>Positioning change — last completed session</h3><table class="grid"><tr><th>strike</th><th>C/P</th><th>ΔOI</th><th>vol</th><th>conv</th><th>read</th></tr>{posn_html or '<tr><td>need 2 days</td></tr>'}</table>
 <p class="note">ΔOI settled this morning reflects the <b>prior</b> session; conv = |ΔOI| ÷ that session's volume (high = real positioning, low = churn).</p></div></div>
 <h2 class="sec">Unusual flow — time &amp; sales (top 5 by premium, today)</h2>{tas_html}
+{tape_html}
 <p class="disc"><b>Not investment advice.</b> OI settles T+1 — positioning reads are timed to the session that produced them. GEX term “net” = call − put gamma-OI. Descriptive (FlashAlpha rule 4); view clipped to the positioning-data window.</p>
 </div></body></html>"""
 

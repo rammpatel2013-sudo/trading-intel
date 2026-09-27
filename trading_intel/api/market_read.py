@@ -22,6 +22,19 @@ def _safe(fn: Callable[[], Any]) -> Any:
         return None
 
 
+def _norseman_state(session: Session) -> dict[str, Any] | None:
+    """Latest banked NORSEMAN_STATE payload (written by strategies.norseman_regime)."""
+    from sqlalchemy import select
+
+    from trading_intel.memory.models import Signal
+
+    row = session.execute(
+        select(Signal.payload).where(Signal.signal_type == "NORSEMAN_STATE")
+        .order_by(Signal.ts.desc()).limit(1)
+    ).scalar_one_or_none()
+    return row if isinstance(row, dict) else None
+
+
 def build_market_read(session: Session, *, symbol: str = "SPX") -> dict[str, Any]:
     """Assemble + fuse the four pillars for ``symbol`` (default the SPX index)."""
     from trading_intel.api.breadth import build_breadth
@@ -35,7 +48,8 @@ def build_market_read(session: Session, *, symbol: str = "SPX") -> dict[str, Any
     vix = _safe(lambda: get_vix(session, days=5)) or {}
     vol = (vix.get("summary") or {}) if isinstance(vix, dict) else {}
 
-    read = build_read(pos, breadth, vol, news)
+    nm = _safe(lambda: _norseman_state(session)) or {}
+    read = build_read(pos, breadth, vol, news, nm)
     read["symbol"] = symbol
     read["as_of"] = pos.get("as_of") or breadth.get("as_of")
     return read

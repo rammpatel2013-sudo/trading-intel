@@ -553,6 +553,24 @@ def build_server(
             return build_breadth(session)
 
     @mcp.tool()
+    def get_tape_catalysts(symbol: str) -> dict[str, Any]:
+        """Per-name tape & catalysts: volume vs 20d avg, CMF, OBV/VPT trend, 20/60d
+        anchored VWAP, 60d volume profile (POC + value area), quarterly revenue trend
+        (QoQ/YoY), next earnings date, and keyword-tagged news catalysts
+        (regulatory / clinical / legal / capital / corporate / earnings; 13F and
+        price-target churn removed). quotes_daily + CVForge FMP passthrough.
+        Descriptor only (rule 4).
+        """
+        from trading_intel.api.tape_catalysts import build_tape_catalysts
+
+        with session_factory() as session:
+            d = build_tape_catalysts(session, symbol)
+        tp = d.get("tape") or {}
+        tp.pop("obv", None)
+        tp.pop("closes", None)
+        return d
+
+    @mcp.tool()
     def get_chain_history(symbol: str, days: int = 250) -> dict[str, Any]:
         """Daily per-name options-chain history from the never-pruned roll-up.
 

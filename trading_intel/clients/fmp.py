@@ -43,7 +43,9 @@ class FmpClient:
             resp.raise_for_status()
             return resp.json()
         except Exception as exc:  # network / 403 / shape - degrade gracefully
-            log.warning("fmp.fetch_failed", path=path, error=str(exc))
+            # httpx errors embed the full URL incl. ?apikey= — never log it (rule 2).
+            msg = str(exc).replace(self._key, "***") if self._key else str(exc)
+            log.warning("fmp.fetch_failed", path=path, error=msg)
             return None
 
     def profile(self, ticker: str) -> dict | None:

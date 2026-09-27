@@ -46,6 +46,13 @@ REM no-jobs sentinel = "none" / "-" / empty. IMPORTANT: PowerShell DROPS a liter
 REM "" argument (shifting everything left), so from PowerShell pass "none", not "".
 if /i "!JOBS!"=="none" set "JOBS="
 if "!JOBS!"=="-" set "JOBS="
+REM guard: a jobs value that looks like a file path means PowerShell dropped a ""
+REM and the first file slid into the jobs slot (lost norseman.py on 2026-09-27).
+echo(!JOBS!| findstr /r /c:"\\" /c:"\.py" /c:"\.bat" /c:"/" >nul && (
+  echo [FAIL] "nas jobs" = "!JOBS!" looks like a FILE PATH, not a job name.
+  echo        PowerShell drops a literal "" -- pass none instead. Nothing was committed.
+  exit /b 1
+)
 shift
 shift
 
@@ -83,5 +90,5 @@ goto :eof
 
 :usage
 echo Usage: scripts\ship.bat "commit message" "nas jobs" path\file1 [path\file2 ...]
-echo   "nas jobs" = space-separated scheduler jobs to fire after build (or "" for none).
+echo   "nas jobs" = space-separated scheduler jobs to fire after build (or none).
 exit /b 1

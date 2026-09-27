@@ -109,3 +109,18 @@ def test_empty_inputs_degrade_cleanly():
     assert r["weather"]["state"] == "vol n/a"
     assert r["regime"]["state"] == "unknown"
     assert isinstance(r["narrative"], str) and r["narrative"]
+
+
+def test_norseman_overlay_folds_clock_and_closes() -> None:
+    from trading_intel.synthesis.market_read import build_read
+
+    nm = {"line": 7035.03, "spx_close": 7743.41, "dist_to_line": 0.1, "session": 124,
+          "clock_open": False, "clock_open_date": "2026-10-01", "violations": [],
+          "dials": {"rails": [{"name": "RSP", "diverging": True}]}, "as_of": "2026-09-25"}
+    r = build_read({}, {}, {}, {}, nm)
+    assert r["regime"]["state"] == "bull-intact" and r["regime"]["clock_session"] == 124
+    assert r["regime"]["diverging_rails"] == ["RSP"]
+    assert any("clock opens 2026-10-01" in t["trigger"] for t in r["triggers"])
+    two = build_read({}, {}, {}, {}, {**nm, "spx_close": 7000.0,
+                                      "violations": [["2026-10-09", 7000, 7035], ["2026-10-16", 6990, 7035]]})
+    assert two["regime"]["state"].startswith("bear-prepare")

@@ -54,6 +54,31 @@ def _regime_pillar(breadth: dict) -> dict:
     }
 
 
+def _norseman_overlay(reg: dict, nm: dict) -> dict:
+    """Fold the banked NORSEMAN_STATE (clock, 10% closes, dials) into the regime pillar."""
+    if not nm:
+        return reg
+    viols = nm.get("violations") or []
+    div_rails = [r.get("name") for r in ((nm.get("dials") or {}).get("rails") or []) if r.get("diverging")]
+    reg = dict(reg)
+    reg.update({
+        "bull_bear_line": nm.get("line", reg.get("bull_bear_line")),
+        "dist_to_bbl": nm.get("dist_to_line", reg.get("dist_to_bbl")),
+        "above_bbl": (nm.get("spx_close") or 0) >= (nm.get("line") or 0) if nm.get("line") else reg.get("above_bbl"),
+        "clock_session": nm.get("session"),
+        "clock_open": nm.get("clock_open"),
+        "clock_open_date": nm.get("clock_open_date"),
+        "ten_pct_closes": len(viols),
+        "diverging_rails": div_rails,
+        "norseman_as_of": nm.get("as_of"),
+    })
+    if reg["above_bbl"] is not None:
+        reg["state"] = "bull-intact" if reg["above_bbl"] else "bear-prepare"
+    if len(viols) >= 2:
+        reg["state"] = "bear-prepare (2nd 10% close)"
+    return reg
+
+
 def _mechanics_pillar(pos: dict) -> dict:
     reg = pos.get("regime") or {}
     amp = reg.get("amplifying")  # True = short gamma (amplify), False = long gamma (pin)
@@ -155,10 +180,11 @@ def build_read(
     breadth: dict | None,
     vol: dict | None,
     newsletter: dict | None = None,
+    norseman: dict | None = None,
 ) -> dict[str, Any]:
     """Fuse the pillars into one structured read. Pure; every input degrades to {}."""
     pos = positioning or {}
-    reg = _regime_pillar(breadth or {})
+    reg = _norseman_overlay(_regime_pillar(breadth or {}), norseman or {})
     mech = _mechanics_pillar(pos)
     wx = _weather_pillar(vol or {})
 
@@ -219,12 +245,20 @@ def build_read(
     if reg["bull_bear_line"] is not None:
         triggers.append({"source": "ours · Norseman method", "trigger": f"weekly close below the Bull/Bear Line {reg['bull_bear_line']:.0f}",
                          "consequence": "Norseman bear-prepare (a 10% close = a test)", "direction": "bearish"})
+    if reg.get("clock_session") is not None and not reg.get("clock_open"):
+        triggers.append({"source": "ours · Norseman method",
+                         "trigger": f"clock opens {reg.get('clock_open_date')} (session {reg['clock_session']}/128)",
+                         "consequence": "a −10% test of the line becomes permitted (not predicted)",
+                         "direction": "neutral"})
     triggers.extend(_newsletter_triggers(newsletter))
 
     # NARRATIVE — the fused one-liner
     vv = " + elevated VVIX (fragile)" if wx["vvix_elevated"] else ""
     narrative = (
-        f"{mech['state']} → {path}. Regime {reg['state']}, {reg['breadth_health']}; "
+        f"{mech['state']} → {path}. Regime {reg['state']}, {reg['breadth_health']}"
+        + (f", NMT clock S{reg['clock_session']}{' (open)' if reg.get('clock_open') else ''}"
+           if reg.get("clock_session") is not None else "")
+        + "; "
         f"weather {wstate}{vv}. Confluence: {confl['score']}"
         + (f" — {confl['tension']}." if confl["tension"] else ".")
     )
