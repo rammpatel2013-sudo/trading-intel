@@ -161,10 +161,10 @@ def weekly_last_closes(dated_closes: Sequence[tuple]) -> list[float]:
 
 
 def bull_bear_line(weekly_closes: Sequence[float], *, pct: float = 0.10) -> float | None:
-    """Norseman Bull/Bear Line = ``(1 − pct)`` × the highest weekly close TO DATE.
+    """Norseman Bull/Bear Line = ``(1 − pct)`` × the highest value TO DATE.
 
-    Ratchets UP with every new weekly-closing high, never down (it's just the
-    running max × 0.90). ``None`` if there is no history.
+    Feed it daily SPX INTRADAY HIGHS — the author's line is 0.90 × the all-time
+    intraday high (verified 2026-09-27). Ratchets up, never down. ``None`` if empty.
     """
     highs = [float(c) for c in weekly_closes if c is not None]
     return (1.0 - pct) * max(highs) if highs else None

@@ -526,7 +526,7 @@ def build_server(
         Returns the latest banked breadth row + short trends: the cumulative
         Advance-Decline line (+ trend), % of S&P names above their 50/200-day MA,
         new-highs/lows, McClellan oscillator + summation, and the regime line —
-        the Bull/Bear Line (0.90 x running-max weekly SPX-equivalent close), spot
+        the Bull/Bear Line (0.90 x SPX all-time intraday high), spot
         vs the line, and the A-D-line-vs-price divergence read (state + duration).
         Reads only ``breadth_snapshots`` (banked daily by the breadth job) — no
         vendor calls. Descriptor only (rule 4). ``{found: False}`` until the
@@ -536,6 +536,34 @@ def build_server(
 
         with session_factory() as session:
             return build_breadth(session)
+
+    @mcp.tool()
+    def get_norseman_regime() -> dict[str, Any]:
+        """Norseman Market Timing regime on OUR data — his three weekend questions.
+
+        Bull/Bear Line (0.90 x SPX all-time intraday high), distance to it, the
+        test clock (sessions since the last B/BL test; a -10% is "permitted" from
+        session 128), 10% weekly closes spent this bull, the breadth rails (A-D
+        line / RSP / IWM) vs the last price high, the author's latest banked
+        targets, and ``events_now`` = every decision point currently reached
+        (PROXIMITY / TEST / VIOLATION / CLOCK_OPEN / TARGET / ASSESS_START /
+        ASSESS_MATURE / LINE_MISMATCH / WEEKLY_GRADE). Reads quotes_daily,
+        breadth_snapshots, newsletter_levels only. Regime read (rule 4).
+        """
+        from trading_intel.strategies.norseman_regime import (
+            detect_events,
+            read_state,
+            state_payload,
+        )
+
+        with session_factory() as session:
+            st = read_state(session)
+            if st is None:
+                return {"found": False}
+            events = [
+                {k: e[k] for k in ("kind", "severity", "text")} for e in detect_events(st)
+            ]
+            return {"found": True, **state_payload(st), "events_now": events}
 
     @mcp.tool()
     def get_newsletter_signals() -> dict[str, Any]:

@@ -115,7 +115,10 @@ def run(
     period = period or settings.QUOTES_REFRESH_PERIOD
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="quotes_daily")
-    symbols = symbols if symbols is not None else effective_symbols(session, settings)
+    if symbols is None:
+        symbols = effective_symbols(session, settings)
+        # + price-only regime reference symbols (Norseman rails), deduped
+        symbols += [x for x in settings.regime_ref_symbols if x not in symbols]
     bound.info("quotes_daily.start", period=period, symbol_count=len(symbols))
     _ensure_tickers(session, symbols)
 

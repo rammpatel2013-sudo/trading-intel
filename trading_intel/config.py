@@ -118,6 +118,9 @@ class Settings(BaseSettings):
     # ── Daily price history (quotes_daily backfill + EOD refresh) ──────
     QUOTES_BACKFILL_PERIOD: str = "5y"  # one-time history depth (yfinance period)
     QUOTES_REFRESH_PERIOD: str = "6mo"  # daily-job pull window (enough for rv60)
+    # Price-only reference symbols (no options collection) — breadth rails for the
+    # Norseman regime monitor: RSP = the average stock, IWM = small caps, SPX/SPY = price.
+    REGIME_REF_SYMBOLS: str = "SPX,SPY,RSP,IWM"
 
     # ── Options flow snapshots ────────────────────────────────────────
     FLOW_TOP_N: int = 10  # largest prints kept per snapshot
@@ -228,6 +231,10 @@ class Settings(BaseSettings):
     @property
     def watchlist_symbols(self) -> list[str]:
         return [s.strip().upper() for s in self.WATCHLIST.split(",") if s.strip()]
+
+    @property
+    def regime_ref_symbols(self) -> list[str]:
+        return [s.strip().upper() for s in self.REGIME_REF_SYMBOLS.split(",") if s.strip()]
 
     @property
     def chain_exclude_roots(self) -> set[str]:

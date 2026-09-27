@@ -42,6 +42,7 @@ def _settings() -> Settings:
         DISCORD_WEBHOOK_URL="https://example.com/h",
         DATABASE_URL="postgresql+psycopg://intel:intel@localhost:5432/trading_intel",
         WATCHLIST="SPY",
+        REGIME_REF_SYMBOLS="",
     )
 
 
@@ -101,3 +102,13 @@ def test_run_symbols_override(session: Session):
                      symbols=["TSLA"])
     rows = list(session.execute(select(QuoteDaily)).scalars())
     assert rows and {r.symbol for r in rows} == {"TSLA"}
+
+
+def test_default_symbols_include_regime_refs_once() -> None:
+    s = Settings(
+        CONVEX_EMAIL="x@example.com", CONVEX_PASSWORD="x", FRED_API_KEY="x",
+        DISCORD_WEBHOOK_URL="https://example.com/h",
+        DATABASE_URL="postgresql+psycopg://intel:intel@localhost:5432/trading_intel",
+        WATCHLIST="SPY", REGIME_REF_SYMBOLS="SPY,RSP",
+    )
+    assert s.regime_ref_symbols == ["SPY", "RSP"]

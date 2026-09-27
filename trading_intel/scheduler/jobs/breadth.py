@@ -6,9 +6,8 @@ vendor — ADR-004, rule 1), computes the S&P-wide breadth suite (``market.bread
 
 * the CUMULATIVE Advance-Decline line (yesterday's level + today's net adv),
 * the McClellan oscillator + summation index (from the banked net-adv history),
-* the Norseman **Bull/Bear Line** = 0.90 × running-max WEEKLY SPX-equivalent close,
-  computed off the maintained SPY ``quotes_daily`` series (×10 — SPX quotes go
-  stale), and
+* the Norseman **Bull/Bear Line** = 0.90 × the SPX all-time INTRADAY high (real
+  SPX bars; SPY ratio-scaled only if SPX lags), and
 * the A-D-line-vs-price **divergence** read (state + duration).
 
 Degrades gracefully: if the constituent feed is slow / quota-limited the breadth
@@ -29,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.market import breadth as bm
-from trading_intel.memory.models import BreadthSnapshot, QuoteDaily
+from trading_intel.memory.models import BreadthSnapshot
 from trading_intel.timeutils import eastern_now, is_trading_session
 
 log = structlog.get_logger(__name__)
@@ -38,17 +37,17 @@ _SOURCE = "fmp_sp500"
 _HIST = 80  # prior snapshots pulled for McClellan / divergence context
 
 
-def _spx_equiv_weeklies(session: Session) -> tuple[list[float], float | None]:
-    """Weekly SPX-equivalent closes (SPY×10) + the latest daily close, oldest→newest."""
-    rows = session.execute(
-        select(QuoteDaily.date, QuoteDaily.close)
-        .where(QuoteDaily.symbol == "SPY")
-        .order_by(QuoteDaily.date)
-    ).all()
-    dated = [(d, float(c) * 10.0) for d, c in rows if c is not None]
-    weekly = bm.weekly_last_closes(dated)
-    latest = dated[-1][1] if dated else None
-    return weekly, latest
+def _spx_line_inputs(session: Session) -> tuple[list[float], float | None]:
+    """(daily SPX intraday highs, latest SPX close) for the Bull/Bear Line.
+
+    Norseman's line is 0.90 × the all-time INTRADAY high (verified 3/3 against his
+    published lines, 2026-09-27) — not the weekly close. Uses real SPX bars, extended
+    with ratio-scaled SPY when the SPX series lags (``strategies.norseman_regime``).
+    """
+    from trading_intel.strategies.norseman_regime import spx_bars
+
+    bars = spx_bars(session, as_of=eastern_now().date())
+    return [b.high for b in bars], (bars[-1].close if bars else None)
 
 
 def run(session: Session, settings: Settings, *, client: object | None = None) -> dict:
@@ -82,9 +81,9 @@ def run(session: Session, settings: Settings, *, client: object | None = None) -
         .order_by(BreadthSnapshot.ts.desc())
     ).scalars().first()
 
-    # 3) Norseman Bull/Bear Line from our own SPY series (always available)
-    weekly, spx_close = _spx_equiv_weeklies(session)
-    bbl = bm.bull_bear_line(weekly)
+    # 3) Norseman Bull/Bear Line = 0.90 × SPX all-time intraday high
+    highs, spx_close = _spx_line_inputs(session)
+    bbl = bm.bull_bear_line(highs)
     above_bbl = (spx_close > bbl) if (spx_close is not None and bbl is not None) else None
 
     # 4) net advances + cumulative A-D line
