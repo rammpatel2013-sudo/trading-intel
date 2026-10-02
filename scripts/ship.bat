@@ -16,6 +16,9 @@ REM    Safest from PowerShell: put paths in an array and splat, or use --staged.
 REM       $f = @('"'"'scripts\nas\run_job.sh'"'"','"'"'trading_intel\config.py'"'"')
 REM       scripts\ship.bat "msg" none $f
 REM
+REM  Example (scripts-only -> no image rebuild, auto-detected):
+REM    scripts\ship.bat "fix: cockpit + flow" none scripts\cockpit_report.py scripts\flow_report.py
+REM
 REM  Example:
 REM    scripts\ship.bat "feat: breadth + report fix" "breadth cockpit_report sector_report" ^
 REM      scripts\cockpit_report.py trading_intel\scheduler\jobs\breadth.py alembic\versions\0043_breadth_snapshots.py
@@ -57,9 +60,17 @@ shift
 shift
 
 set "FILES="
+REM NEEDBUILD stays empty while every path is under scripts\ -- those are
+REM bind-mounted on the NAS, so the tarball pull alone deploys them and the
+REM (slow) --no-cache image rebuild is skipped automatically. --staged can't be
+REM inspected here, so it always rebuilds.
+set "NEEDBUILD="
 :collect
 if "%~1"=="" goto done_collect
-set FILES=!FILES! "%~1"
+set "P=%~1"
+set FILES=!FILES! "!P!"
+if /i "!P!"=="--staged" set "NEEDBUILD=1"
+if /i not "!P:~0,8!"=="scripts\" if /i not "!P:~0,8!"=="scripts/" set "NEEDBUILD=1"
 shift
 goto collect
 :done_collect
@@ -77,7 +88,11 @@ if !errorlevel! neq 0 ( echo [FAIL] alembic upgrade — aborting before NAS. & e
 echo.
 echo ==== [3/3] NAS: rebuild + run jobs (enter NAS + sudo password when prompted) ====
 set "RUNARG="
-if defined JOBS set "RUNARG=--run !JOBS!"
+if not defined NEEDBUILD (
+  set "RUNARG=--no-build"
+  echo scripts\-only change: pull only, image rebuild skipped.
+)
+if defined JOBS set "RUNARG=!RUNARG! --run !JOBS!"
 ssh -t drmithil@192.168.1.211 "sudo sh /var/services/homes/drmithil/trading-intel/scripts/nas/deploy.sh !RUNARG!"
 if !errorlevel! neq 0 ( echo [WARN] NAS step returned nonzero — check output above. & exit /b 1 )
 

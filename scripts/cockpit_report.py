@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import html as _html
 import math
-from datetime import date
 from pathlib import Path
 
 import structlog
@@ -30,7 +29,7 @@ import structlog
 log = structlog.get_logger(__name__)
 
 _SYMBOLS: tuple[str, ...] = ("SPX", "SPY", "QQQ")  # fallback; real default = config INDEX_ROOTS
-_DEFAULT_OUT = Path("reports") / f"cockpit_{date.today().isoformat()}.html"
+_DEFAULT_OUT = None  # resolved per call in build() → cockpit_<date>_<HHMM>.html
 
 
 # ── number formatting (server-side ports of the old JS helpers) ──────────────
@@ -177,7 +176,7 @@ def _dp_card(p: dict) -> str:
         f'<div class="v {dcol} num">{_abbr(_g(d, "total"))}</div>'
         f'<div class="u {"r" if dcol == "red" else "g"}">{_html.escape(str(_g(d, "lean") or ""))}</div></div>'
         "</div>"
-        '<div class="brk"><div class="h"><div class="t">GEX BREAKDOWN BY DTE</div>'
+        '<div class="brk"><div class="h"><div class="t">GEX BREAKDOWN BY DTE <span style="color:#3a4448">· EOD</span></div>'
         f'<div class="tot">term total <b style="color:var(--{gcol})">{_abbr(_g(g, "total"))}</b></div></div>'
         f'{"".join(bars)}</div>'
         '<div class="lean"><div class="lt">Delta flip <span style="color:var(--mut)">(zero-DEX)</span>:</div>'
@@ -230,7 +229,7 @@ def _skew_card(p: dict) -> str:
         )
 
     return (
-        '<div class="card sk"><div class="lbl">Skew · 25Δ risk-reversal (put − call, vols)</div>'
+        '<div class="card sk"><div class="lbl">Skew · 25Δ risk-reversal (put − call, vols)' + _eod_tag(p) + '</div>'
         '<div class="grid">'
         f'{cell("0DTE RR25", _g(s, "rr25_0dte"), "put bid")}'
         f'{cell("30D RR25", _g(s, "rr25_30d"), "put bid")}'
@@ -238,6 +237,97 @@ def _skew_card(p: dict) -> str:
         "</div>"
         f'<div class="fine">ATM IV {_pct(_g(s, "atm_iv"), 1)} · positive = downside puts richer (fear)</div></div>'
     )
+
+
+# ── intraday "since open" strip (what CHANGED since the first snapshot today) ──
+# Without this every intraday push looked identical: EM / skew / GEX-by-DTE are
+# EOD-sourced (prior close) and never move intraday, so only spot/GEX/DEX/flip
+# could differ -- and nothing showed HOW they moved. This card is the only part
+# of the cockpit that is genuinely about "now vs this morning".
+_STALE_MIN = 45  # RTH: newest index snapshot older than this ⇒ banner
+
+
+def _rth_now() -> tuple[object, bool]:
+    from trading_intel.timeutils import eastern_now
+
+    now = eastern_now()
+    mins = now.hour * 60 + now.minute
+    return now, (now.weekday() < 5 and 9 * 60 + 30 <= mins <= 16 * 60 + 15)
+
+
+def _spark(vals: list, *, w: int = 150, h: int = 30, col: str = "#9aa4a9") -> str:
+    pts = [float(v) for v in vals if _finite(v)]
+    if len(pts) < 2:
+        return ""
+    lo, hi = min(pts), max(pts)
+    rng = (hi - lo) or 1.0
+    step = w / (len(pts) - 1)
+    xy = " ".join(f"{i * step:.0f},{h - 2 - (v - lo) / rng * (h - 4):.0f}" for i, v in enumerate(pts))
+    return (f'<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
+            f'<polyline points="{xy}" fill="none" stroke="{col}" stroke-width="1.6"/></svg>')
+
+
+def _since_open_card(p: dict) -> str:
+    rows = _g(p, "intraday") or []
+    now, rth = _rth_now()
+    last_ts = rows[-1]["ts"] if rows else None
+    banner = ""
+    if not rows and now.weekday() < 5:
+        banner = ("no index snapshot written today — the DSM task is running "
+                  "<code>cockpit_report</code> without <code>index_greeks_snapshot</code> "
+                  "in front of it, so this page repeats the last stored row")
+    elif rth and (now - last_ts).total_seconds() > _STALE_MIN * 60:
+        banner = (f"newest index snapshot is {last_ts:%H:%M} ET "
+                  f"({int((now - last_ts).total_seconds() // 60)} min old) — "
+                  "<code>index_greeks_snapshot</code> did not run before this push")
+    head = (f'<div class="card" style="border-color:rgba(244,185,66,.45)">'
+            f'<div class="lbl" style="color:var(--amb)">⚠ stale</div>'
+            f'<div class="fine" style="margin-top:6px;color:#d9c48f">{banner}</div></div>') if banner else ""
+    if len(rows) < 2:
+        only = "" if not rows else (
+            '<div class="card"><div class="lbl">Since open</div>'
+            f'<div class="fine">1 snapshot today ({rows[0]["ts"]:%H:%M} ET) — nothing to compare yet.</div></div>')
+        return head + only
+    a, b = rows[0], rows[-1]
+
+    def dlt(key: str, fmt) -> str:
+        x, y = a.get(key), b.get(key)
+        if not (_finite(x) and _finite(y)):
+            return '<b class="num" style="color:var(--mut)">n/a</b>'
+        d = float(y) - float(x)
+        col = "var(--grn)" if d > 0 else "var(--red)" if d < 0 else "var(--mut)"
+        return f'<b class="num" style="color:{col}">{fmt(d)}</b>'
+
+    def pc(r):
+        cv, pv = r.get("call_volume"), r.get("put_volume")
+        return (float(pv) / float(cv)) if (_finite(cv) and _finite(pv) and float(cv) > 0) else None
+
+    a["pc"], b["pc"] = pc(a), pc(b)
+    sp_pct = (lambda d: _signpct(d / float(a["spot"]))) if _finite(a.get("spot")) and a["spot"] else (lambda d: _fmtc(d))
+    sgn = lambda f: (lambda d: ("+" if d >= 0 else "") + f(d))
+    spots = [r.get("spot") for r in rows]
+    gexs = [r.get("gex_total") for r in rows]
+    return head + (
+        '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">'
+        '<div class="lbl">Since open · live</div>'
+        f'<div style="font-size:11px;color:var(--mut)" class="num">{a["ts"]:%H:%M} → {b["ts"]:%H:%M} ET · {len(rows)} snaps</div></div>'
+        '<div class="meta" style="border-top:0;padding-top:4px;margin-top:8px">'
+        f'<div>SPOT{dlt("spot", sp_pct)}</div>'
+        f'<div>NET GEX{dlt("gex_total", sgn(_abbr))}</div>'
+        f'<div>NET DEX{dlt("dex_total", sgn(_abbr))}</div></div>'
+        '<div class="meta">'
+        f'<div>GAMMA FLIP{dlt("gex_flip", sgn(lambda d: _fmtc(d, 0)))}</div>'
+        f'<div>DELTA FLIP{dlt("dex_flip", sgn(lambda d: _fmtc(d, 0)))}</div>'
+        f'<div>P/C{dlt("pc", sgn(lambda d: _fmtc(d, 2)))}</div></div>'
+        '<div style="display:flex;justify-content:space-between;margin-top:12px">'
+        f'<div><div class="k">spot</div>{_spark(spots, col="#e9eef0")}</div>'
+        f'<div><div class="k">net GEX</div>{_spark(gexs, col="#2fe0a6")}</div></div></div>'
+    )
+
+
+def _eod_tag(p: dict) -> str:
+    return ('<span style="float:right;font-size:9.5px;letter-spacing:.6px;color:#5a656a">'
+            'EOD · PRIOR CLOSE</span>')
 
 
 def _panel(p: dict) -> str:
@@ -249,7 +339,8 @@ def _panel(p: dict) -> str:
         f'· as of {_html.escape(as_of)} · source {_html.escape(str(_g(meta, "source", "")))}'
     )
     return (
-        _regime_card(p)
+        _since_open_card(p)
+        + _regime_card(p)
         + _em_card(p)
         + _dp_card(p)
         + _flow_card(p)
@@ -393,6 +484,28 @@ def _render_html(payloads: dict) -> str:
     )
 
 
+def _intraday_rows(session, sym: str) -> list[dict]:
+    """Today's (ET) greeks_snapshots rows for one index, oldest first, one per ts."""
+    from sqlalchemy import select
+
+    from trading_intel.memory.models import GreeksSnapshot as G
+    from trading_intel.timeutils import eastern_now
+
+    start = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    cols = ("spot", "gex_total", "dex_total", "gex_flip", "dex_flip", "call_volume", "put_volume")
+    try:
+        rs = session.execute(
+            select(G).where(G.symbol == sym, G.ts >= start).order_by(G.ts)
+        ).scalars().all()
+    except Exception as exc:  # noqa: BLE001 — the strip is additive; never kill the report
+        log.warning("cockpit.intraday_failed", symbol=sym, error=str(exc))
+        return []
+    by_ts: dict = {}
+    for r in rs:
+        by_ts[r.ts] = {"ts": r.ts, **{c: getattr(r, c, None) for c in cols}}
+    return list(by_ts.values())
+
+
 def _collect(session, symbols: tuple[str, ...]) -> dict:
     """Build the per-symbol cockpit payloads from the Convex-fed DB (no vendor calls)."""
     from trading_intel.api.positioning import build_positioning
@@ -401,6 +514,7 @@ def _collect(session, symbols: tuple[str, ...]) -> dict:
     for sym in symbols:
         try:
             payloads[sym] = build_positioning(session, sym)
+            payloads[sym]["intraday"] = _intraday_rows(session, sym)
         except Exception as exc:  # noqa: BLE001 — one bad symbol shouldn't kill the report
             log.warning("cockpit.symbol_failed", symbol=sym, error=str(exc))
     return payloads
@@ -433,10 +547,21 @@ def build(
             payloads = _collect(s, roots)
 
     html = _render_html(payloads)
-    out = (Path(out_path) if out_path else _DEFAULT_OUT).resolve()
+    if out_path:
+        out = Path(out_path).resolve()
+    else:
+        from trading_intel.timeutils import eastern_now
+
+        out = (Path("reports") / f"cockpit_{eastern_now():%Y-%m-%d_%H%M}.html").resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     return str(out)
+
+
+def _caption() -> str:
+    from trading_intel.timeutils import eastern_now
+
+    return f"Index dealer-positioning cockpit · {eastern_now():%a %H:%M} ET"
 
 
 def run(
@@ -454,7 +579,7 @@ def run(
         from trading_intel.clients.telegram import TelegramClient
 
         sent = TelegramClient(settings).send_document(
-            path, caption="Index dealer-positioning cockpit (SPX / SPY / QQQ)"
+            path, caption=_caption()
         )
         log.info("cockpit.pushed", path=path, telegram_sent=sent)
     return path

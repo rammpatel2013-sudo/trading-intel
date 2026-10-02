@@ -33,7 +33,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from trading_intel.config import get_settings
-from trading_intel.flow.report import build_flow_report
+from trading_intel.flow.report import _INDEX_ROOTS, build_flow_report
 
 _OUT = Path(__file__).resolve().parent.parent / "reports"
 
@@ -74,6 +74,36 @@ def _cls(v: float | None) -> str:
     return "pos" if v > 0 else ("neg" if v < 0 else "mut")
 
 
+# ── side scoping (one dict in, one self-consistent page out) ───────────
+def _is_idx(root: object) -> bool:
+    return str(root or "").upper() in _INDEX_ROOTS
+
+
+def scope_rep(rep: dict[str, Any], side: str) -> dict[str, Any]:
+    """Return ``rep`` with EVERY name-bearing field restricted to ``side``. Pure.
+
+    The split used to stop at the tables: the LLM narrative, the New/Fading
+    rotation chips, the header name-count and the watchlist block still read the
+    unsplit frame, so the index page described AAPL/PGEN and the equity page's
+    watchlist block opened with SPX contracts. Scoping once, up front, means no
+    renderer can leak the other side.
+    """
+    if side not in ("equity", "index"):
+        return rep
+    want = side == "index"
+    keep = lambda r: _is_idx(r) == want  # noqa: E731
+    out = dict(rep)
+    out["trend"] = [t for t in rep.get("trend", []) if keep(t.get("root"))]
+    out["new"] = [n for n in rep.get("new", []) if keep(n)]
+    out["fading"] = [n for n in rep.get("fading", []) if keep(n)]
+    out["trend_watchlist"] = [t for t in rep.get("trend_watchlist", []) or [] if keep(t.get("root"))]
+    out["contracts_watchlist"] = [c for c in rep.get("contracts_watchlist", []) or [] if keep(c.get("root"))]
+    cnt = dict(rep.get("count", {}) or {})
+    cnt["trend"] = len(out["trend"])
+    out["count"] = cnt
+    return out
+
+
 # ── rule-based "important trade findings" ──────────────────────────────
 
 
@@ -84,6 +114,7 @@ def key_findings(rep: dict[str, Any], *, side: str = "both") -> list[str]:
     (and vice versa) -- the bullets are the first thing read, and sourcing them
     from the unsplit frame made the index page open with equity tickers.
     """
+    rep = scope_rep(rep, side)
     out: list[str] = []
     if side == "equity":
         trend = rep.get("trend_equity", []) or []
@@ -378,6 +409,7 @@ def render_html(rep: dict[str, Any], *, llm_note: str | None = None, side: str =
     any single name, so sharing a page means the equity tape is read second and its
     bars render as slivers. Two documents, two Telegram pushes, each self-contained.
     """
+    rep = scope_rep(rep, side)
     as_of = rep.get("as_of", "")
     trend = rep.get("trend", [])
     accum = [t for t in trend if (t.get("recent_score") or 0) >= 20]
@@ -424,22 +456,28 @@ def render_html(rep: dict[str, Any], *, llm_note: str | None = None, side: str =
 # ── build (DB → report → file) ─────────────────────────────────────────
 
 
-def _llm_note(rep: dict[str, Any], llm: object, settings: object) -> str | None:
+def _llm_note(rep: dict[str, Any], llm: object, settings: object, side: str = "both") -> str | None:
     """Optional local-LLM narrative; degrades silently (rule 7 — no cloud LLM)."""
     if llm is None:
         return None
     try:
         model = getattr(settings, "LLM_DAILY_MODEL", None)
-        findings = "\n".join(f"- {f}" for f in key_findings(rep))
+        findings = "\n".join(f"- {f}" for f in key_findings(rep, side=side))
+        scope = {"equity": "single-stock (NOT index/ETF) ", "index": "index/ETF (NOT single-stock) "}.get(side, "")
         prompt = (
             "You are a derivatives-flow analyst. In 2-3 sentences, summarize the "
-            "most important option-tape accumulation/distribution findings for a "
-            "trader. Be specific and neutral; do NOT give trade advice.\n\n"
+            f"most important {scope}option-tape accumulation/distribution findings for a "
+            "trader. Mention ONLY names that appear in the findings below. "
+            "Be specific and neutral; do NOT give trade advice.\n\n"
             f"Findings:\n{findings}"
         )
         return llm.complete(prompt, model=model).strip() or None  # type: ignore[attr-defined]
     except Exception:  # pragma: no cover - narrative is best-effort
         return None
+
+
+# equity + index are two renders of ONE query: build_flow_sides calls build() per side.
+_REP_CACHE: dict = {}
 
 
 def build(
@@ -457,15 +495,20 @@ def build(
     settings = settings or get_settings()
     url = db_url or settings.DATABASE_URL  # type: ignore[attr-defined]
     engine = create_engine(url, pool_pre_ping=True)
-    with Session(engine) as session:
-        rep = build_flow_report(
-            session,
-            lookback_days=lookback_days,
-            recent_days=recent_days,
-            min_notional=min_notional,
-            top=top,
-        )
-    note = _llm_note(rep, llm, settings)
+    key = (url, lookback_days, recent_days, min_notional, top, date.today())
+    rep = _REP_CACHE.get(key)
+    if rep is None:
+        with Session(engine) as session:
+            rep = build_flow_report(
+                session,
+                lookback_days=lookback_days,
+                recent_days=recent_days,
+                min_notional=min_notional,
+                top=top,
+            )
+        _REP_CACHE.clear()
+        _REP_CACHE[key] = rep
+    note = _llm_note(rep, llm, settings, side=side)
     _OUT.mkdir(parents=True, exist_ok=True)
     as_of = rep.get("as_of", date.today().isoformat())
     stem = "flow" if side == "both" else f"flow_{side}"

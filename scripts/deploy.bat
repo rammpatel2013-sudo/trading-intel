@@ -20,6 +20,22 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0.."
 
 if "%~1"=="" goto usage
+
+REM --- stale index.lock guard ---------------------------------------------------
+REM A crashed git (or a git run over the Cowork Linux mount, which can create the
+REM lock but never unlink it) leaves .git\index.lock behind and every later git
+REM command dies with "Unable to create ... index.lock: File exists". If no git.exe
+REM is actually running, the lock is stale: remove it and carry on.
+if exist ".git\index.lock" (
+  tasklist /fi "imagename eq git.exe" 2>nul | find /i "git.exe" >nul
+  if !errorlevel! equ 0 (
+    echo [FAIL] .git\index.lock exists AND git.exe is running - close it, then retry.
+    exit /b 1
+  )
+  echo [fix] removing stale .git\index.lock
+  del /f /q ".git\index.lock"
+  if exist ".git\index.lock" ( echo [FAIL] could not delete .git\index.lock & exit /b 1 )
+)
 set "MSG=%~1"
 shift
 
