@@ -520,6 +520,53 @@ def _collect(session, symbols: tuple[str, ...]) -> dict:
     return payloads
 
 
+_REFRESH_AGE_MIN = 10  # an index row older than this ⇒ snapshot before rendering
+
+
+def _ensure_fresh(settings, roots: tuple[str, ...]) -> None:
+    """Self-heal: if any index's newest greeks_snapshots row is stale, take one now.
+
+    The cockpit used to depend on the DSM task chaining ``index_greeks_snapshot``
+    in front of it. The 11:45 task never did, so it re-sent the 09:45 numbers; the
+    18:10 EOD pair ran as two separate tasks in the same minute (a race). Doing the
+    snapshot here makes every push fresh no matter how it was scheduled. Cost is
+    one ``exposures()`` call per index root, and ONLY when the stored row is
+    >10 min old on a weekday -- a chained task (or a back-to-back rerun) skips it,
+    so this never becomes the continuous live pull declined on 2026-07-30.
+    Best-effort: any failure falls back to reading whatever is stored.
+    """
+    try:
+        from sqlalchemy import func, select
+
+        from trading_intel.memory.db import make_session_factory
+        from trading_intel.memory.models import GreeksSnapshot as G
+        from trading_intel.timeutils import eastern_now
+
+        now = eastern_now()
+        if now.weekday() >= 5:
+            return
+        cutoff = now.replace(second=0, microsecond=0)
+        from datetime import timedelta
+
+        cutoff -= timedelta(minutes=_REFRESH_AGE_MIN)
+        factory = make_session_factory(settings)
+        with factory() as s:
+            newest = dict(s.execute(
+                select(G.symbol, func.max(G.ts)).where(G.symbol.in_(roots)).group_by(G.symbol)
+            ).all())
+        stale = [r for r in roots if newest.get(r) is None or newest[r] < cutoff]
+        if not stale:
+            return
+        from trading_intel.clients.convex import ConvexClient
+        from trading_intel.scheduler.jobs import greeks_snapshot as gs
+
+        log.info("cockpit.self_refresh", stale=stale)
+        with factory() as s:
+            gs.run(s, ConvexClient(settings), settings=settings, symbols=list(roots))
+    except Exception as exc:  # noqa: BLE001 — never block the report on the refresh
+        log.warning("cockpit.self_refresh_failed", error=str(exc))
+
+
 def build(
     *,
     symbols: tuple[str, ...] | None = None,
@@ -542,6 +589,8 @@ def build(
         payloads = _collect(session, roots)
     else:
         from trading_intel.memory.db import make_session_factory
+
+        _ensure_fresh(settings, roots)
 
         with make_session_factory(settings)() as s:
             payloads = _collect(s, roots)
