@@ -29,8 +29,8 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-_BASE = "https://cdn.cboe.com/api/global/delayed_quotes/quotes/{sym}.json"
-_HISTORY_CSV = "https://cdn.cboe.com/api/global/us_indices/daily_prices/{name}_History.csv"
+_BASE = "https://cdn-api.cboe.com/api/global/delayed_quotes/quotes/{sym}.json"
+_HISTORY_CSV = "https://cdn-api.cboe.com/api/global/us_indices/daily_prices/{name}_History.csv"
 
 VVIX_SYM = "_VVIX"
 TERM_SYMS = {"VIX9D": "_VIX9D", "VIX": "_VIX", "VIX3M": "_VIX3M", "VIX6M": "_VIX6M"}
@@ -56,7 +56,7 @@ class CboeClient:
             else:
                 import httpx
 
-                resp = httpx.get(_BASE.format(sym=sym), timeout=self._timeout)
+                resp = httpx.get(_BASE.format(sym=sym), timeout=self._timeout, follow_redirects=True)
             resp.raise_for_status()
             return resp.json()
         except Exception as exc:  # network / shape / parse - degrade to None
@@ -70,7 +70,7 @@ class CboeClient:
             else:
                 import httpx
 
-                resp = httpx.get(url, timeout=self._timeout)
+                resp = httpx.get(url, timeout=self._timeout, follow_redirects=True)
             resp.raise_for_status()
             return resp.text
         except Exception as exc:  # network / shape - degrade to None

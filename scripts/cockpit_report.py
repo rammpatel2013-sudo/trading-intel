@@ -489,7 +489,7 @@ def _intraday_rows(session, sym: str) -> list[dict]:
     from sqlalchemy import select
 
     from trading_intel.memory.models import GreeksSnapshot as G
-    from trading_intel.timeutils import eastern_now
+    from trading_intel.timeutils import EASTERN, eastern_now
 
     start = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
     cols = ("spot", "gex_total", "dex_total", "gex_flip", "dex_flip", "call_volume", "put_volume")
@@ -502,7 +502,13 @@ def _intraday_rows(session, sym: str) -> list[dict]:
         return []
     by_ts: dict = {}
     for r in rs:
-        by_ts[r.ts] = {"ts": r.ts, **{c: getattr(r, c, None) for c in cols}}
+        ts = r.ts
+        # NAS Postgres returns tz-aware (UTC) datetimes; eastern_now() is naive ET,
+        # so normalise every snapshot ts to naive ET or `now - last_ts` later raises
+        # "can't subtract offset-naive and offset-aware datetimes".
+        if ts is not None and getattr(ts, "tzinfo", None) is not None:
+            ts = ts.astimezone(EASTERN).replace(tzinfo=None)
+        by_ts[ts] = {"ts": ts, **{c: getattr(r, c, None) for c in cols}}
     return list(by_ts.values())
 
 
@@ -601,7 +607,11 @@ def build(
     else:
         from trading_intel.timeutils import eastern_now
 
-        out = (Path("reports") / f"cockpit_{eastern_now():%Y-%m-%d_%H%M}.html").resolve()
+        # Anchor to the project root (like flow_report._OUT / report_html._REPO_ROOT);
+        # the MCP server's CWD is C:\Windows\System32, so a CWD-relative "reports"
+        # path wrote to System32\reports and failed with Access denied.
+        out = (Path(__file__).resolve().parent.parent / "reports"
+               / f"cockpit_{eastern_now():%Y-%m-%d_%H%M}.html")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     return str(out)
