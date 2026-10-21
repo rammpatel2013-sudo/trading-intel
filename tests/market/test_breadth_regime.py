@@ -65,3 +65,24 @@ def test_divergence_bullish_when_price_lows_but_breadth_firmer():
 
 def test_divergence_building_with_too_little_history():
     assert bm.breadth_divergence([1, 2], [1, 2])["state"] == "none"
+
+
+def test_near_high_big_breadth_divergence():
+    # 2026-09-21..10-02 shape: SPX flat/near highs, A-D line bleeding for weeks
+    price = [7626, 7657, 7635, 7659, 7661, 7711, 7693, 7670, 7618, 7652, 7732, 7702,
+             7660, 7660, 7578, 7643, 7609, 7574, 7540, 7626, 7617, 7735, 7734, 7678,
+             7743, 7743.4, 7684, 7671, 7652, 7666]
+    adln = [-51, 58, -36, 29, -168, -213, -436, -619, -518, -340, -493, -702, -1009,
+            -1174, -1002, -938, -1126, -1309, -1225, -1415, -1334, -1340, -1500, -1650,
+            -1493, -1665, -1767, -2038, -1947, -1862]
+    d = bm.breadth_divergence(price, adln)
+    assert d["state"] == "bearish_div"
+    assert d["length"] >= 1
+    assert "near_high" in d["detail"]
+
+
+def test_near_high_ignores_broad_pullback():
+    # price and A-D peak together then fall together → no gap, no flag
+    price = [100 + i for i in range(20)] + [118, 117, 116]
+    adln = [i * 100 for i in range(20)] + [1200, 600, 0]
+    assert bm.breadth_divergence(price, adln)["state"] != "bearish_div"

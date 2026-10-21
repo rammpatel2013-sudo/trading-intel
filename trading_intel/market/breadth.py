@@ -207,8 +207,34 @@ def mcclellan(
     return osc, summ
 
 
+def _near_high_gap(
+    p: Sequence[float], a: Sequence[float], *, near_pct: float, ad_drop: float, min_gap: int
+) -> bool:
+    """Price within ``near_pct`` of its window high, A-D line ``ad_drop`` below its
+    own window high, and the A-D peak printed ``min_gap``+ sessions BEFORE the
+    price peak — the Deemer/Norseman "big breadth divergence" (breadth rolled
+    over first; price is still holding up near the top)."""
+    if len(p) < min_gap + 2:
+        return False
+    p_max, a_max = max(p), max(a)
+    if p_max <= 0 or p[-1] < p_max * (1.0 - near_pct):
+        return False
+    if a_max - a[-1] < ad_drop:
+        return False
+    i_p = max(i for i, x in enumerate(p) if x == p_max)
+    i_a = max(i for i, x in enumerate(a) if x == a_max)
+    return i_p - i_a >= min_gap
+
+
 def breadth_divergence(
-    price_series: Sequence[float], ad_series: Sequence[float], *, lookback: int = 12
+    price_series: Sequence[float],
+    ad_series: Sequence[float],
+    *,
+    lookback: int = 12,
+    long_lookback: int = 63,
+    near_pct: float = 0.03,
+    ad_drop: float = 500.0,
+    min_gap: int = 10,
 ) -> dict:
     """Cumulative A-D line vs price over ``lookback`` points → divergence read.
 
@@ -217,7 +243,15 @@ def breadth_divergence(
     line is NOT (breadth lagging — the classic top-warning "gap", Norseman's read);
     ``bullish_div`` = the mirror at lows; ``confirming`` = both make the high.
     ``length`` = trailing run of sessions the divergence has held (its duration).
+
+    Also ``bearish_div`` (detail flags it ``near_high``) when, over ``long_lookback``
+    sessions, price sits within ``near_pct`` of its high while the A-D line is
+    ``ad_drop``+ net issues below a peak set ``min_gap``+ sessions before the price
+    peak — catches the slow "index holds, breadth bleeds" top that the strict
+    new-high test misses (price need not print a fresh high that day).
     """
+    pf = [float(x) for x in price_series if x is not None]
+    af = [float(x) for x in ad_series if x is not None]
     p = [float(x) for x in price_series if x is not None]
     a = [float(x) for x in ad_series if x is not None]
     n = min(len(p), len(a))
@@ -258,4 +292,23 @@ def breadth_divergence(
         "bullish_div": "price down, breadth firmer — washout",
         "none": "no clear divergence",
     }[state]
+
+    # near-high "big breadth divergence" over the long window (overrides none/confirming)
+    nl = min(len(pf), len(af))
+    if state in ("none", "confirming") and nl >= 3:
+        pl, al = pf[-min(long_lookback, nl):], af[-min(long_lookback, nl):]
+        kw = dict(near_pct=near_pct, ad_drop=ad_drop, min_gap=min_gap)
+        if _near_high_gap(pl, al, **kw):
+            run = 0
+            off = nl - len(pl)
+            for end in range(nl, off + 1, -1):  # trailing run, each day on its own window
+                lo = max(0, end - long_lookback)
+                if _near_high_gap(pf[lo:end], af[lo:end], **kw):
+                    run += 1
+                else:
+                    break
+            p_max = max(pl)
+            state, length = "bearish_div", run
+            detail = (f"near_high: price {pl[-1] / p_max - 1:+.1%} from {len(pl)}d high, "
+                      f"A-D line {al[-1] - max(al):+,.0f} off its peak — big breadth divergence")
     return {"state": state, "length": length, "detail": detail}

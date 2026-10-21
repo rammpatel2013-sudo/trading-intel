@@ -103,10 +103,25 @@ def _closes(session: Session, symbol: str, *, as_of: date) -> list[tuple[date, f
     return [(b.d, b.close) for b in _bars(session, symbol, as_of=as_of)]
 
 
-def _ad_line(session: Session, *, as_of: date) -> list[tuple[date, float]]:
+def bull_start() -> date:
+    """Cyclical-buy anchor: ``NORSEMAN_BULL_START`` from .env, else the coded default."""
+    try:
+        from trading_intel.config import get_settings
+
+        raw = getattr(get_settings(), "NORSEMAN_BULL_START", None)
+        return date.fromisoformat(str(raw)) if raw else BULL_START
+    except Exception:  # noqa: BLE001 — a bad .env value must not kill the monitor
+        log.warning("norseman.bad_bull_start")
+        return BULL_START
+
+
+def _ad_line(session: Session, *, as_of: date, source: str = "fmp_sp500") -> list[tuple[date, float]]:
+    # Filter by source: breadth_snapshots holds one A-D line PER universe
+    # (S&P 500, S&P 600); mixing them would splice two unrelated cumulations.
     rows = session.execute(
         select(BreadthSnapshot.ts, BreadthSnapshot.ad_line)
-        .where(BreadthSnapshot.ad_line.is_not(None), BreadthSnapshot.ts <= as_of)
+        .where(BreadthSnapshot.ad_line.is_not(None), BreadthSnapshot.ts <= as_of,
+               BreadthSnapshot.source == source)
         .order_by(BreadthSnapshot.ts)
     ).all()
     return [(d, float(v)) for d, v in rows]
@@ -152,7 +167,7 @@ def read_state(session: Session, *, as_of: date | None = None) -> NorsemanState 
         remaining = nm.CLOCK_OPEN_SESSION - sess
         clock_date = today.d if remaining <= 0 else nm.project_session_date(
             today.d, remaining, is_trading_session)
-    start = nm.bull_count_start(bars, bull_start=BULL_START)
+    start = nm.bull_count_start(bars, bull_start=bull_start())
     viols = nm.violations(bars, since=start) if start else []
     nxt = nm.project_session_date(today.d, 1, is_trading_session)
 
@@ -165,6 +180,10 @@ def read_state(session: Session, *, as_of: date | None = None) -> NorsemanState 
         nm.rail_read("IWM (small caps)", _closes(session, "IWM", as_of=as_of), since=since,
                      price_high_date=ath_bar.d, session_dates=dates),
     ]
+    sml = _ad_line(session, as_of=as_of, source="fmp_sp600")
+    if len(sml) >= 5:  # his FIRST rail to roll over — only once enough history is banked
+        rails.append(nm.rail_read("A-D line (S&P 600 small caps)", sml, since=since,
+                                  price_high_date=ath_bar.d, session_dates=dates))
     author = author_levels(session)
     ours_at_author = None
     if author.get("as_of"):
@@ -187,6 +206,11 @@ def read_state(session: Session, *, as_of: date | None = None) -> NorsemanState 
 
 
 # ── events (decision points) ────────────────────────────────────────────
+
+def _md(d, yr: bool = False) -> str:
+    """Portable m/d[/yy] — strftime '%-m' is glibc-only and raises on Windows."""
+    return f"{d.month}/{d.day}/{d:%y}" if yr else f"{d.month}/{d.day}"
+
 
 def _f(x: float | None, nd: int = 2) -> str:
     return "n/a" if x is None else f"{x:,.{nd}f}"
@@ -225,7 +249,7 @@ def detect_events(st: NorsemanState) -> list[dict[str, Any]]:
         ev.append({"kind": "CLOCK_OPEN", "key": f"clock:{st.last_test.anchor}",
                    "severity": "medium",
                    "text": f"CLOCK OPEN — session {st.session} since the "
-                           f"{st.last_test.anchor:%-m/%-d/%y} test. A −10% to the line "
+                           f"{_md(st.last_test.anchor, yr=True)} test. A −10% to the line "
                            f"({_f(st.line)}, {st.dist_to_line:.1%} away) is now permitted by "
                            "structure (not predicted). Watch the dials."})
 
@@ -246,7 +270,7 @@ def detect_events(st: NorsemanState) -> list[dict[str, Any]]:
         ev.append({"kind": "ASSESS_START", "key": f"assess:{first.name}:{first.peak_date}",
                    "severity": "high",
                    "text": "NEW SPX HIGH NOT CONFIRMED — "
-                           + "; ".join(f"{r.name} peaked {r.peak_date:%-m/%-d} "
+                           + "; ".join(f"{r.name} peaked {_md(r.peak_date)} "
                                        f"({r.gap_sessions} sessions earlier)" for r in div)
                            + _small_caps_note(st)
                            + ". ASSESS begins: this is the 'top is a process' divergence. "
@@ -256,7 +280,7 @@ def detect_events(st: NorsemanState) -> list[dict[str, Any]]:
         r = max(div, key=lambda x: x.gap_sessions or 0)
         ev.append({"kind": "ASSESS_MATURE", "key": f"assess14:{r.name}:{r.peak_date}",
                    "severity": "high",
-                   "text": f"Divergence gap {gap} sessions ({r.name} peak {r.peak_date:%-m/%-d})"
+                   "text": f"Divergence gap {gap} sessions ({r.name} peak {_md(r.peak_date)})"
                            " — past the 14-session minimum warning. A top is now structurally "
                            "possible; the line is still the only exit."})
 
@@ -275,14 +299,14 @@ def detect_events(st: NorsemanState) -> list[dict[str, Any]]:
 
 def _small_caps_note(st: NorsemanState) -> str:
     iwm = next((r for r in st.dials.rails if r.name.startswith("IWM") and r.diverging), None)
-    return f"; small caps (IWM) topped first {iwm.peak_date:%-m/%-d}" if iwm else ""
+    return f"; small caps (IWM) topped first {_md(iwm.peak_date)}" if iwm else ""
 
 
 def weekly_grade(st: NorsemanState) -> str:
     """The three weekend questions, graded on our data (Telegram HTML)."""
     q1 = ("OPEN" if st.clock_open else "NOT YET") + (
         f" — session {st.session}/{nm.CLOCK_OPEN_SESSION}"
-        f"{'' if st.clock_open else f', opens {st.clock_open_date:%-m/%-d}'}"
+        f"{'' if st.clock_open else f', opens {_md(st.clock_open_date)}'}"
         if st.session is not None else "")
     n = len(st.violations)
     q2 = ("NO" if st.spx_close >= st.line else "WEEKLY CLOSE BELOW") + (
@@ -291,11 +315,11 @@ def weekly_grade(st: NorsemanState) -> str:
     q3 = ("DIVERGING: " + ", ".join(f"{r.name} (gap {r.gap_sessions})" for r in div)
           if div else "NO DIVERGENCE — rails confirmed the last high")
     rails = "\n".join(
-        f"  · {r.name}: peak {r.peak_date:%-m/%-d} {_f(r.peak)}, now {_f(r.last)}"
+        f"  · {r.name}: peak {_md(r.peak_date)} {_f(r.peak)}, now {_f(r.last)}"
         for r in st.dials.rails if r.peak_date)
     tg = ", ".join(f"{k} {_f(float(st.author[k]))}" for k in TARGET_NAMES if st.author.get(k))
-    return (f"<b>NMT weekly grade — {st.as_of:%a %-m/%-d}</b>\n"
-            f"SPX {_f(st.spx_close)} · ATH {_f(st.ath)} ({st.ath_date:%-m/%-d})\n"
+    return (f"<b>NMT weekly grade — {st.as_of:%a} {_md(st.as_of)}</b>\n"
+            f"SPX {_f(st.spx_close)} · ATH {_f(st.ath)} ({_md(st.ath_date)})\n"
             f"B/BL {_f(st.line)} · {st.dist_to_line:.1%} above\n"
             f"1) Test? {q1}\n2) Violate? {q2}\n3) Dials? {q3}\n{rails}\n"
             + (f"Author targets: {tg} (letter {st.author.get('as_of')})" if tg else ""))
