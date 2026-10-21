@@ -28,6 +28,26 @@ def eastern_now() -> datetime:
     return datetime.now(EASTERN).replace(tzinfo=None)
 
 
+#: 2026-10-22: every Convex chain pull starts at the FRONT expiry (clients.convex).
+#: Series built from chains (single-name GEX/DEX, walls, the AM index book's straddle,
+#: OI totals) step on this day because more contracts are counted, not because the
+#: market moved. Day-over-day readers compare only days on the same side of it.
+FRONT_EXPIRY_SINCE = date(2026, 10, 22)
+
+
+def _as_day(x: object) -> date:
+    if isinstance(x, datetime):
+        return x.date()
+    if isinstance(x, date):
+        return x
+    return date.fromisoformat(str(x)[:10])
+
+
+def same_front_basis(a: object, b: object) -> bool:
+    """True when two days are on the same side of ``FRONT_EXPIRY_SINCE`` (comparable)."""
+    return (_as_day(a) >= FRONT_EXPIRY_SINCE) == (_as_day(b) >= FRONT_EXPIRY_SINCE)
+
+
 _RTH_OPEN = dtime(9, 30)
 _RTH_CLOSE = dtime(16, 0)
 _SAME_DAY_GONE = dtime(16, 15)  # PM-settled same-day options have expired by now

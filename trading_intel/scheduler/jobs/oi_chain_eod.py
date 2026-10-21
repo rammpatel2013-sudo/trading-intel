@@ -23,6 +23,7 @@ from datetime import datetime
 
 import pandas as pd
 import structlog
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
@@ -148,6 +149,13 @@ def run(
             bound.warning("oi_chain_eod.empty", symbol=symbol)
             continue
 
+        # The 08:35 pull (index_walls_am: stocks with a 0DTE) shares this day's ts.
+        # The EOD book supersedes it, so readers never sum two books for one day.
+        session.execute(
+            delete(OiChainEod).where(
+                OiChainEod.symbol == symbol, OiChainEod.ts == ts, OiChainEod.source == "convex_am"
+            )
+        )
         dialect = session.bind.dialect.name if session.bind is not None else "postgresql"
         _insert = sqlite_insert if dialect == "sqlite" else pg_insert
         for start in range(0, len(records), _INSERT_BATCH):

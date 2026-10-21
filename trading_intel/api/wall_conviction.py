@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.market import wall_conviction as wc
 from trading_intel.memory.models import EarningsEvent, GreeksSnapshot, OiChainEod
+from trading_intel.timeutils import same_front_basis
 
 log = structlog.get_logger(__name__)
 
@@ -40,6 +41,8 @@ def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[f
         .group_by(OiChainEod.ts).order_by(OiChainEod.ts.desc()).limit(_HIST_SNAPS)
     ).scalars().all()
     stamps = sorted(ts_rows)
+    if stamps:  # only books on the newest one's side of the 10/22 front-expiry change
+        stamps = [t for t in stamps if same_front_basis(t, stamps[-1])]
     walls: dict[str, list[float | None]] = {"call": [], "put": []}
     if not stamps:
         return [], walls

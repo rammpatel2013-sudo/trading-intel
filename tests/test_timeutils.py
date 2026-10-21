@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from trading_intel.timeutils import eastern_now, same_day_expired, same_day_years
+from trading_intel.timeutils import eastern_now, same_day_expired, same_day_years, same_front_basis
 
 
 def test_eastern_now_is_naive():
@@ -34,3 +34,9 @@ def test_same_day_years_live_and_as_of():
     assert abs(same_day_years(d, datetime(2026, 10, 22, 13, 0)) - 3.0 * h) < 1e-9   # live: to 16:00
     assert abs(same_day_years(d, datetime(2026, 10, 22, 15, 45)) - 1.0 * h) < 1e-9  # one-hour floor
     assert abs(same_day_years(d, datetime(2026, 10, 30, 9, 0)) - 6.5 * h) < 1e-9    # as-of book
+
+
+def test_same_front_basis_splits_at_the_change_date():
+    assert same_front_basis(date(2026, 10, 20), date(2026, 10, 21))
+    assert not same_front_basis(date(2026, 10, 21), date(2026, 10, 22))
+    assert same_front_basis(datetime(2026, 10, 22, 8, 35), "2026-10-29")

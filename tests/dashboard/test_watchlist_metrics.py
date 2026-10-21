@@ -154,3 +154,13 @@ def test_format_display_empty():
     out = format_display(pd.DataFrame())
     assert list(out.columns) == list(DISPLAY_LABELS.values())
     assert out.empty
+
+
+def test_gex_change_never_spans_the_front_expiry_change():
+    """10/22: chains start counting the front expiry; a week-over-week change across it is fake."""
+    hist = pd.DataFrame({"ts": pd.to_datetime(["2026-10-14", "2026-10-21", "2026-10-22"]),
+                         "gex_total": [100.0, 120.0, 900.0]})
+    assert gex_change_since(hist, days=7) is None          # 10/22 vs 10/14 crosses the change
+    assert gex_direction(hist) == "n/a"                   # only one post-change point so far
+    later = pd.concat([hist, pd.DataFrame({"ts": pd.to_datetime(["2026-10-29"]), "gex_total": [950.0]})])
+    assert gex_change_since(later, days=7) == pytest.approx(50.0)

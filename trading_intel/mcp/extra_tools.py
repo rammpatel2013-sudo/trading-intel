@@ -37,7 +37,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings
-from trading_intel.timeutils import same_day_expired, same_day_years
+from trading_intel.timeutils import same_day_expired, same_day_years, same_front_basis
 from trading_intel.dashboard.skew_data import vix_options_today
 from trading_intel.dashboard.ticker_data import (
     intraday_by_strike,
@@ -230,6 +230,9 @@ def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[s
     out.update(cur)
 
     prev_ts = _prev_oi_ts(session, sym, ts)
+    if prev_ts is not None and not same_front_basis(prev_ts, ts):
+        out["decay"] = None  # 10/22 front-expiry change: yesterday's book isn't comparable
+        prev_ts = None
     if prev_ts is not None:
         prev_spot = _snapshot_spot_on(session, sym, prev_ts) or spot
         prev = _straddle_from_oi(session, sym, prev_ts, float(prev_spot), dte_c, md)

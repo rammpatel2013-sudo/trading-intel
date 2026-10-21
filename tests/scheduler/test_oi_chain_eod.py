@@ -103,4 +103,4 @@ def test_run_batches_inserts(monkeypatch):
         total = session.scalar(select(func.count()).select_from(OiChainEod))
 
     assert total == n_rows           # every row written across batches
-    assert calls["n"] == 3           # ceil(120 / 50) INSERT statements
+    assert calls["n"] == 4           # 1 DELETE of that day's 08:35 pull + ceil(120 / 50) INSERTs

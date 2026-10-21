@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from trading_intel.memory.models import OiChainEod
+from trading_intel.timeutils import same_front_basis
 
 _KEYS = ["expiry", "strike", "cp"]
 _FRAME_COLS = [
@@ -118,7 +119,9 @@ def load_recent_eod(
     return snaps
 
 
-def build_oi_change_frame(prev: pd.DataFrame, curr: pd.DataFrame) -> pd.DataFrame:
+def build_oi_change_frame(
+    prev: pd.DataFrame, curr: pd.DataFrame, *, vendor_d_oi: bool = False
+) -> pd.DataFrame:
     """Per-strike day-over-day diff frame from a previous and current snapshot.
 
     Outer-joins on (expiry, strike, cp) keeping every strike present today; a
@@ -152,6 +155,8 @@ def build_oi_change_frame(prev: pd.DataFrame, curr: pd.DataFrame) -> pd.DataFram
         merged[col] = pd.to_numeric(merged[col], errors="coerce")
 
     merged["d_oi"] = merged["oi_curr"].fillna(0.0) - merged["oi_prev"]
+    if vendor_d_oi:  # books on different bases: trust Convex's own overnight OI change
+        merged["d_oi"] = merged["oi_change_vendor"].where(merged["oi_change_vendor"].notna(), merged["d_oi"])
     merged["d_iv"] = merged["iv_curr"] - merged["iv_prev"]
     merged["d_gex_contrib"] = merged["gex_contrib_curr"].fillna(0.0) - merged["gex_contrib_prev"]
     # ΔOI settles T+1, so it reflects the PRIOR session's trading — divide by that
@@ -193,8 +198,10 @@ def load_oi_change_frame(session: Session, symbol: str) -> pd.DataFrame | None:
     snaps = load_recent_eod(session, symbol, n=2)
     if len(snaps) < 2:
         return None
-    (_, curr), (_, prev) = snaps[0], snaps[1]
-    return build_oi_change_frame(prev, curr)
+    (ts_c, curr), (ts_p, prev) = snaps[0], snaps[1]
+    # Across the 10/22 front-expiry change the front expiry is missing from the older
+    # book, so our own diff would read all of its OI as newly opened.
+    return build_oi_change_frame(prev, curr, vendor_d_oi=not same_front_basis(ts_p, ts_c))
 
 
 @dataclass(frozen=True)

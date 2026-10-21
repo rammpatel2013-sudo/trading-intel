@@ -55,7 +55,13 @@ def test_rolling_empty_chain():
 # ── chain_long defensive fallback ───────────────────────────────────────
 
 
-def _row(expiration=20595, kind="call", **ov):
+def _row(expiration=None, kind="call", **ov):
+    if expiration is None:  # a live expiry, 30 days out (epoch days)
+        from datetime import date
+
+        from trading_intel.timeutils import eastern_now
+
+        expiration = (eastern_now().date() - date(1970, 1, 1)).days + 30
     params = {
         "delta": 0.5, "gamma": 0.01, "theta": -0.1, "vega": 0.2, "vanna": 0.05,
         "charm": -0.02, "volatility": 0.18, "oi": 1000, "day_volume": 500,
@@ -75,7 +81,7 @@ def test_chain_long_falls_back_when_wide_exps_rejected(monkeypatch):
 
         def get_chain_as_rows(self, symbol, params, exps, rng):
             # Simulate the vendor rejecting too-wide expiration requests.
-            if len(exps) > 12:
+            if len(exps) > 14:  # 12 live expiries = 14 0-based indices requested
                 raise RuntimeError("400 Bad Request: too many exps")
             return [_row()]
 

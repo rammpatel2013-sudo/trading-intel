@@ -26,6 +26,7 @@ from trading_intel.dashboard.ticker_data import (
 )
 from trading_intel.errors import ComputationError
 from trading_intel.greeks.walls import compute_walls
+from trading_intel.timeutils import same_front_basis
 
 _CALL = "C"
 _PUT = "P"
@@ -119,10 +120,23 @@ def call_wall_distance(call_wall: float | None, spot: float | None) -> float | N
     return float((call_wall - spot) / spot)
 
 
+def _same_basis(history: pd.DataFrame) -> pd.DataFrame:
+    """Rows on the same side of the 2026-10-22 front-expiry change as the latest row."""
+    if history is None or history.empty or "ts" not in history.columns:
+        return history
+    ts = pd.to_datetime(history["ts"], errors="coerce")
+    last = ts.dropna().max()
+    if pd.isna(last):
+        return history
+    keep = ts.map(lambda t: pd.notna(t) and same_front_basis(t.to_pydatetime(), last.to_pydatetime()))
+    return history[keep.astype(bool)]
+
+
 def gex_direction(history: pd.DataFrame) -> str:
     """'up' / 'down' / 'flat' / 'n/a' from the last two snapshot gex_total values."""
     if history is None or history.empty or "gex_total" not in history.columns:
         return "n/a"
+    history = _same_basis(history)
     vals = pd.to_numeric(history["gex_total"], errors="coerce").dropna()
     if len(vals) < 2:
         return "n/a"
@@ -138,7 +152,7 @@ def gex_change_since(history: pd.DataFrame, *, days: int = 7) -> float | None:
     """Latest gex_total minus the value ~``days`` ago (None if not enough history)."""
     if history is None or history.empty or "gex_total" not in history.columns:
         return None
-    df = history.dropna(subset=["gex_total"]).copy()
+    df = _same_basis(history).dropna(subset=["gex_total"]).copy()  # never across 10/22
     if df.empty:
         return None
     df["ts"] = pd.to_datetime(df["ts"])

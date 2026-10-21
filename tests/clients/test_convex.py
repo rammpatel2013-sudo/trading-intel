@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import sys
 import types
+from datetime import date
 
 import pandas as pd
 import pytest
 
 from trading_intel.config import Settings
+from trading_intel.timeutils import eastern_now
 from trading_intel.greeks.exposures import compute_exposures
 
 # Data params ConvexClient requests, in order (== _CHAIN_PARAMS).
@@ -23,7 +25,10 @@ _DATA_PARAMS = (
 )
 
 
-def _row(*, symbol="SPY", expiration=20595, strike=730.0, kind="call", **param_overrides) -> list:
+_FUTURE = (eastern_now().date() - date(1970, 1, 1)).days + 30   # a live expiry (epoch days)
+
+
+def _row(*, symbol="SPY", expiration=_FUTURE, strike=730.0, kind="call", **param_overrides) -> list:
     """Build one get_chain_as_rows row: [symbol, expiration, strike, kind, *params]."""
     params = {
         "delta": 0.5, "gamma": 0.01, "theta": -0.1, "vega": 0.2, "vanna": 0.05,
@@ -109,9 +114,9 @@ def test_chain_layout_and_normalized_names(monkeypatch):
     assert "oi_change" in df.columns and "oi_ch" not in df.columns
     assert "volatility" not in df.columns and "day_volume" not in df.columns
     assert df["opt_kind"].iloc[0] == "call"
-    # epoch-day 20595 normalizes to a 2026 datetime
+    # epoch days normalize to a real datetime
     assert pd.api.types.is_datetime64_any_dtype(df["expiration"])
-    assert df["expiration"].iloc[0].year == 2026
+    assert df["expiration"].iloc[0].year >= 2026
 
 
 def test_chain_bad_width_raises(monkeypatch):
@@ -159,3 +164,25 @@ def test_compute_exposures_put_sign_flips_gex():
     out = compute_exposures(chain, spot=100.0)
     assert out["gex_total"] == pytest.approx(-1000.0)  # puts negative
     assert out["dex_total"] == pytest.approx(-500.0)
+
+
+
+def test_front_expiry_request_and_settled_filter(monkeypatch):
+    """1..N becomes 0..N+1; settled expiries are dropped; the first N live ones are kept."""
+    from datetime import datetime, timedelta
+
+    from trading_intel.clients import convex as cx
+
+    assert cx._front_request((1, 2, 3)) == ((0, 1, 2, 3, 4), 3)
+    assert cx._front_request((1,)) == ((0, 1, 2), 1)
+    assert cx._front_request((2, 5)) == ((2, 5), None)        # explicit probe: untouched
+
+    today = date(2026, 10, 22)
+    days = [today - timedelta(days=1), today, today + timedelta(days=1), today + timedelta(days=2)]
+    df = pd.DataFrame({"expiration": pd.to_datetime(days), "strike": [1, 2, 3, 4]})
+    monkeypatch.setattr(cx, "eastern_now", lambda: datetime(2026, 10, 22, 8, 35))
+    kept = cx._live_front(df, 2)["expiration"].dt.date.tolist()
+    assert kept == [today, today + timedelta(days=1)]        # morning: 0DTE is the front
+    monkeypatch.setattr(cx, "eastern_now", lambda: datetime(2026, 10, 22, 17, 0))
+    kept = cx._live_front(df, 2)["expiration"].dt.date.tolist()
+    assert kept == [today + timedelta(days=1), today + timedelta(days=2)]   # evening: settled

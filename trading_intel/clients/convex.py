@@ -28,6 +28,45 @@ from trading_intel.config import Settings
 from trading_intel.errors import DataSourceError
 from trading_intel.greeks.exposures import compute_exposures
 from trading_intel.greeks.flip_point import gex_flip
+from trading_intel.timeutils import eastern_now
+
+# ── Front expiry ───────────────────────────────────────────────────────
+# Convex ``exps`` are 0-BASED indices into the LISTED expirations, and index 0 is
+# whatever is listed first at pull time: yesterday's not-yet-rolled expiry, today's
+# (0DTE), or — for names with no same-day expiry — the nearest weekly (verified live
+# 2026-10-21: SPX [0] -> 10/21 while SPY at 08:35 still listed 10/20; KR [0] -> 10/23).
+# Until 2026-10-22 every pull asked for 1..N and so skipped the front expiry for SPX
+# all morning and for most single names every night. Now callers keep passing the
+# conventional 1..N ("the first N expiries"); we ask Convex for 0..N+1 and keep the
+# first N that have not settled (today's expiry counts until 16:15 ET).
+_SETTLED_AFTER = (16, 15)
+
+
+def _front_request(exps: tuple[int, ...]) -> tuple[tuple[int, ...], int | None]:
+    """(indices to request, live expiries to keep) for a caller's ``exps``.
+
+    A conventional ``(1, ..., N)`` becomes ``(0, ..., N+1)`` keeping N; anything else
+    (an explicit probe like ``(1,)`` from ``probe_param``) passes through untouched.
+    """
+    exps = tuple(int(e) for e in exps)
+    n = len(exps)
+    if n and exps == tuple(range(1, n + 1)):
+        return tuple(range(0, n + 2)), n
+    return exps, None
+
+
+def _live_front(df: pd.DataFrame, keep_n: int | None) -> pd.DataFrame:
+    """Drop expiries that have settled at pull time, then keep the first ``keep_n``."""
+    if keep_n is None or df.empty or "expiration" not in df.columns:
+        return df
+    now = eastern_now()
+    today = now.date()
+    exp = pd.to_datetime(df["expiration"], errors="coerce").dt.date
+    after_close = (now.hour, now.minute) >= _SETTLED_AFTER
+    live = exp.map(lambda d: d is not None and d == d and (d > today if after_close else d >= today))
+    live = live.fillna(False).astype(bool)
+    keep = sorted({d for d in exp[live] if d is not None})[:keep_n]
+    return df[live & exp.isin(keep)].reset_index(drop=True)
 
 # First-party ConvexValue host. The per-trade time-and-sales view served from
 # convexvalue.com/go/tas/ POSTs here with the session cookie — NO runtime/Bearer
@@ -226,11 +265,12 @@ class ConvexClient(OptionsDataSource):
         strike_range: float,
     ) -> pd.DataFrame:
         """Pull + validate + normalize a chain for an explicit ``params`` tuple."""
+        req, keep_n = _front_request(exps)
         rows = self._timed(
             lambda: self._api.get_chain_as_rows(
                 symbol,
                 params=list(params),
-                exps=list(exps),
+                exps=list(req),
                 rng=strike_range,
             )
         )
@@ -259,7 +299,7 @@ class ConvexClient(OptionsDataSource):
             origin="unix",
             errors="coerce",
         )
-        return df
+        return _live_front(df, keep_n)
 
     # VIX symbol convention on ConvexValue (ADR-003 section 7 open question 2).
     # Smoke-tested 2026-05-28: bare ``VIX`` returns 340+ rows across VIXW
@@ -305,27 +345,19 @@ class ConvexClient(OptionsDataSource):
         *,
         max_exps: int = 40,
         strike_range: float = 0.20,
-        first_exp: int = 1,
     ) -> pd.DataFrame:
         """Chain spanning many expirations (for long-dated / rolling GEX).
 
-        Convex's ``exps`` are 0-BASED expiration indices: index 0 is the first
-        listed expiry, i.e. the same-day expiry on a 0DTE day (verified live
-        2026-10-21: SPX ``[0]`` -> 2026-10-21, ``[1]`` -> 2026-10-22; KR ``[0]`` ->
-        2026-10-23). The historical default ``first_exp=1`` skips it, which is
-        right for the after-close EOD pulls (index 0 is then the expired same-day
-        chain) and is kept for them. Morning / intraday pulls pass ``first_exp=0``.
-        We don't know up front how many expiries a symbol has, so we request a wide
-        range and fall back to fewer if the vendor rejects the request. The caller
-        filters by expiration date.
+        The first ``n`` LIVE expiries from the front (today's 0DTE included until
+        16:15 ET — see ``_front_request``). We don't know up front how many a symbol
+        has, so we request a wide range and fall back to fewer if the vendor rejects
+        the request. The caller filters by expiration date.
         """
         candidates = (max_exps, 30, 20, 12)
         last_err: DataSourceError | None = None
         for n in candidates:
             try:
-                return self.chain(
-                    symbol, exps=tuple(range(first_exp, first_exp + n)), strike_range=strike_range
-                )
+                return self.chain(symbol, exps=tuple(range(1, n + 1)), strike_range=strike_range)
             except DataSourceError as exc:
                 last_err = exc
                 continue
@@ -347,9 +379,10 @@ class ConvexClient(OptionsDataSource):
         normalized to ``opt_kind``/``premium``/``volume``/``iv`` so the chain feeds
         ``strategies.options_flow.aggregate_flow`` directly.
         """
+        req, keep_n = _front_request(exps)
         rows = self._timed(
             lambda: self._api.get_chain_as_rows(
-                symbol, params=list(_FLOW_PARAMS), exps=list(exps), rng=strike_range
+                symbol, params=list(_FLOW_PARAMS), exps=list(req), rng=strike_range
             )
         )
         cols = [*_CHAIN_STRUCT, *_FLOW_PARAMS]
@@ -369,7 +402,7 @@ class ConvexClient(OptionsDataSource):
             origin="unix",
             errors="coerce",
         )
-        return df
+        return _live_front(df, keep_n)
 
     def flow_summary(
         self,
@@ -385,9 +418,10 @@ class ConvexClient(OptionsDataSource):
         ``vannaxoi``, ``vommaxoi``, ``charmxoi``. Aggregate per expiry with
         ``strategies.options_flow.flowsum_by_expiry``.
         """
+        req, keep_n = _front_request(exps)
         rows = self._timed(
             lambda: self._api.get_chain_as_rows(
-                symbol, params=list(_FLOWSUM_PARAMS), exps=list(exps), rng=strike_range
+                symbol, params=list(_FLOWSUM_PARAMS), exps=list(req), rng=strike_range
             )
         )
         cols = [*_CHAIN_STRUCT, *_FLOWSUM_PARAMS]
@@ -406,7 +440,7 @@ class ConvexClient(OptionsDataSource):
             origin="unix",
             errors="coerce",
         )
-        return df
+        return _live_front(df, keep_n)
 
     # ── Time & sales (per-trade prints) ────────────────────────────────
     def time_and_sales(
