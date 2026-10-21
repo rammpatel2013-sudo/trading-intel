@@ -30,8 +30,11 @@ def test_index_walls_am_writes_index_chain(monkeypatch) -> None:
     )
 
     class _Source:
-        def chain_long(self, symbol: str) -> pd.DataFrame:
+        def chain_long(self, symbol: str, **kw) -> pd.DataFrame:
+            calls.append(kw)
             return chain
+
+    calls: list[dict] = []
 
     class _Settings:
         index_roots = ["SPX"]
@@ -43,6 +46,38 @@ def test_index_walls_am_writes_index_chain(monkeypatch) -> None:
     assert len(rows) == 2
     assert {r.strike for r in rows} == {7500.0, 7400.0}
     assert all(r.source == "convex_am" for r in rows)
+    assert calls == [{"first_exp": 0}]  # Convex exps are 0-based: index 0 = front expiry
+
+
+def test_index_walls_am_keeps_same_day_expiry() -> None:
+    """Today's expiry (the 0DTE book) is stored with dte 0, not dropped."""
+    from trading_intel.scheduler.jobs import index_walls_am as job
+
+    engine = create_engine("sqlite://")
+    OiChainEod.__table__.create(engine)
+    today = pd.Timestamp(eastern_now().date())
+    chain = pd.DataFrame(
+        [
+            {"expiration": today, "strike": 7750.0, "opt_kind": "call", "oi": 5000,
+             "oi_change": 10, "volume": 0, "gxoi": 5.0e8, "dxoi": 1.0, "vxoi": 1.0,
+             "gamma": 0.01, "delta": 0.5, "iv": 0.12},
+            {"expiration": today + pd.Timedelta(days=1), "strike": 7750.0, "opt_kind": "call",
+             "oi": 3000, "oi_change": 5, "volume": 0, "gxoi": 1.0e8, "dxoi": 1.0, "vxoi": 1.0,
+             "gamma": 0.005, "delta": 0.5, "iv": 0.13},
+        ]
+    )
+
+    class _Source:
+        def chain_long(self, symbol: str, **kw) -> pd.DataFrame:
+            return chain
+
+    class _Settings:
+        index_roots = ["SPX"]
+
+    with Session(engine) as session:
+        job.run(session, _Source(), settings=_Settings(), symbols=["SPX"])
+        dtes = sorted(r.dte for r in session.scalars(select(OiChainEod)).all())
+    assert dtes == [0, 1]
 
 
 def test_greeks_snapshot_unions_index_roots(monkeypatch) -> None:

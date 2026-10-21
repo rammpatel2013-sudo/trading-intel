@@ -55,7 +55,10 @@ _SOURCE_KEYS = {
     "kurt": "__KURT__",
     "norseman": "__NORSEMAN__",
 }
-_NOTE_MAX_CHARS = 8000
+# Whole letter. 8,000 cut Doc's daily report before the IF/THEN road map and the
+# TradingView strings (2026-10-21). Readers slice their own snippets (the brief uses
+# 320-600 chars, the extractor caps its prompt at 16k), so storage need not.
+_NOTE_MAX_CHARS = 60_000
 
 #: The subset of stored notes we run the local-Ollama levels/scenarios extractor on
 #: (Doc/VolSignals/Kurt/Norseman give levels + if-then; the flow/prose sources don't).

@@ -126,6 +126,35 @@ def test_get_walls_picks_max_gxoi_strike_per_side(session: Session) -> None:
     assert out["call_top_strikes"][0]["strike"] == 225.0
 
 
+def test_get_walls_drops_expired_same_day_rows(session: Session, monkeypatch) -> None:
+    """The AM index book carries dte 0; after 16:15 ET those rows are expired and skipped."""
+    ts = datetime(2026, 10, 22)
+    for strike, dte, gx in ((7750.0, 0, 9.0e8), (7800.0, 1, 2.0e8)):
+        session.add(OiChainEod(symbol="SPX", ts=ts, expiry=date(2026, 10, 22) + timedelta(days=dte),
+                               strike=strike, cp="C", dte=dte, oi=1000, gxoi=gx, source="convex_am"))
+    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7740.0, gex_total=1.0))
+    session.commit()
+    monkeypatch.setattr(et, "same_day_expired", lambda d, now=None: False)
+    assert et.get_walls(session, "SPX", dte_max=7)["call_wall"] == 7750.0   # morning: 0DTE counts
+    monkeypatch.setattr(et, "same_day_expired", lambda d, now=None: True)
+    assert et.get_walls(session, "SPX", dte_max=7)["call_wall"] == 7800.0   # evening: expired
+
+
+def test_straddle_prices_same_day_leg_with_session_time(session: Session, monkeypatch) -> None:
+    ts = datetime(2026, 10, 22)
+    for cp in ("C", "P"):
+        session.add(OiChainEod(symbol="SPX", ts=ts, expiry=date(2026, 10, 22), strike=7750.0, cp=cp,
+                               dte=0, oi=1000, iv=0.12, source="convex_am"))
+    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7750.0, gex_total=1.0))
+    session.commit()
+    monkeypatch.setattr(et, "same_day_expired", lambda d, now=None: False)
+    monkeypatch.setattr(et, "same_day_years", lambda d, now=None: 6.5 / (365 * 24))
+    out = et.get_straddle(session, "SPX")
+    assert out["found"] is True and out["dte"] == 0
+    # ATM straddle ~ 0.8 * S * iv * sqrt(T): 6.5 hours -> ~ 25 points, not the ~10 of a 1-hour floor
+    assert 20 < out["straddle"] < 30
+
+
 def test_get_walls_respects_dte_max(session: Session) -> None:
     ts = datetime(2026, 6, 2)
     # the biggest call gamma is far-dated and must be excluded by dte_max

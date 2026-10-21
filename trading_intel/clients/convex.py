@@ -305,18 +305,27 @@ class ConvexClient(OptionsDataSource):
         *,
         max_exps: int = 40,
         strike_range: float = 0.20,
+        first_exp: int = 1,
     ) -> pd.DataFrame:
         """Chain spanning many expirations (for long-dated / rolling GEX).
 
-        Convex's ``exps`` are expiration indices; we don't know up front how
-        many a symbol has, so we request a wide range and fall back to fewer if
-        the vendor rejects the request. The caller filters by expiration date.
+        Convex's ``exps`` are 0-BASED expiration indices: index 0 is the first
+        listed expiry, i.e. the same-day expiry on a 0DTE day (verified live
+        2026-10-21: SPX ``[0]`` -> 2026-10-21, ``[1]`` -> 2026-10-22; KR ``[0]`` ->
+        2026-10-23). The historical default ``first_exp=1`` skips it, which is
+        right for the after-close EOD pulls (index 0 is then the expired same-day
+        chain) and is kept for them. Morning / intraday pulls pass ``first_exp=0``.
+        We don't know up front how many expiries a symbol has, so we request a wide
+        range and fall back to fewer if the vendor rejects the request. The caller
+        filters by expiration date.
         """
         candidates = (max_exps, 30, 20, 12)
         last_err: DataSourceError | None = None
         for n in candidates:
             try:
-                return self.chain(symbol, exps=tuple(range(1, n + 1)), strike_range=strike_range)
+                return self.chain(
+                    symbol, exps=tuple(range(first_exp, first_exp + n)), strike_range=strike_range
+                )
             except DataSourceError as exc:
                 last_err = exc
                 continue

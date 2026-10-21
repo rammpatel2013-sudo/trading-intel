@@ -11,7 +11,8 @@ them correctly with no per-chart conversion.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from datetime import time as dtime
 from zoneinfo import ZoneInfo
 
 EASTERN = ZoneInfo("America/New_York")
@@ -25,6 +26,40 @@ def eastern_now() -> datetime:
     always Eastern no matter what timezone the host runs in.
     """
     return datetime.now(EASTERN).replace(tzinfo=None)
+
+
+_RTH_OPEN = dtime(9, 30)
+_RTH_CLOSE = dtime(16, 0)
+_SAME_DAY_GONE = dtime(16, 15)  # PM-settled same-day options have expired by now
+_YEAR_S = 365.0 * 24 * 3600
+
+
+def same_day_expired(book_day: date, now: datetime | None = None) -> bool:
+    """True once a chain snapshot taken on ``book_day`` holds an EXPIRED same-day expiry.
+
+    The 08:35 index chain carries today's expiry (dte 0). From 16:15 ET that day those
+    contracts are settled, so reads of TODAY's snapshot must start at dte 1. Older
+    snapshots are as-of books and keep their dte-0 rows.
+    """
+    now = now or eastern_now()
+    return book_day == now.date() and now.time() >= _SAME_DAY_GONE
+
+
+def same_day_years(book_day: date, now: datetime | None = None) -> float:
+    """Years left for an option expiring at 16:00 ET on ``book_day`` (the dte-0 leg).
+
+    Live (``book_day`` is today, before the close): the real time from now, or from the
+    09:30 open if earlier, to 16:00. The morning OI book's 0DTE gamma therefore sharpens
+    through the day the way the vendor's live map does. As-of reads of an older book
+    use a full 6.5-hour session. Never below one hour.
+    """
+    now = now or eastern_now()
+    if book_day == now.date() and now.time() < _RTH_CLOSE:
+        start = max(now, datetime.combine(book_day, _RTH_OPEN))
+        secs = (datetime.combine(book_day, _RTH_CLOSE) - start).total_seconds()
+    else:
+        secs = 6.5 * 3600
+    return max(secs, 3600.0) / _YEAR_S
 
 
 _US_MARKET_HOLIDAYS_2026 = frozenset({

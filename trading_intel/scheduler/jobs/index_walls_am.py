@@ -8,6 +8,11 @@ published in the morning, so a SINGLE morning snapshot of the index chains
 gives fresh dealer walls (and a priceable ATM straddle) for the daily brief:
 once a day, three roots — trivial storage next to the intraday persisters.
 
+It pulls from the FRONT expiry (Convex ``exps`` index 0), so the snapshot carries
+today's same-day expiry as ``dte = 0`` — the 0DTE book the brief's gamma map and the
+TOS cockpit read. Until 2026-10-21 it started at index 1 and silently dropped 0DTE.
+After the close, readers skip the expired dte-0 rows (``timeutils.same_day_expired``).
+
 Writes to the same ``oi_chain_eod`` table (``ts`` floored to the day, distinct
 ``source`` so it never collides with anything), idempotent
 ``INSERT ... ON CONFLICT DO NOTHING`` (CLAUDE.md rule 5). ``get_walls`` reads the
@@ -63,7 +68,7 @@ def run(
     failed = 0
     for symbol in roots:
         try:
-            chain = source.chain_long(symbol)  # type: ignore[attr-defined]
+            chain = source.chain_long(symbol, first_exp=0)  # type: ignore[attr-defined]
         except (TradingIntelError, AttributeError) as exc:
             failed += 1
             bound.warning("index_walls_am.symbol_failed", symbol=symbol, error=str(exc))

@@ -37,6 +37,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings
+from trading_intel.timeutils import same_day_expired, same_day_years
 from trading_intel.dashboard.skew_data import vix_options_today
 from trading_intel.dashboard.ticker_data import (
     intraday_by_strike,
@@ -86,6 +87,11 @@ def _latest_oi_ts(session: Session, symbol: str) -> datetime | None:
     ).scalar_one_or_none()
 
 
+def _min_dte(ts: datetime | None) -> int:
+    """0 keeps the same-day expiry; 1 once today's dte-0 rows have expired (16:15 ET)."""
+    return 1 if ts is not None and same_day_expired(ts.date()) else 0
+
+
 def get_walls(session: Session, symbol: str, *, dte_max: int = 60) -> dict[str, Any]:
     """Call-wall / put-wall for one ticker from the latest EOD per-strike chain.
 
@@ -112,7 +118,7 @@ def get_walls(session: Session, symbol: str, *, dte_max: int = 60) -> dict[str, 
             OiChainEod.symbol == sym,
             OiChainEod.ts == ts,
             OiChainEod.dte <= dte_c,
-            OiChainEod.dte >= 0,
+            OiChainEod.dte >= _min_dte(ts),
         )
         .group_by(OiChainEod.strike, OiChainEod.cp)
     ).all()
@@ -158,22 +164,28 @@ def _snapshot_spot_on(session: Session, symbol: str, ts: datetime) -> float | No
 
 
 def _straddle_from_oi(
-    session: Session, symbol: str, ts: datetime, spot: float, dte_max: int
+    session: Session, symbol: str, ts: datetime, spot: float, dte_max: int, min_dte: int = 0
 ) -> dict[str, Any] | None:
-    """ATM straddle dict from one ``oi_chain_eod`` snapshot, or None if unpriceable."""
+    """ATM straddle dict from one ``oi_chain_eod`` snapshot, or None if unpriceable.
+
+    A dte-0 leg (the morning index book's same-day expiry) is priced with the real
+    time left to 16:00, not the one-hour floor a whole-day count would hit.
+    """
     rows = session.execute(
         select(OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.iv).where(
             OiChainEod.symbol == symbol,
             OiChainEod.ts == ts,
-            OiChainEod.dte >= 0,
+            OiChainEod.dte >= min_dte,
             OiChainEod.dte <= dte_max,
             OiChainEod.iv.isnot(None),
         )
     ).all()
     if not rows:
         return None
+    d0 = same_day_years(ts.date()) * 365.0  # in days, for the dte-0 leg
     frame = pd.DataFrame(
-        [{"opt_kind": r.cp, "strike": r.strike, "iv": r.iv, "expiration": r.dte} for r in rows]
+        [{"opt_kind": r.cp, "strike": r.strike, "iv": r.iv,
+          "expiration": r.dte if r.dte else d0} for r in rows]
     )
     try:
         res = atm_straddle(frame, float(spot))
@@ -181,6 +193,8 @@ def _straddle_from_oi(
         return None
     if not res:
         return None
+    if isinstance(res.get("dte"), (int, float)) and res["dte"] < 1:
+        res["dte"] = 0  # the same-day leg was priced in fractional days; report it as 0DTE
     return {k: (_num(v) if isinstance(v, float) else v) for k, v in res.items()}
 
 
@@ -207,7 +221,8 @@ def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[s
     if spot is None or spot <= 0:
         return {"symbol": sym, "found": False, "straddle": None, "reason": "no spot"}
 
-    cur = _straddle_from_oi(session, sym, ts, float(spot), dte_c)
+    md = _min_dte(ts)  # same floor for both books so the day-over-day decay compares like for like
+    cur = _straddle_from_oi(session, sym, ts, float(spot), dte_c, md)
     if not cur:
         return {"symbol": sym, "found": False, "straddle": None}
 
@@ -217,7 +232,7 @@ def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[s
     prev_ts = _prev_oi_ts(session, sym, ts)
     if prev_ts is not None:
         prev_spot = _snapshot_spot_on(session, sym, prev_ts) or spot
-        prev = _straddle_from_oi(session, sym, prev_ts, float(prev_spot), dte_c)
+        prev = _straddle_from_oi(session, sym, prev_ts, float(prev_spot), dte_c, md)
         if prev and prev.get("straddle"):
             try:
                 decay = straddle_decay(float(cur["straddle"]), float(prev["straddle"]))
@@ -261,7 +276,7 @@ def get_oi_changes(
             OiChainEod.symbol == sym,
             OiChainEod.ts == ts,
             OiChainEod.dte <= dte_c,
-            OiChainEod.dte >= 0,
+            OiChainEod.dte >= _min_dte(ts),
         )
     ).all()
     if not rows:

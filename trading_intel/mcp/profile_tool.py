@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.greeks.exposure_profile import greek_profiles
 from trading_intel.memory.models import GreeksSnapshot, OiChainEod
+from trading_intel.timeutils import same_day_expired, same_day_years
 
 
 def _latest_oi_ts(session: Session, sym: str, as_of: date | None = None):
@@ -53,6 +54,7 @@ def get_profile(
     dte_max: int = 400,
     as_of: date | None = None,
     spot_ref: float | None = None,
+    greeks: tuple[str, ...] = ("gamma", "charm", "vanna"),
 ) -> dict[str, Any]:
     """Spot-ladder gamma/charm/vanna profiles for ``symbol`` from the latest EOD chain.
 
@@ -76,13 +78,18 @@ def get_profile(
         ).where(
             OiChainEod.symbol == sym,
             OiChainEod.ts == ts,
-            OiChainEod.dte >= 0,
+            OiChainEod.dte >= (1 if same_day_expired(ts.date()) else 0),
             OiChainEod.dte <= dte_max,
             OiChainEod.iv.isnot(None),
         )
     ).all()
     if not rows:
         return {"symbol": sym, "as_of": ts.date().isoformat(), "found": False}
+
+    # The same-day expiry (dte 0, morning index book) expires at 16:00, not at
+    # midnight: give it the real time left so its gamma isn't priced at the 1-hour floor.
+    book_day = ts.date()
+    d0_end = datetime.combine(book_day, time()) + timedelta(seconds=same_day_years(book_day) * 365.0 * 24 * 3600)
 
     chain = pd.DataFrame(
         [
@@ -91,12 +98,15 @@ def get_profile(
                 "opt_kind": "call" if str(r.cp).upper().startswith("C") else "put",
                 "iv": r.iv,
                 "oi": r.oi,
-                "expiration": r.expiry,
+                "expiration": d0_end if r.expiry == book_day else r.expiry,
             }
             for r in rows
         ]
     )
-    profiles = greek_profiles(chain, float(spot), span=span, n_points=n_points)
+    # Time-to-expiry from the BOOK's own date: an as_of book priced with today's
+    # clock under-states t (and over-states gamma/charm) for the earlier snapshot.
+    profiles = greek_profiles(chain, float(spot), span=span, n_points=n_points,
+                              ref=ts.date(), greeks=greeks)
     return {
         "symbol": sym,
         "as_of": ts.date().isoformat(),
