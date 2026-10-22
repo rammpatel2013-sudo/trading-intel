@@ -46,6 +46,12 @@ tar xzf /tmp/ti.tar.gz --strip-components=1
 if [ "$BUILD" = "1" ]; then
   echo "== [3/3] docker build --no-cache =="
   "$DOCKER" build --no-cache -t trading-intel .
+  # Each --no-cache rebuild leaves the previous image untagged (dangling). On the
+  # DS923+ these pile up fast (GBs each), so reclaim them now. `prune` without -a
+  # only removes dangling images, never tagged ones or images a container still
+  # uses; `|| true` keeps a prune hiccup from aborting the deploy under `set -e`.
+  echo "== prune dangling images (reclaim NAS disk) =="
+  "$DOCKER" image prune -f || true
 else
   echo "== [3/3] skipped image build (--no-build) =="
 fi
