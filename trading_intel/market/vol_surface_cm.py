@@ -99,13 +99,27 @@ def classify_read(
     call_chg: float | None,
     put_chg: float | None,
     call_chg_back: float | None = None,
+    *,
+    bid: float = 0.10,
+    skew_thr: float = 0.75,
 ) -> tuple[str, str]:
-    """Quadrant read from spot direction × where the wing vol moved (vol pts)."""
+    """Read from spot direction × where the wing vol moved × the SKEW SHIFT (vol pts).
+
+    Beyond the absolute wing change, the relative put-vs-call move matters: in a
+    vol crush the whole surface falls, so calls are rarely bid outright even on a
+    genuine risk-on rally — but puts come off far harder, collapsing the skew
+    (hedges dumped). ``skew_shift = call_chg - put_chg``: >0 = skew collapsing
+    (risk-on), <0 = steepening (protection bid). ``bid`` = the "outright bid"
+    threshold; ``skew_thr`` = the "meaningful skew shift" threshold (vol pts).
+    """
     if spot_chg_pct is None or (call_chg is None and put_chg is None):
         return ("no-read", "Not enough history yet to read the change — banks forward.")
     up = spot_chg_pct >= 0
-    bid = 0.10  # vol-pt threshold for "meaningfully bid"
+    skew_shift = (call_chg - put_chg) if (call_chg is not None and put_chg is not None) else None
     where = "back rungs (regime)" if (call_chg_back is not None and call_chg_back >= bid) else "front rungs (event)"
+    c = call_chg if call_chg is not None else 0.0
+    p = put_chg if put_chg is not None else 0.0
+
     if up:
         if call_chg is not None and call_chg >= bid:
             return (
@@ -114,24 +128,35 @@ def classify_read(
                 f"(+{call_chg:.2f}pt, {where}) — demand is confirming the move. Bullish; "
                 "strongest when the bid is out the curve.",
             )
+        if skew_shift is not None and skew_shift >= skew_thr:
+            return (
+                "risk-on",
+                f"Spot +{spot_chg_pct:.1f}% with calls flat/offered ({c:+.2f}pt) BUT skew "
+                f"collapsing — puts came off far harder ({p:+.2f}pt, Δskew {skew_shift:+.2f}pt). "
+                "Hedges being dumped / vol crushing into the rally — risk-on, protection sold "
+                "rather than a demand-led breakout. Constructive while skew keeps flattening; "
+                "would turn suspect if calls never pick up the bid.",
+            )
         return (
             "rally-unconfirmed",
-            f"Spot +{spot_chg_pct:.1f}% but upside vol is flat/offered "
-            f"({(call_chg or 0):+.2f}pt) — the rally isn't being paid for (flow / short-cover / "
-            "call overwriting). Low conviction; prone to stall or get sold.",
+            f"Spot +{spot_chg_pct:.1f}% but upside vol flat/offered ({c:+.2f}pt) and skew isn't "
+            f"collapsing (Δskew {(skew_shift or 0):+.2f}pt) — the rally isn't being paid for "
+            "(flow / short-cover / call overwriting). Low conviction; prone to stall or get sold.",
         )
-    if put_chg is not None and put_chg >= bid:
+
+    # spot down
+    if (put_chg is not None and put_chg >= bid) or (skew_shift is not None and skew_shift <= -skew_thr):
         return (
             "fear",
-            f"Spot {spot_chg_pct:.1f}% and downside (put) vol is getting BID "
-            f"(+{put_chg:.2f}pt) — genuine protection demand / risk-off. Real fear, "
-            "especially if the back rungs are bid.",
+            f"Spot {spot_chg_pct:.1f}% and downside vol bid / skew steepening "
+            f"(puts {p:+.2f}pt vs calls {c:+.2f}pt, Δskew {(skew_shift or 0):+.2f}pt) — genuine "
+            "protection demand / risk-off. Real fear, especially if the back rungs are bid.",
         )
     return (
         "quiet-slide",
-        f"Spot {spot_chg_pct:.1f}% but vol is asleep (downside {(put_chg or 0):+.2f}pt) — "
-        "a complacent slide: support leaving with nobody bidding protection. The quiet-unwind "
-        "vacuum; watch for acceleration.",
+        f"Spot {spot_chg_pct:.1f}% but vol is asleep (puts {p:+.2f}pt, skew flat) — a complacent "
+        "slide: support leaving with nobody bidding protection. The quiet-unwind vacuum; watch "
+        "for acceleration.",
     )
 
 

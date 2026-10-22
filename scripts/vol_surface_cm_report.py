@@ -32,6 +32,7 @@ _DEFAULT_SYMBOL = "SPX"
 
 _READ_COLOR = {
     "rally-confirmed": "#2fbf71",
+    "risk-on": "#2f9fd0",
     "rally-unconfirmed": "#e0a23a",
     "fear": "#e0524a",
     "quiet-slide": "#d1495b",

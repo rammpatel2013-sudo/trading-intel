@@ -30,6 +30,16 @@ def test_read_rally_unconfirmed():
     assert v.read_label == "rally-unconfirmed"
 
 
+def test_read_risk_on_when_up_and_skew_collapses():
+    now = _rows("2026-08-11", 7757, 0.0)  # spot up vs prior
+    # calls flat, puts come off hard → skew collapses (hedges dumped / vol crush)
+    for r in now:
+        if r["side"] == "put":
+            r["iv"] -= 0.02
+    v = vs.build_view(now, _rows("2026-08-04", 7700, 0.0))
+    assert v.read_label == "risk-on"
+
+
 def test_read_fear_when_down_and_puts_bid():
     now = _rows("2026-08-11", 7600, 0.0)
     # bump put wing IV up
@@ -63,3 +73,14 @@ def test_classify_helper_direct():
     assert vs.classify_read(-1.0, None, 0.5)[0] == "fear"
     assert vs.classify_read(-1.0, None, 0.0)[0] == "quiet-slide"
     assert vs.classify_read(None, None, None)[0] == "no-read"
+
+
+def test_classify_skew_shift_terms():
+    # up + calls flat but puts collapse → skew-shift risk-on
+    assert vs.classify_read(1.0, 0.0, -1.0)[0] == "risk-on"
+    # calls bid outright still wins over the skew term
+    assert vs.classify_read(1.0, 0.5, -1.0)[0] == "rally-confirmed"
+    # down + puts flat but skew steepens (calls sold harder) → fear
+    assert vs.classify_read(-1.0, -1.0, 0.0)[0] == "fear"
+    # up, mild put relief below threshold → still rally-unconfirmed
+    assert vs.classify_read(1.0, 0.0, -0.2)[0] == "rally-unconfirmed"
