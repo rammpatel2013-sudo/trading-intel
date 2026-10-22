@@ -22,7 +22,7 @@ from xml.etree.ElementTree import ParseError
 
 import httpx
 import structlog
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -163,10 +163,16 @@ def _extract_source_signals(
         ).scalars().first()
         if note is None or not note.note_md:
             continue
+        # Levels are dated by the LETTER they came from. Stamping ``today`` made a
+        # 2026-09-16 VolSignals letter print as "(Oct 21)" in the brief's triggers.
         read = extract_newsletter(label, note.note_md, llm, model=model)
         if read.empty:
             log.warning("letters.signals_empty", source=label, note_as_of=str(note.as_of))
             continue
+        # Rows dated AFTER the newest letter can only be the old run-day stamps — drop them
+        # so ``build_newsletter_signals`` (newest as_of wins) picks the letter-dated rows.
+        for tbl in (NewsletterLevel, NewsletterScenario):
+            session.execute(delete(tbl).where(tbl.source == label, tbl.as_of > note.as_of))
         log.info(
             "letters.signals_extracted", source=label, note_as_of=str(note.as_of),
             levels=len(read.levels), scenarios=len(read.scenarios),
@@ -175,7 +181,7 @@ def _extract_source_signals(
             session.execute(
                 pg_insert(NewsletterLevel)
                 .values(
-                    source=label, as_of=today, name=lv["name"],
+                    source=label, as_of=note.as_of, name=lv["name"],
                     value=lv["value"], unit=lv["unit"], note=lv["note"],
                 )
                 .on_conflict_do_update(
@@ -187,7 +193,7 @@ def _extract_source_signals(
             session.execute(
                 pg_insert(NewsletterScenario)
                 .values(
-                    source=label, as_of=today, idx=i, trigger=sc["trigger"],
+                    source=label, as_of=note.as_of, idx=i, trigger=sc["trigger"],
                     consequence=sc["consequence"], direction=sc["direction"],
                     confidence=sc["confidence"],
                 )

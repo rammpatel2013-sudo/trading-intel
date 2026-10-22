@@ -21,6 +21,10 @@ class LLMProvider(Protocol):
         """Single-turn text completion."""
         ...
 
+    def complete_json(self, prompt: str, *, model: str | None = None, max_tokens: int = 2048) -> str:
+        """Completion constrained to JSON where the backend supports it (default: plain ``complete``)."""
+        return self.complete(prompt, model=model, max_tokens=max_tokens)
+
     def chat(self, messages: list[dict], *, model: str | None = None, max_tokens: int = 2048) -> str:
         """Multi-turn chat completion. messages = [{'role': 'user'|'assistant'|'system', 'content': str}]"""
         ...
@@ -43,6 +47,18 @@ class OllamaProvider(LLMProvider):
             model=model or self._default_model,
             prompt=prompt,
             options={"num_predict": max_tokens},
+        )
+        return response["response"]
+
+    def complete_json(self, prompt: str, *, model: str | None = None, max_tokens: int = 2048) -> str:
+        # Ollama's grammar-constrained JSON mode: the model cannot answer in prose.
+        # Doc's 14.5K-char letter made the tagging model return a summary instead
+        # of the schema for a month (2026-09-21 → 10-22); ``format="json"`` ends that.
+        response = self._client.generate(
+            model=model or self._default_model,
+            prompt=prompt,
+            format="json",
+            options={"num_predict": max_tokens, "temperature": 0},
         )
         return response["response"]
 

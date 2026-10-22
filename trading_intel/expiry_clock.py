@@ -120,7 +120,7 @@ def phase(today: date | None = None) -> dict:
     if since_opex in (1, 2, 3):
         reads.append(f"{since_opex}d after OpEx: the pin is gone, the 'window of risk' opens post-OpEx Tuesday "
                      "once Monday's buyback flow is done — vol can return.")
-    elif 4 <= since_opex <= 10:
+    elif 4 <= since_opex <= 10 and not (vix and vix["days_to"] in (0, 1)):
         reads.append(f"{since_opex}d after the {last_opex.isoformat()} OpEx: the monthly pin is gone and the book is "
                      "lighter, so trends travel further on less flow — the week's book and the 0DTE chain set the "
                      "levels, not the monthlies.")

@@ -150,12 +150,21 @@ def extract_newsletter(
 
     prompt = _PROMPT.format(source=source, body=body[:max_chars])
     try:
-        reply = llm.complete(prompt, model=model, max_tokens=1024)
+        ask = getattr(llm, "complete_json", None) or llm.complete
+        reply = ask(prompt, model=model, max_tokens=1024)
     except Exception as exc:  # noqa: BLE001 — model down/timeout: degrade, don't crash the job
         log.warning("newsletter_extract.llm_failed", source=source, error=str(exc))
         return NewsletterRead(source=source)
 
     obj = _coerce_json(reply)
+    if not obj and len(body) > 6_000:
+        # Long letter → the model drifted into prose. Doc states his levels in the
+        # first screens, so retry on the head only before giving up.
+        try:
+            reply = ask(_PROMPT.format(source=source, body=body[:6_000]), model=model, max_tokens=1024)
+            obj = _coerce_json(reply)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("newsletter_extract.llm_failed", source=source, error=str(exc), retry="head")
     if not obj:
         # Silent before: DOC produced no levels row for a month (2026-09-21 →
         # 2026-10-22) and nothing in the log said why. Keep the reply head.
