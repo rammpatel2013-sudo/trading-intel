@@ -16,7 +16,7 @@ Descriptor only (FlashAlpha rule 4). ``build_zero_dte`` never raises.
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 import structlog
@@ -37,6 +37,44 @@ def _flip(grid: list[float], vals: list[float], spot: float) -> float | None:
             if best is None or abs(x - spot) < abs(best - spot):
                 best = x
     return best
+
+
+def chain_spot(session: Session, symbol: str = "SPX", *, ts: datetime | None = None) -> dict[str, Any] | None:
+    """Spot IMPLIED by the newest per-strike chain: the front-expiry strike where
+    call delta crosses 0.50 (linear between the two bracketing strikes).
+
+    The 08:35 ``index_walls_am`` pull has no spot column, and the aggregate
+    ``greeks_snapshots`` row it sits next to is still yesterday's 18:10 close
+    when the pre-open brief runs. On 2026-10-22 that put spot 7,758 "above the
+    7,745 flip, damping" while the chain already showed 7,664 — 80 points
+    below it. Returns ``{"spot", "ts", "expiry"}`` or None.
+    """
+    sym = symbol.strip().upper()
+    if ts is None:
+        ts = session.execute(
+            select(func.max(OiChainEod.ts)).where(OiChainEod.symbol == sym)
+        ).scalar_one_or_none()
+    if ts is None:
+        return None
+    front = session.execute(
+        select(func.min(OiChainEod.expiry)).where(
+            OiChainEod.symbol == sym, OiChainEod.ts == ts, OiChainEod.expiry >= ts.date()
+        )
+    ).scalar_one_or_none()
+    if front is None:
+        return None
+    rows = session.execute(
+        select(OiChainEod.strike, OiChainEod.delta).where(
+            OiChainEod.symbol == sym, OiChainEod.ts == ts, OiChainEod.expiry == front,
+            OiChainEod.cp == "C", OiChainEod.delta.isnot(None),
+        ).order_by(OiChainEod.strike)
+    ).all()
+    pts = [(float(k), float(d)) for k, d in rows if d is not None and 0.0 < float(d) < 1.0]
+    for (k0, d0), (k1, d1) in zip(pts, pts[1:]):
+        if d0 >= 0.5 >= d1 and d0 != d1:
+            spot = k0 + (d0 - 0.5) / (d0 - d1) * (k1 - k0)
+            return {"spot": round(spot, 2), "ts": ts, "expiry": front}
+    return None
 
 
 def summarize(rows: list[tuple], spot: float, *, flip: float | None = None) -> dict[str, Any]:
@@ -83,6 +121,10 @@ def build_zero_dte(session: Session, symbol: str = "SPX", *, today: date | None 
             select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.spot.isnot(None))
             .order_by(GreeksSnapshot.ts.desc()).limit(1)
         ).scalar_one_or_none()
+        spot_src = "greeks snapshot"
+        cs = chain_spot(session, sym, ts=ts)
+        if cs and cs["ts"].date() == today:
+            spot, spot_src = cs["spot"], "today's index chain, Δ=0.50 strike (08:35 pull)"
         if not spot:
             return None
         flip = None
@@ -97,6 +139,7 @@ def build_zero_dte(session: Session, symbol: str = "SPX", *, today: date | None 
         except Exception as exc:
             log.warning("zero_dte.flip_failed", error=str(exc))
         out = summarize([tuple(r) for r in rows], float(spot), flip=flip)
+        out["spot_src"] = spot_src
         try:
             from trading_intel.mcp.em_tools import get_gamma_burnoff
 

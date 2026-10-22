@@ -89,6 +89,10 @@ def _row_index(ix: dict[str, Any]) -> str:
     reg_cls = "t-short" if "short" in regime.lower() else "t-long" if "long" in regime.lower() else "t-mid"
     flip_txt = _fmt(ix.get("flip"), 0 if (ix.get("flip") or 0) > 100 else 1)
     spot_txt = _fmt(ix.get("spot"), 0 if (ix.get("spot") or 0) > 100 else 1)
+    if ix.get("spot_src"):
+        spot_txt += (
+            f'<span class="cap">{_esc(ix["spot_src"])} · close {_fmt(ix.get("close_spot"), 0)}</span>'
+        )
     if vf is None:
         vf_cell = '<span class="pill pill-mid">n/a</span>'
     else:
@@ -386,7 +390,16 @@ def _doc_section(ctx: dict[str, Any]) -> str:
             f'<div class="chip"><span class="lab">EM · straddle</span>'
             f'<b>{_fmt(doc.get("em_lo"),0)} – {_fmt(doc.get("em_hi"),0)}</b></div>'
         )
-    wall_lab = "Call wall" + (" (stale)" if doc.get("walls_stale") else "")
+    stale = " (stale)" if doc.get("walls_stale") else ""
+    book = f"{doc.get('walls_dte') or 7}d book"
+    wall_lab = f"Call wall · {book}{stale}"
+    pwall_lab = f"Put wall · {book}{stale}"
+    magnet = ""
+    if doc.get("magnet"):
+        magnet = (
+            f'<div class="chip"><span class="lab">Monthly magnet · 60d</span>'
+            f'<b>{_fmt(doc.get("magnet"),0)}</b></div>'
+        )
     return f"""<h2 class="sec"><span class="n">04</span>{head}</h2>
 <div class="card">
 <div class="expect"><div class="hd">{hd}</div>{_esc(exp)}</div>
@@ -395,7 +408,8 @@ def _doc_section(ctx: dict[str, Any]) -> str:
 <div class="chip"><span class="lab">Zero-γ flip</span><b>{_fmt(doc.get("flip"),0)}</b></div>
 <div class="chip"><span class="lab">Spot</span><b>{_fmt(doc.get("spot"),0)}</b></div>
 <div class="chip"><span class="lab">{wall_lab}</span><b>{_fmt(doc.get("call_wall"),0)}</b></div>
-{straddle_rail}{r16}</div>
+<div class="chip"><span class="lab">{pwall_lab}</span><b>{_fmt(doc.get("put_wall"),0)}</b></div>
+{magnet}{straddle_rail}{r16}</div>
 {_gex_transition_html(ctx)}
 {stale_note}{walls_caveat}</div>"""
 
@@ -555,7 +569,12 @@ def _session_banner(ctx: dict[str, Any]) -> str:
     if not sd:
         return ""
     if ctx.get("is_market_open_today"):
-        return f'<div class="sub dim">Data through the <b>{_esc(sd)}</b> close.</div>'
+        pre = ctx.get("pre_open_spot") or {}
+        tail = (
+            f' · pre-open SPX <b>{_fmt(pre.get("spot"), 0)}</b> from the {_esc(pre.get("label"))}'
+            if pre.get("spot") else ""
+        )
+        return f'<div class="sub dim">Board through the <b>{_esc(sd)}</b> close{tail}.</div>'
     return (
         '<div class="flag" style="margin:8px 0 0"><b>US equity market closed today.</b> '
         f'Every number below is the <b>{_esc(sd)}</b> session — nothing has re-priced since.</div>'
@@ -719,7 +738,11 @@ def _stated_vs_ours(ctx: dict[str, Any], mech: dict[str, Any]) -> str:
     """
     ns = ctx.get("newsletter") or {}
     doc_src = (ns.get("sources") or {}).get("DOC") or {}
-    if not (ctx.get("doc") or {}).get("letter_age", {}).get("fresh"):
+    age = (ctx.get("doc") or {}).get("letter_age") or {}
+    # Gate on the extracted LEVELS' date, not the letter body's: on 2026-10-22
+    # the body was today's but the levels row was 2026-09-21, and a month-old
+    # "flip 10 / put wall 19" printed as Doc's levels for the day.
+    if not age.get("fresh") or not doc_src.get("as_of") or doc_src.get("as_of") != age.get("as_of"):
         return ""
     stated = {
         (lv.get("name") or "").lower(): lv.get("value")
@@ -813,14 +836,65 @@ def _zero_dte_section(ctx: dict[str, Any]) -> str:
 <tr><td class="d">1σ session range</td><td>{_fmt(rng[0], 0)} – {_fmt(rng[1], 0)}</td><td class="d dim">±{_fmt(z.get("em"), 0)} pts · 0DTE ATM IV {_fmt((z.get("atm_iv") or 0) * 100, 1)}%</td></tr>
 <tr><td class="d">Front gamma burn-off</td><td>{_esc(phase or "—")}</td><td class="d dim">front-expiry share {(_fmt(fs * 100, 0) + "%") if fs is not None else "—"}</td></tr>
 </tbody></table>
-<div class="note">From the 08:35 index chain snapshot (live intraday GEX is empty pre-open). Inferred dealer book — read the sign and the levels, not the size. Descriptor only (rule 4).</div></div>"""
+<div class="note">From the 08:35 index chain snapshot (live intraday GEX is empty pre-open); spot = {_esc(z.get("spot_src") or "greeks snapshot")}. Inferred dealer book — read the sign and the levels, not the size. Descriptor only (rule 4).</div></div>"""
+
+
+def _clock_html(ctx: dict[str, Any]) -> str:
+    """Expiry clock strip: next VIXpiration / OpEx / quarter-end with days-to, plus the phase read."""
+    ph = ctx.get("expiry_clock") or {}
+    ev = ph.get("events") or []
+    if not ev:
+        return ""
+
+    def when(n: int) -> str:
+        return "today" if n == 0 else ("tomorrow" if n == 1 else f"in {n}d")
+
+    chips = " ".join(
+        f'<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border:1px solid #2a3a55;border-radius:5px">'
+        f'{_esc(e["label"])} · <b>{when(int(e["days_to"]))}</b></span>'
+        for e in ev[:4]
+    )
+    reads = " ".join(_esc(r) for r in ph.get("reads") or [])
+    return (f'<div class="through" style="margin-top:6px"><b>Expiry clock</b> · {ph.get("since_opex_days", "?")}d since the '
+            f'{_esc(ph.get("last_opex", ""))} OpEx<br>{chips}<div style="margin-top:4px;color:#aab4c0;font-size:12px">{reads}</div></div>')
+
+
+def _book_read_html(ctx: dict[str, Any]) -> str:
+    """Today's read in the dealer-flow frame — rule-built lines, each naming its number and its kill condition."""
+    rows = ctx.get("book_read") or []
+    if not rows:
+        return ""
+    items = "".join(
+        f'<li style="margin:5px 0"><b style="color:#12233d">{_esc(r.get("t"))}</b> — {_esc(r.get("s"))}</li>'
+        for r in rows
+    )
+    return (
+        '<h2 class="sec"><span class="n">00a</span>Today\'s read — the book in the dealer-flow frame</h2>'
+        f'<div class="card"><ul class="clean" style="margin:0;font-size:13px;line-height:1.55">{items}</ul>'
+        '<div class="note">Rules over today\'s numbers (regime · 0DTE book · walls vs skew · vol state · calendar), '
+        'in the Alma / OptionsDepth framing. Each line says what would kill it. Descriptor only (rule 4).</div></div>'
+    )
+
+
+def _howto_html() -> str:
+    return (
+        '<h2 class="sec"><span class="n">00</span>How to read this brief</h2>'
+        '<div style="font-size:12px;line-height:1.55;color:#aab4c0">'
+        '<b>Gamma board</b>: above the flip dealers are long gamma and damp moves; below it they chase. Walls pin when fixed-strike vol there is offered, break when it is bid; troughs are acceleration zones. '
+        'The flip is a line, not a forecast — structure holds only while the book keeps its shape.<br>'
+        '<b>Expected-move rails</b>: the straddle is the price paid for movement; realized vol is what is delivered. '
+        '<b>Skew</b>: positive RR = puts richer; customers long skew → dealers short skew → spot-down/vol-up gets sold. '
+        '<b>Charm</b> only dominates late in the day when RV is low vs IV; <b>vanna</b> lives in the weeklies/monthly, not the 0DTE chain. '
+        '<b>Sign caveat</b>: positions are naive OI (customers long puts / short calls), not cleared positioning.</div>'
+    )
 
 
 def render_html(ctx: dict[str, Any]) -> str:
     """Render the full daily-brief HTML from the context dict."""
     through = _esc(ctx.get("through_line") or "")
     body = (
-        _market_read_section(ctx)
+        _book_read_html(ctx)
+        + _market_read_section(ctx)
         + _zero_dte_section(ctx)
         + _index_board(ctx)
         + _mag7_section(ctx)
@@ -832,6 +906,7 @@ def render_html(ctx: dict[str, Any]) -> str:
         + _tracker_section(ctx)
         + _learned_section(ctx)
         + _crosscheck_section(ctx)
+        + _howto_html()
     )
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Trading-Intel Daily — {_esc(ctx.get('as_of'))}</title>
@@ -840,6 +915,7 @@ def render_html(ctx: dict[str, Any]) -> str:
 <div class="sub">{_esc(ctx.get('as_of'))} · {_esc(ctx.get('subtitle') or '')}</div>
 {_session_banner(ctx)}
 <div class="through"><b>Through-line:</b> {through}</div>
+{_clock_html(ctx)}
 {_recap_html(ctx)}
 {body}
 <div class="foot">Descriptive regime context only — <b>not trading signals</b> (FlashAlpha rule 4).<br>

@@ -165,7 +165,12 @@ def _extract_source_signals(
             continue
         read = extract_newsletter(label, note.note_md, llm, model=model)
         if read.empty:
+            log.warning("letters.signals_empty", source=label, note_as_of=str(note.as_of))
             continue
+        log.info(
+            "letters.signals_extracted", source=label, note_as_of=str(note.as_of),
+            levels=len(read.levels), scenarios=len(read.scenarios),
+        )
         for lv in read.levels:
             session.execute(
                 pg_insert(NewsletterLevel)

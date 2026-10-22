@@ -156,6 +156,13 @@ def extract_newsletter(
         return NewsletterRead(source=source)
 
     obj = _coerce_json(reply)
+    if not obj:
+        # Silent before: DOC produced no levels row for a month (2026-09-21 →
+        # 2026-10-22) and nothing in the log said why. Keep the reply head.
+        log.warning(
+            "newsletter_extract.unparseable", source=source,
+            reply_head=(reply or "")[:240], body_chars=len(body),
+        )
     return NewsletterRead(
         source=source,
         levels=_parse_levels(obj.get("levels")),

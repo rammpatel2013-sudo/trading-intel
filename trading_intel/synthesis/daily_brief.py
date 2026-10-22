@@ -210,10 +210,15 @@ def _doc_block(
     today: date | None = None,
 ) -> dict[str, Any]:
     today = today or date.today()
-    walls = get_walls(session, _DOC_ROOT, dte_max=60)
+    spot = (doc_index or {}).get("spot")
+    # Doc's levels are the WEEK's hedging ("the heaviest hedging sits at the
+    # week's low"), so the walls he is compared against come from the 1–7 DTE
+    # book. The 60-day book is kept only for the monthly magnet (the 8,000 pile).
+    walls = get_walls(session, _DOC_ROOT, dte_max=7, spot_override=spot)
+    monthly = get_walls(session, _DOC_ROOT, dte_max=60, spot_override=spot)
     strad = get_straddle(session, _DOC_ROOT, dte_max=7)
     flip = (doc_index or {}).get("flip")
-    spot = (doc_index or {}).get("spot") or walls.get("spot")
+    spot = spot or walls.get("spot")
     regime = (doc_index or {}).get("regime") or ""
     below = spot is not None and flip is not None and spot < flip
     em_lo = strad.get("lower") if strad.get("found") else None
@@ -265,6 +270,10 @@ def _doc_block(
         "below": below,
         "call_wall": walls.get("call_wall"),
         "put_wall": walls.get("put_wall"),
+        "walls_dte": walls.get("dte_max"),
+        "magnet": (monthly.get("magnet") or {}).get("strike"),
+        "monthly_call_wall": monthly.get("call_wall"),
+        "monthly_put_wall": monthly.get("put_wall"),
         "walls_as_of": walls_as_of.isoformat() if walls_as_of else None,
         "em_lo": em_lo,
         "em_hi": em_hi,
@@ -845,14 +854,209 @@ def _vol_skew_block(session: Session) -> dict[str, Any] | None:
         return None
 
 
+def _expiry_clock_block(today: date) -> dict[str, Any] | None:
+    """Where we are in the OpEx / VIXpiration / quarter cycle + the read (trading_intel.expiry_clock)."""
+    try:
+        from trading_intel.expiry_clock import phase
+
+        return phase(today)
+    except Exception:  # noqa: BLE001 — additive; the brief renders without it
+        return None
+
+#: Newsletter level names that are SPX PRICES. A value outside ±15 % of spot
+#: under one of these names is an extractor mis-tag, not a level: the Ollama
+#: pass filed "gamma is expected to flip" as gamma_flip=10 and "VIX was at 19"
+#: as put_wall=19 (Doc, 2026-09-21), and Norseman's Huginn-fund 4,000 / 3,000
+#: as SPX resistance / support — all of which then printed in the overlay.
+_PRICE_LEVELS = frozenset({
+    "gamma_flip", "flip", "zero_gamma", "call_wall", "put_wall", "key_support",
+    "key_resistance", "support", "resistance", "target", "bull_bear_line",
+})
+_PRICE_BAND = 0.15
+
+
+def _sanitize_levels(newsletter: dict[str, Any] | None, spot: float | None) -> dict[str, Any] | None:
+    """Drop price-type newsletter levels that cannot be SPX prices near spot."""
+    if not newsletter or not spot:
+        return newsletter
+    lo, hi = spot * (1 - _PRICE_BAND), spot * (1 + _PRICE_BAND)
+    out = dict(newsletter)
+    srcs = {}
+    for name, src in (newsletter.get("sources") or {}).items():
+        src = dict(src or {})
+        kept = []
+        for lv in src.get("levels") or []:
+            nm = (lv.get("name") or "").lower()
+            v = lv.get("value")
+            try:
+                fv = float(v) if v is not None else None
+            except (TypeError, ValueError):
+                fv = None
+            if nm in _PRICE_LEVELS and (fv is None or not (lo <= fv <= hi)):
+                continue
+            kept.append(lv)
+        src["levels"] = kept
+        srcs[name] = src
+    out["sources"] = srcs
+    return out
+
+
+def _pre_open_spot(session: Session, today: date) -> dict[str, Any] | None:
+    """Spot implied by TODAY's 08:35 index chain, when it is newer than the board."""
+    try:
+        from trading_intel.synthesis.zero_dte import chain_spot
+
+        cs = chain_spot(session, _DOC_ROOT)
+    except Exception:  # noqa: BLE001
+        log.warning("daily_brief.chain_spot_failed", exc_info=True)
+        return None
+    if not cs or cs["ts"].date() != today:
+        return None
+    return {"spot": cs["spot"], "ts": cs["ts"].isoformat(timespec="minutes"),
+            "label": "08:35 index chain (Δ=0.50 strike)"}
+
+
+def _apply_pre_open_spot(indices: list[dict[str, Any]], pre: dict[str, Any] | None, today: date) -> None:
+    """Re-mark the SPX board row to the pre-open spot when the board is yesterday's close."""
+    if not pre:
+        return
+    for ix in indices:
+        if ix.get("symbol") != _DOC_ROOT or not ix.get("flip"):
+            continue
+        if (_as_date(ix.get("asof")) or today) >= today:
+            return
+        from trading_intel.dashboard.watchlist_metrics import gamma_regime
+
+        spot, flip = pre["spot"], ix["flip"]
+        ix.update({
+            "close_spot": ix.get("spot"),
+            "spot": spot,
+            "spot_vs_flip_pct": (spot - flip) / flip * 100.0,
+            "regime": gamma_regime(spot, flip),
+            "spot_src": pre["label"],
+        })
+
+
+def _book_read(ctx: dict[str, Any]) -> list[dict[str, str]]:
+    """Today's numbers read in the dealer-flow frame (Alma / OptionsDepth, 2026-10-22 corpus).
+
+    Rules only — every line names the number it is built on, and the condition
+    that would kill it. Descriptor, not a signal (rule 4).
+    """
+    out: list[dict[str, str]] = []
+    spx = next((ix for ix in (ctx.get("indices") or []) if ix.get("symbol") == "SPX"), None) or {}
+    doc = ctx.get("doc") or {}
+    z = ctx.get("zero_dte") or {}
+    vix = ctx.get("vix") or {}
+    sk = ctx.get("vol_skew") or {}
+    spot, flip = spx.get("spot"), spx.get("flip")
+    f0 = lambda v: f"{v:,.0f}" if isinstance(v, (int, float)) else "—"  # noqa: E731
+
+    # 1. regime — the line, and what kills the read
+    if spot and flip:
+        d = spot - flip
+        if d < 0:
+            out.append({"t": "Short gamma", "s": (
+                f"SPX {f0(spot)} is {abs(d):,.0f} pts below the {f0(flip)} flip: dealers chase — dips extend, "
+                "rallies are sold only into the walls. Fading extremes is wrong here; the read flips the minute "
+                f"{f0(flip)} is reclaimed (a line, not a target).")})
+        else:
+            out.append({"t": "Long gamma", "s": (
+                f"SPX {f0(spot)} is {d:,.0f} pts above the {f0(flip)} flip: dealers damp — buy dips / sell rips "
+                "between the walls, so extremes mean-revert. The read dies on a close below "
+                f"{f0(flip)}; structure holds only while the book keeps its shape.")})
+
+    # 2. the 0DTE book — intraday line, not the EOD one
+    if z.get("flip") or z.get("range"):
+        rng = z.get("range") or (None, None)
+        out.append({"t": "0DTE book", "s": (
+            f"Today's expiry alone is {z.get('net_sign') or 'flat'} with its own flip at {f0(z.get('flip'))} "
+            f"(walls {f0(z.get('put_wall'))} / {f0(z.get('call_wall'))}); 1σ for the session {f0(rng[0])}–{f0(rng[1])}. "
+            "Intraday the live 0DTE book sets the chase/damp line, not the EOD one — the cockpit Map tab carries it "
+            "forward through the clock; charm from this book only matters in the last hours and only if the day stays quiet.")})
+
+    # 3. walls — hold/break by whether vol there is bid or offered (skew percentile as the proxy)
+    cw, pw, mag = doc.get("call_wall"), doc.get("put_wall"), doc.get("magnet")
+    if cw or pw:
+        rr = sk.get("rr_pctile")
+        if isinstance(rr, (int, float)) and rr <= 1.0:
+            rr = rr * 100.0  # stored as a fraction of the 252d window
+        if isinstance(rr, (int, float)) and rr >= 70:
+            vol_s = (f"25Δ skew sits at the {rr:.0f}th pctile — puts are BID, so the {f0(pw)} put wall is under pressure: "
+                     "a wall whose vol is bid breaks; dealers are short skew into it and sell spot-down/vol-up.")
+        elif isinstance(rr, (int, float)) and rr <= 30:
+            vol_s = (f"25Δ skew sits at the {rr:.0f}th pctile — downside vol is OFFERED, so the {f0(pw)} put wall should hold: "
+                     "dealers sell vol into the dip and the vanna loop (vol down → dealer buying) is supportive.")
+        else:
+            vol_s = (f"25Δ skew is mid-range ({rr:.0f}th pctile) — the walls hold or break on whether fixed-strike vol at "
+                     f"{f0(pw)} / {f0(cw)} is offered or bid today; watch the fixed-strike IV, not spot."
+                     if isinstance(rr, (int, float)) else
+                     f"Walls hold when fixed-strike vol at {f0(pw)} / {f0(cw)} is offered and break when it is bid.")
+        mag_s = (f" The {f0(mag)} pile in the 60-day book is overwriter/collar paper — a cap that pins into the monthlies, "
+                 "not a target for today." if mag and mag not in (cw, pw) else "")
+        out.append({"t": "Walls (1–7 DTE book)", "s": f"Put wall {f0(pw)} · call wall {f0(cw)}. {vol_s}{mag_s}"})
+
+    # 4. vol state — which greek is driving
+    v, vv, term, vrp = vix.get("vix"), vix.get("vvix"), vix.get("term"), vix.get("vrp")
+    parts = []
+    if isinstance(term, (int, float)):
+        parts.append(f"9d−3m {term:+.1f} = {'contango, calm weather' if term < 0 else 'BACKWARDATION — stress, event vol in the front'}")
+    if isinstance(vrp, (int, float)):
+        if vrp > 3:
+            parts.append(f"VRP +{vrp:.1f} pts: implied is rich to realized, so decay (charm/theta) is the dealers' flow on a "
+                         "quiet day — late-session charm dominates only while realized stays below implied (Alma: "
+                         "R = 0.63·(IV/RV)·√(Δt/τ)); a move beyond the straddle hands it back to gamma")
+        elif vrp < 0:
+            parts.append(f"VRP {vrp:.1f}: realized is running ABOVE implied — gamma, not charm, is the flow; short-vol "
+                         "structures are losing and the dealers' hedging is the trend's fuel")
+        else:
+            parts.append(f"VRP {vrp:+.1f}: implied ≈ realized, no decay edge either way")
+    if isinstance(vv, (int, float)) and vv > 95:
+        parts.append(f"VVIX {vv:.0f}: the tape pays up for the vol path — vanna is live, and a vol crush is dealer buying "
+                     "(spot-up/vol-down loop) while a vol pop is dealer selling")
+    cor = sk.get("cor1m")
+    if isinstance(cor, (int, float)) and cor < 15:
+        parts.append(f"1M implied correlation {cor:.1f}: dispersion — index vol is suppressed by names moving against "
+                     "each other; the risk is correlation snapping to 1 (the beta reset), which lifts index vol without any new news")
+    if parts:
+        out.append({"t": f"Vol state (VIX {v:.1f})" if isinstance(v, (int, float)) else "Vol state", "s": "; ".join(parts) + "."})
+
+    # 5. the calendar
+    for r in (ctx.get("expiry_clock") or {}).get("reads") or []:
+        out.append({"t": "Expiry calendar", "s": r})
+
+    # 6. Doc ∩ our book — only his levels that sit on our walls / flip
+    lv = (((ctx.get("newsletter") or {}).get("sources") or {}).get("DOC") or {})
+    hits = []
+    if lv.get("as_of") and lv.get("as_of") == (doc.get("letter_age") or {}).get("as_of"):
+        ours = {"put wall": pw, "call wall": cw, "flip": flip}
+        for l in lv.get("levels") or []:
+            val = l.get("value")
+            if not isinstance(val, (int, float)):
+                continue
+            for nm, ov in ours.items():
+                if ov and abs(val - ov) / ov <= 0.002:
+                    hits.append(f"Doc's {l.get('name', '').replace('_', ' ')} {f0(val)} = our {nm}")
+    if hits:
+        out.append({"t": "Doc ∩ book", "s": "; ".join(dict.fromkeys(hits)) + "."})
+    out.append({"t": "Caveat", "s": "Positions are naive OI (customers long puts / short calls), not cleared positioning — "
+                "a put-heavy book reads short gamma without that being true. Rules, not a forecast."})
+    return out
+
+
 def build_brief_context(session: Session, settings: Settings | None = None) -> dict[str, Any]:
     """Assemble the full daily-brief context dict from banked data."""
     settings = settings or get_settings()
     today = date.today()
     # The brief is written FOR a trading session. Dating it date.today() meant the
     # 2026-09-07 edition called itself a "pre-open daily brief" on Labor Day.
-    session_date = _prev_session(today)
+    # The brief is PRE-OPEN: the board it describes closed the session BEFORE
+    # today. ``_prev_session(today)`` returned today itself on any open day, so
+    # the 08:45 edition said "data through the 2026-10-22 close" at 8 am.
+    session_date = _prev_session(today - timedelta(days=1))
     indices = [b for s in _INDEX_ROOTS if (b := _index_block(session, s)) is not None]
+    pre_open = _pre_open_spot(session, today) if not is_market_holiday(today) else None
+    _apply_pre_open_spot(indices, pre_open, today)
     vix = _vix_block(session)
     doc_index = next((ix for ix in indices if ix["symbol"] == _DOC_ROOT), None)
     doc = _doc_block(session, doc_index, vix.get("vix"), today)
@@ -873,9 +1077,20 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
     except Exception:  # noqa: BLE001 — optional panel
         zero_dte = None
     try:
-        newsletter = build_newsletter_signals(session)
+        newsletter = _sanitize_levels(build_newsletter_signals(session), (doc_index or {}).get("spot"))
     except Exception:  # noqa: BLE001
         newsletter = None
+    if market_read and pre_open and (doc_index or {}).get("spot"):
+        # The fused read is built from the aggregate snapshot (yesterday's close
+        # pre-open); re-mark its spot + distance-to-flip to the chain-implied one.
+        mech = market_read.setdefault("mechanics", {})
+        sp = float(doc_index["spot"])
+        mech["spot"] = sp
+        if mech.get("gex_flip"):
+            mech["dist_to_flip"] = (sp - float(mech["gex_flip"])) / sp
+        for lv in market_read.get("levels") or []:
+            if (lv.get("name") or "").lower() == "spot":
+                lv["value"] = sp
     ctx: dict[str, Any] = {
         "as_of": today.isoformat(),
         "session_date": session_date.isoformat(),
@@ -886,6 +1101,9 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
             else f"market closed today · data through the {session_date:%b %d} session"
         ),
         "through_line": _through_line(indices, vix),
+        "pre_open_spot": pre_open,
+        "book_read": [],
+        "expiry_clock": _expiry_clock_block(today),
         "market_read": market_read,
         "newsletter": newsletter,
         "zero_dte": zero_dte,
@@ -913,6 +1131,10 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "vol_note": "VRP positive = implied rich vs realized; elevated VVIX = paying up for the vol path.",
         "provenance": "index γ + VIX + walls/straddle via trading-intel NAS · letters ingest (research watchlist).",
     }
+    try:
+        ctx["book_read"] = _book_read(ctx)
+    except Exception:  # noqa: BLE001 — additive
+        log.warning("daily_brief.book_read_failed", exc_info=True)
     return ctx
 
 

@@ -92,7 +92,9 @@ def _min_dte(ts: datetime | None) -> int:
     return 1 if ts is not None and same_day_expired(ts.date()) else 0
 
 
-def get_walls(session: Session, symbol: str, *, dte_max: int = 60) -> dict[str, Any]:
+def get_walls(
+    session: Session, symbol: str, *, dte_max: int = 60, spot_override: float | None = None
+) -> dict[str, Any]:
     """Call-wall / put-wall for one ticker from the latest EOD per-strike chain.
 
     The *call wall* is the strike carrying the most call-side gamma-OI (``gxoi``)
@@ -127,7 +129,15 @@ def get_walls(session: Session, symbol: str, *, dte_max: int = 60) -> dict[str, 
 
     out: dict[str, Any] = {"symbol": sym, "as_of": _iso_day(ts), "dte_max": dte_c}
     snap = latest_snapshot(session, sym)
-    out["spot"] = _num(snap.spot) if snap is not None else None
+    spot = _num(snap.spot) if snap is not None else None
+    if spot_override is not None:
+        spot = float(spot_override)
+    out["spot"] = spot
+    # A wall is a level price has to GO THROUGH: the call wall sits at/above
+    # spot, the put wall at/below. Unconstrained, the 2026-10-22 brief named
+    # 8,000 as BOTH walls — the Dec collar pile (500K calls / 400K puts) beat
+    # every strike near price on raw γ·OI. The pile is still worth naming, so
+    # it is reported separately as the ``magnet`` (largest γ·OI either side).
     for label, code in (("call", "C"), ("put", "P")):
         side = [
             {"strike": _num(r.strike), "gxoi": _num(r.gxoi), "oi": _num(r.oi)}
@@ -135,9 +145,19 @@ def get_walls(session: Session, symbol: str, *, dte_max: int = 60) -> dict[str, 
             if str(r.cp).upper().startswith(code) and r.gxoi is not None
         ]
         side.sort(key=lambda d: (d["gxoi"] or 0.0), reverse=True)
+        out[f"{label}_top_strikes"] = side[:5]
+        if spot is not None:
+            keep = (lambda d: d["strike"] >= spot) if code == "C" else (lambda d: d["strike"] <= spot)
+            side = [d for d in side if d["strike"] is not None and keep(d)]
         out[f"{label}_wall"] = side[0]["strike"] if side else None
         out[f"{label}_wall_gxoi"] = side[0]["gxoi"] if side else None
-        out[f"{label}_top_strikes"] = side[:5]
+    by_strike: dict[float, float] = {}
+    for r in rows:
+        if r.gxoi is not None and r.strike is not None:
+            by_strike[float(r.strike)] = by_strike.get(float(r.strike), 0.0) + float(r.gxoi)
+    if by_strike:
+        mk = max(by_strike, key=by_strike.get)
+        out["magnet"] = {"strike": mk, "gxoi": by_strike[mk]}
     out["found"] = True
     return out
 
