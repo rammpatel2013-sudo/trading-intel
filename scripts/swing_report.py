@@ -223,14 +223,10 @@ def render_html(rows: list[dict], *, generated: str) -> str:
     )
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="On-demand swing-setup scanner (live CVForge).")
-    parser.add_argument("symbols", nargs="*", help="tickers (default: WATCHLIST from .env)")
-    parser.add_argument("--out", default=None)
-    args = parser.parse_args()
-
-    settings = get_settings()
-    symbols = [s.upper() for s in args.symbols] or settings.watchlist_symbols
+def build(symbols: list[str] | None = None, *, out: Path | None = None, settings=None) -> Path:
+    """Scan ``symbols`` (default: WATCHLIST) on live CVForge and write the HTML. Returns path."""
+    settings = settings or get_settings()
+    symbols = [s.upper() for s in (symbols or [])] or settings.watchlist_symbols
     client = CVForgeClient(settings)
     try:
         rows = [analyze(client, s) for s in symbols]
@@ -239,12 +235,21 @@ def main() -> None:
     rows.sort(key=lambda r: (r.get("score") or -1), reverse=True)
 
     _OUT.mkdir(exist_ok=True)
-    out = Path(args.out) if args.out else _OUT / f"swing_{date.today().isoformat()}.html"
+    out = out or _OUT / f"swing_{date.today().isoformat()}.html"
     out.write_text(
         render_html(rows, generated=pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")), encoding="utf-8"
     )
     ok = sum(1 for r in rows if not r.get("error"))
     print(f"swing report: {ok}/{len(rows)} symbols -> {out}")
+    return out
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="On-demand swing-setup scanner (live CVForge).")
+    parser.add_argument("symbols", nargs="*", help="tickers (default: WATCHLIST from .env)")
+    parser.add_argument("--out", default=None)
+    args = parser.parse_args()
+    build(args.symbols, out=Path(args.out) if args.out else None)
 
 
 if __name__ == "__main__":

@@ -129,6 +129,23 @@ def bs_vanna(
     return -norm_pdf(d1) * d2 / sigma
 
 
+def bs_vega(
+    spot: float | np.ndarray,
+    strike: np.ndarray,
+    sigma: np.ndarray,
+    t: np.ndarray,
+    r: float = 0.0,
+) -> np.ndarray:
+    """Black-Scholes vega (∂V/∂σ) per 1.00 of vol, no dividends. Same for calls/puts.
+
+    ``vega = S · N'(d1) · √t``. Scale by 0.01 for $ per vol-point. Broadcasts
+    against ``spot`` like ``bs_gamma``/``bs_vanna``.
+    """
+    sqrt_t = np.sqrt(t)
+    d1 = (np.log(spot / strike) + (r + 0.5 * sigma**2) * t) / (sigma * sqrt_t)
+    return spot * norm_pdf(d1) * sqrt_t
+
+
 def bs_call_price(
     spot: float | np.ndarray,
     strike: np.ndarray,

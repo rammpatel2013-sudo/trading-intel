@@ -51,6 +51,10 @@ from trading_intel.synthesis.llm import OllamaProvider
 def main() -> None:
     settings = get_settings()
     logging.basicConfig(level=settings.LOG_LEVEL)
+    # httpx logs every request URL at INFO -- FMP/CVForge URLs carry ``apikey=``.
+    # Rule 2: never let a secret reach an INFO log line.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     log = logging.getLogger("trading_intel.scheduler")
     log.info("Starting trading-intel scheduler (env=%s)", settings.APP_ENV)
 
@@ -178,9 +182,7 @@ def main() -> None:
             iv_term_snapshots.run(session, settings=settings)
 
     def run_sentiment() -> None:
-        from trading_intel.clients.cvforge import CVForgeClient
-
-        client = CVForgeClient(settings)
+        client = sentiment.make_client(settings)
         try:
             with session_factory() as session:
                 sentiment.run(session, client, settings=settings)
@@ -361,16 +363,13 @@ def main() -> None:
         run_surface, "cron", day_of_week="mon-fri", hour=17, minute=8,
         name="surface_snapshots",
     )
-    # Weekly institutional + analyst sentiment snapshot — PARKED pending data access.
-    # The collector is built + unit-tested, but the FMP institutional/analyst endpoints
-    # are paywalled (CVForge proxy returns a persistent 502, the direct free key 402), so
-    # enabling this would only bank null rows. Re-enable once a paid FMP tier or a CVForge
-    # allowlist addition lands (run_sentiment may then need repointing to the direct
-    # FmpClient). See docs/trend-collection-catalog.md + probe_fmp_sentiment.py.
-    # scheduler.add_job(
-    #     run_sentiment, "cron", day_of_week="mon", hour=17, minute=20,
-    #     name="sentiment",
-    # )
+    # Weekly institutional + analyst sentiment snapshot — UN-PARKED 2026-10 (FMP paid
+    # tier): sentiment.make_client uses the direct FmpClient when FMP_API is set. Rows
+    # where every field is null are dropped, so a still-gated endpoint banks nothing.
+    scheduler.add_job(
+        run_sentiment, "cron", day_of_week="mon", hour=17, minute=20,
+        name="sentiment",
+    )
     # Prune raw tas_prints older than TAS_RETENTION_DAYS (default 30) — 02:40 ET.
     scheduler.add_job(run_prune_tas_prints, "cron", hour=2, minute=40, name="prune_tas_prints")
 

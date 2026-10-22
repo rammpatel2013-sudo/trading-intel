@@ -35,6 +35,7 @@ from trading_intel.greeks.black_scholes import (
     bs_charm,
     bs_gamma,
     bs_vanna,
+    bs_vega,
     years_to_expiry,
 )
 
@@ -47,6 +48,8 @@ _GREEKS = {
     "gamma": (bs_gamma, lambda g, oi, mult, S: g * oi * mult * S**2 * 0.01),
     "charm": (bs_charm, lambda g, oi, mult, S: (g / 365.0) * oi * mult * S),
     "vanna": (bs_vanna, lambda g, oi, mult, S: g * oi * mult * S * 0.01),
+    # $ value change per 1 vol-point (vega per 1.00 vol × 0.01). Opt-in (not a default).
+    "vega": (bs_vega, lambda g, oi, mult, S: g * oi * mult * 0.01),
 }
 
 
@@ -70,7 +73,7 @@ def greek_profiles(
         chain: normalized chain — needs ``opt_kind, strike, iv, oi, expiration``.
         spot: current underlying.
         span/n_points: ± fraction of spot and grid resolution.
-        greeks: any of ``gamma``/``charm``/``vanna``.
+        greeks: any of ``gamma``/``charm``/``vanna``/``vega``.
 
     Returns ``{"spot_ref": [...], <greek>: {"all": [...], "by_expiry": {label: [...]},
     "flip": float|None}}``. Empty dict for an unusable chain.

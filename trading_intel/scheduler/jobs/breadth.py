@@ -50,6 +50,50 @@ def _spx_line_inputs(session: Session) -> tuple[list[float], float | None]:
     return [b.high for b in bars], (bars[-1].close if bars else None)
 
 
+_SMALL_SOURCE = "fmp_sp600"
+_SMALL_ETF = "IJR"  # iShares Core S&P Small-Cap — holdings = the S&P 600
+
+
+def bank_small_caps(session: Session, client: object, as_of) -> dict | None:
+    """S&P 600 advance/decline + cumulative A-D (Norseman's first rail to roll, N4).
+
+    Universe = IJR holdings; day change from FMP batch-quote (~6 calls, no history
+    pull). Banks a minimal ``breadth_snapshots`` row under source ``fmp_sp600``.
+    Best-effort: returns None (and logs) on any failure.
+    """
+    from trading_intel.market import breadth_history as bh
+
+    try:
+        syms = bh.etf_holding_symbols(client, _SMALL_ETF)
+        if len(syms) < 200:
+            log.warning("breadth.small_caps_universe_thin", n=len(syms))
+            return None
+        adv, dec, n = bh.batch_change_counts(client, syms)
+        if n < 200:
+            log.warning("breadth.small_caps_quotes_thin", n=n)
+            return None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("breadth.small_caps_failed", error=str(exc))
+        return None
+    prev = session.execute(
+        select(BreadthSnapshot.ad_line)
+        .where(BreadthSnapshot.source == _SMALL_SOURCE, BreadthSnapshot.ts < as_of)
+        .order_by(BreadthSnapshot.ts.desc())
+    ).scalars().first()
+    values = {"ts": as_of, "source": _SMALL_SOURCE, "advancers": adv, "decliners": dec,
+              "net_adv": adv - dec, "ad_line": bm.ad_line_next(prev, adv, dec),
+              "n_constituents": n}
+    stmt = pg_insert(BreadthSnapshot).values(values)
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_breadth_ts_source",
+        set_={c: stmt.excluded[c] for c in values if c not in ("ts", "source")},
+    )
+    session.execute(stmt)
+    session.commit()
+    log.info("breadth.small_caps_banked", ts=str(as_of), n=n, net=adv - dec)
+    return values
+
+
 def run(session: Session, settings: Settings, *, client: object | None = None) -> dict:
     """Compute + bank one breadth row for today. Returns the persisted values."""
     as_of = eastern_now().date()
@@ -154,6 +198,7 @@ def run(session: Session, settings: Settings, *, client: object | None = None) -
     )
     session.execute(stmt)
     session.commit()
+    values["small_caps"] = bank_small_caps(session, cvforge, as_of)
     log.info(
         "breadth.banked",
         ts=str(as_of),

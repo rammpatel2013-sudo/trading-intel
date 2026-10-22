@@ -74,6 +74,8 @@ _CONTRACT_UPDATE = (
     "sell_notional",
     "net_dollar_delta",
     "dominant_side",
+    "legged_notional",
+    "financing_notional",
     "created_at",
 )
 
@@ -108,6 +110,8 @@ def _prints_frame(session: Session, day: date) -> pd.DataFrame:
                 "price": p.price,
                 "delta": p.delta,
                 "spot": p.spot,
+                "leg_group": p.leg_group,
+                "is_financing": p.is_financing,
             }
             for p in rows
         ]

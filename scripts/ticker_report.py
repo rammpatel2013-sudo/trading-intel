@@ -14,6 +14,8 @@ network). Layout, in order:
   * Unusual activity: Vol/OI ratio + day-over-day positioning change (ΔOI vs the
     PRIOR session's volume -> conversion / opening-vs-churn; see oi_changes.py)
   * Unusual flow: top-5 TAS prints today
+  * Wall conviction (call + put): stable / at-level / fixed-strike-vol → HOLD·BREAK·WAIT,
+    plus the rolling net-GEX line (component 8) — see ``api/wall_conviction.py``
 
 Descriptive regime/flow only (FlashAlpha rule 4) — not signals, not advice.
 
@@ -356,6 +358,21 @@ def build(sym: str, *, days: int = 180) -> str:
             tape_html = render_section(build_tape_catalysts(_s, sym))
     except Exception as exc:  # noqa: BLE001 — optional section never breaks the report
         tape_html = f"<p class='muted'>tape &amp; catalysts unavailable: {html.escape(str(exc)[:120])}</p>"
+    try:  # wall conviction (3-condition hold/break) + rolling net-GEX line
+        from trading_intel.api.wall_conviction import build_wall_conviction
+        from trading_intel.api.wall_conviction import render_section as render_walls
+        from sqlalchemy.orm import Session as _Sess2
+        with _Sess2(eng) as _s:
+            _wd = build_wall_conviction(_s, sym)
+        wall_html = render_walls(_wd)
+        for _side in ("call", "put"):
+            _w = _wd["walls"].get(_side) or {}
+            if _w.get("verdict") in ("HOLD", "BREAK", "WAIT"):
+                reads.append(f"{_side.title()} wall {_num(_w.get('strike'), 0)}: <b>{_w['verdict']}</b> "
+                             f"— {html.escape('; '.join(_w.get('reasons') or []))}.")
+        read = "".join(f"<li>{r}</li>" for r in reads)
+    except Exception as exc:  # noqa: BLE001 — optional section never breaks the report
+        wall_html = f"<p class='muted'>wall conviction unavailable: {html.escape(str(exc)[:120])}</p>"
     css = (
         "body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0f1115;color:#e6e8eb}"
         ".wrap{max-width:1180px;margin:0 auto;padding:22px}h1{font-size:22px;margin:0 0 2px}.sub{color:#9aa4b2;font-size:12.5px;margin:0 0 14px}"
@@ -375,6 +392,7 @@ def build(sym: str, *, days: int = 180) -> str:
 <h1>{sym} — full positioning, flow &amp; technicals report</h1><p class="sub">trading-intel (NAS) · {datetime.now():%Y-%m-%d %H:%M} · window last {days_shown}d</p>
 <div class="cards">{cards}</div><div class="read"><h2>The read</h2><ul>{read}</ul></div>
 <h2 class="sec">Combined line view (price · flip · walls · skew)</h2>{combo}
+{wall_html}
 <h2 class="sec">Price + SMAs &amp; skew/IV</h2>{chart}
 <h2 class="sec">Detail</h2><div class="grid3">
 <div class="card"><h3>Gamma / positioning</h3><table>{gamma_tbl}</table></div><div class="card"><h3>Volatility &amp; skew</h3><table>{vol_tbl}</table></div><div class="card"><h3>Options flow (latest)</h3><table>{flow_tbl}</table></div>

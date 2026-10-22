@@ -89,3 +89,35 @@ def test_run_seeds_tickers_upserts_and_commits():
     assert len(inserts) == 2
     assert {ins.table.name for ins in inserts} == {"tickers", "sentiment_snapshots"}
     assert session.commits == 1
+
+
+def test_latest_13f_quarter_respects_filing_lag():
+    from datetime import date
+
+    from trading_intel.scheduler.jobs.sentiment import latest_13f_quarter
+
+    assert latest_13f_quarter(date(2026, 10, 2)) == (2026, 2)   # Q3 not filed until mid-Nov
+    assert latest_13f_quarter(date(2026, 11, 25)) == (2026, 3)
+    assert latest_13f_quarter(date(2026, 2, 1)) == (2025, 3)
+
+
+def test_fetch_inputs_falls_back_to_legacy_ownership_endpoint():
+    from trading_intel.scheduler.jobs.sentiment import fetch_inputs
+
+    class C:
+        def __init__(self):
+            self.calls = []
+
+        def fmp(self, ep, params=None):
+            self.calls.append(ep)
+            if ep.endswith("symbol-positions-summary"):
+                return None
+            if ep.endswith("symbol-ownership"):
+                return [{"ownershipPercent": 61.0}]
+            return None
+
+    c = C()
+    inp = fetch_inputs(c, "AAPL")
+    assert inp.inst_pct == 61.0
+    assert c.calls[:2] == ["institutional-ownership/symbol-positions-summary",
+                           "institutional-ownership/symbol-ownership"]

@@ -553,6 +553,29 @@ def build_server(
             return build_breadth(session)
 
     @mcp.tool()
+    def get_wall_conviction(symbol: str) -> dict[str, Any]:
+        """Call/put-wall conviction — Mithil's 3-condition 'does this level HOLD?' read.
+
+        Per side: wall strike (max <=60DTE gamma-OI), (1) stable over 3 EOD snapshots,
+        (2) spot within 1% of it, (3) fixed-strike IV at that exact strike/expiry over
+        3 sessions (calm/offered = HOLD, bid = BREAK), earnings within 10d = WAIT,
+        plus a thin-strike liquidity flag. From oi_chain_eod/greeks_snapshots/
+        earnings_events only. Says hold-vs-break, never direction (rule 4).
+        """
+        from trading_intel.api.wall_conviction import build_wall_conviction
+
+        with session_factory() as session:
+            d = build_wall_conviction(session, symbol)
+        d.pop("gex_series", None)
+        for w in d.get("walls", {}).values():
+            w["fsv"] = [[str(dt), iv] for dt, iv in w.get("fsv") or []]
+            if w.get("fsv_expiry") is not None:
+                w["fsv_expiry"] = str(w["fsv_expiry"])
+        if d.get("as_of") is not None:
+            d["as_of"] = str(d["as_of"])
+        return d
+
+    @mcp.tool()
     def get_tape_catalysts(symbol: str) -> dict[str, Any]:
         """Per-name tape & catalysts: volume vs 20d avg, CMF, OBV/VPT trend, 20/60d
         anchored VWAP, 60d volume profile (POC + value area), quarterly revenue trend

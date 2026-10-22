@@ -96,8 +96,15 @@ def _index_floor(root: str, base: float) -> float:
 
 
 def _is_financing(cp: str | None, delta: float | None, dte: int | None) -> bool:
-    """Deep-ITM call (synthetic long / financing) or long-dated high-delta LEAP."""
-    if cp != "C" or delta is None or dte is None:
+    """Deep-ITM option (box / synthetic / financing leg) or long-dated high-delta LEAP.
+
+    Covers BOTH sides deliberately. A box spread is a deep-ITM CALL *and* a deep-ITM
+    PUT on the same expiry; the original call-only gate tagged half of it, which left
+    the surviving put leg looking like genuine one-sided put flow -- i.e. it read as
+    bearish accumulation when it is pure interest-rate financing. Delta is signed, so
+    the |delta| test is symmetric across cp.
+    """
+    if cp not in ("C", "P") or delta is None or dte is None:
         return False
     ad = abs(delta)
     return ad >= 0.85 or (ad >= 0.70 and dte >= 365)

@@ -54,7 +54,8 @@ def _collect(session, sym: str) -> dict:
     smile_now = [d for d in dicts if days and d["ts"] == days[-1]]
     smile_prev = [d for d in dicts if len(days) > _WINDOW and d["ts"] == days[-1 - _WINDOW]]
 
-    now = pt.get_profile(session, sym, n_points=81)
+    _G = ("gamma", "charm", "vanna", "vega")
+    now = pt.get_profile(session, sym, n_points=81, greeks=_G)
     before = None
     if now.get("found"):
         ts_days = session.execute(
@@ -63,7 +64,7 @@ def _collect(session, sym: str) -> dict:
         ).scalars().all()
         if len(ts_days) > _WINDOW:
             before = pt.get_profile(session, sym, n_points=81, as_of=ts_days[-1].date(),
-                                    spot_ref=now["spot"])
+                                    spot_ref=now["spot"], greeks=_G)
     return {"series": series, "read": sv.skew_read(series, window=_WINDOW),
             "smile_now": smile_now, "smile_prev": smile_prev,
             "vanna": sv.vanna_read(now, before)}
@@ -166,7 +167,7 @@ def _render(data: dict, sym: str) -> str:
     if vr and vr.inverted:
         banner += " VANNA INVERSION — dealer vanna at spot flipped sign vs the earlier book (spot-up/vol-up risk)."
     xs = [p.d for p in s]
-    fmt_d = lambda d: f"{d:%-m/%-d}"  # noqa: E731
+    fmt_d = lambda d: f"{d.month}/{d.day}"  # noqa: E731 — portable (no glibc %-d)
     skew_chart = _line_svg([("normalized skew (25Δp−25Δc)/ATM", _C1, [p.norm_skew for p in s])],
                            xs, x_fmt=fmt_d, right=("SPX", _MUT, [p.spot for p in s]))
     wing_chart = _line_svg([("put skew 25Δp−ATM", _C4, [p.put_skew for p in s]),
@@ -198,6 +199,10 @@ def _render(data: dict, sym: str) -> str:
          f"prior {_f(vr.at_spot_before if vr else None, '{:+.1f}')} ($bn, calls+/puts−)"),
         ("Vanna zero-line", _f(vr.zero_now if vr else None, "{:,.0f}"),
          f"prior {_f(vr.zero_before if vr else None, '{:,.0f}')}"),
+        ("ES per vol-point", _f(vr.es_per_volpt_now if vr else None, "{:+,.0f}"),
+         f"prior {_f(vr.es_per_volpt_before if vr else None, '{:+,.0f}')} (+ = dealers buy ES as vol rises)"),
+        ("Dealer vega @ spot", _f(vr.vega_at_spot_now if vr else None, "{:+.2f}"),
+         f"prior {_f(vr.vega_at_spot_before if vr else None, '{:+.2f}')} ($bn per vol-pt)"),
     ]
     kpi_html = "".join(f'<div class="kpi"><div class="kl">{html.escape(a)}</div><div class="kv">{b}</div>'
                        f'<div class="ks">{html.escape(c)}</div></div>' for a, b, c in kpis)
@@ -223,7 +228,7 @@ body{{background:{_BG};color:{_TXT};font:14px/1.45 -apple-system,Segoe UI,Roboto
 <div><h2>30d smile · now vs {_WINDOW} sessions ago</h2><div class="panel">{smile_chart}</div></div>
 <div><h2>Dealer vanna by spot · now vs earlier book</h2><div class="panel">{vanna_chart}</div></div>
 </div>
-<p class="foot">Normalized skew = (25Δ put IV − 25Δ call IV) / ATM IV (1M SPX usually ~0.20–0.50). Vanna from the per-strike EOD book under the calls+/puts− convention — an inferred dealer book, not cleared inventory: read the SHAPE and the zero-line, not the level. Both vanna curves use today's spot grid. Vega / ES-per-vol-point not yet computed. Descriptor only (FlashAlpha rule 4).</p>
+<p class="foot">Normalized skew = (25Δ put IV − 25Δ call IV) / ATM IV (1M SPX usually ~0.20–0.50). Vanna from the per-strike EOD book under the calls+/puts− convention — an inferred dealer book, not cleared inventory: read the SHAPE and the zero-line, not the level. Both vanna curves use today's spot grid. ES per vol-point = vanna$ at spot ÷ ($50 × spot): ES contracts dealers trade per 1 vol-point move. Dealer vega = $ per vol-point, same convention. Descriptor only (FlashAlpha rule 4).</p>
 </div></body></html>"""
 
 

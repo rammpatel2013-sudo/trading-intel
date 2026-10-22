@@ -979,6 +979,9 @@ class TasDailyContract(Base):
     # is not null). The tape already clusters legs; without carrying the total here
     # the roll-up discarded it and the report had to re-infer structures badly.
     legged_notional: Mapped[float | None] = mapped_column(Float)
+    # Notional the tape itself tagged is_financing (deep-ITM / box / LEAP legs).
+    # Carried so the flow report reads the tape's own tag instead of re-deriving it.
+    financing_notional: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 

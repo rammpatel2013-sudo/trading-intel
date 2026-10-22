@@ -81,8 +81,13 @@ def build(*, days: int = 120, out_path: str | None = None, settings=None) -> str
         rows = s.execute(sa.text(
             "select ts::date d, advancers, decliners, net_adv, ad_line, new_highs, new_lows,"
             " pct_above_50, pct_above_200, mcclellan_osc, spx_close, divergence_state"
-            " from breadth_snapshots where ts >= now() - (:n || ' days')::interval order by ts"
+            " from breadth_snapshots where source = 'fmp_sp500'"
+            " and ts >= now() - (:n || ' days')::interval order by ts"
         ), {"n": days}).all()
+        small = dict(s.execute(sa.text(
+            "select ts::date, ad_line from breadth_snapshots where source = 'fmp_sp600'"
+            " and ts >= now() - (:n || ' days')::interval order by ts"
+        ), {"n": days}).all())
     if not rows:
         raise ValueError("no breadth rows banked")
     d = [str(r[0]) for r in rows]
@@ -91,6 +96,11 @@ def build(*, days: int = 120, out_path: str | None = None, settings=None) -> str
     body = (
         _line(d, [("A-D line (cumulative)", f(4), CYAN)], "ADVANCE / DECLINE LINE",
               "cumulative net advancers, S&P 500 constituents", None)
+        + (_line(d, [("A-D line S&P 600", [(float(small[r[0]]) if small.get(r[0]) is not None else None)
+                                          for r in rows], AMBER)],
+                 "SMALL-CAP A-D LINE (S&P 600)",
+                 "Norseman's first rail to roll over; banked from 2026-10 (IJR holdings)", None)
+           if small else "")
         + _line(d, [("% > 50DMA", f(7), AMBER), ("% > 200DMA", f(8), VIOLET)],
                 "PARTICIPATION", "share of constituents above their moving average", None)
         + _line(d, [("new highs", f(5), GREEN), ("new lows", f(6), RED)],

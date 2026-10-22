@@ -153,13 +153,27 @@ def rollup_by_contract(df: pd.DataFrame, *, min_prints: int = 1) -> pd.DataFrame
         "sell_notional",
         "net_dollar_delta",
         "dominant_side",
+        "legged_notional",
+        "financing_notional",
     ]
     if df is None or df.empty:
         return pd.DataFrame(columns=cols)
 
     is_buy = df["side"] == "buy"
     is_sell = df["side"] == "sell"
+    # Notional printed inside a multi-leg structure, per the tape's same-poll
+    # leg clustering. Degrades to 0.0 for frames without the column (older tests).
+    if "leg_group" in df.columns:
+        _legged = df["notional"].where(df["leg_group"].notna(), 0.0)
+    else:
+        _legged = pd.Series(0.0, index=df.index)
+    if "is_financing" in df.columns:
+        _fin = df["notional"].where(df["is_financing"].fillna(False).astype(bool), 0.0)
+    else:
+        _fin = pd.Series(0.0, index=df.index)
     g = df.assign(
+        legged_notional=_legged,
+        financing_notional=_fin,
         buy_flag=is_buy.astype(int),
         sell_flag=is_sell.astype(int),
         buy_notional=df["notional"].where(is_buy, 0.0),
@@ -168,6 +182,8 @@ def rollup_by_contract(df: pd.DataFrame, *, min_prints: int = 1) -> pd.DataFrame
     out = g.agg(
         n_prints=("notional", "size"),
         total_notional=("notional", "sum"),
+        legged_notional=("legged_notional", "sum"),
+        financing_notional=("financing_notional", "sum"),
         total_size=("size", "sum"),
         avg_price=("price", "mean"),
         spot=("spot", "mean"),

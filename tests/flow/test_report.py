@@ -179,3 +179,21 @@ def test_build_flow_report_end_to_end(session: Session) -> None:
     assert c0["expiry"] == "2026-09-18"
     assert c0["build_side"] == "accumulation"
     assert isinstance(c0["first_date"], str)
+
+
+def test_classify_uses_tape_financing_tag_for_index() -> None:
+    import pandas as pd
+    from datetime import date
+    from trading_intel.flow.report import classify_contracts
+
+    df = pd.DataFrame([
+        {"root": "SPX", "expiry": "2026-12-18", "strike": 7600.0, "cp": "C",
+         "total_notional": 1e8, "avg_delta": 0.6, "avg_spot": 7650.0,
+         "financing_notional": 8e7, "leg_share": 0.0},
+        {"root": "AAPL", "expiry": "2026-12-18", "strike": 150.0, "cp": "C",
+         "total_notional": 1e8, "avg_delta": 0.6, "avg_spot": 250.0,
+         "financing_notional": 8e7, "leg_share": 0.0},
+    ])
+    out = classify_contracts(df, as_of=date(2026, 10, 2))
+    assert bool(out.loc[0, "is_financing"]) is True
+    assert bool(out.loc[1, "is_financing"]) is False  # single names never suppressed

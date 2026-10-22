@@ -142,6 +142,9 @@ class Settings(BaseSettings):
     # Jun→Jul), and index_walls_am snapshots their per-strike chain once in the
     # AM (settled-overnight OI -> fresh walls without the storage of intraday).
     INDEX_ROOTS: str = "SPX,SPY,QQQ"
+    # Norseman's current cyclical BUY date (ISO). Update in .env when NMT issues a
+    # new cyclical buy/sell — the violation count restarts from here (N6).
+    NORSEMAN_BULL_START: str = "2025-04-08"
 
     # ── Constant-maturity forward IV (index ETFs) ─────────────────────
     # The index-ETF complement to skew_snapshots. These roots are excluded from

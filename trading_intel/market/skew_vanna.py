@@ -114,7 +114,25 @@ class VannaRead:
     zero_now: float | None = None
     zero_before: float | None = None
     inverted: bool = False
+    es_per_volpt_now: float | None = None
+    es_per_volpt_before: float | None = None
+    vega_at_spot_now: float | None = None
+    vega_at_spot_before: float | None = None
     notes: list[str] = field(default_factory=list)
+
+
+ES_MULT = 50.0  # $ per ES point
+
+
+def es_per_vol_point(vanna_bn: float | None, spot: float | None, *, mult: float = ES_MULT) -> float | None:
+    """ES contracts of dealer delta-hedge per 1 vol-point move (from vanna$ in $bn).
+
+    vanna$ is $ delta per 1 vol-point; one ES contract carries ``mult × spot`` of
+    delta. Positive = dealers BUY ES as vol RISES (calls+/puts− convention).
+    """
+    if vanna_bn is None or not spot:
+        return None
+    return vanna_bn * 1e9 / (mult * spot)
 
 
 def vanna_read(now: dict[str, Any], before: dict[str, Any] | None) -> VannaRead | None:
@@ -137,6 +155,12 @@ def vanna_read(now: dict[str, Any], before: dict[str, Any] | None) -> VannaRead 
     if prev:
         vr.at_spot_before = _at(grid, prev, spot)
         vr.zero_before = _interp_zero(grid, prev, spot)
+    vr.es_per_volpt_now = es_per_vol_point(vr.at_spot_now, spot)
+    vr.es_per_volpt_before = es_per_vol_point(vr.at_spot_before, spot)
+    if "vega" in p:
+        vr.vega_at_spot_now = _at(grid, [float(v) for v in p["vega"]["all"]], spot)
+    if prev and before and "vega" in before["profiles"]:
+        vr.vega_at_spot_before = _at(grid, [float(v) for v in before["profiles"]["vega"]["all"]], spot)
     a, b = vr.at_spot_now, vr.at_spot_before
     if a is not None and b is not None and (a > 0) != (b > 0):
         vr.inverted = True

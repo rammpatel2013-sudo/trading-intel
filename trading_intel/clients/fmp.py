@@ -48,6 +48,14 @@ class FmpClient:
             log.warning("fmp.fetch_failed", path=path, error=msg)
             return None
 
+    def fmp(self, endpoint: str, params: dict | None = None):  # noqa: ANN201
+        """Generic ``/stable/<endpoint>`` call — same shape as ``CVForgeClient.fmp`` so
+        collectors can take either client. Returns None on any failure (graceful)."""
+        return self._get(endpoint.lstrip("/"), **(params or {}))
+
+    def close(self) -> None:
+        """No pooled connection to release (parity with CVForgeClient)."""
+
     def profile(self, ticker: str) -> dict | None:
         """Company profile (companyName, sector, industry, description, marketCap, ...)."""
         data = self._get("profile", symbol=ticker)

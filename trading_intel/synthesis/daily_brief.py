@@ -867,6 +867,12 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
     except Exception:  # noqa: BLE001 — synthesis is best-effort; brief renders without it
         market_read = None
     try:
+        from trading_intel.synthesis.zero_dte import build_zero_dte
+
+        zero_dte = build_zero_dte(session, "SPX", today=today) if not is_market_holiday(today) else None
+    except Exception:  # noqa: BLE001 — optional panel
+        zero_dte = None
+    try:
         newsletter = build_newsletter_signals(session)
     except Exception:  # noqa: BLE001
         newsletter = None
@@ -882,6 +888,7 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "through_line": _through_line(indices, vix),
         "market_read": market_read,
         "newsletter": newsletter,
+        "zero_dte": zero_dte,
         "recap": recap,
         "indices": indices,
         "mag7": mag7,

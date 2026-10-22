@@ -51,3 +51,27 @@ def test_vanna_inversion_detected() -> None:
     assert vr.inverted and vr.at_spot_now == -0.5 and vr.at_spot_before == 3
     assert 100 < vr.zero_now < 105
     assert sv.vanna_read(_prof([1, 2, 3, 2, 1], "now"), None).inverted is False
+
+
+def test_es_per_vol_point_and_vega_fields():
+    from trading_intel.market.skew_vanna import es_per_vol_point, vanna_read
+
+    assert es_per_vol_point(1.0, 5000.0) == 1e9 / (50 * 5000)
+    assert es_per_vol_point(None, 5000.0) is None
+    prof = {"found": True, "spot": 100.0, "as_of": "2026-10-01",
+            "profiles": {"spot_ref": [99.0, 100.0, 101.0],
+                         "vanna": {"all": [1.0, 2.0, 3.0]},
+                         "vega": {"all": [0.1, 0.2, 0.3]}}}
+    vr = vanna_read(prof, prof)
+    assert vr.es_per_volpt_now == es_per_vol_point(2.0, 100.0)
+    assert vr.vega_at_spot_now == 0.2 and vr.vega_at_spot_before == 0.2
+
+
+def test_bs_vega_matches_finite_difference():
+    import numpy as np
+
+    from trading_intel.greeks.black_scholes import bs_call_price, bs_vega
+
+    S, K, s, t = 100.0, np.array([105.0]), np.array([0.3]), np.array([0.25])
+    fd = (bs_call_price(S, K, s + 1e-4, t) - bs_call_price(S, K, s - 1e-4, t)) / 2e-4
+    assert abs(float(bs_vega(S, K, s, t)[0]) - float(fd[0])) < 1e-3

@@ -58,6 +58,7 @@ _LIFECYCLE_COLS = [
     "last_date",
     "build_side",
     "legged_notional",
+    "financing_notional",
     "leg_share",
 ]
 
@@ -141,6 +142,13 @@ def classify_contracts(df: pd.DataFrame, *, as_of: date,
         if has_c and has_p:
             out.loc[(out["root"] == root) & (out["expiry"] == exp) & itm_mask,
                     "is_box_leg"] = True
+    # The tape's own tag (tas_capture._is_financing, carried by the roll-up as
+    # financing_notional). Majority-financing premium counts even when today's
+    # avg_delta/spot re-derivation misses it.
+    if "financing_notional" in out.columns:
+        _fn = pd.to_numeric(out["financing_notional"], errors="coerce").fillna(0.0)
+        _tn = pd.to_numeric(out["total_notional"], errors="coerce").fillna(0.0)
+        out["is_financing"] = out["is_financing"] | ((_tn > 0) & (_fn >= 0.5 * _tn))
     out["is_financing"] = out["is_financing"] | out["is_box_leg"]
 
     # Scope the whole filter to INDEX roots. A box spread is an interest-rate
@@ -293,7 +301,7 @@ def contract_lifecycle(
     df = contracts.copy()
     df["trade_date"] = _as_day(df["trade_date"])
     for col in ("total_notional", "net_dollar_delta", "total_size", "spot",
-                "avg_delta", "legged_notional"):
+                "avg_delta", "legged_notional", "financing_notional"):
         if col not in df.columns:
             df[col] = None
         df[col] = pd.to_numeric(df.get(col), errors="coerce")
@@ -307,6 +315,7 @@ def contract_lifecycle(
         avg_spot=("spot", "mean"),
         avg_delta=("avg_delta", "mean"),
         legged_notional=("legged_notional", "sum"),
+        financing_notional=("financing_notional", "sum"),
         first_date=("trade_date", "min"),
         last_date=("trade_date", "max"),
     ).reset_index()
@@ -388,6 +397,7 @@ def load_daily_contract(
                 "spot": r.spot,
                 "avg_delta": r.avg_delta,
                 "legged_notional": getattr(r, "legged_notional", None),
+                "financing_notional": getattr(r, "financing_notional", None),
             }
             for r in rows
         ]

@@ -790,11 +790,38 @@ def _market_read_section(ctx: dict[str, Any]) -> str:
     )
 
 
+def _zero_dte_section(ctx: dict[str, Any]) -> str:
+    z = ctx.get("zero_dte") or {}
+    if not z:
+        return ""
+    rng = z.get("range") or (None, None)
+    net = z.get("net_gex") or 0
+    ncls = "arw-up" if net > 0 else "arw-dn" if net < 0 else "arw-flat"
+    flip = z.get("flip")
+    spot = z.get("spot")
+    side = ""
+    if flip and spot:
+        side = " — spot ABOVE the 0DTE flip" if spot >= flip else " — spot BELOW the 0DTE flip"
+    phase = z.get("burnoff_phase")
+    fs = z.get("front_share")
+    return f"""<h2 class="sec"><span class="n">00b</span>0DTE gamma map — SPX {_esc(z.get("expiry"))}</h2>
+<div class="card"><table><tbody>
+<tr><td class="d">Spot / 0DTE flip</td><td>{_fmt(spot, 0)} / {_fmt(flip, 0)}</td><td class="d dim">{_esc(side)}</td></tr>
+<tr><td class="d">0DTE call wall</td><td>{_fmt(z.get("call_wall"), 0)}</td><td class="d dim">largest today-expiry call γ·OI at/above spot</td></tr>
+<tr><td class="d">0DTE put wall</td><td>{_fmt(z.get("put_wall"), 0)}</td><td class="d dim">largest today-expiry put γ·OI at/below spot</td></tr>
+<tr><td class="d">Net 0DTE GEX</td><td class="{ncls}">{_esc(z.get("net_sign"))}</td><td class="d dim">calls+ / puts− convention</td></tr>
+<tr><td class="d">1σ session range</td><td>{_fmt(rng[0], 0)} – {_fmt(rng[1], 0)}</td><td class="d dim">±{_fmt(z.get("em"), 0)} pts · 0DTE ATM IV {_fmt((z.get("atm_iv") or 0) * 100, 1)}%</td></tr>
+<tr><td class="d">Front gamma burn-off</td><td>{_esc(phase or "—")}</td><td class="d dim">front-expiry share {(_fmt(fs * 100, 0) + "%") if fs is not None else "—"}</td></tr>
+</tbody></table>
+<div class="note">From the 08:35 index chain snapshot (live intraday GEX is empty pre-open). Inferred dealer book — read the sign and the levels, not the size. Descriptor only (rule 4).</div></div>"""
+
+
 def render_html(ctx: dict[str, Any]) -> str:
     """Render the full daily-brief HTML from the context dict."""
     through = _esc(ctx.get("through_line") or "")
     body = (
         _market_read_section(ctx)
+        + _zero_dte_section(ctx)
         + _index_board(ctx)
         + _mag7_section(ctx)
         + _flows_section(ctx)

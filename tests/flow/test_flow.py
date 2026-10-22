@@ -107,3 +107,16 @@ def test_scorecard_min_days_drops_one_day_flukes() -> None:
     board = score_names(daily, min_days=2)
     assert "FLUKE" not in set(board["root"])
     assert "STEADY" in set(board["root"])
+
+
+def test_rollup_by_contract_carries_financing_notional() -> None:
+    df = _prints()
+    df["is_financing"] = [True] + [False] * (len(df) - 1)
+    out = rollup_by_contract(derive(df))
+    assert "financing_notional" in out.columns
+    assert out["financing_notional"].sum() == df.loc[df["is_financing"], "notional"].sum()
+
+
+def test_rollup_by_contract_financing_absent_column_is_zero() -> None:
+    out = rollup_by_contract(derive(_prints()))
+    assert (out["financing_notional"] == 0).all()
