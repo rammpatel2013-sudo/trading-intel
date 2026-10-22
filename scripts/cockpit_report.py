@@ -546,7 +546,7 @@ def _ensure_fresh(settings, roots: tuple[str, ...]) -> None:
 
         from trading_intel.memory.db import make_session_factory
         from trading_intel.memory.models import GreeksSnapshot as G
-        from trading_intel.timeutils import eastern_now
+        from trading_intel.timeutils import EASTERN, eastern_now
 
         now = eastern_now()
         if now.weekday() >= 5:
@@ -560,6 +560,15 @@ def _ensure_fresh(settings, roots: tuple[str, ...]) -> None:
             newest = dict(s.execute(
                 select(G.symbol, func.max(G.ts)).where(G.symbol.in_(roots)).group_by(G.symbol)
             ).all())
+        def _naive_et(ts):
+            # NAS Postgres hands back tz-aware (UTC) timestamps; cutoff is naive ET.
+            # Comparing them raised TypeError, which the except below swallowed, so the
+            # refresh silently never ran and every push repeated the stored row (seen 10/16-10/22).
+            if ts is not None and getattr(ts, "tzinfo", None) is not None:
+                return ts.astimezone(EASTERN).replace(tzinfo=None)
+            return ts
+
+        newest = {k: _naive_et(v) for k, v in newest.items()}
         stale = [r for r in roots if newest.get(r) is None or newest[r] < cutoff]
         if not stale:
             return
