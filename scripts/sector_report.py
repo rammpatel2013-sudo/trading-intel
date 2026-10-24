@@ -170,6 +170,42 @@ def _internals_card(P: dict) -> str:
     )
 
 
+def _gamma_split_card(P: dict) -> str:
+    gs = _g(P, "gamma_split", {}) or {}
+    if not gs or gs.get("label") in (None, "pending"):
+        return (
+            '<div class="card gsplit"><div class="lbl">Gamma split · cyclicals vs defensives</div>'
+            '<div class="mutv" style="font-size:14px">awaiting CVForge sector snapshot</div></div>'
+        )
+    label = str(gs.get("label"))
+    pill = {"fragile-index": "red", "broad-short": "red", "cushioned-index": "grn", "broad-pin": "grn"}.get(label, "amb")
+
+    def bucket(name, b):
+        sign = b.get("sign")
+        col = "var(--red)" if sign == "short" else ("var(--grn)" if sign == "long" else "var(--mut)")
+        gex = b.get("gex_total")
+        spark = _spark(b.get("history"), w=110, h=26, color="#ff5d6a" if sign == "short" else "#2fe0a6", fill=True)
+        shorts = ", ".join(b.get("short_gamma") or []) or "—"
+        longs = ", ".join(b.get("long_gamma") or []) or "—"
+        return (
+            f'<div class="gbucket"><div class="gname">{name}</div>'
+            f'<div class="gbig" style="color:{col}">{(sign or "n/a").upper()} γ · {_abbr(gex)}</div>'
+            f'<div class="grow"><span>{b.get("n_above_flip", 0)} above flip · {b.get("n_below_flip", 0)} below</span>'
+            f'<span>median cushion {_spct(b.get("median_cushion"))}</span></div>'
+            f'<div class="grow"><span class="neg">short: {shorts}</span><span class="pos">long: {longs}</span></div>'
+            f'<div class="gspark">{spark}<span>10d bucket GEX</span></div></div>'
+        )
+
+    return (
+        '<div class="card gsplit"><div class="lbl">Gamma split · cyclicals vs defensives</div>'
+        f'<div class="gate"><div><div class="big">{_esc(label.replace("-", " "))}</div>'
+        f'<div class="gread">{_esc(gs.get("read"))}</div></div>'
+        f'<span class="pill {pill}">{_esc(label.upper())}</span></div>'
+        f'<div class="gbuckets">{bucket("Cyclicals", gs.get("cyclical") or {})}{bucket("Defensives", gs.get("defensive") or {})}</div>'
+        '<div class="gnote">cyc = XLK XLY XLI XLF XLB XLC XLE · def = XLU XLP XLV XLRE · net GEX summed per bucket (CVForge, calls+ / puts−) · descriptor, not a signal</div></div>'
+    )
+
+
 def _banner(P: dict) -> str:
     lead = " · ".join(_g(P, "leaders", []) or []) or "—"
     lag = " · ".join(_g(P, "laggards", []) or []) or "—"
@@ -377,6 +413,14 @@ _STYLE = r"""<style>
   .sparks>div{flex:1;display:flex;flex-direction:column;gap:3px}
   .sparks span{font-size:9px;letter-spacing:.5px;color:var(--mut);text-transform:uppercase}
 
+  .gsplit .gread{font-size:14px;color:#c9d1d8;margin-top:4px;line-height:1.45}
+  .gbuckets{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .gbucket{background:var(--card2);border:1px solid var(--edge);border-radius:12px;padding:10px 11px}
+  .gname{font-size:13px;font-weight:800;letter-spacing:.8px;color:#c9d1d8;text-transform:uppercase}
+  .gbig{font-size:17px;font-weight:800;font-family:var(--mono);margin:4px 0 6px}
+  .grow{display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:#c9d1d8;margin-bottom:5px}
+  .gspark{display:flex;align-items:center;gap:8px;margin-top:4px}.gspark span{font-size:11px;color:#9aa4a9}
+  .gnote{font-size:12px;color:#9aa4a9;margin-top:10px;line-height:1.4}
   table{width:100%;border-collapse:collapse;margin-top:2px}
   th{font-size:9.5px;letter-spacing:.5px;color:var(--mut);font-weight:700;text-align:right;padding:4px 5px;border-bottom:1px solid var(--edge)}
   th.l,td.l{text-align:left}
@@ -428,6 +472,7 @@ def _render_html_str(P: dict) -> str:
     )
     body = (
         _gate_card(P)
+        + _gamma_split_card(P)
         + _internals_card(P)
         + _banner(P)
         + _howto_card(P)

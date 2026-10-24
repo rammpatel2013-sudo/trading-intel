@@ -29,6 +29,7 @@ _VOL_SURFACE_CM_SCRIPT = (
     Path(__file__).resolve().parent.parent / "scripts" / "vol_surface_cm_report.py"
 )
 _SKEW_VANNA_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "skew_vanna_report.py"
+_FOTM_PUT_IV_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "fotm_put_iv_report.py"
 
 
 def _load(path: Path, modname: str) -> ModuleType:
@@ -213,4 +214,11 @@ def build_vol_board(symbol: str, *, days: int = 400, settings: object = None) ->
         _load(_VOL_BOARD_SCRIPT, "_vol_board_impl").build(
             symbol, days=days, settings=settings
         )
+    )
+
+
+def build_fotm_put_iv(*, days: int = 400, settings: object = None) -> str:
+    """SPY vs far-OTM put-IV floor tracker (floor / WARN states + forward-return table)."""
+    return str(
+        _load(_FOTM_PUT_IV_SCRIPT, "_fotm_put_iv_report_impl").build(days=days, settings=settings)
     )

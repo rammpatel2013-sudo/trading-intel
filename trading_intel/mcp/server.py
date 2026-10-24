@@ -535,6 +535,24 @@ def build_server(
         return {"path": path, "uri": Path(path).as_uri(), "found": True}
 
     @mcp.tool()
+    def generate_fotm_put_iv_report(days: int = 400) -> dict[str, Any]:
+        """SPY vs far-OTM put IV — the 'protection floor → reclaim at highs → correction' tracker (HTML).
+
+        Reproduces the @exporiskprivate "SPY vs Avg IV F-OTM Puts" chart from our own
+        ``iv_tenor_snapshots`` (SPY 25Δ-put IV at constant-maturity 30d): dual-axis
+        chart with floor days (IV <= 13%) shaded and WARN days (IV >= 17% while SPY is
+        within 2% of its 60d high) marked, a header read (state now, sessions since
+        the last floor), and a table of every floor episode with SPY's +16d/+20d
+        forward return, days-to-WARN, and worst 30d drawdown. History from 2026-06-23
+        only. Reads the DB only — no vendor calls. Descriptor only (rule 4). Returns
+        the saved HTML path under ``reports/``.
+        """
+        from trading_intel.reports import build_fotm_put_iv
+
+        path = build_fotm_put_iv(days=days, settings=settings)
+        return {"path": path, "uri": Path(path).as_uri(), "found": True}
+
+    @mcp.tool()
     def get_breadth() -> dict[str, Any]:
         """S&P-wide market breadth + the Norseman Bull/Bear Line regime read.
 

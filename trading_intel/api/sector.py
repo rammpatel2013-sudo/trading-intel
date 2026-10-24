@@ -62,6 +62,26 @@ def _latest_greeks(session, symbol: str) -> dict:
     }
 
 
+def _gex_history(session, symbol: str, *, n: int = 10) -> list[tuple]:
+    """Last ``n`` (date, gex_total) for ``symbol`` from greeks_snapshots, ascending (one per day, newest row wins)."""
+    from sqlalchemy import select
+
+    from trading_intel.memory.models import GreeksSnapshot
+
+    rows = session.execute(
+        select(GreeksSnapshot.ts, GreeksSnapshot.gex_total)
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.gex_total.is_not(None))
+        .order_by(GreeksSnapshot.ts.desc())
+        .limit(n * 4)
+    ).all()
+    by_day: dict = {}
+    for ts, g in rows:
+        d = ts.date() if hasattr(ts, "date") else ts
+        by_day.setdefault(d, float(g))  # desc order → first seen = newest for that day
+    days = sorted(by_day)[-n:]
+    return [(d.isoformat(), by_day[d]) for d in days]
+
+
 def _iv_percentile(session, symbol: str, *, lookback: int = 252) -> float | None:
     """Percentile rank of the latest ATM IV within the symbol's own recent history."""
     from sqlalchemy import select
@@ -229,11 +249,12 @@ def _latest_sector_extras(session, symbol: str) -> dict:
     }
 
 
-def assemble_sector(rows: list[dict], *, corr: dict, internals: dict, as_of: str | None) -> dict:
+def assemble_sector(rows: list[dict], *, corr: dict, internals: dict, as_of: str | None,
+                    gex_history: dict | None = None) -> dict:
     """Pure: run the sector scan and wrap it with report metadata."""
     from trading_intel.market.sector_scan import build_sector_scan
 
-    scan = build_sector_scan(rows, corr=corr, internals=internals)
+    scan = build_sector_scan(rows, corr=corr, internals=internals, gex_history=gex_history)
     scan["as_of"] = as_of or datetime.now().isoformat(timespec="seconds")
     scan["meta"] = {
         "source": "cvforge-db + yfinance",
@@ -258,6 +279,7 @@ def build_sector(session, settings=None) -> dict:
 
     spdr_today: dict[str, float | None] = {}
     rows: list[dict] = []
+    gex_hist: dict[str, list[tuple]] = {}
     latest_ts = None
     for sym in roots:
         if not getattr(frame, "empty", True) and sym in frame.columns:
@@ -281,6 +303,7 @@ def build_sector(session, settings=None) -> dict:
         row.update(_latest_sector_extras(session, sym))  # rr25 + walls + fixed-strike footprint
         row.update(_rr25_trend(session, sym))  # rr25 history + day-over-day shift
         rows.append(row)
+        gex_hist[sym] = _gex_history(session, sym)  # for the cyclical/defensive gamma-split sparklines
         if g.get("ts") is not None and (latest_ts is None or g["ts"] > latest_ts):
             latest_ts = g["ts"]
 
@@ -294,6 +317,6 @@ def build_sector(session, settings=None) -> dict:
     internals["trend"] = trends.get("breadth")
 
     as_of = (latest_ts.isoformat() if latest_ts else None) or corr.get("as_of")
-    payload = assemble_sector(rows, corr=corr, internals=internals, as_of=as_of)
+    payload = assemble_sector(rows, corr=corr, internals=internals, as_of=as_of, gex_history=gex_hist)
     payload["trends"] = trends
     return payload

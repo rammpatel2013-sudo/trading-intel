@@ -260,7 +260,8 @@ def internals_health(spdr_dir: dict, index_dir: float | None) -> dict:
     }
 
 
-def build_sector_scan(rows: list[dict], *, corr: dict | None, internals: dict | None) -> dict:
+def build_sector_scan(rows: list[dict], *, corr: dict | None, internals: dict | None,
+                      gex_history: dict | None = None) -> dict:
     """Assemble the full sector scan: per-SPDR classification, lead/lag ranking,
     LEAP flags, the correlation gate, and the internals read.
 
@@ -292,6 +293,7 @@ def build_sector_scan(rows: list[dict], *, corr: dict | None, internals: dict | 
 
     return {
         "sectors": ranked,
+        "gamma_split": gamma_split(classified, gex_history=gex_history),
         "leaders": [d["symbol"] for d in leaders],
         "laggards": [d["symbol"] for d in laggards],
         "leap_candidates": candidates,
@@ -307,3 +309,71 @@ def build_sector_scan(rows: list[dict], *, corr: dict | None, internals: dict | 
         "internals": internals or {},
         "n_sectors": len(rows),
     }
+
+
+# ── Gamma split: cyclicals vs defensives (added 2026-10-22) ──────────────────
+CYCLICAL = ("XLK", "XLY", "XLI", "XLF", "XLB", "XLC", "XLE")
+DEFENSIVE = ("XLU", "XLP", "XLV", "XLRE")
+
+
+def _bucket(classified: list[dict], members: tuple[str, ...], hist: dict | None) -> dict:
+    rows = [c for c in classified if c.get("symbol") in members and c.get("gex_total") is not None]
+    gex = sum(c["gex_total"] for c in rows)
+    above = sum(1 for c in rows if (c.get("gflip_cushion") or 0) > 0)
+    below = sum(1 for c in rows if c.get("gflip_cushion") is not None and c["gflip_cushion"] <= 0)
+    cush = sorted(c["gflip_cushion"] for c in rows if c.get("gflip_cushion") is not None)
+    med = cush[len(cush) // 2] if cush else None
+    short = sorted((c["symbol"] for c in rows if c["gex_total"] < 0), key=lambda s: s)
+    long_ = sorted((c["symbol"] for c in rows if c["gex_total"] >= 0), key=lambda s: s)
+    # bucket GEX history = sum across members per day (only days every priced member has)
+    series: list[float] = []
+    if hist:
+        by_day: dict = {}
+        for sym in members:
+            for ts, g in (hist.get(sym) or []):
+                by_day.setdefault(ts, {})[sym] = g
+        priced = {c["symbol"] for c in rows}
+        for ts in sorted(by_day):
+            d = by_day[ts]
+            if priced and priced.issubset(d.keys()):
+                series.append(sum(d[s] for s in priced))
+    return {
+        "n": len(rows),
+        "gex_total": gex if rows else None,
+        "sign": None if not rows else ("short" if gex < 0 else "long"),
+        "n_above_flip": above,
+        "n_below_flip": below,
+        "median_cushion": med,
+        "short_gamma": short,
+        "long_gamma": long_,
+        "history": series[-10:],
+    }
+
+
+def gamma_split(classified: list[dict], *, gex_history: dict | None = None) -> dict:
+    """Cyclicals-vs-defensives dealer-gamma split (descriptor, rule 4).
+
+    ``gex_history`` = {symbol: [(ts, gex_total), ...] ascending} for sparklines
+    (optional). Read: cyclicals short γ while defensives long γ = the index is
+    fragile exactly where its weight is (dealers amplify tech/financials/industrials
+    and dampen the stuff that doesn't move the index); the mirror = pinned index
+    with the cyclicals providing the cushion; both short = broad short gamma;
+    both long = broad pin.
+    """
+    cyc = _bucket(classified, CYCLICAL, gex_history)
+    dfn = _bucket(classified, DEFENSIVE, gex_history)
+    cs, ds = cyc["sign"], dfn["sign"]
+    if cs is None and ds is None:
+        label, read = "pending", "awaiting CVForge sector snapshot"
+    elif cs == "short" and ds == "long":
+        label, read = "fragile-index", "cyclicals SHORT γ / defensives LONG γ — dealers amplify where the index weight is and dampen where it isn't: the index is fragile, the hedges are in the wrong place"
+    elif cs == "long" and ds == "short":
+        label, read = "cushioned-index", "cyclicals LONG γ / defensives SHORT γ — the weight of the index is pinned; rotation lives in the defensives"
+    elif cs == "short" and ds == "short":
+        label, read = "broad-short", "both buckets SHORT γ — dealers amplify everything; expect range expansion either way"
+    elif cs == "long" and ds == "long":
+        label, read = "broad-pin", "both buckets LONG γ — dealers dampen everything; mean-reversion tape"
+    else:
+        label, read = "mixed", "one bucket unpriced — partial read"
+    return {"cyclical": cyc, "defensive": dfn, "label": label, "read": read,
+            "members": {"cyclical": list(CYCLICAL), "defensive": list(DEFENSIVE)}}
