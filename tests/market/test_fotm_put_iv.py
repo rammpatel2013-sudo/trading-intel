@@ -98,3 +98,22 @@ def test_chart_history_file_is_sane():
     spys = [float(r["spy"]) for r in rows]
     assert 0.09 < min(ivs) < 0.12 and 0.55 < max(ivs) < 0.70  # vendor labels: 11% floor, 63% Apr-25 peak
     assert 480 < min(spys) < 510 and max(spys) < 800
+
+
+def test_report_drops_weekend_and_stale_rows():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "fotm_put_iv_report.py"
+    spec = importlib.util.spec_from_file_location("_fotm_rep", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    rows = [
+        {"ts": date(2026, 6, 26), "iv_put_25d": 0.17, "spot": 730.56},  # Fri
+        {"ts": date(2026, 6, 27), "iv_put_25d": 0.174, "spot": 730.61},  # Sat -> drop
+        {"ts": date(2026, 6, 28), "iv_put_25d": 0.177, "spot": 730.61},  # Sun -> drop
+        {"ts": date(2026, 6, 29), "iv_put_25d": 0.166, "spot": 740.83},  # Mon
+        {"ts": date(2026, 7, 3), "iv_put_25d": 0.157, "spot": 740.83},   # holiday carry -> drop
+    ]
+    kept = [r["ts"] for r in mod._trading_rows(rows)]
+    assert kept == [date(2026, 6, 26), date(2026, 6, 29)]

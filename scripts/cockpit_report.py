@@ -330,6 +330,48 @@ def _eod_tag(p: dict) -> str:
             'EOD · PRIOR CLOSE</span>')
 
 
+def _opex_card(p: dict) -> str:
+    """Monthly-OpEx morning only: dealer gamma by spot, NOW (AM+PM) vs POST-SET (PM 0DTE), with Alma's feature names."""
+    o = _g(p, "opex")
+    if not o:
+        return ""
+    grid, now, post, spot = o["grid"], o["now"], o["post"], o["spot"]
+    W, H, L, R, T, B = 560, 170, 36, 548, 14, 150
+    lo, hi = grid[0], grid[-1]
+    vm = max([abs(v) for v in now + post] + [1e-9])
+    x = lambda k: L + (R - L) * (k - lo) / (hi - lo)  # noqa: E731
+    y = lambda v: (T + B) / 2 - (B - T) / 2 * v / vm  # noqa: E731
+    path = lambda vals: " ".join(f"{'M' if i == 0 else 'L'}{x(grid[i]):.1f},{y(vals[i]):.1f}" for i in range(len(grid)))  # noqa: E731
+    ticks = "".join(
+        f'<line x1="{x(f["level"]):.1f}" y1="{T}" x2="{x(f["level"]):.1f}" y2="{B}" stroke="#56636a" stroke-dasharray="2 3"/>'
+        f'<text x="{x(f["level"]) + 2:.1f}" y="{T + 10 + 11 * (i % 3)}" font-size="9" fill="#9aa4a9">{_html.escape(f["name"])} {f["level"]:,.0f}</text>'
+        for i, f in enumerate(o["post_features"])
+    )
+    svg = (
+        f'<svg viewBox="0 0 {W} {H}" width="100%" style="display:block;margin-top:6px">'
+        f'<line x1="{L}" y1="{(T + B) / 2:.1f}" x2="{R}" y2="{(T + B) / 2:.1f}" stroke="#2a3539"/>'
+        f'{ticks}'
+        f'<line x1="{x(spot):.1f}" y1="{T}" x2="{x(spot):.1f}" y2="{B}" stroke="#e9eef0" stroke-dasharray="4 3"/>'
+        f'<path d="{path(now)}" fill="none" stroke="#b48cff" stroke-width="1.8"/>'
+        f'<path d="{path(post)}" fill="none" stroke="#2fe0d6" stroke-width="1.8"/>'
+        f'<text x="{L}" y="{H - 2}" font-size="9" fill="#9aa4a9">{lo:,.0f}</text>'
+        f'<text x="{R - 30}" y="{H - 2}" font-size="9" fill="#9aa4a9">{hi:,.0f}</text>'
+        f'<text x="{x(spot) + 3:.1f}" y="{B - 2}" font-size="9" fill="#e9eef0">spot {spot:,.0f}</text>'
+        "</svg>"
+    )
+    def flips(k: str) -> str:
+        v = o.get(k)
+        return f"{v:,.0f}" if isinstance(v, (int, float)) else "—"
+    feats = " · ".join(f'{_html.escape(f["name"])} <b>{f["level"]:,.0f}</b>' for f in o["post_features"]) or "no features in window"
+    return (
+        '<div class="card"><div class="lbl">OpEx morning · dealer gamma by spot — '
+        '<span style="color:#b48cff">NOW (AM-settled + PM)</span> vs <span style="color:#2fe0d6">POST-SET (PM 0DTE only)</span></div>'
+        f"{svg}"
+        f'<div class="fine">Flip NOW {flips("now_flip")} → POST-SET {flips("post_flip")} · AM-settled {o["am_oi"]:,} OI in {o["am_contracts"]} contracts '
+        f'leaves at the SET; PM book {o["pm_oi"]:,} OI stays.<br>After the SET: {feats}.<br>{_html.escape(o["read"])}</div></div>'
+    )
+
+
 def _panel(p: dict) -> str:
     """Full set of cards + a footer meta line for ONE symbol."""
     meta = _g(p, "meta", {}) or {}
@@ -340,6 +382,7 @@ def _panel(p: dict) -> str:
     )
     return (
         _since_open_card(p)
+        + _opex_card(p)
         + _regime_card(p)
         + _em_card(p)
         + _dp_card(p)
@@ -521,6 +564,13 @@ def _collect(session, symbols: tuple[str, ...]) -> dict:
         try:
             payloads[sym] = build_positioning(session, sym)
             payloads[sym]["intraday"] = _intraday_rows(session, sym)
+            if sym == "SPX":
+                try:
+                    from trading_intel.synthesis.opex_split import build_opex_split
+
+                    payloads[sym]["opex"] = build_opex_split(session, sym)   # None except monthly-OpEx mornings
+                except Exception as exc:  # noqa: BLE001 — additive card
+                    log.warning("cockpit.opex_split_failed", error=str(exc))
         except Exception as exc:  # noqa: BLE001 — one bad symbol shouldn't kill the report
             log.warning("cockpit.symbol_failed", symbol=sym, error=str(exc))
     return payloads

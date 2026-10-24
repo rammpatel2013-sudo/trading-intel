@@ -129,9 +129,15 @@ def _index_block(session: Session, symbol: str) -> dict[str, Any] | None:
     spot, flip = last.get("spot"), last.get("gex_flip")
     vf = ((spot - flip) / flip * 100.0) if (spot and flip) else None
     tail = rows[-_SPARK_POINTS:]
+    # the last CLOSE strictly before today — the anchor for the SPY-implied pre-open
+    # spot (the newest row can be today's 09:45 intraday snapshot when the brief is
+    # re-run during the session, and that is not a close)
+    today = date.today()
+    prev = next((r for r in reversed(rows) if (r.get("session") or _as_date(r.get("date")) or today) < today), None)
     return {
         "symbol": symbol,
         "spot": spot,
+        "prev_close": prev.get("spot") if prev else None,
         "flip": flip,
         "regime": last.get("regime"),
         "spot_vs_flip_pct": vf,
@@ -875,8 +881,14 @@ _PRICE_LEVELS = frozenset({
 _PRICE_BAND = 0.15
 
 
-def _sanitize_levels(newsletter: dict[str, Any] | None, spot: float | None) -> dict[str, Any] | None:
-    """Drop price-type newsletter levels that cannot be SPX prices near spot."""
+def _sanitize_levels(
+    newsletter: dict[str, Any] | None, spot: float | None, dropped: list[dict[str, Any]] | None = None
+) -> dict[str, Any] | None:
+    """Drop price-type newsletter levels that cannot be SPX prices near spot.
+
+    ``dropped`` (when given) collects what was filtered, so the brief can show
+    the extractor's mis-tags instead of hiding them.
+    """
     if not newsletter or not spot:
         return newsletter
     lo, hi = spot * (1 - _PRICE_BAND), spot * (1 + _PRICE_BAND)
@@ -893,6 +905,8 @@ def _sanitize_levels(newsletter: dict[str, Any] | None, spot: float | None) -> d
             except (TypeError, ValueError):
                 fv = None
             if nm in _PRICE_LEVELS and (fv is None or not (lo <= fv <= hi)):
+                if dropped is not None:
+                    dropped.append({"source": name, "name": nm, "value": v, "note": lv.get("note")})
                 continue
             kept.append(lv)
         src["levels"] = kept
@@ -901,19 +915,71 @@ def _sanitize_levels(newsletter: dict[str, Any] | None, spot: float | None) -> d
     return out
 
 
-def _pre_open_spot(session: Session, today: date) -> dict[str, Any] | None:
-    """Spot implied by TODAY's 08:35 index chain, when it is newer than the board."""
+def _spy_implied_spot(spx_close: float | None, today: date) -> dict[str, Any] | None:
+    """SPX pre-open = SPX close × (SPY extended-hours last ÷ SPY previous close).
+
+    SPY trades from 04:00; SPX does not print until 09:30. This is the cockpit's
+    pre-open rule, moved into the brief. FMP ``aftermarket-trade`` is the
+    extended-hours tape (price + timestamp); ``quote`` carries previousClose.
+    Basis drift between the ETF and cash is a few points. None when FMP is
+    unavailable or the last trade is not from today.
+    """
+    if not spx_close:
+        return None
+    try:
+        from datetime import datetime
+
+        from trading_intel.clients.fmp import FmpClient
+        from trading_intel.timeutils import EASTERN
+
+        c = FmpClient(get_settings())
+        trade = c.fmp("aftermarket-trade", {"symbol": "SPY"}) or []
+        quote = c.fmp("quote", {"symbol": "SPY"}) or []
+        t = trade[0] if isinstance(trade, list) and trade else {}
+        q = quote[0] if isinstance(quote, list) and quote else {}
+        px, prev, ts = t.get("price"), q.get("previousClose"), t.get("timestamp")
+        if not (px and prev and ts):
+            return None
+        when = datetime.fromtimestamp(float(ts) / (1000.0 if float(ts) > 1e11 else 1.0), tz=EASTERN)
+        if when.date() != today:
+            return None
+        return {"spot": round(float(spx_close) * float(px) / float(prev), 2),
+                "spy": float(px), "spy_prev": float(prev), "at": when.strftime("%H:%M")}
+    except Exception:  # noqa: BLE001 — quote feed down: the chain fallback still works
+        log.warning("daily_brief.spy_spot_failed", exc_info=True)
+        return None
+
+
+def _pre_open_spot(session: Session, today: date, spx_close: float | None = None) -> dict[str, Any] | None:
+    """Pre-open SPX: SPY-implied (primary) with the 08:35 chain's Δ=0.50 strike as the check.
+
+    Both are kept so the gap between them can be audited; a gap over 0.4 % is
+    logged (a stale chain, a wide pre-open quote, or a bad SPY print).
+    """
+    chain = None
     try:
         from trading_intel.synthesis.zero_dte import chain_spot
 
         cs = chain_spot(session, _DOC_ROOT)
+        if cs and cs["ts"].date() == today:
+            chain = cs["spot"]
     except Exception:  # noqa: BLE001
         log.warning("daily_brief.chain_spot_failed", exc_info=True)
+    spy = _spy_implied_spot(spx_close, today)
+    if spy:
+        out = {"spot": spy["spot"], "label": f"SPY {spy['spy']:.2f} at {spy['at']} vs close {spy['spy_prev']:.2f}",
+               "src": "spy", "chain_spot": chain, "spy": spy}
+    elif chain is not None:
+        out = {"spot": chain, "label": "08:35 index chain (Δ=0.50 strike)", "src": "chain", "chain_spot": chain}
+    else:
         return None
-    if not cs or cs["ts"].date() != today:
-        return None
-    return {"spot": cs["spot"], "ts": cs["ts"].isoformat(timespec="minutes"),
-            "label": "08:35 index chain (Δ=0.50 strike)"}
+    if chain is not None and out["spot"]:
+        gap = abs(out["spot"] - chain) / out["spot"] * 100.0
+        out["gap_pct"] = round(gap, 2)
+        if gap > 0.4:
+            log.warning("daily_brief.pre_open_spot_gap", spy_implied=out["spot"], chain=chain, gap_pct=round(gap, 2))
+    out["ts"] = today.isoformat()
+    return out
 
 
 def _apply_pre_open_spot(indices: list[dict[str, Any]], pre: dict[str, Any] | None, today: date) -> None:
@@ -1055,7 +1121,8 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
     # the 08:45 edition said "data through the 2026-10-22 close" at 8 am.
     session_date = _prev_session(today - timedelta(days=1))
     indices = [b for s in _INDEX_ROOTS if (b := _index_block(session, s)) is not None]
-    pre_open = _pre_open_spot(session, today) if not is_market_holiday(today) else None
+    spx_close = next((ix.get("prev_close") for ix in indices if ix.get("symbol") == _DOC_ROOT), None)
+    pre_open = _pre_open_spot(session, today, spx_close) if not is_market_holiday(today) else None
     _apply_pre_open_spot(indices, pre_open, today)
     vix = _vix_block(session)
     doc_index = next((ix for ix in indices if ix["symbol"] == _DOC_ROOT), None)
@@ -1076,8 +1143,9 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         zero_dte = build_zero_dte(session, "SPX", today=today) if not is_market_holiday(today) else None
     except Exception:  # noqa: BLE001 — optional panel
         zero_dte = None
+    filtered_levels: list[dict[str, Any]] = []
     try:
-        newsletter = _sanitize_levels(build_newsletter_signals(session), (doc_index or {}).get("spot"))
+        newsletter = _sanitize_levels(build_newsletter_signals(session), (doc_index or {}).get("spot"), filtered_levels)
     except Exception:  # noqa: BLE001
         newsletter = None
     if market_read and pre_open and (doc_index or {}).get("spot"):
@@ -1103,6 +1171,8 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "through_line": _through_line(indices, vix),
         "pre_open_spot": pre_open,
         "book_read": [],
+        "filtered_levels": filtered_levels,
+        "checks": [],
         "expiry_clock": _expiry_clock_block(today),
         "market_read": market_read,
         "newsletter": newsletter,
@@ -1139,6 +1209,12 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
 
 
 def build_brief_html(session: Session, settings: Settings | None = None) -> tuple[str, dict[str, Any]]:
-    """Return (html, context) for the daily brief."""
+    """Return (html, context) for the daily brief — with the self-audit run over the context."""
     ctx = build_brief_context(session, settings)
+    try:
+        from trading_intel.synthesis.brief_checks import run_checks
+
+        ctx["checks"] = run_checks(session, ctx)
+    except Exception:  # noqa: BLE001 — the audit must never block the brief
+        log.warning("daily_brief.checks_failed", exc_info=True)
     return render_html(ctx), ctx

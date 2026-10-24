@@ -88,6 +88,16 @@ def _chain_to_records(
             return pd.to_numeric(df[name], errors="coerce")
         return pd.Series(float("nan"), index=df.index)
 
+    # AM-settled SPX monthlies (3rd-Friday, contract root ``.SPX``) vs the PM-settled
+    # weeklies (``.SPXW``): probed 2026-10-22 — Convex's contract symbol carries the
+    # root (``.SPX261120C7425`` vs ``.SPXW261022C7425``). Tag the AM-settled rows with
+    # their own ``source`` so the OpEx-morning NOW (AM+PM) vs POST-SET (PM only) split
+    # is a WHERE clause, no migration (``source`` is already in the unique key).
+    src = pd.Series(source, index=df.index)
+    if symbol.upper() == "SPX" and "symbol" in df.columns:
+        root = df["symbol"].astype(str).str.extract(r"^\.([A-Z]+)\d")[0]
+        src = src.where(root != "SPX", source + "_set")
+
     out = pd.DataFrame(
         {
             "symbol": symbol,
@@ -96,7 +106,7 @@ def _chain_to_records(
             "strike": col("strike").astype(float),
             "cp": cp,
             "dte": dte.astype("Int64"),
-            "source": source,
+            "source": src,
             **{name: col(name) for name in (*_INT_COLS, *_FLOAT_COLS)},
         }
     )
@@ -153,7 +163,8 @@ def run(
         # The EOD book supersedes it, so readers never sum two books for one day.
         session.execute(
             delete(OiChainEod).where(
-                OiChainEod.symbol == symbol, OiChainEod.ts == ts, OiChainEod.source == "convex_am"
+                OiChainEod.symbol == symbol, OiChainEod.ts == ts,
+                OiChainEod.source.in_(("convex_am", "convex_am_set")),
             )
         )
         dialect = session.bind.dialect.name if session.bind is not None else "postgresql"

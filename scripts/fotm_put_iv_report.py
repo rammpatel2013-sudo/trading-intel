@@ -219,6 +219,22 @@ th.l,td.l{{text-align:left}}.pos{{color:#2fe0a6}}.neg{{color:{IV_C}}}.mut{{color
 </div></body></html>"""
 
 
+def _trading_rows(rows: list[dict]) -> list[dict]:
+    """Keep real sessions only. The iv_tenor job also writes on weekends/holidays,
+    carrying the last session forward; those copies would count as extra
+    "sessions" in the +16/+20d returns and the 60-session high. Uses the repo's
+    NYSE calendar (``timeutils.is_trading_session``)."""
+    from trading_intel.timeutils import is_trading_session
+
+    out = []
+    for r in rows:
+        ts = r.get("ts")
+        d = ts.date() if isinstance(ts, datetime) else ts
+        if d is not None and is_trading_session(d):
+            out.append(r)
+    return out
+
+
 def _fetch(days: int, *, settings=None) -> list[dict]:
     eng = create_engine((settings or get_settings()).DATABASE_URL)
     with eng.connect() as cx:
@@ -226,7 +242,7 @@ def _fetch(days: int, *, settings=None) -> list[dict]:
             "SELECT ts, iv_put_25d, spot, n_expiries FROM iv_tenor_snapshots "
             "WHERE symbol='SPY' AND tenor_dte=30 AND ts >= now() - (:d || ' days')::interval ORDER BY ts ASC"),
             {"d": days}).mappings().all()
-    return [dict(r) for r in rows]
+    return _trading_rows([dict(r) for r in rows])
 
 
 def _chart_history(path: Path = _CHART_HISTORY) -> list[dict]:
