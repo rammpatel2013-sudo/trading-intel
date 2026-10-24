@@ -39,7 +39,7 @@ log = structlog.get_logger(__name__)
 _SYMBOL = "SPX"
 _TENOR = 30
 _WINDOW = 14  # sessions shown in the strip / charts
-_DEFAULT_OUT = Path("reports") / f"gex_transition_{date.today().isoformat()}.html"
+_DEFAULT_OUT = (Path(__file__).resolve().parents[1] / "reports") / f"gex_transition_{date.today().isoformat()}.html"
 
 _BLUE = "#2f6df0"
 _RED = "#d1495b"

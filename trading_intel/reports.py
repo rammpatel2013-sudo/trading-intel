@@ -217,8 +217,15 @@ def build_vol_board(symbol: str, *, days: int = 400, settings: object = None) ->
     )
 
 
-def build_fotm_put_iv(*, days: int = 400, settings: object = None) -> str:
-    """SPY vs far-OTM put-IV floor tracker (floor / WARN states + forward-return table)."""
-    return str(
-        _load(_FOTM_PUT_IV_SCRIPT, "_fotm_put_iv_report_impl").build(days=days, settings=settings)
+def build_fotm_put_iv(*, days: int = 800, settings: object = None, with_summary: bool = False):
+    """SPY vs far-OTM put-IV floor tracker (floor / WARN states + forward-return table).
+
+    Returns the HTML path, or ``(path, summary)`` when ``with_summary`` (used by MCP).
+    """
+    res = _load(_FOTM_PUT_IV_SCRIPT, "_fotm_put_iv_report_impl").build(
+        days=days, settings=settings, return_summary=with_summary
     )
+    if with_summary:
+        path, summary = res
+        return str(path), summary
+    return str(res)

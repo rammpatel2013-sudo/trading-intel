@@ -132,7 +132,7 @@ h2{{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:{MUTED};m
 (<b>is_trading_session</b> gate); 13 stale weekend rows were removed and the cumulative
 A-D line recomputed on 2026-09-21 &#8212; it had drifted ~253 points from duplicated
 Friday counts. Descriptor only, not a signal (FlashAlpha rule 4).</p></body></html>"""
-    out = Path(out_path) if out_path else Path("reports") / f"breadth_{dt.date.today()}.html"
+    out = Path(out_path) if out_path else (Path(__file__).resolve().parents[1] / "reports") / f"breadth_{dt.date.today()}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(doc, encoding="utf-8")
     return str(out)

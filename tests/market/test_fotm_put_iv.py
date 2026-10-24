@@ -26,7 +26,7 @@ def test_clean_drops_bad_pulls_and_dedups():
 def test_states_floor_warn_neutral():
     ivs = [0.15, 0.125, 0.18, 0.18]
     spots = [700, 700, 700, 650]  # last: 7% off high → not WARN
-    pts = f.label_states(f.clean_rows(_rows(ivs, spots)))
+    pts = f.label_states(f.clean_rows(_rows(ivs, spots)), high_lookback=2)
     assert [p.state for p in pts] == ["NEUTRAL", "FLOOR", "WARN", "NEUTRAL"]
 
 
@@ -38,7 +38,7 @@ def test_clusters_merge_and_forward_stats():
         ivs[i] = 0.12
     ivs[8] = 0.18  # WARN 4 sessions after last floor day (idx 4)
     spots = [700 + i for i in range(n)]  # grinding up → near highs
-    v = f.build_view(_rows(ivs, spots))
+    v = f.build_view(_rows(ivs, spots), high_lookback=5)
     cl = v["clusters"]
     assert len(cl) == 2
     assert cl[0].n_touches == 3 and cl[0].end == date(2026, 6, 5)
@@ -52,7 +52,7 @@ def test_clusters_merge_and_forward_stats():
 def test_read_header():
     ivs = [0.12, 0.15, 0.18]
     spots = [700, 701, 702]
-    v = f.build_view(_rows(ivs, spots))
+    v = f.build_view(_rows(ivs, spots), high_lookback=3)
     r = v["read"]
     assert r["state"] == "WARN"
     assert r["days_since_floor"] == 2
@@ -63,3 +63,38 @@ def test_read_header():
 def test_empty():
     v = f.build_view([])
     assert v["read"]["state"] == "NO DATA" and v["clusters"] == []
+
+
+def test_warn_needs_full_lookback_window():
+    # IV high + SPY at its (short) high on day 3: no WARN until 60 sessions exist
+    pts = f.label_states(f.clean_rows(_rows([0.15, 0.15, 0.18], [700, 701, 702])))
+    assert [p.state for p in pts] == ["NEUTRAL", "NEUTRAL", "NEUTRAL"]
+
+
+def test_splice_chart_before_db_and_db_wins():
+    chart = _rows([0.12, 0.13, 0.14, 0.15], [600, 601, 602, 603], n_exp=None)
+    db = _rows([0.20, 0.21], [700, 701], start=date(2026, 6, 3))  # overlaps chart days 3-4
+    rows = f.splice(chart, db)
+    assert [r["source"] for r in rows] == ["chart", "chart", "db", "db"]
+    assert rows[2]["iv_put_25d"] == 0.20
+    v = f.build_view(rows)
+    assert v["read"]["db_start"] == "2026-06-03" and v["read"]["first_date"] == "2026-06-01"
+    assert v["clusters"][0].source == "chart"
+
+
+def test_splice_without_db_returns_chart():
+    chart = _rows([0.12], [600], n_exp=None)
+    assert [r["source"] for r in f.splice(chart, [])] == ["chart"]
+
+
+def test_chart_history_file_is_sane():
+    import csv
+    from pathlib import Path
+
+    p = Path(__file__).resolve().parents[2] / "data" / "reference" / "fotm_put_iv_chart_history.csv"
+    rows = list(csv.DictReader(p.open(encoding="utf-8")))
+    assert rows[0]["date"] == "2024-10-16" and len(rows) > 450
+    ivs = [float(r["put_iv"]) for r in rows]
+    spys = [float(r["spy"]) for r in rows]
+    assert 0.09 < min(ivs) < 0.12 and 0.55 < max(ivs) < 0.70  # vendor labels: 11% floor, 63% Apr-25 peak
+    assert 480 < min(spys) < 510 and max(spys) < 800

@@ -7,17 +7,23 @@ FLOOR / WARN states, and tabulates what SPY did after every prior floor
 episode — so the chart's n=2 anecdote becomes a running stat as history banks.
 
 Brain = pure ``trading_intel.market.fotm_put_iv`` (unit-tested). Descriptor
-only (FlashAlpha rule 4). History starts 2026-06-23 (collector birth); the two
-2025 episodes on the vendor chart are NOT reconstructible (no historical chains).
+only (FlashAlpha rule 4). Our collector starts 2026-06-23; everything before
+that (2024-10-16 →) is the vendor chart itself, digitized once from the
+2026-10-22 @exporiskprivate image into
+``data/reference/fotm_put_iv_chart_history.csv`` (log IV axis refit on the
+printed labels; SPY checked against real closes, ~2 pt error). That file is read
+ONLY by this report. DB rows win from their first date on.
 
 Run (Windows; DATABASE_URL pointed at the NAS):
     .venv\\Scripts\\python scripts\\fotm_put_iv_report.py
-    .venv\\Scripts\\python scripts\\fotm_put_iv_report.py --days 400 --floor 0.13 --reclaim 0.17
+    .venv\\Scripts\\python scripts\\fotm_put_iv_report.py --days 800 --floor 0.13 --reclaim 0.17
 """
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime
+import csv
+import math
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
@@ -27,10 +33,12 @@ from trading_intel.market import fotm_put_iv as F
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _OUT = _REPO_ROOT / "reports"
+_CHART_HISTORY = _REPO_ROOT / "data" / "reference" / "fotm_put_iv_chart_history.csv"
 
 BG, CARD, EDGE = "#0b0d11", "#151920", "#2a313c"
 TXT, MUT = "#f2f4f7", "#aab3bf"  # high-contrast labels (Mithil: no small grey text)
 SPY_C, IV_C, FLOOR_C, WARN_C, GRID = "#ffffff", "#ff4d5a", "#ff4d5a", "#ffb020", "#242a34"
+SPLICE_C = "#7fb6ff"
 
 
 def _p(v, d=1):
@@ -41,8 +49,12 @@ def _sp(v, d=1):
     return "—" if v is None else f"{v * 100:+.{d}f}%"
 
 
-def _chart(pts, *, floor_iv, reclaim_iv, w=560, h=330):
-    """Dual-axis: SPY (left, white) vs put IV (right, red); floor bars + WARN markers."""
+def _chart(pts, *, floor_iv, reclaim_iv, w=560, h=360):
+    """Dual-axis like the vendor chart: SPY (top, white, linear) vs put IV (bottom, red, LOG axis).
+
+    Floor days shaded, WARN days dotted on the SPY line, a blue marker where the
+    digitized vendor-chart history hands over to our own iv_tenor data.
+    """
     ml, mr, mt, mb = 60, 66, 22, 34
     pw, ph = w - ml - mr, h - mt - mb
     n = len(pts)
@@ -51,63 +63,69 @@ def _chart(pts, *, floor_iv, reclaim_iv, w=560, h=330):
     spots = [p.spot for p in pts]
     ivs = [p.iv for p in pts]
     s_lo, s_hi = min(spots), max(spots)
-    s_pad = (s_hi - s_lo) * 0.08 or 1
+    s_pad = (s_hi - s_lo) * 0.06 or 1
     s_lo, s_hi = s_lo - s_pad, s_hi + s_pad
-    # IV axis: give the price line the top ~55% and IV the bottom ~60% (overlap like the vendor chart)
-    i_lo = min(min(ivs), floor_iv) * 0.85
-    i_hi = max(max(ivs), reclaim_iv) * 1.9
+    # IV on a log axis (the vendor chart is log): lower ~62% of the plot, floor band readable
+    l_lo = math.log10(min(min(ivs), floor_iv) * 0.92)
+    l_hi = math.log10(max(max(ivs), reclaim_iv) * 1.05)
 
     def sx(i):
         return ml + pw * i / (n - 1)
 
-    def sy_s(v):
-        return mt + ph * 0.55 * (s_hi - v) / (s_hi - s_lo)
+    def sy_s(v):  # SPY in the top 50%
+        return mt + ph * 0.50 * (s_hi - v) / (s_hi - s_lo)
 
-    def sy_i(v):
-        return mt + ph * (i_hi - v) / (i_hi - i_lo)
+    def sy_i(v):  # IV in the bottom 62% (overlaps like the vendor chart)
+        return mt + ph * 0.38 + ph * 0.62 * (l_hi - math.log10(v)) / (l_hi - l_lo)
 
     parts = [f'<rect width="{w}" height="{h}" fill="{CARD}" rx="10"/>']
-    # floor-day shading
+    bw = max(2.0, pw / (n - 1))
     for i, p in enumerate(pts):
         if p.state == "FLOOR":
-            x0 = sx(i) - (pw / (n - 1)) / 2
-            parts.append(f'<rect x="{x0:.1f}" y="{mt}" width="{max(2.0, pw/(n-1)):.1f}" height="{ph}" fill="{FLOOR_C}" opacity="0.28"/>')
-    # grid + right axis (IV)
-    for tv in (floor_iv, reclaim_iv, 0.25, 0.35):
-        if tv > i_hi:
+            parts.append(f'<rect x="{sx(i) - bw / 2:.1f}" y="{mt}" width="{bw:.1f}" height="{ph}" fill="{FLOOR_C}" opacity="0.30"/>')
+    # Jan / Jul gridlines + labels
+    for i, p in enumerate(pts):
+        if i and p.ts.month in (1, 7) and pts[i - 1].ts.month != p.ts.month:
+            parts.append(f'<line x1="{sx(i):.1f}" y1="{mt}" x2="{sx(i):.1f}" y2="{mt + ph}" stroke="{GRID}" stroke-width="1"/>')
+            parts.append(f'<text x="{sx(i):.1f}" y="{h - 10}" fill="{MUT}" font-size="15" text-anchor="middle">{p.ts:%b %y}</text>')
+    # IV reference lines (right axis)
+    for tv in (floor_iv, reclaim_iv, 0.25, 0.40, 0.60):
+        if not (l_lo <= math.log10(tv) <= l_hi):
             continue
         yy = sy_i(tv)
-        dash = ' stroke-dasharray="6,5"' if tv in (floor_iv, reclaim_iv) else ""
+        key = tv in (floor_iv, reclaim_iv)
         col = FLOOR_C if tv == floor_iv else (WARN_C if tv == reclaim_iv else GRID)
-        parts.append(f'<line x1="{ml}" y1="{yy:.1f}" x2="{w-mr}" y2="{yy:.1f}" stroke="{col}" stroke-width="1"{dash} opacity="0.9"/>')
-        parts.append(f'<text x="{w-mr+6}" y="{yy+5:.1f}" fill="{col if tv in (floor_iv, reclaim_iv) else MUT}" font-size="16" font-weight="800">{_p(tv, 0)}</text>')
-    # left axis (SPY)
-    for k in range(4):
-        v = s_lo + (s_hi - s_lo) * k / 3
-        yy = sy_s(v)
-        parts.append(f'<text x="{ml-8}" y="{yy+5:.1f}" fill="{MUT}" font-size="16" text-anchor="end">{v:.0f}</text>')
-    # IV line
-    parts.append('<polyline fill="none" stroke="%s" stroke-width="2.2" points="%s"/>' % (
+        dash = ' stroke-dasharray="6,5"' if key else ""
+        parts.append(f'<line x1="{ml}" y1="{yy:.1f}" x2="{w - mr}" y2="{yy:.1f}" stroke="{col}" stroke-width="1"{dash} opacity="0.9"/>')
+        parts.append(f'<text x="{w - mr + 6}" y="{yy + 5:.1f}" fill="{col if key else MUT}" font-size="15" font-weight="800">{_p(tv, 0)}</text>')
+    # SPY axis (left)
+    for k in range(3):
+        v = s_lo + (s_hi - s_lo) * (k + 0.5) / 3
+        parts.append(f'<text x="{ml - 8}" y="{sy_s(v) + 5:.1f}" fill="{MUT}" font-size="15" text-anchor="end">{v:.0f}</text>')
+    # splice marker
+    db_i = next((i for i, p in enumerate(pts) if p.source == "db"), None)
+    if db_i and db_i > 0:
+        xx = sx(db_i)
+        parts.append(f'<line x1="{xx:.1f}" y1="{mt}" x2="{xx:.1f}" y2="{mt + ph}" stroke="{SPLICE_C}" stroke-width="1.5" stroke-dasharray="3,4"/>')
+        ly = mt + ph * 0.47
+        parts.append(f'<text x="{xx - 5:.1f}" y="{ly:.1f}" fill="{SPLICE_C}" font-size="13" font-weight="700" text-anchor="end">vendor chart</text>')
+        parts.append(f'<text x="{xx + 5:.1f}" y="{ly:.1f}" fill="{SPLICE_C}" font-size="13" font-weight="700">ours</text>')
+    # lines
+    parts.append('<polyline fill="none" stroke="%s" stroke-width="1.8" points="%s"/>' % (
         IV_C, " ".join(f"{sx(i):.1f},{sy_i(p.iv):.1f}" for i, p in enumerate(pts))))
-    # SPY line
-    parts.append('<polyline fill="none" stroke="%s" stroke-width="2" points="%s"/>' % (
+    parts.append('<polyline fill="none" stroke="%s" stroke-width="1.6" points="%s"/>' % (
         SPY_C, " ".join(f"{sx(i):.1f},{sy_s(p.spot):.1f}" for i, p in enumerate(pts))))
-    # WARN markers on the SPY line
     for i, p in enumerate(pts):
         if p.state == "WARN":
-            parts.append(f'<circle cx="{sx(i):.1f}" cy="{sy_s(p.spot):.1f}" r="4.5" fill="{WARN_C}" stroke="{BG}" stroke-width="1.2"/>')
-    # last-value tags (right side, nudged off the axis labels)
+            parts.append(f'<circle cx="{sx(i):.1f}" cy="{sy_s(p.spot):.1f}" r="4" fill="{WARN_C}" stroke="{BG}" stroke-width="1"/>')
+    # last-value tags, nudged off the reference-line labels
     last = pts[-1]
     y_iv = sy_i(last.iv)
-    for tv in (floor_iv, reclaim_iv, 0.25, 0.35):
-        if tv <= i_hi and abs(sy_i(tv) - y_iv) < 16:
+    for tv in (floor_iv, reclaim_iv, 0.25, 0.40, 0.60):
+        if l_lo <= math.log10(tv) <= l_hi and abs(sy_i(tv) - y_iv) < 16:
             y_iv = sy_i(tv) - 18 if y_iv <= sy_i(tv) else sy_i(tv) + 18
-    parts.append(f'<text x="{w-mr+6}" y="{y_iv+5:.1f}" fill="{IV_C}" font-size="17" font-weight="800">{_p(last.iv)}</text>')
-    parts.append(f'<text x="{w-mr+6}" y="{sy_s(last.spot)+5:.1f}" fill="{SPY_C}" font-size="17" font-weight="800">{last.spot:.0f}</text>')
-    # x labels: first, mid, last
-    for i in (0, n // 2, n - 1):
-        anchor = "start" if i == 0 else ("end" if i == n - 1 else "middle")
-        parts.append(f'<text x="{sx(i):.1f}" y="{h-10}" fill="{MUT}" font-size="16" text-anchor="{anchor}">{pts[i].ts:%b %d}</text>')
+    parts.append(f'<text x="{w - mr + 6}" y="{y_iv + 5:.1f}" fill="{IV_C}" font-size="17" font-weight="800">{_p(last.iv)}</text>')
+    parts.append(f'<text x="{w - mr + 6}" y="{sy_s(last.spot) + 5:.1f}" fill="{SPY_C}" font-size="17" font-weight="800">{last.spot:.0f}</text>')
     return f'<svg viewBox="0 0 {w} {h}" width="100%" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
 
 
@@ -153,7 +171,7 @@ def _table(clusters) -> str:
         dd = '<span class="mut">n/a</span>' if c.max_dd_30d is None else f'<span class="{"pos" if c.max_dd_30d >= 0 else "neg"}">{_sp(c.max_dd_30d)}</span>'
         rows.append(
             "<tr>"
-            f"<td class='l'>{c.start:%m-%d}<br>→{c.end:%m-%d}</td>"
+            f"<td class='l'>{c.start:%y-%m-%d}<br>→{c.end:%m-%d}{'<br><span class=src>chart</span>' if c.source == 'chart' else ''}</td>"
             f"<td>{c.n_touches}<br><span style='color:{IV_C}'>{_p(c.min_iv)}</span></td>"
             f"<td>{c.spot_at_floor:.0f}</td>"
             f"<td class='l'>{warn}</td>"
@@ -168,11 +186,12 @@ def _table(clusters) -> str:
         "<th class='l'>WARN</th><th>+16d<br>+20d</th><th>WARN<br>+16/20d</th><th>worst<br>30d</th>"
         f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
         '<div class="note">+16d/+20d = SPY return 16/20 sessions after the LAST floor day (the vendor chart\'s +2.7%/16d and +3.4%/20d). '
-        "WARN +16/20d = the same, measured from the first WARN day. worst 30d = lowest close in the 30 sessions after the floor. n/a = not enough history yet.</div></div>"
+        "WARN +16/20d = the same, measured from the first WARN day. worst 30d = lowest close in the 30 sessions after the floor. n/a = not enough history yet. "
+        "<span class=src>chart</span> = floor days from the digitized vendor chart (SPY ±~2 pts, IV ±~0.5 vol pt).</div></div>"
     )
 
 
-def _page(body: str, *, generated: str, n: int, params: dict, first: str, last: str) -> str:
+def _page(body: str, *, generated: str, n: int, params: dict, first: str, last: str, db_start: str) -> str:
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SPY vs F-OTM put IV</title><style>
@@ -190,12 +209,13 @@ table{{width:100%;border-collapse:collapse}}th{{font-size:13px;color:{MUT};text-
 td{{font-size:14px;line-height:1.35;padding:8px 5px;white-space:nowrap;text-align:right;border-bottom:1px solid #1b2029;font-family:ui-monospace,Menlo,monospace}}
 th.l,td.l{{text-align:left}}.pos{{color:#2fe0a6}}.neg{{color:{IV_C}}}.mut{{color:{MUT}}}
 .note{{color:{MUT};font-size:14px;line-height:1.5;margin-top:10px}}
+.src{{font-size:11px;font-weight:800;color:{SPLICE_C};border:1px solid {SPLICE_C};border-radius:4px;padding:0 4px;font-family:-apple-system,sans-serif}}
 .legend{{font-size:14px;margin:0 0 8px}}.legend i{{display:inline-block;width:14px;height:4px;margin:0 6px 3px 0;vertical-align:middle}}
 </style></head><body><div class="app">
 <h1>SPY vs far-OTM put IV</h1>
-<p class="sub">SPY 25Δ-put IV, constant-maturity 30d &middot; {first} → {last} ({n} sessions) &middot; floor ≤ {_p(params["floor_iv"],0)} &middot; WARN = IV ≥ {_p(params["reclaim_iv"],0)} with SPY within {_p(params["near_high_pct"],0)} of its {params["high_lookback"]}d high &middot; generated {generated}</p>
+<p class="sub">SPY 25Δ-put IV, constant-maturity 30d &middot; {first} → {last} ({n} sessions; before {db_start} = digitized @exporiskprivate chart) &middot; floor ≤ {_p(params["floor_iv"],0)} &middot; WARN = IV ≥ {_p(params["reclaim_iv"],0)} with SPY within {_p(params["near_high_pct"],0)} of its {params["high_lookback"]}d high &middot; generated {generated}</p>
 {body}
-<p class="note"><b>Reading it:</b> red bars = floor days (max complacency); amber dots = WARN days (protection bid while the index sits at highs). The vendor chart's pattern: floor → IV reclaims ~17% with SPY still near highs → correction a few weeks later; both prior cases (Jan-25, Dec-25) went HIGHER first for 16–20 sessions. Our history starts 2026-06-23, so those two are not in the table. Descriptor only, not a signal (FlashAlpha rule 4). Rows with &lt;{F.MIN_EXPIRIES} listed expiries are dropped as bad pulls.</p>
+<p class="note"><b>Reading it:</b> red bars = floor days (max complacency); amber dots = WARN days (protection bid while the index sits at highs). IV axis is log, like the vendor chart. The vendor's pattern: floor → IV reclaims ~17% with SPY still near highs → correction a few weeks later; both prior cases (Jan-25, Dec-25) went HIGHER first for 16–20 sessions. Left of the blue marker = the vendor chart digitized from the 2026-10-22 image (their fixed-$ 15–25 pt OTM puts); right = our SPY 25Δ-put 30d CM series. Descriptor only, not a signal (FlashAlpha rule 4). DB rows with &lt;{F.MIN_EXPIRIES} listed expiries are dropped as bad pulls.</p>
 </div></body></html>"""
 
 
@@ -209,29 +229,68 @@ def _fetch(days: int, *, settings=None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def build(*, days: int = 400, floor_iv: float = F.FLOOR_IV, reclaim_iv: float = F.RECLAIM_IV,
-          near_high_pct: float = F.NEAR_HIGH_PCT, out=None, settings=None) -> Path:
-    rows = _fetch(days, settings=settings)
+def _chart_history(path: Path = _CHART_HISTORY) -> list[dict]:
+    """Digitized vendor-chart rows (date, put_iv, spy). Empty list if the file is missing."""
+    if not path.exists():
+        return []
+    out = []
+    with path.open(newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            try:
+                out.append({"ts": date.fromisoformat(r["date"]), "iv_put_25d": float(r["put_iv"]),
+                            "spot": float(r["spy"]), "n_expiries": None})
+            except (KeyError, ValueError):
+                continue
+    return out
+
+
+def _summary(v: dict) -> dict:
+    """Compact JSON-able summary for the MCP tool response."""
+    def _r(x, k=4):
+        return None if x is None else round(float(x), k)
+    return {
+        "read": {k: (_r(val) if isinstance(val, float) else val) for k, val in v["read"].items()},
+        "params": v["params"],
+        "floor_episodes": [
+            {"start": c.start.isoformat(), "end": c.end.isoformat(), "source": c.source,
+             "touches": c.n_touches, "min_iv": _r(c.min_iv), "spy_at_floor": _r(c.spot_at_floor, 2),
+             "first_warn": c.warn_date.isoformat() if c.warn_date else None, "days_to_warn": c.days_to_warn,
+             "fwd_from_floor_16d": _r(c.fwd.get("floor_16d")), "fwd_from_floor_20d": _r(c.fwd.get("floor_20d")),
+             "fwd_from_warn_16d": _r(c.fwd.get("warn_16d")), "fwd_from_warn_20d": _r(c.fwd.get("warn_20d")),
+             "worst_30d": _r(c.max_dd_30d)}
+            for c in v["clusters"]
+        ],
+    }
+
+
+def build(*, days: int = 800, floor_iv: float = F.FLOOR_IV, reclaim_iv: float = F.RECLAIM_IV,
+          near_high_pct: float = F.NEAR_HIGH_PCT, out=None, settings=None, return_summary: bool = False):
+    """Build the HTML. Returns its Path, or (Path, summary dict) when ``return_summary``."""
+    cutoff = date.today() - timedelta(days=days)
+    rows = F.splice(_chart_history(), _fetch(days, settings=settings))
+    rows = [r for r in rows if (r["ts"].date() if isinstance(r["ts"], datetime) else r["ts"]) >= cutoff]
     v = F.build_view(rows, floor_iv=floor_iv, reclaim_iv=reclaim_iv, near_high_pct=near_high_pct)
     pts = v["points"]
-    legend = (f'<div class="legend"><i style="background:{SPY_C}"></i>SPY &nbsp; <i style="background:{IV_C}"></i>25Δ put IV 30d '
-              f'&nbsp; <i style="background:{FLOOR_C};opacity:.5;height:12px"></i>floor day &nbsp; <i style="background:{WARN_C};height:10px;width:10px;border-radius:5px"></i>WARN day</div>')
+    legend = (f'<div class="legend"><i style="background:{SPY_C}"></i>SPY &nbsp; <i style="background:{IV_C}"></i>put IV (log) '
+              f'&nbsp; <i style="background:{FLOOR_C};opacity:.5;height:12px"></i>floor day &nbsp; <i style="background:{WARN_C};height:10px;width:10px;border-radius:5px"></i>WARN day '
+              f'&nbsp; <i style="background:{SPLICE_C};height:12px;width:2px"></i>chart → ours</div>')
     body = (_header(v["read"])
             + f'<div class="card">{legend}{_chart(pts, floor_iv=floor_iv, reclaim_iv=reclaim_iv)}</div>'
             + _table(v["clusters"]))
     first = pts[0].ts.isoformat() if pts else "—"
     last = pts[-1].ts.isoformat() if pts else "—"
+    db_start = v["read"].get("db_start") or "—"
     out = Path(out) if out else (_OUT / f"fotm_put_iv_{date.today():%Y-%m-%d}.html")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(_page(body, generated=datetime.now().strftime("%Y-%m-%d %H:%M"), n=len(pts),
-                         params=v["params"], first=first, last=last), encoding="utf-8")
+                         params=v["params"], first=first, last=last, db_start=db_start), encoding="utf-8")
     print(f"Wrote {out} ({len(pts)} sessions, {len(v['clusters'])} floor episodes, state={v['read'].get('state')})")
-    return out
+    return (out, _summary(v)) if return_summary else out
 
 
 def main():
     p = argparse.ArgumentParser(description="SPY vs far-OTM put-IV floor tracker (HTML).")
-    p.add_argument("--days", type=int, default=400)
+    p.add_argument("--days", type=int, default=800)
     p.add_argument("--floor", type=float, default=F.FLOOR_IV)
     p.add_argument("--reclaim", type=float, default=F.RECLAIM_IV)
     p.add_argument("--near-high", type=float, default=F.NEAR_HIGH_PCT)

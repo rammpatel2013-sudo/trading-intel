@@ -152,7 +152,7 @@ def build(symbols: tuple[str, ...] = _SYMS, *, out_path: str | None = None, sett
 
         with make_session_factory(settings)() as sess:
             payloads = {s: _collect(sess, s) for s in symbols}
-    out = (Path(out_path) if out_path else Path("reports") / f"dealer_positioning_{date.today()}.html").resolve()
+    out = (Path(out_path) if out_path else (Path(__file__).resolve().parents[1] / "reports") / f"dealer_positioning_{date.today()}.html").resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(payloads), encoding="utf-8")
     return str(out)

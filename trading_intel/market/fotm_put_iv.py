@@ -12,6 +12,11 @@ At VIX ~15 a 2–3 % OTM (15–25 pt) SPY put is ~25–30Δ, so the delta series
 same object as the chart's fixed-price-distance series, up to a small lag in
 spikes (fixed-$ strikes gain delta as vol rises).
 
+History before our collector (2026-06-23) comes from the vendor chart itself,
+digitized once into ``data/reference/fotm_put_iv_chart_history.csv`` (decided
+2026-10-24: image data is used ONLY by this report, never written to the DB).
+``splice`` keeps chart rows strictly before the first DB date; DB rows win.
+
 States (decided 2026-10-22):
   FLOOR  = put IV <= ``floor_iv`` (fixed absolute level, default 13.0 %)
   WARN   = put IV >= ``reclaim_iv`` (17 %) AND SPY within ``near_high_pct`` (2 %)
@@ -48,6 +53,7 @@ class Point:
     spot: float
     high60: float | None = None
     state: str = "NEUTRAL"
+    source: str = "db"
 
 
 @dataclass
@@ -64,6 +70,7 @@ class Cluster:
     spot_at_warn: float | None = None
     fwd: dict = field(default_factory=dict)  # {"floor_16d": r, "floor_20d": r, "warn_16d": ...}
     max_dd_30d: float | None = None  # from last floor day, worst close over next 30 sessions
+    source: str = "db"  # "chart" when the floor days come from the digitized vendor chart
 
 
 def clean_rows(rows: list[dict], *, min_expiries: int = MIN_EXPIRIES) -> list[Point]:
@@ -82,13 +89,30 @@ def clean_rows(rows: list[dict], *, min_expiries: int = MIN_EXPIRIES) -> list[Po
             continue
         if hasattr(ts, "date") and not isinstance(ts, date):
             ts = ts.date()
-        out.append(Point(ts=ts, iv=iv, spot=spot))
+        out.append(Point(ts=ts, iv=iv, spot=spot, source=str(r.get("source") or "db")))
     out.sort(key=lambda p: p.ts)
     # de-dup same-day rows (keep last)
     dedup: dict[date, Point] = {}
     for p in out:
         dedup[p.ts] = p
     return [dedup[k] for k in sorted(dedup)]
+
+
+def splice(chart_rows: list[dict], db_rows: list[dict]) -> list[dict]:
+    """Chart-history rows strictly before the first DB date, then all DB rows.
+
+    Chart rows are tagged ``source="chart"``; DB rows ``source="db"``. If there are
+    no DB rows the chart rows are returned alone.
+    """
+    def _d(r):
+        ts = r.get("ts")
+        return ts.date() if hasattr(ts, "date") and not isinstance(ts, date) else ts
+
+    db = [dict(r, source="db") for r in db_rows if r.get("ts") is not None]
+    first = min((_d(r) for r in db), default=None)
+    ch = [dict(r, source="chart") for r in chart_rows
+          if r.get("ts") is not None and (first is None or _d(r) < first)]
+    return ch + db
 
 
 def label_states(
@@ -99,11 +123,16 @@ def label_states(
     near_high_pct: float = NEAR_HIGH_PCT,
     high_lookback: int = HIGH_LOOKBACK,
 ) -> list[Point]:
-    """Attach trailing high + state to every point (in place; returns the list)."""
+    """Attach trailing high + state to every point (in place; returns the list).
+
+    WARN needs a FULL ``high_lookback`` window: with fewer sessions the "trailing
+    high" is just the max of a few days, so "near the high" is trivially true
+    (that produced false WARN dots at the start of the history).
+    """
     for i, p in enumerate(pts):
         window = pts[max(0, i - high_lookback + 1) : i + 1]
         p.high60 = max(q.spot for q in window)
-        near_high = p.spot >= p.high60 * (1.0 - near_high_pct)
+        near_high = len(window) >= high_lookback and p.spot >= p.high60 * (1.0 - near_high_pct)
         if p.iv <= floor_iv:
             p.state = "FLOOR"
         elif p.iv >= reclaim_iv and near_high:
@@ -155,6 +184,7 @@ def find_clusters(
             n_touches=len(g),
             min_iv=min(pts[i].iv for i in g),
             spot_at_floor=pts[last].spot,
+            source="chart" if any(pts[i].source == "chart" for i in g) else "db",
         )
         # first WARN after the last floor day (before the next cluster starts)
         nxt_start = None
@@ -219,6 +249,8 @@ def current_read(pts: list[Point], clusters: list[Cluster], *, reclaim_iv: float
         "warn_run_days": warn_run,
         "series_min_iv": floor_min,
         "n_clusters": len(clusters),
+        "first_date": pts[0].ts.isoformat(),
+        "db_start": next((p.ts.isoformat() for p in pts if p.source == "db"), None),
         "read": text,
     }
 

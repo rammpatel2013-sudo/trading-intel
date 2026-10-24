@@ -272,7 +272,7 @@ Trailing IV rebuilt from CVForge /mas contract closes; constant-maturity legs in
 total variance and never extrapolated &#8212; a tenor not bracketed that day is simply absent,
 which is why box sample sizes differ. Regime <b>descriptor</b> only, not a signal (FlashAlpha rule 4).</p>
 </body></html>"""
-    out = Path(out_path) if out_path else Path("reports") / f"{sym}_vol_board_{ref}.html"
+    out = Path(out_path) if out_path else (Path(__file__).resolve().parents[1] / "reports") / f"{sym}_vol_board_{ref}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(doc, encoding="utf-8")
     return str(out)

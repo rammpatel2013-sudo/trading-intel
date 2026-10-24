@@ -245,7 +245,7 @@ def build(symbol: str = _SYM, *, out_path: str | None = None, settings: object =
 
         with make_session_factory(settings)() as s:
             data = _collect(s, sym)
-    out = (Path(out_path) if out_path else Path("reports") / f"skew_vanna_{sym}.html").resolve()
+    out = (Path(out_path) if out_path else (Path(__file__).resolve().parents[1] / "reports") / f"skew_vanna_{sym}.html").resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(_render(data, sym), encoding="utf-8")
     return str(out)

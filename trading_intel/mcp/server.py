@@ -535,22 +535,24 @@ def build_server(
         return {"path": path, "uri": Path(path).as_uri(), "found": True}
 
     @mcp.tool()
-    def generate_fotm_put_iv_report(days: int = 400) -> dict[str, Any]:
-        """SPY vs far-OTM put IV — the 'protection floor → reclaim at highs → correction' tracker (HTML).
+    def generate_fotm_put_iv_report(days: int = 800) -> dict[str, Any]:
+        """SPY vs far-OTM put IV — the 'protection floor → reclaim at highs → correction' tracker (HTML + summary).
 
-        Reproduces the @exporiskprivate "SPY vs Avg IV F-OTM Puts" chart from our own
-        ``iv_tenor_snapshots`` (SPY 25Δ-put IV at constant-maturity 30d): dual-axis
-        chart with floor days (IV <= 13%) shaded and WARN days (IV >= 17% while SPY is
-        within 2% of its 60d high) marked, a header read (state now, sessions since
-        the last floor), and a table of every floor episode with SPY's +16d/+20d
-        forward return, days-to-WARN, and worst 30d drawdown. History from 2026-06-23
-        only. Reads the DB only — no vendor calls. Descriptor only (rule 4). Returns
-        the saved HTML path under ``reports/``.
+        Reproduces the @exporiskprivate "SPY vs Avg IV F-OTM Puts" chart. History
+        2024-10-16 → 2026-06-22 is the vendor chart digitized from the 2026-10-22
+        image (``data/reference/fotm_put_iv_chart_history.csv``, used only here);
+        2026-06-23 → now is our ``iv_tenor_snapshots`` SPY 25Δ-put 30d CM IV. Floor =
+        IV <= 13%; WARN = IV >= 17% while SPY is within 2% of its 60d high (needs a
+        full 60-session window). Returns the HTML path PLUS ``summary``: the current
+        state (iv, spot, % off high, last floor, sessions since) and every floor
+        episode with source (chart/db), days-to-WARN, SPY +16d/+20d from the floor
+        and from the first WARN, and worst 30d. Reads the DB + that CSV only — no
+        vendor calls. Descriptor only (rule 4).
         """
         from trading_intel.reports import build_fotm_put_iv
 
-        path = build_fotm_put_iv(days=days, settings=settings)
-        return {"path": path, "uri": Path(path).as_uri(), "found": True}
+        path, summary = build_fotm_put_iv(days=days, settings=settings, with_summary=True)
+        return {"path": path, "uri": Path(path).as_uri(), "found": True, "summary": summary}
 
     @mcp.tool()
     def get_breadth() -> dict[str, Any]:

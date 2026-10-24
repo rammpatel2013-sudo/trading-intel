@@ -29,7 +29,7 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-_DEFAULT_OUT = Path("reports") / f"sector_{date.today().isoformat()}.html"
+_DEFAULT_OUT = (Path(__file__).resolve().parents[1] / "reports") / f"sector_{date.today().isoformat()}.html"
 
 
 # ── formatting + tiny helpers (server-side ports of the old JS) ──────────────

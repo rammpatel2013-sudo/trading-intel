@@ -288,7 +288,7 @@ def build(symbol: str = _DEFAULT_SYMBOL, *, out_path: str | None = None, setting
         with make_session_factory(settings)() as s:
             view = _collect(s, sym)
     html = _render_html(view, sym)
-    out = (Path(out_path) if out_path else Path("reports") / f"vol_surface_cm_{sym}.html").resolve()
+    out = (Path(out_path) if out_path else (Path(__file__).resolve().parents[1] / "reports") / f"vol_surface_cm_{sym}.html").resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     return str(out)
