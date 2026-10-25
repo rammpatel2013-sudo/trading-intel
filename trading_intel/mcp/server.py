@@ -286,6 +286,12 @@ def build_server(
             return et.get_vix(session, days=days)
 
     @mcp.tool()
+    def get_squeezemetrics(days: int = 60, window: int = 252) -> dict[str, Any]:
+        """SqueezeMetrics DIX/GEX daily series + trailing-year percentile lane (low/mid/high)."""
+        with session_factory() as session:
+            return et.get_squeezemetrics(session, days=days, window=window)
+
+    @mcp.tool()
     def get_index_skew(days: int = 60) -> dict[str, Any]:
         """Index-level skew & VIX-decomposition series (Cboe SKEW, SDEX, tail-hedge score)."""
         with session_factory() as session:

@@ -26,9 +26,15 @@ from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import DataSourceError
 from trading_intel.memory.models import VixOptionsChain
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 
 log = structlog.get_logger(__name__)
+
+# 8 front expiries ≈ nearest weeklies + the next two monthlies (VIX lists a
+# weekly every Wednesday, so monthly #2 is ~8 expiries out). ±150% of spot
+# keeps strikes 10..~47 at VIX 19 and still reaches 40 when VIX is 16.
+VIX_EXPS: tuple[int, ...] = tuple(range(1, 9))
+VIX_STRIKE_RANGE = 1.5
 
 _UQ_COLS = ["ts", "expiration", "strike", "opt_kind"]
 _UPDATE_COLS = ("delta", "iv", "oi", "oi_change", "volume")
@@ -101,8 +107,15 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="vix_options")
 
     as_of = eastern_now().date()
+    if not is_trading_session(as_of):
+        bound.info("vix_options.skipped_non_session", as_of=as_of.isoformat())
+        return
     try:
-        chain = source.vix_chain(exps=(1, 2, 3, 4))
+        # 2026-10-25: widened from 4 expiries / ±50% strikes. Four expiries
+        # reached only the first monthly (the 2nd monthly was missing) and
+        # ±50% of a VIX ~19 capped strikes at ~28, hiding the 30/35/40 call
+        # walls that the VIX positioning card needs. Still ONE Convex request.
+        chain = source.vix_chain(exps=VIX_EXPS, strike_range=VIX_STRIKE_RANGE)
     except DataSourceError as exc:
         bound.warning("vix_options.vix_chain_failed", error=str(exc))
         return

@@ -39,7 +39,7 @@ from trading_intel.scheduler.jobs.iv_tenor_snapshots import (
     _STRIKE_RANGE,
     cm_interp,
 )
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 
 log = structlog.get_logger(__name__)
 
@@ -148,6 +148,13 @@ def run(
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="vol_surface_cm")
 
     as_of = as_of or eastern_now().date()
+    # Session gate (2026-10-25): the DSM task fires every day, so a weekend run
+    # re-read Friday's stale chain and banked it as a Saturday session (row
+    # stamped 2026-10-24 with Friday's spot). That breaks every "vs prior
+    # session" change. Same rule as the breadth collector.
+    if not is_trading_session(as_of):
+        bound.info("vol_surface_cm.skipped_non_session", as_of=as_of.isoformat())
+        return
     records = build_rows(source, settings, as_of=as_of, symbols=symbols)
     _ensure_tickers(session, {r["symbol"] for r in records})
     _upsert(session, records)

@@ -115,6 +115,31 @@ def fetch_yf_index_close(symbol: str, *, period: str = "5d") -> float | None:
         return None
 
 
+def fetch_cboe_index_close(cboe_sym: str, *, yahoo_sym: str | None = None) -> float | None:
+    """Latest close for a Cboe-published index, from the Cboe delayed-quote CDN.
+
+    Added 2026-10-25: ``^VIXEQ`` / ``^DSPX`` / ``^COR1M`` / ``^COR3M`` went NULL
+    on the Yahoo path (yfinance returns empty frames for these Cboe indices),
+    which is the "VIXEQ collector" break Mithil flagged. Cboe serves all four
+    on the same CDN as the VIX term structure (verified live 2026-10-25:
+    VIXEQ 41.9, DSPX 36.93, COR1M 11.6, COR3M 15.0, all with full history
+    CSVs). Yahoo stays as the fallback so a CDN outage degrades the same way
+    it did before. Returns ``None`` when both fail.
+    """
+    from trading_intel.clients.cboe import CboeClient
+
+    try:
+        val = CboeClient().quote(cboe_sym)
+    except Exception as exc:  # network / shape - fall through to Yahoo
+        log.warning("cboe.index_fetch_failed", sym=cboe_sym, error=str(exc))
+        val = None
+    if val is not None:
+        return val
+    if yahoo_sym:
+        return fetch_yf_index_close(yahoo_sym)
+    return None
+
+
 def fetch_sdex(*, period: str = "5d") -> float | None:
     """Nations SkewDex Large-Cap close, via Yahoo (``^SDEX``).
 
@@ -150,7 +175,7 @@ def fetch_cor1m(*, period: str = "5d") -> float | None:
     indices; the Cboe CDN does not expose the correlation symbols. Returns
     ``None`` on any fetch failure.
     """
-    return fetch_yf_index_close("^COR1M", period=period)
+    return fetch_cboe_index_close("_COR1M", yahoo_sym="^COR1M")  # Cboe CDN first (2026-10-25)
 
 
 def fetch_cor3m(*, period: str = "5d") -> float | None:
@@ -160,7 +185,7 @@ def fetch_cor3m(*, period: str = "5d") -> float | None:
     1m > 3m (inverted) flags acute near-term correlation stress, the mirror of
     a backwardated VIX term structure.
     """
-    return fetch_yf_index_close("^COR3M", period=period)
+    return fetch_cboe_index_close("_COR3M", yahoo_sym="^COR3M")  # Cboe CDN first (2026-10-25)
 
 
 def fetch_vixeq(*, period: str = "5d") -> float | None:
@@ -172,7 +197,7 @@ def fetch_vixeq(*, period: str = "5d") -> float | None:
     flat VIX is dispersion/positioning, not a fundamental index repricing.
     History begins ~Nov 2024 (index launch). Returns ``None`` on fetch failure.
     """
-    return fetch_yf_index_close("^VIXEQ", period=period)
+    return fetch_cboe_index_close("_VIXEQ", yahoo_sym="^VIXEQ")  # Cboe CDN first (2026-10-25)
 
 
 def fetch_dspx(*, period: str = "5d") -> float | None:
@@ -181,4 +206,4 @@ def fetch_dspx(*, period: str = "5d") -> float | None:
     The official 30-day implied-dispersion gauge, tied to the others by the
     identity ``DSPX^2 = VIXEQ^2 - VIX^2``. History begins ~Sep 2023 (launch).
     """
-    return fetch_yf_index_close("^DSPX", period=period)
+    return fetch_cboe_index_close("_DSPX", yahoo_sym="^DSPX")  # Cboe CDN first (2026-10-25)

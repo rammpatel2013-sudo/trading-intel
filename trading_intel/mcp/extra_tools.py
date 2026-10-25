@@ -62,6 +62,7 @@ from trading_intel.memory.models import (
     QuoteDaily,
     ResearchNote,
     Signal,
+    SqueezeMetricsDaily,
     SurfaceReport,
     VixData,
     VolRichness,
@@ -1172,4 +1173,52 @@ def get_vol_surface_cm(
         "compare_sessions": compare_sessions,
         "rows_now": _rows(max_ts),
         "rows_prior": (_rows(prior_ts) if prior_ts else []),
+    }
+
+
+def get_squeezemetrics(session: Session, *, days: int = 60, window: int = 252) -> dict[str, Any]:
+    """SqueezeMetrics DIX + GEX daily series with trailing-year percentiles.
+
+    Reads ``squeezemetrics_daily`` (their free CSV, 2011→). Returns the recent
+    ``days`` rows (oldest first) plus the latest row's percentile of gex and
+    dix over the trailing ``window`` sessions and the plain-English gamma lane
+    (``low`` ≤30th, ``high`` ≥70th). Read gex by PERCENTILE, not sign (their
+    model and our OI book disagree on sign some days). Descriptor only (rule 4).
+    """
+    from trading_intel.market.squeezemetrics import gex_regime_label, percentile_rank
+
+    days_c = max(2, min(int(days), 2000))
+    need = max(days_c, int(window) + 1)
+    rows = (
+        session.execute(
+            select(SqueezeMetricsDaily).order_by(SqueezeMetricsDaily.date.desc()).limit(need)
+        )
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return {"rows": [], "count": 0, "found": False}
+    rows = list(reversed(rows))
+    last = rows[-1]
+    hist = rows[-(int(window) + 1) : -1]
+    gex_pct = percentile_rank([r.gex for r in hist], last.gex)
+    dix_pct = percentile_rank([r.dix for r in hist], last.dix)
+    series = [
+        {"date": _iso_day(r.date), "spx_price": _num(r.spx_price), "dix": _num(r.dix), "gex": _num(r.gex)}
+        for r in rows[-days_c:]
+    ]
+    return {
+        "rows": series,
+        "count": len(series),
+        "found": True,
+        "latest": {
+            "date": _iso_day(last.date),
+            "gex": _num(last.gex),
+            "gex_pctile": gex_pct,
+            "gex_lane": gex_regime_label(gex_pct),
+            "dix": _num(last.dix),
+            "dix_pctile": dix_pct,
+            "window_sessions": len(hist),
+        },
+        "note": "Their GEX model; use percentile vs trailing year, not sign.",
     }

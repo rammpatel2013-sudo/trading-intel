@@ -1513,3 +1513,24 @@ class VolSurfaceCM(Base):
     iv: Mapped[float | None] = mapped_column(Float)  # interpolated IV (decimal)
     spot: Mapped[float | None] = mapped_column(Float)  # underlying at capture
     near_expiry: Mapped[date | None] = mapped_column(Date)  # nearest real expiry (display label)
+
+
+class SqueezeMetricsDaily(Base):
+    """SqueezeMetrics daily DIX + GEX (their free public ``DIX.csv``).
+
+    One row per session from ``https://squeezemetrics.com/monitor/static/DIX.csv``
+    (columns date / price / dix / gex, 2011→). ``gex`` is THEIR dealer-gamma
+    model in dollars; ``dix`` is their dark-pool buying share (0..1). Used as a
+    second, independent gamma lane: read it by **percentile, not sign** (on
+    2026-10-23 it printed +$4.0bn while our OI-based book read short gamma —
+    level correlation with ours 0.66, daily-change correlation 0.36). Populated
+    by ``scheduler/jobs/squeezemetrics.py``. Regime descriptor (rule 4) — the
+    fear-release signal only uses it as a strength LABEL, never as a trigger.
+    """
+
+    __tablename__ = "squeezemetrics_daily"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    spx_price: Mapped[float | None] = mapped_column(Float)
+    dix: Mapped[float | None] = mapped_column(Float)
+    gex: Mapped[float | None] = mapped_column(Float)
