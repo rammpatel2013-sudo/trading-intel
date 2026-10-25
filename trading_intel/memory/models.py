@@ -197,6 +197,20 @@ class OiChainEod(Base):
     gxoi: Mapped[float | None] = mapped_column(Float)
     dxoi: Mapped[float | None] = mapped_column(Float)
     vxoi: Mapped[float | None] = mapped_column(Float)
+    # Closing quotes — a true mid (``(bid+ask)/2``) is what the Breeden-
+    # Litzenberger density needs. Convex's ``price`` is the LAST TRADE and
+    # ``theo`` its model value; neither is a quote.
+    bid_price: Mapped[float | None] = mapped_column(Float)
+    ask_price: Mapped[float | None] = mapped_column(Float)
+    # Aggressor-split greek flow for the session (vendor-classified buy vs sell).
+    # Day-cumulative and VOLUME-scaled, so this is today's signed FLOW, not a
+    # position: ``gammas_buy - gammas_sell`` is net customer-initiated gamma,
+    # and the dealer takes the other side. Unlike ``gxoi`` (gamma x open
+    # interest) these carry a real side rather than an assumed one.
+    gammas_buy: Mapped[float | None] = mapped_column(Float)
+    gammas_sell: Mapped[float | None] = mapped_column(Float)
+    deltas_buy: Mapped[float | None] = mapped_column(Float)
+    deltas_sell: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
@@ -1534,3 +1548,65 @@ class SqueezeMetricsDaily(Base):
     spx_price: Mapped[float | None] = mapped_column(Float)
     dix: Mapped[float | None] = mapped_column(Float)
     gex: Mapped[float | None] = mapped_column(Float)
+
+
+class MapDaily(Base):
+    """One row per (symbol, session): the morning MAP card, then its grade.
+
+    Written twice a day. The pre-open brief banks what the map SAID (levels,
+    the three-way odds, the 70% range, the IV±1 fragility shifts); the evening
+    grading job fills in what the tape DID from the SPX daily high/low/close.
+
+    Keeping both halves on one row is deliberate — the only question worth
+    asking of this table is "when the map said X, what happened?", and that is
+    a single-row read. It also makes the Monday calibration check ("the 70%
+    range contained 68%") one GROUP BY instead of a join.
+
+    Descriptor only (FlashAlpha rule 4): this records and scores a description
+    of the book. Nothing here emits a signal.
+    """
+
+    __tablename__ = "map_daily"
+    __table_args__ = (UniqueConstraint("symbol", "date", name="uq_map_daily"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    date: Mapped[date] = mapped_column(Date)
+
+    # --- what the map said, pre-open ------------------------------------
+    spot: Mapped[float | None] = mapped_column(Float)
+    book_flip: Mapped[float | None] = mapped_column(Float)
+    day_flip: Mapped[float | None] = mapped_column(Float)
+    long_gamma: Mapped[bool | None] = mapped_column(Boolean)
+    net_gamma_dollars: Mapped[float | None] = mapped_column(Float)
+    floor: Mapped[float | None] = mapped_column(Float)  # 0-7 DTE put wall
+    cap: Mapped[float | None] = mapped_column(Float)  # 0-7 DTE call wall
+    day_floor: Mapped[float | None] = mapped_column(Float)  # same-day put wall
+    day_cap: Mapped[float | None] = mapped_column(Float)  # same-day call wall
+    p_below: Mapped[float | None] = mapped_column(Float)
+    p_between: Mapped[float | None] = mapped_column(Float)
+    p_above: Mapped[float | None] = mapped_column(Float)
+    atm_iv: Mapped[float | None] = mapped_column(Float)
+    range70_lo: Mapped[float | None] = mapped_column(Float)
+    range70_hi: Mapped[float | None] = mapped_column(Float)
+
+    # --- fragility (§6), walls and flip scored separately ---------------
+    frag_tol: Mapped[float | None] = mapped_column(Float)
+    frag_wall_move: Mapped[float | None] = mapped_column(Float)
+    frag_flip_move: Mapped[float | None] = mapped_column(Float)
+    walls_firm: Mapped[bool | None] = mapped_column(Boolean)
+    flip_firm: Mapped[bool | None] = mapped_column(Boolean)
+    levels_firm: Mapped[bool | None] = mapped_column(Boolean)
+
+    # --- what the tape did (filled after the close) ---------------------
+    high: Mapped[float | None] = mapped_column(Float)
+    low: Mapped[float | None] = mapped_column(Float)
+    close: Mapped[float | None] = mapped_column(Float)
+    bucket: Mapped[str | None] = mapped_column(String(8))  # below / between / above
+    floor_touched: Mapped[bool | None] = mapped_column(Boolean)
+    cap_touched: Mapped[bool | None] = mapped_column(Boolean)
+    floor_held: Mapped[bool | None] = mapped_column(Boolean)  # touched but closed back inside
+    cap_held: Mapped[bool | None] = mapped_column(Boolean)
+    inside_range70: Mapped[bool | None] = mapped_column(Boolean)
+    wall_broke: Mapped[bool | None] = mapped_column(Boolean)  # closed beyond either wall
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime)

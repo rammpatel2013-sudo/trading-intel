@@ -121,7 +121,7 @@ def parse_occ_symbol(sym: str) -> tuple[str | None, pd.Timestamp | None, float |
 # by get_chain_as_rows. Every code below is a valid get_chain param per the
 # convexlib README. (There is NO `cxoi`; we recompute charm/vanna exposure from
 # the raw `charm`/`vanna` greeks.)
-_CHAIN_PARAMS = (
+_CHAIN_CORE_PARAMS = (
     "delta",
     "gamma",
     "theta",
@@ -130,13 +130,45 @@ _CHAIN_PARAMS = (
     "charm",
     "volatility",  # IV
     "oi",
-    "oi_ch",  # day-over-day open-interest change (Convex native)
     "day_volume",
     "gxoi",
     "dxoi",
     "vxoi",
     "multiplier",  # contract multiplier (100 for equities/ETFs/SPX)
 )
+
+# Day-over-day open-interest change. Convex-native, long proven, but kept
+# optional because a single rejected param 400s the whole request.
+_CHAIN_OI_CH = ("oi_ch",)
+
+# Quotes + aggressor-split greek flow (probed live 2026-10-25 on the pro account).
+#
+# WHY THESE MATTER: ``gxoi`` is gamma x OPEN INTEREST, and open interest has no
+# side — every contract has a long and a short. The dealer sign we apply on top
+# ("calls +, puts -") is an ASSUMPTION, and on SPX it forces the book negative
+# 33 sessions out of 36. ``gammas_buy``/``gammas_sell`` are the vendor's own
+# aggressor-side split, so they carry a real side. They are day-cumulative
+# VOLUME-scaled (they track ``day_volume``, not ``oi``), i.e. today's signed
+# FLOW, not an accumulated position — building a position estimate means
+# summing them over sessions.
+#
+# ``bid_price``/``ask_price`` give a true mid, which is what the Breeden-
+# Litzenberger density needs (``price`` is the LAST TRADE and ``theo`` is the
+# vendor's model value; neither is a quote).
+_CHAIN_FLOW_PARAMS = (
+    "bid_price",
+    "ask_price",
+    "gammas_buy",
+    "gammas_sell",
+    "deltas_buy",
+    "deltas_sell",
+)
+
+_CHAIN_PARAMS = (*_CHAIN_CORE_PARAMS, *_CHAIN_OI_CH, *_CHAIN_FLOW_PARAMS)
+
+#: Post-rename column names for every optional param, so a degraded pull still
+#: returns a frame with the full column set (filled NaN).
+_OPTIONAL_OUT_COLS = ("oi_change", *_CHAIN_FLOW_PARAMS)
 
 # Structural columns get_chain_as_rows prepends to every row.
 _CHAIN_STRUCT = ("symbol", "expiration", "strike", "opt_kind")
@@ -240,21 +272,36 @@ class ConvexClient(OptionsDataSource):
     ) -> pd.DataFrame:
         """Normalized options chain (see ``OptionsDataSource.chain``).
 
-        ``oi_ch`` (day-over-day OI change) is the one optional field: if Convex
-        rejects it (one bad param 400s the whole request) the pull is retried
-        once without it and ``oi_change`` is filled with NaN, so a single field
-        cannot brick the chain.
+        One rejected param 400s the WHOLE request, so the optional fields are
+        shed in tiers, widest first:
+
+        1. core + ``oi_ch`` + quote/flow params (what we want);
+        2. core + ``oi_ch`` (the pre-2026-10-25 request — so a symbol that does
+           not serve the new flow params keeps the OI-change field it has
+           always had);
+        3. core only.
+
+        Whatever tier succeeds, the missing optional columns are filled with
+        NaN so every caller sees the same column set.
         """
-        try:
-            return self._fetch_chain(symbol, _CHAIN_PARAMS, exps=exps, strike_range=strike_range)
-        except DataSourceError:
-            reduced = tuple(p for p in _CHAIN_PARAMS if p != "oi_ch")
-            if len(reduced) == len(_CHAIN_PARAMS):
-                raise
-            df = self._fetch_chain(symbol, reduced, exps=exps, strike_range=strike_range)
-            if "oi_change" not in df.columns:
-                df["oi_change"] = float("nan")
+        tiers = (
+            _CHAIN_PARAMS,
+            (*_CHAIN_CORE_PARAMS, *_CHAIN_OI_CH),
+            _CHAIN_CORE_PARAMS,
+        )
+        last_err: DataSourceError | None = None
+        for params in tiers:
+            try:
+                df = self._fetch_chain(symbol, params, exps=exps, strike_range=strike_range)
+            except DataSourceError as exc:
+                last_err = exc
+                continue
+            for col in _OPTIONAL_OUT_COLS:
+                if col not in df.columns:
+                    df[col] = float("nan")
             return df
+        assert last_err is not None
+        raise last_err
 
     def _fetch_chain(
         self,

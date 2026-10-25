@@ -40,11 +40,28 @@ log = structlog.get_logger(__name__)
 _SOURCE = "convex_eod"
 _UQ_COLS = ["symbol", "ts", "source", "expiry", "strike", "cp"]
 DEFAULT_WINDOW_DAYS = 180
-# Postgres caps bound params at 65535/statement; ~16 cols/row -> stay well under
-# (~4095 rows max). Batch the multi-row INSERT so a wide 180d chain doesn't blow it.
+# Postgres caps bound params at 65535/statement; ~22 cols/row -> stay well under
+# (~2978 rows max after the 2026-10-25 widening). Batch the multi-row INSERT so a
+# wide 180d chain doesn't blow it.
 _INSERT_BATCH = 1000
 
-_FLOAT_COLS = ("delta", "gamma", "iv", "gxoi", "dxoi", "vxoi")
+_FLOAT_COLS = (
+    "delta",
+    "gamma",
+    "iv",
+    "gxoi",
+    "dxoi",
+    "vxoi",
+    # 2026-10-25: quotes + aggressor-split greek flow. All optional at the
+    # client (a symbol that doesn't serve them yields NaN -> NULL here), so a
+    # missing field never costs us the row.
+    "bid_price",
+    "ask_price",
+    "gammas_buy",
+    "gammas_sell",
+    "deltas_buy",
+    "deltas_sell",
+)
 _INT_COLS = ("oi", "oi_change", "volume")
 
 
