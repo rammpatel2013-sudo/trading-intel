@@ -1163,6 +1163,7 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "as_of": today.isoformat(),
         "session_date": session_date.isoformat(),
         "is_market_open_today": not is_market_holiday(today),
+        "is_monday": today.weekday() == 0,
         "subtitle": (
             "pre-open daily brief · synthesis read, index gamma, Doc levels, letters"
             if not is_market_holiday(today)
@@ -1171,6 +1172,9 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "through_line": _through_line(indices, vix),
         "pre_open_spot": pre_open,
         "book_read": [],
+        "map_block": None,
+        "map_history": [],
+        "rolloff": None,
         "filtered_levels": filtered_levels,
         "checks": [],
         "expiry_clock": _expiry_clock_block(today),
@@ -1201,6 +1205,38 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "vol_note": "VRP positive = implied rich vs realized; elevated VVIX = paying up for the vol path.",
         "provenance": "index γ + VIX + walls/straddle via trading-intel NAS · letters ingest (research watchlist).",
     }
+    # The MAP block reads the flips/walls already in ctx and adds the close
+    # odds, delta cones, hedge pressure and the IV±1 fragility check.
+    if not is_market_holiday(today):
+        try:
+            from trading_intel.synthesis.gamma_map import build_map_block
+            from trading_intel.synthesis.map_store import (
+                graded_count,
+                recent_rows,
+                record_morning,
+            )
+
+            graded = graded_count(session, _DOC_ROOT)
+            block = build_map_block(
+                session, ctx, symbol=_DOC_ROOT, today=today, graded_sessions=graded
+            )
+            ctx["map_block"] = block
+            if block:
+                # Bank the card so tonight's grading job has something to score.
+                record_morning(session, block, today=today)
+            # The yesterday line + the Monday scorecard read the graded history.
+            ctx["map_history"] = recent_rows(session, _DOC_ROOT, days=20, before=today)
+            # Roll-off is a Monday / OpEx-day read, not a daily one.
+            from trading_intel.market.rolloff import build_rolloff, is_monthly_opex
+
+            if today.weekday() == 0 or is_monthly_opex(today):
+                from trading_intel.mcp.extra_tools import get_gex_term
+
+                term = get_gex_term(session, _DOC_ROOT)
+                if term.get("found"):
+                    ctx["rolloff"] = build_rolloff(term.get("term"), today=today)
+        except Exception:  # noqa: BLE001 — additive
+            log.warning("daily_brief.map_block_failed", exc_info=True)
     try:
         ctx["book_read"] = _book_read(ctx)
     except Exception:  # noqa: BLE001 — additive

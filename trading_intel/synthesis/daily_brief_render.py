@@ -10,10 +10,20 @@ light theme for the persisted artifact. Descriptive regime context only
 
 from __future__ import annotations
 
-import html as _html
 from typing import Any
 
 # ── inline-SVG helpers ─────────────────────────────────────────────────
+
+from trading_intel.synthesis.daily_brief_map_render import (  # noqa: F401
+    MAP_CSS,
+    _map_grade_html,
+    _map_section,
+    _pct0,
+    _rolloff_html,
+    _usd,
+    _usd_signed,
+)
+from trading_intel.synthesis.render_utils import _esc, _fmt, _pct  # noqa: F401
 
 
 def _spark_points(vals: list[float | None], *, w: float = 58, h: float = 18, pad: float = 2) -> str:
@@ -57,23 +67,6 @@ def _direction(series: list[float | None]) -> tuple[str, str]:
     if delta > band:
         return "▲", "up"
     return "▬", "flat"
-
-
-def _esc(v: Any) -> str:
-    return _html.escape("" if v is None else str(v))
-
-
-def _fmt(v: float | None, digits: int = 0) -> str:
-    if v is None:
-        return "—"
-    return f"{v:,.{digits}f}"
-
-
-def _pct(v: float | None, digits: int = 1) -> str:
-    if v is None:
-        return "—"
-    sign = "+" if v >= 0 else ""
-    return f"{sign}{v:.{digits}f}%"
 
 
 # ── section renderers ──────────────────────────────────────────────────
@@ -718,7 +711,7 @@ ul.clean{margin:6px 0 0;padding-left:18px;font-size:13px}ul.clean li{margin:5px 
 .mrmeta{margin:11px 0 6px;font-size:13px}.mrmeta .path{color:#33404f;margin-left:9px}
 .trigs{margin-top:12px}.trigs .hd,.overlay .hd{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#6b7684;font-weight:700;margin-bottom:6px}
 .overlay{margin-top:13px}.overlay th.l,.overlay td.l{text-align:left}
-.quote .src{color:#9aa5b1;font-size:11px;font-weight:400}"""
+.quote .src{color:#9aa5b1;font-size:11px;font-weight:400}""" + MAP_CSS
 
 
 #: The extractor emits ``key_support`` / ``key_resistance`` / ``expected_move``;
@@ -841,6 +834,9 @@ def _zero_dte_section(ctx: dict[str, Any]) -> str:
 <div class="note">From the 08:35 index chain snapshot (live intraday GEX is empty pre-open); spot = {_esc(z.get("spot_src") or "greeks snapshot")}. Inferred dealer book — read the sign and the levels, not the size. Descriptor only (rule 4).</div></div>"""
 
 
+
+
+
 def _clock_html(ctx: dict[str, Any]) -> str:
     """Expiry clock strip: next VIXpiration / OpEx / quarter-end with days-to, plus the phase read."""
     ph = ctx.get("expiry_clock") or {}
@@ -914,6 +910,9 @@ def render_html(ctx: dict[str, Any]) -> str:
     through = _esc(ctx.get("through_line") or "")
     body = (
         _book_read_html(ctx)
+        + _map_section(ctx)
+        + _map_grade_html(ctx)
+        + _rolloff_html(ctx)
         + _market_read_section(ctx)
         + _zero_dte_section(ctx)
         + _index_board(ctx)
