@@ -88,3 +88,7 @@ secrets/
 _to_delete/
 _probe_write.txt
 Claude outputs/
+
+# Convex cockpit collector output (NAS + laptop) - never commit
+scripts/cvxmap/data/
+scripts/cvxmap/**/bars_cache/
