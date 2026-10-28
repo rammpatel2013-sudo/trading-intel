@@ -1,0 +1,89 @@
+{
+ "_note": "Hand-maintained. Sources: federalreserve.gov FOMC calendar, BLS and BEA release schedules, Cboe expiration calendar. Created 2026-10-28; extend before Dec 16.",
+ "events": [
+  {
+   "d": "2026-10-28",
+   "t": "14:00",
+   "kind": "Fed",
+   "label": "FOMC decision 14:00 · presser 14:30"
+  },
+  {
+   "d": "2026-10-29",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "GDP Q3 advance + PCE"
+  },
+  {
+   "d": "2026-11-03",
+   "t": "",
+   "kind": "Election",
+   "label": "US midterm elections"
+  },
+  {
+   "d": "2026-11-04",
+   "t": "09:30",
+   "kind": "Expiry",
+   "label": "VIX weekly expiry (AM)"
+  },
+  {
+   "d": "2026-11-06",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "Jobs report (Oct)"
+  },
+  {
+   "d": "2026-11-10",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "CPI (Oct)"
+  },
+  {
+   "d": "2026-11-18",
+   "t": "09:30",
+   "kind": "Expiry",
+   "label": "VIX monthly expiry (AM)"
+  },
+  {
+   "d": "2026-11-20",
+   "t": "16:00",
+   "kind": "Expiry",
+   "label": "SPX monthly OPEX"
+  },
+  {
+   "d": "2026-11-25",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "PCE + GDP 2nd estimate"
+  },
+  {
+   "d": "2026-11-26",
+   "t": "",
+   "kind": "Holiday",
+   "label": "Thanksgiving, closed · 27th half day"
+  },
+  {
+   "d": "2026-12-04",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "Jobs report (Nov)"
+  },
+  {
+   "d": "2026-12-09",
+   "t": "14:00",
+   "kind": "Fed",
+   "label": "FOMC decision 14:00"
+  },
+  {
+   "d": "2026-12-10",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "CPI (Nov)"
+  },
+  {
+   "d": "2026-12-16",
+   "t": "09:30",
+   "kind": "Expiry",
+   "label": "VIX monthly expiry (AM)"
+  }
+ ]
+}

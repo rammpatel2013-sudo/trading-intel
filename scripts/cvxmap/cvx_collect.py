@@ -57,7 +57,10 @@ NOT_CHAIN_PARAMS = ["flownet","vflownet","flowratio","vflowratio",
 # Pull plan. One request per entry.
 PULLS = [
     {"name":"idx", "symbols":["SPX","SPY","QQQ"], "exps":list(range(12)), "rng":0.035},
-    {"name":"vix", "symbols":["VIX"],             "exps":list(range(6)), "rng":1.30},
+    # 2026-10-28: 10 expiries so the next monthly (Dec 16) is always in, and
+    # rng 5.0 so VIX calls reach ~100 - strikes >=30 carried 10% of Nov 18's
+    # implied variance and the old 1.30 stopped at 39. Still ONE request a minute.
+    {"name":"vix", "symbols":["VIX"],             "exps":list(range(10)), "rng":5.0},
 ]
 
 POLL_S     = 60
@@ -154,7 +157,17 @@ def pull(S, spec):
     body = {"symbols": spec["symbols"], "params": PARAMS,
             "exps": spec["exps"], "rng": spec["rng"]}
     t0 = time.time()
-    r = S.post(BASE + "/api/core/get/chain", json=body, timeout=90)
+    try:
+        r = S.post(BASE + "/api/core/get/chain", json=body, timeout=90)
+    except requests.exceptions.ConnectionError:
+        # 2026-10-28: Convex closes the keep-alive connection while it idles
+        # between cycles, so the minute's FIRST pull (always idx) hit a dead
+        # socket: 23 SPX minutes lost 10/28, VIX (1 s later, fresh socket) none.
+        # One immediate retry on a fresh connection.
+        log("retry %s after dropped connection" % spec["name"])
+        take_token(1)
+        t0 = time.time()
+        r = S.post(BASE + "/api/core/get/chain", json=body, timeout=90)
     el = time.time() - t0
     if r.status_code == 401:
         raise PermissionError("401")

@@ -130,27 +130,27 @@ def parse_scenarios(rm: list[str], pivot) -> tuple[list[dict], list[str], dict]:
     sect = None
     last_lean_L = None
     for raw in rm:
-        line = raw.strip()
+        line = re.sub(r"^[\u2022*\-]\s*", "", raw.strip())   # 2026-10-28 format: bulleted IF lines
         if not line:
             continue
         m = re.match(rf"^(?:THE\s+)?PIVOT\s*:\s*({_NUM})", line, re.I)
         if m:
             hdr["pivot"] = _v(m.group(1))
             continue
-        m = re.match(r"^CHOP ZONE\s*:\s*(.+)$", line, re.I)
+        m = re.match(r"^CHOP ZONE\b[^:]*:\s*(.+)$", line, re.I)   # also "CHOP ZONE (THE BOX): ..."
         if m:
             p = _PAIR.search(m.group(1))
             if p:
                 hdr["chop"] = sorted([_v(p.group(1)), _v(p.group(2))])
             continue
-        if re.match(rf"^(ABOVE|BELOW)\b(?:\s+THE\s+[A-Z ]+|\s+(?:{_NUM}))?\s*$", line):
+        if re.match(rf"^(ABOVE|BELOW)\b(?:\s+THE\s+[A-Z ]+|\s+(?:{_NUM}))?(?:\s*\(.*\))?\s*$", line):
             sect = "up" if line.upper().startswith("ABOVE") else "down"
             continue
         if re.match(r"^(SCALPER|LEVELS:|UP:|DOWN:|TOUCH IS)", line, re.I):
             break
         for s in _sentences(line):
             item = None
-            m = re.match(r"^IF\s+(?P<c>.+?),\s*THEN\s+(?P<t>.+)$", s, re.I)
+            m = re.match(r"^IF\s+(?P<c>.+?),?\s+THEN\s+(?P<t>.+)$", s, re.I)
             if m:
                 c, t = m.group("c"), m.group("t")
                 L = _first(c)
@@ -222,11 +222,11 @@ def parse_doc(text: str, subject: str = "") -> dict:
     out["md"] = [int(md.group(1)), int(md.group(2))] if md else None
 
     # --- TradingView strings: the cleanest level list Doc publishes
-    tv = _section(lines, r"TRADINGVIEW STRINGS", [r"^QUANTUITION", r"^Unsubscribe", r"CHEAT CARD", r"^— Doc"])
+    tv = _section(lines, r"(?i)TRADINGVIEW STRINGS", [r"^QUANTUITION", r"^Unsubscribe", r"CHEAT CARD", r"^— Doc"])
     grp = "MAIN"
     for l in tv:
-        if re.fullmatch(r"[A-Z ]{3,20}", l):
-            grp = l.strip()
+        if re.fullmatch(r"[0-9A-Z ]{3,20}", l):
+            grp = "MAIN" if "MAIN" in l else l.strip()   # 2026-10-28 format: "0DTE MAIN"
             continue
         m = re.match(r"^\$([A-Z0-9!]+)\s*:\s*(.+)$", l)
         if not m:
@@ -295,7 +295,7 @@ def parse_doc(text: str, subject: str = "") -> dict:
 
     # --- expected range / pivot / working area / paths / the one thing
     for l in lines:
-        if out["em"] is None and re.search(r"Expected range today", l, re.I):
+        if out["em"] is None and re.search(r"Expected range (?:today|from)", l, re.I):
             p = _PAIR.search(l)
             if p:
                 out["em"] = sorted([_v(p.group(1)), _v(p.group(2))])
@@ -307,10 +307,10 @@ def parse_doc(text: str, subject: str = "") -> dict:
             pv = re.search(rf"pivot\s+({_NUM})", m.group(1), re.I)
             if pv and out["pivot"] is None:
                 out["pivot"] = _v(pv.group(1))
-        m = re.search(r"UP PATH\s*:\s*(.+)$", l)
+        m = re.search(r"(?:UP PATH|^\W*UP)\s*:\s*(.+)$", l)
         if m:
             out["up_path"] = zones(m.group(1))
-        m = re.search(r"DOWN PATH\s*:\s*(.+)$", l)
+        m = re.search(r"(?:DOWN PATH|^\W*DOWN)\s*:\s*(.+)$", l)
         if m:
             out["down_path"] = zones(m.group(1))
         m = re.search(r"THE ONE THING\s*:\s*(.+)$", l)
@@ -318,7 +318,7 @@ def parse_doc(text: str, subject: str = "") -> dict:
             out["one_thing"] = m.group(1).strip()
 
     # --- road map
-    rm = _section(lines, r"ROAD MAP", [r"SCALPER MAP", r"PREMIUM SELLERS", r"BOTTOM LINE", r"CHEAT CARD", r"TRADINGVIEW"])
+    rm = _section(lines, r"ROAD MAP|^\W*THE TRADE\s*$", [r"SCALPER MAP", r"PREMIUM SELLERS", r"BOTTOM LINE", r"CHEAT CARD", r"TRADINGVIEW", r"WHY I'M NOT SELLING"])
     sc, ctx, hdr = parse_scenarios(rm, out["pivot"])
     if hdr.get("pivot") is not None:
         out["pivot"] = hdr["pivot"]

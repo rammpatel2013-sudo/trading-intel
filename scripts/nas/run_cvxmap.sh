@@ -27,6 +27,10 @@ PORT=8899
 # visible on the NAS filesystem. A tarball pull does NOT delete it (tar only
 # overwrites what is in the archive) — and data/ is gitignored.
 DATA_DIR="$REPO_DIR/scripts/cvxmap/data"
+# 2026-10-28: the .env DATABASE_URL (host IP) does NOT work inside a container - every
+# DB leg of cvxmap-doc failed with OperationalError. Same override run_job.sh uses.
+DB_URL="postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel"
+PG_CONTAINER="trading-intel-pg"
 
 set -uo pipefail
 LOG="$HOME_DIR/ti_cvxmap.log"
@@ -41,6 +45,7 @@ run_one() {   # name, extra docker args, command
         -v "${REPO_DIR}/scripts:/app/scripts" \
         -v "${REPO_DIR}/secrets:/app/secrets" \
         -e "PYTHONPATH=/app" \
+        -e "DATABASE_URL=${DB_URL}" \
         $extra \
         "$IMAGE" sh -c "$*" >/dev/null
     echo "  started $name"
@@ -51,6 +56,7 @@ case "${1:-}" in
     {
       echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap START ==="
       "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+      "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
       mkdir -p "$DATA_DIR"
       run_one cvxmap-collect ""                 "python scripts/cvxmap/cvx_collect.py"
       run_one cvxmap-write   ""                 "python scripts/cvxmap/cvx_live.py"

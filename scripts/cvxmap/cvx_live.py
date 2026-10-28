@@ -30,6 +30,13 @@ Run:  python cvx_live.py            (loop, follows the raw file)
 """
 import os, sys, json, math, gzip, time, datetime, traceback
 
+# VIX tab data (2026-10-28): forward/ATM per expiry, implied variance, regime
+# board, events. Optional - if it fails to import, the writer runs as before.
+try:
+    import vixdash
+except Exception:
+    vixdash = None
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 
@@ -440,14 +447,25 @@ def build_week(dec, today):
 
 # VIX9D is not carried by Convex (probed 2026-10-27: not in `und`). Cboe serves it
 # free on the CDN the trading-intel CboeClient already uses. It is NOT Convex, so it
-# costs no API budget. 403s from the Cowork VM (egress proxy) but works from the
-# laptop. If it fails the cockpit degrades on its own to 1/2 * delta-0DTE-ATM-IV.
-_CBOE = "https://cdn-api.cboe.com/api/global/delayed_quotes/indices/"
+# costs no API budget. If it fails the cockpit degrades on its own to
+# 1/2 * delta-0DTE-ATM-IV.
+# FIX 2026-10-28: the /indices/ path returns 403 for every symbol; /quotes/ works
+# (VIX9D 16.47 at 13:42). Until this fix v9d was always 0 on the Convex cockpit.
+_CBOE = "https://cdn-api.cboe.com/api/global/delayed_quotes/quotes/"
 _v9d = {"val": 0.0, "at": 0.0}
+V9D_INTO_MAP = False   # flip only on Mithil's OK (MAP rule) - see process()
 
 
 
-def vix_rows(dv):
+def _rec_now(rec):
+    """The pull's own ET timestamp, so a --rebuild replays expiry timing correctly."""
+    try:
+        return datetime.datetime.fromisoformat(str(rec.get("ts"))[:19])
+    except Exception:
+        return now_et()
+
+
+def vix_rows(dv, now=None):
     import datetime as _dt
     """VIX chain -> compact rows for the VIX dashboard.
 
@@ -479,7 +497,17 @@ def vix_rows(dv):
                     lbl = (_dt.date(1970, 1, 1) + _dt.timedelta(days=int(head))).isoformat()
                 except Exception:
                     lbl = str(head)[:10]
-                out.append({"e": lbl, "n": len(rows), "rows": rows})
+                item = {"e": lbl, "n": len(rows), "rows": rows}
+                if vixdash is not None:
+                    try:
+                        extra = vixdash.enrich_expiry(lbl, book, now or now_et())
+                    except Exception as exc:
+                        log("vix enrich %s: %s" % (lbl, str(exc)[:80]))
+                        extra = {}
+                    if extra is None:      # settled this morning, or listed but empty
+                        continue
+                    item.update(extra)
+                out.append(item)
     except Exception as exc:
         log("vix_rows: %s" % str(exc)[:80])
     return out
@@ -487,6 +515,10 @@ def vix_rows(dv):
 
 def vix9d():
     import time as _t
+    if vixdash is not None:            # the regime thread already polls VIX9D
+        q = vixdash.quote("VIX9D")
+        if q > 0:
+            return q
     if _t.time() - _v9d["at"] < 60:
         return _v9d["val"]
     _v9d["at"] = _t.time()
@@ -593,7 +625,7 @@ def process(rebuild=False):
             try:
                 dv = decode(rec)
                 pending_vix = {"spot": dv["VIX"]["spot"], "v9d": 0,
-                               "exps": vix_rows(dv)}
+                               "exps": vix_rows(dv, _rec_now(rec))}
             except Exception:
                 pass
             state["_vix"] = pending_vix
@@ -616,8 +648,20 @@ def process(rebuild=False):
                 live[sym] = sd
                 flows.append(fl)
         vx = dict(pending_vix) if pending_vix else {"spot": 0, "v9d": 0}
-        vx["v9d"] = vix9d()
+        # MAP RULE: the page's week-book vol re-mark reads VIX.v9d (falls back to
+        # 1/2 * delta 0DTE ATM IV when it is 0). It has been 0 on Convex since day
+        # one (the 403 above), so a real VIX9D here would CHANGE the map. Held at
+        # the old value until Mithil says otherwise; the VIX tab reads v9dq.
+        v9 = vix9d()
+        vx["v9d"] = v9 if V9D_INTO_MAP else 0
+        vx["v9dq"] = v9
         live["VIX"] = vx
+        if vixdash is not None:
+            try:
+                live["VIXR"] = vixdash.regime_snapshot()
+                live["EVT"] = vixdash.events(today)
+            except Exception as exc:
+                log("vix regime/events: %s" % str(exc)[:80])
         live["ES"] = {"last": 0, "cvd": 0, "tl": []}
         live["week"] = build_week(dec, today)
         live["_source"] = "convex"
@@ -641,6 +685,14 @@ def main():
     once = "--once" in sys.argv
     rebuild = "--rebuild" in sys.argv
     log("stage2 start  once=%s rebuild=%s" % (once, rebuild))
+    if vixdash is not None:
+        try:
+            vixdash.start_regime(now_et)
+            log("vixdash loaded - regime thread started (Cboe, no Convex calls)")
+        except Exception as exc:
+            log("vix regime thread: %s" % str(exc)[:80])
+    else:
+        log("vixdash NOT loaded - VIX tab extras off, writer otherwise unchanged")
     first = True
     while True:
         n_et = now_et()
