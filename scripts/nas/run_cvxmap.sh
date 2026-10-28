@@ -39,6 +39,7 @@ run_one() {   # name, extra docker args, command
     "$DOCKER" run -d --rm --name "$name" --network "$NETWORK" \
         -v "${ENV_FILE}:/app/.env" \
         -v "${REPO_DIR}/scripts:/app/scripts" \
+        -v "${REPO_DIR}/secrets:/app/secrets" \
         -e "PYTHONPATH=/app" \
         $extra \
         "$IMAGE" sh -c "$*" >/dev/null
@@ -53,6 +54,8 @@ case "${1:-}" in
       mkdir -p "$DATA_DIR"
       run_one cvxmap-collect ""                 "python scripts/cvxmap/cvx_collect.py"
       run_one cvxmap-write   ""                 "python scripts/cvxmap/cvx_live.py"
+      run_one cvxmap-doc     "-e TI_DIR=/app -e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/am_feed.py"
+      run_one cvxmap-blocks  "-e TI_DIR=/app -e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/blocks_feed.py"
       run_one cvxmap-serve   "-p ${PORT}:${PORT}" "python scripts/cvxmap/serve_cvx.py ${PORT}"
       echo "  cockpit: http://192.168.1.211:${PORT}/cvx_cockpit.html"
     } >> "$LOG" 2>&1
@@ -60,14 +63,14 @@ case "${1:-}" in
   stop)
     {
       echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap STOP ==="
-      for n in cvxmap-collect cvxmap-write; do
+      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks; do
           "$DOCKER" rm -f "$n" >/dev/null 2>&1 && echo "  stopped $n" || echo "  $n not running"
       done
       echo "  (serve left up so the cockpit stays readable)"
     } >> "$LOG" 2>&1
     ;;
   stopall)
-    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-serve >/dev/null 2>&1
+    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-serve >/dev/null 2>&1
     echo "all cvxmap containers removed"
     ;;
   status)
@@ -75,6 +78,14 @@ case "${1:-}" in
     echo
     echo "--- collector ---"; tail -3 "$DATA_DIR"/collector_*.log 2>/dev/null || echo "  (none)"
     echo "--- writer ---";    tail -3 "$DATA_DIR"/stage2_*.log    2>/dev/null || echo "  (none)"
+    echo "--- shared feeds ---"
+    for f in ti.json blocks.json; do
+        if [ -f "$DATA_DIR/$f" ]; then
+            echo "  $f  $(stat -c %y "$DATA_DIR/$f" 2>/dev/null | cut -c1-19)  $(stat -c %s "$DATA_DIR/$f") bytes"
+        else
+            echo "  $f  MISSING"
+        fi
+    done
     ;;
   *)
     echo "usage: run_cvxmap.sh start|stop|stopall|status" >&2
