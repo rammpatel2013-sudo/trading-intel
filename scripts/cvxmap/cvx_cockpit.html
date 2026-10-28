@@ -58,6 +58,22 @@ body.demo .demo-flag{display:inline-block}
 #tabFlow{display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:auto minmax(0,1.5fr) minmax(0,1fr);min-height:0;overflow:hidden}
 #tabMap{display:grid;grid-template-columns:minmax(0,1.2fr) 300px minmax(0,1.2fr);grid-template-rows:minmax(0,1fr);min-height:0}
 #tabVol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr);min-height:0}
+#tabDensity{display:grid;grid-template-columns:minmax(0,1fr) 430px;grid-template-rows:minmax(0,1fr);min-height:0}
+#denMainPane .body{position:relative;min-height:0;flex:1}#denMainPane canvas{width:100%;height:100%;display:block}
+#denSidePane{overflow:auto;border-right:0}
+.denread{padding:6px 14px 8px;font-size:16px;line-height:1.55;color:var(--ink)}
+.denread .l{margin:4px 0}.denread b{font-variant-numeric:tabular-nums}
+.denread .big{font-size:19px;font-weight:700}
+.denread .up{color:var(--longg)}.denread .dn{color:var(--shortg)}.denread .ev{color:var(--warn);font-weight:600}
+.denread .off{color:var(--warn);font-weight:700;font-size:17px}.denread .note{color:#B9C6D8;font-size:13px}
+.denchbody{position:relative;height:150px;margin:0 8px}.denchbody canvas{width:100%;height:100%;display:block}
+.denlog{padding:2px 8px 12px;font-size:13px}
+.denlog table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.denlog th{color:var(--mute);font-weight:600;text-align:right;padding:3px 5px;border-bottom:1px solid var(--rule);font-size:12px}
+.denlog td{text-align:right;padding:3px 5px;border-bottom:1px solid var(--grid);color:var(--ink)}
+.denlog td:first-child,.denlog th:first-child{text-align:left}
+#denEngBtn[aria-pressed=false]{background:#FF6B5A26;border-color:var(--shortg);color:var(--shortg);font-weight:700}
+body.phone #tabDensity{grid-template-columns:1fr;grid-template-rows:520px auto}
 #tabHelp{display:block;overflow:auto;min-height:0}
 #helpPane{border-right:0}
 .helpbody{padding:10px 26px 40px;max-width:1180px;font-size:15px;line-height:1.62;color:var(--ink)}
@@ -351,6 +367,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
       <button data-tab="vol" aria-pressed="false" title="Volume by strike, three views side by side: today · last 30 min · last 30 vs prior 30 (key V)">Volume</button>
       <button data-tab="premium" aria-pressed="false" title="Where today&rsquo;s option premium actually went: top call and put strikes by dollars, bought vs sold, and the biggest minutes (key $)">Premium</button>
+      <button data-tab="density" aria-pressed="false" title="Where the close is likely to land: a cone re-run every 5 minutes from live spot and the live 0DTE straddle, with the Map&rsquo;s gamma zero and vanna rails (key N)">Density</button>
       <button data-tab="vix" aria-pressed="false" title="VIX term structure, strike ladder and measured call flow, from the Convex VIX chain (key X)">VIX</button>
       <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
       <button data-tab="plan" aria-pressed="false" title="Doc's morning plan graded live, plus trading-intel's morning book">Plan</button>
@@ -519,6 +536,16 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     <section class="pane" id="premMinPane"><div class="phead"><h2>By the minute</h2><span class="hint">calls up &middot; puts down &middot; shared scale &middot; dashed guide = big-minute cutoff (top 5%, $0.85m floor)</span></div><div class="body"><canvas id="premMinC"></canvas></div></section>
     <section class="pane" id="premBigPane"><div class="phead"><h2>Big minutes</h2><span class="hint">minutes in the top 5% for their own side</span></div><div class="prembig" id="premBig"></div></section>
   </main>
+  <main id="tabDensity" class="tab" hidden>
+    <section class="pane" id="denMainPane"><div class="phead"><h2>Density &mdash; where the close is likely to land</h2><span class="hint">cone re-run every 5 min from live spot and the live 0DTE straddle &middot; left of the cursor = the 09:30 cone &middot; lines = the Map&rsquo;s own gamma zero and vanna rails as they stood &middot; model, not a forecast (key N)</span><button class="btn" id="denEngBtn" aria-pressed="true" title="Kill switch. OFF stops every Density calculation and closes its background worker; nothing else in the cockpit is affected. Remembered across reloads. ?nodensity in the address bar turns it off hard.">Engine ON</button><button class="btn" id="denCsvBtn" title="Download today's cone log as CSV (one row per 5-minute re-run)">Export log</button><span class="hint" id="denStatus"></span></div><div class="body"><canvas id="denMainC"></canvas></div></section>
+    <section class="pane" id="denSidePane"><div class="phead"><h2>Read</h2></div>
+      <div class="denread" id="denRead"></div>
+      <div class="phsub">Charm at the realized spot &mdash; 0DTE, open interest only (+ = dealers buy)</div>
+      <div class="denchbody"><canvas id="denCharmC"></canvas></div>
+      <div class="phsub">Cone log &mdash; one row per 5-minute re-run</div>
+      <div class="denlog" id="denLog"></div>
+    </section>
+  </main>
   <main id="tabVix" class="tab" hidden>
     <section class="pane" id="vixTermPane" style="grid-column:1/-1"><div class="phead"><h2>VIX term structure</h2><div class="seg" role="group" id="vixExpSeg" aria-label="Expiry"></div><span class="sp"></span><span class="hint" id="vixRead"></span></div><div class="body"><canvas id="vixTermC"></canvas></div></section>
     <section class="pane" id="vixLadPane"><div class="phead"><h2>Strike ladder</h2><span class="hint">selected expiry &middot; bars are open interest &middot; OI is fixed for the session</span></div><div class="vhead"><span>Strike</span><span>Call OI</span><span>Put OI</span><span>Volume</span><span>IV</span><span>&gamma;&middot;OI</span></div><div class="vladder" id="vixLadder"></div></section>
@@ -535,6 +562,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Skew</dt><dd>The shape of implied volatility across strikes, and how it has moved since the open.</dd>
           <dt>Map</dt><dd>Gamma, charm and vanna as heat maps. Left of the dashed vertical is the book as it actually stood each minute. Right of it is today&rsquo;s book carried forward to the close as time decays.</dd>
           <dt>Volume</dt><dd>Three ladders side by side: everything so far today, just the last 30 minutes, and the last 30 compared with the 30 before it.</dd>
+          <dt>Density</dt><dd>Where the close is likely to land, re-estimated every 5 minutes. The bright band is a 20,000-path simulation started from live spot, sized by the live 0DTE at-the-money straddle, spread over the day by a historical time-of-day profile, and widened where the Map says dealers are short gamma (narrowed where long). Left of the cursor is the 09:30 cone for comparison. The cyan line is the Map&rsquo;s gamma zero and the green and lavender lines are its vanna top and bottom, each as it stood that minute (0DTE book, your basis setting). It is centred on spot, so it does not call the close by itself &mdash; read the lines for that. <b>Engine ON/OFF</b> is the kill switch: OFF stops all of its calculation; <code>?nodensity</code> in the address bar turns it off hard. Key N.</dd>
           <dt>VIX</dt><dd>The VIX chain itself, from the Convex feed: ATM implied vol by expiry (vol of vol &mdash; how dearly VIX options price, not the VIX level), a strike ladder of open interest, volume and IV, and Convex&rsquo;s own measured buy/sell split on gamma rather than a direction inferred from &Delta;OI. Empty on the workbook feed, which carries VIX spot and VIX9D but no chain. The &gamma;&middot;OI column is a magnitude, not a signed dealer book.</dd>
           <dt>Premium</dt><dd>Where today&rsquo;s option money actually went &mdash; the heaviest strikes a side, how much of each was bought rather than sold, and which minutes carried outsized premium.</dd>
           <dt>Plan</dt><dd>Doc&rsquo;s morning plan graded against what price has since done, plus the morning book.</dd>
@@ -647,7 +675,7 @@ const st = {
 };
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
 if(!["ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","vix"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -1896,7 +1924,7 @@ function render(){
   syncSeg("focusSeg",st.focus);
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
-  document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
+  document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix"; document.getElementById("tabDensity").hidden=st.tab!=="density";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
@@ -1909,6 +1937,7 @@ function render(){
   else if(st.tab==="vol") renderVolTab(se,book);
   else if(st.tab==="premium") renderPremium(se);
   else if(st.tab==="vix") renderVix();
+  else if(st.tab==="density") renderDensity(se);
   else renderSkew(se,d);
 }
 
@@ -2099,6 +2128,7 @@ document.addEventListener("keydown",e=>{
   else if(k==="e"&&st.tab==="map"){ const o=["0dte","week","all"]; st.mapBook=o[(o.indexOf(st.mapBook||"0dte")+1)%3]; save("mapBook",st.mapBook); syncSeg("mapBookSeg",st.mapBook); render(); }
   else if(e.key==="$"||k==="r"){ st.tab="premium"; save("tab","premium"); render(); }
   else if(k==="h"||e.key==="?"){ st.tab="help"; save("tab","help"); render(); }
+  else if(k==="n"){ st.tab="density"; save("tab","density"); render(); }
   else if(k==="f"){ resetView(); syncSeg("winSeg",st.win.preset); syncSeg("gridWin",st.win.preset); syncSeg("rowSeg",st.rows); render(); }
   else if(e.key==="+"||e.key==="="){ zoomTime(0.6); }
   else if(e.key==="-"||e.key==="_"){ zoomTime(1.6); }
@@ -2965,6 +2995,227 @@ function drawChgBlocked(id){
   ];
   lines.forEach((t, i) => ctx.fillText(t, 14, 50 + i * 17));
 }
+
+
+/* ---- density.js (v2 R3, shared) ---- */
+/* ---- density.js (v2 R3, 2026-10-28) — live density cone, Derivatives-Don layout ----------------------
+   READ-ONLY with respect to the Map: it CALLS the cockpit's own buildMap / mapRowsAt / greekCol and never
+   edits them or writes to st. Positions use the Map's basis setting, 0DTE book.
+   Frozen model (set 2026-10-27/28, not to be tuned after a bad day):
+     20,000 paths · width = 0DTE ATM straddle / 0.7979 (the market's 1-sigma for the rest of the day) spread over a
+     historical time-of-day variance profile (SPX 1-min, Oct 5-26 2026) · net gamma scales vol by exp(-ln1.4 * G/ref),
+     clipped 0.6-1.6, ref = 95th pct |G| over that run's projection grid · no drift · seed 11000 + run minute.
+   KILL SWITCH: the Engine button (remembered), or ?nodensity in the address bar (hard off: no timer, no worker).
+   Any error stays inside this tab; three errors in a session switch the engine off by itself. */
+const DEN_W=[0.0156174,0.0138708,0.0124963,0.0106677,0.009148,0.00756782,0.00688242,0.00694332,0.00636975,0.0067974,0.00672841,0.00680138,0.00669252,0.00672686,0.0063582,0.00618581,0.00598422,0.00604475,0.00606542,0.00607278,0.00552713,0.00558828,0.00564071,0.0060455,0.00568373,0.00555504,0.00568397,0.00649205,0.00667885,0.00644371,0.00657601,0.00639518,0.00586258,0.00590584,0.00595226,0.00560584,0.00476482,0.0041944,0.00415959,0.00426102,0.00380388,0.00392381,0.00402892,0.00394425,0.00381932,0.00318113,0.00317338,0.00319917,0.00277628,0.0028774,0.00272034,0.00236933,0.00240308,0.00242093,0.00270629,0.00296597,0.00307106,0.00310365,0.00329342,0.00325605,0.00323949,0.00324579,0.00321673,0.00299405,0.00302009,0.00280782,0.00281674,0.0024956,0.00251452,0.00271366,0.00273002,0.00277497,0.0027504,0.00251224,0.00260323,0.00240846,0.00237393,0.00249975,0.0023567,0.0023542,0.00248006,0.00256599,0.00251812,0.00257435,0.00248703,0.00259577,0.00240326,0.00248602,0.0024102,0.00215302,0.00211251,0.00226794,0.00208425,0.0022392,0.00213672,0.00241358,0.00226337,0.00231548,0.00351986,0.00400696,0.00408244,0.00452041,0.00437418,0.0044037,0.00414095,0.00411668,0.00393061,0.00274927,0.00220471,0.00202118,0.00167587,0.00182255,0.00171937,0.00182046,0.00188657,0.00198789,0.00213428,0.00207053,0.0020807,0.00203213,0.00194191,0.0019955,0.00196066,0.00204803,0.00201246,0.00168882,0.00175945,0.0016671,0.00162107,0.00157428,0.00145519,0.00147692,0.00134708,0.0013893,0.00147323,0.00170632,0.00191639,0.00187115,0.00187542,0.00188228,0.00201768,0.0020975,0.00227761,0.00229593,0.00194212,0.00167986,0.00200975,0.00227981,0.00253896,0.00227366,0.00225433,0.00212253,0.00223863,0.00232972,0.00246948,0.00215968,0.00189479,0.00170758,0.00168561,0.00163827,0.00170966,0.00151466,0.00154566,0.00295049,0.00311067,0.00317131,0.00308636,0.00303504,0.00304324,0.00305477,0.00311428,0.00306798,0.00153643,0.00148377,0.00135794,0.00134851,0.00158466,0.0017192,0.00152107,0.0016555,0.0016636,0.00171303,0.00166275,0.00188619,0.001931,0.00245803,0.00251422,0.00252645,0.00243267,0.00236569,0.00245345,0.00242537,0.00229525,0.00271496,0.00222413,0.00202855,0.00217735,0.00234617,0.00262946,0.00273891,0.00268807,0.00274028,0.00242684,0.00211969,0.00221557,0.00214628,0.0023576,0.00234789,0.0027483,0.00314622,0.00328088,0.00311585,0.00323199,0.00309585,0.00313921,0.00264836,0.00243386,0.00179886,0.00162187,0.00139018,0.00144328,0.00160243,0.00188528,0.00175782,0.00174314,0.00174014,0.00178016,0.00174051,0.00187775,0.00184587,0.00173472,0.00141214,0.00172912,0.00198982,0.0021065,0.00207779,0.00196914,0.00188522,0.00200407,0.00193233,0.00211606,0.00177522,0.00150201,0.00135378,0.00127544,0.00127825,0.00121029,0.00207444,0.00202244,0.00189433,0.00192975,0.00197321,0.0020758,0.00212606,0.00219519,0.00228241,0.00137594,0.00135564,0.00139954,0.00144464,0.00154016,0.00164072,0.00163904,0.00148121,0.00149438,0.00134455,0.00152838,0.00165002,0.00198786,0.00194861,0.00174556,0.00194212,0.00231451,0.00229927,0.00243091,0.0022688,0.00211558,0.00166777,0.00162188,0.00177746,0.00159022,0.00128297,0.00127169,0.00121008,0.00117541,0.00112563,0.00122108,0.00114978,0.000987767,0.00107689,0.000994052,0.000920922,0.000931293,0.00102661,0.00103837,0.000973572,0.0012488,0.00124236,0.00118103,0.00115636,0.0011273,0.00118458,0.00119044,0.00119055,0.00118425,0.000922357,0.000872115,0.000769245,0.000879817,0.00102209,0.000983563,0.000939356,0.000895099,0.00105581,0.00110708,0.00127392,0.00142869,0.00139089,0.00140071,0.00132248,0.00133045,0.0014793,0.00149564,0.00146493,0.00135835,0.00139118,0.00169251,0.00167756,0.00194811,0.00208487,0.00213149,0.00201075,0.00248289,0.00249134,0.00239627,0.00204665,0.00203106,0.00195707,0.00200449,0.00182533,0.00201649,0.00154223,0.00147469,0.00162751,0.00173846,0.0019396,0.00192551,0.00172177,0.00182314,0.0017142,0.00176808,0.00189497,0.0018039,0.00178609,0.00177849,0.00180087,0.00189658,0.00191082,0.00178043,0.00195399,0.00199998,0.00192601,0.00206878,0.00190371,0.00171327,0.00157435,0.00151223,0.00147612,0.00129827,0.00115597,0.00113542,0.000958912,0.000964321,0.00103478,0.001044,0.00112069,0.00255597,0.00264322,0.00275668,0.00290125,0.00293871,0.00297475,0.00303083,0.00307378,0.00314668,0.00205191,0.00224437,0.0024525,0.00261293,0.00284965];
+const DEN_INF="00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4";
+const DEN_EVENTS={"2026-10-28":"Fed decision at 14:00 — the straddle prices it, but the time-of-day profile spreads that risk evenly through the afternoon (parameters frozen, so read the cone width after 14:00 with that in mind)."};
+const DEN={hard:new URLSearchParams(location.search).has("nodensity")||DEMO, N:20000, BETA:Math.log(1.4), CLIP:[0.6,1.6], SEED:11000,
+  key:null, runs:{}, dens:{}, anchor:null, charm:[], charmN:0, worker:null, busy:null, fails:0, tripped:false, err:null, timer:null, lines:null, linesKey:null};
+function denOn(){ return !DEN.hard && !DEN.tripped && load("denOn","1")==="1"; }
+function denFail(where,e){ DEN.fails++; DEN.err=where+": "+(e&&e.message||e); try{ console.warn("[density]",DEN.err); }catch(_){}
+  if(DEN.fails>=3){ DEN.tripped=true; denStop(); } }
+function denStop(){ if(DEN.worker){ try{ DEN.worker.terminate(); }catch(e){} } DEN.worker=null; DEN.busy=null; }
+function denNowMin(){ const c=liveClock(); return c.h*60+c.m; }
+function denSnaps(){ const a=(st.flow&&st.flow[st.sym])||[], now=denNowMin(); const out=[]; a.forEach((s,j)=>{ const t=tmin(s.t); if(t<=now) out.push([j,t,s]); }); return out; }
+function denReset(){ const c=liveClock(); const key=c.date+"|"+st.sym+"|"+st.basis+"|"+(st.flowFromFile?st.flowFile:"live");   // the minute-log file arriving resets everything built from the live-only fallback
+  if(DEN.key!==key){ denStop(); DEN.key=key; DEN.runs={}; DEN.dens={}; DEN.anchor=null; DEN.charm=[]; DEN.charmN=0; DEN.lines=null; DEN.linesKey=null; } }
+// ---- inputs for the re-run at minute 570+k: the book exactly as it stood then (cockpit's mapRowsAt + greekCol)
+function denInputs(k){
+  const d=st.live&&st.live[st.sym]; if(!d||!d.rows||!d.rows.length) return null;
+  const T=RTH_OPEN+k, T0=Math.max(T,RTH_OPEN+1); let hit=null; for(const r of denSnaps()){ if(r[1]>=T0&&r[1]<=T+3){ hit=r; break; } } if(!hit) return null;   // 2026-10-28: the 09:30 row is the pre-open print (prior close), so the 09:30 cone starts from the first minute >= 09:31
+  const [j,,s]=hit, S0=s.x; if(!(S0>0)||!s.k||s.k.length<5) return null;
+  let q0=0; s.k.forEach((kk,q)=>{ if(Math.abs(kk-S0)<Math.abs(s.k[q0]-S0)) q0=q; });
+  const strad=(s.cm[q0]||0)+(s.pm[q0]||0); if(!(strad>0)) return null;
+  const rows=mapRowsAt(j,null,d), step=d.step||5, dp=step/MAP_SUB, ks=s.k.slice().sort((a,b)=>a-b);
+  const prices=[]; for(let p=ks[0];p<=ks[ks.length-1]+1e-9;p+=dp) prices.push(p);
+  const times=[]; for(let t=Math.ceil(T/MAP_STEP)*MAP_STEP;t<=MAP_T1;t+=MAP_STEP) times.push(t);
+  const G=new Float32Array(times.length*prices.length); let n=0;
+  for(const t of times){ const ty=Math.max(MAP_T1-t,1)/525600; for(const p of prices) G[n++]=greekCol("gamma",rows,p,ty); }
+  const a=Array.from(G,Math.abs).sort((x,y)=>x-y), ref=Math.max(1e-9,a[Math.floor(a.length*0.95)]||1e-9);
+  const tyN=Math.max(MAP_T1-T,1)/525600;
+  const zeros=kind=>{ const c=prices.map(p=>greekCol(kind,rows,p,tyN)), z=[]; for(let i=1;i<c.length;i++){ if((c[i-1]<0&&c[i]>=0)||(c[i-1]>0&&c[i]<=0)) z.push(prices[0]+dp*(i-1+(0-c[i-1])/(c[i]-c[i-1]||1))); } return z; };
+  const gzs=zeros("gamma"), vz=zeros("vanna");
+  const gz=gzs.length?gzs.reduce((b,v)=>Math.abs(v-S0)<Math.abs(b-S0)?v:b):null;
+  const vt=vz.length===2?Math.max(...vz):null, vb=vz.length===2?Math.min(...vz):null;
+  let ws=0; for(let i=k+1;i<390;i++) ws+=DEN_W[i]; const w=new Float64Array(390); for(let i=k+1;i<390;i++) w[i]=DEN_W[i]/(ws||1);
+  if(DEN.anchor==null){ const f=denSnaps().find(r=>r[1]>=RTH_OPEN+1); DEN.anchor=Math.round((f?f[2].x:S0)/step)*step; }
+  const bdp=step/2, nb=161, b0=DEN.anchor-80*bdp;
+  return {id:k,k0:k,N:DEN.N,seed:DEN.SEED+k,S0,sig:strad/0.7979/S0,strad,w,G,gp0:prices[0],gdp:dp,gnp:prices.length,gt0:times[0],gdt:MAP_STEP,gnt:times.length,
+          ref,beta:DEN.BETA,c0:DEN.CLIP[0],c1:DEN.CLIP[1],b0,bdp,nb,zoneW:step,gz,vt,vb,keep:(k===0)};
+}
+const DEN_WORKER=`
+function rng(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+onmessage=function(e){ const m=e.data; try{ const r=run(m); postMessage(r, r.dens?[r.dens.buffer]:[]); }catch(err){ postMessage({id:m.id,error:String(err&&err.message||err)}); } };
+function run(m){
+  const N=m.N, S=new Float64Array(N).fill(m.S0), u=rng(m.seed); let spare=null;
+  const gauss=function(){ if(spare!==null){ const s=spare; spare=null; return s; } let x,y,r; do{ x=u()*2-1; y=u()*2-1; r=x*x+y*y; }while(r>=1||r===0); const f=Math.sqrt(-2*Math.log(r)/r); spare=y*f; return x*f; };
+  const nMin=390-m.k0, nb=m.nb, dens=new Float32Array(nMin*nb);
+  const hist=function(row){ const o=row*nb; for(let n=0;n<N;n++){ const b=Math.round((S[n]-m.b0)/m.bdp); if(b>=0&&b<nb) dens[o+b]++; } };
+  hist(0);
+  const G=m.G, gnp=m.gnp, sig2=m.sig*m.sig;
+  for(let i=m.k0+1;i<390;i++){
+    let c=Math.ceil((570+i-m.gt0)/m.gdt); if(c<0) c=0; if(c>m.gnt-1) c=m.gnt-1; const row=c*gnp, v0=sig2*m.w[i];
+    for(let n=0;n<N;n++){ const s=S[n]; let g=0; const f=(s-m.gp0)/m.gdp;
+      if(f>=0&&f<=gnp-1){ const i0=Math.floor(f), fr=f-i0; g=i0<gnp-1?G[row+i0]*(1-fr)+G[row+i0+1]*fr:G[row+i0]; }
+      let mu=Math.exp(-m.beta*g/m.ref); if(mu<m.c0) mu=m.c0; else if(mu>m.c1) mu=m.c1;
+      const v=v0*mu*mu; S[n]=s*Math.exp(-0.5*v+Math.sqrt(v)*gauss()); }
+    hist(i-m.k0);
+  }
+  const srt=Float64Array.from(S).sort(); const q=function(p){ const x=p*(N-1), i=Math.floor(x), f=x-i; return i+1<N?srt[i]*(1-f)+srt[i+1]*f:srt[i]; };
+  const zc=new Map(); for(let n=0;n<N;n++){ const z=Math.floor(S[n]/m.zoneW)*m.zoneW; zc.set(z,(zc.get(z)||0)+1); }
+  let zone=null, zn=-1; for(const [z,c] of zc){ if(c>zn){ zn=c; zone=z; } }
+  let above=0, rails=0; for(let n=0;n<N;n++){ if(m.gz!=null&&S[n]>m.gz) above++; if(m.vb!=null&&m.vt!=null&&S[n]>m.vb&&S[n]<m.vt) rails++; }
+  return {id:m.id, k0:m.k0, med:q(0.5), p10:q(0.1), p90:q(0.9), zone, pZone:zn/N, pAboveGz:m.gz!=null?above/N:null, pRails:(m.vb!=null&&m.vt!=null)?rails/N:null, dens:dens};
+}`;
+function denWorker(){ if(DEN.worker) return DEN.worker;
+  const w=new Worker(URL.createObjectURL(new Blob([DEN_WORKER],{type:"text/javascript"})));
+  w.onmessage=e=>{ const r=e.data, inp=DEN.busy; DEN.busy=null;
+    if(r.error||!inp){ denFail("worker",r.error||"no input"); return; }
+    DEN.runs[r.k0]={t:tlabel(RTH_OPEN+r.k0),k:r.k0,spot:inp.S0,strad:inp.strad,sd:inp.strad/0.7979,med:r.med,p10:r.p10,p90:r.p90,zone:r.zone,pZone:r.pZone,
+                    pAboveGz:r.pAboveGz,pRails:r.pRails,gz:inp.gz,vt:inp.vt,vb:inp.vb,b0:inp.b0,bdp:inp.bdp,nb:inp.nb};
+    const latest=Math.max(...Object.keys(DEN.runs).map(Number));
+    if(r.k0===0||r.k0===latest){ DEN.dens[r.k0]=r.dens; for(const kk of Object.keys(DEN.dens)) if(+kk!==0&&+kk!==latest) delete DEN.dens[kk]; }
+    if(st.tab==="density") renderDensity(series(st.sym));
+    denPump(); };
+  w.onerror=e=>{ DEN.busy=null; denFail("worker",e.message||"error"); };
+  DEN.worker=w; return w; }
+// queue: the 09:30 cone first (the ghost), then the latest, then backfill newest-first
+function denPump(){
+  if(!denOn()||DEN.busy) return;
+  const now=denNowMin(); const last=Math.min(385,Math.floor((now-RTH_OPEN)/5)*5); if(last<0) return;
+  const want=[0,last]; for(let k=last-5;k>0;k-=5) want.push(k);
+  for(const k of want){ if(DEN.runs[k]||DEN.runs["x"+k]) continue;
+    const inp=denInputs(k); if(!inp){ if(st.flowFromFile&&now>RTH_OPEN+k+3) DEN.runs["x"+k]=true; continue; }   // mark has no snapshot in the minute log: skip it for good once its 3-min window has passed
+    DEN.busy=inp; denWorker().postMessage(inp); return; }
+}
+function denTick(){ try{ if(!denOn()){ denStop(); return; } denReset(); denPump(); }catch(e){ denFail("tick",e); } }
+// ---- cumulative charm at the realized spot (0DTE, OI only), cockpit's greekCol
+function denCharm(){
+  const d=st.live&&st.live[st.sym]; if(!d||!d.rows) return DEN.charm;
+  const oi=new Map(d.rows.map(r=>[r.k,[r.cOI||0,r.pOI||0]])); const sn=denSnaps().filter(r=>r[1]>=RTH_OPEN&&r[1]<MAP_T1);
+  for(let n=DEN.charmN;n<sn.length;n++){ const [j,t,s]=sn[n]; const ty=Math.max(MAP_T1-t,1)/525600;
+    const rows=mapRowsAt(j,null,d).map(r=>{ const o=oi.get(r.k)||[0,0]; return {k:r.k,sg:r.sg,cp:o[0],pp:o[1]}; });
+    const v=greekCol("charm",rows,s.x,ty)/5*100*s.x; DEN.charm.push([t,(DEN.charm.length?DEN.charm[DEN.charm.length-1][1]:0)+v/1e9]); }
+  DEN.charmN=sn.length; return DEN.charm; }
+// ---- the Map's own lines, as they stood each 2-min column (buildMap history columns)
+function denLines(se,d){
+  const sn=(st.flow&&st.flow[st.sym])||[]; const key=st.sym+"|"+st.basis+"|"+sn.length+"|"+(sn.length?sn[sn.length-1].t:"")+"|"+denNowMin()+"|"+(d&&d.rows?d.rows.length:0);
+  if(DEN.linesKey===key) return DEN.lines;
+  const g=buildMap("gamma",se,d,"0dte"), v=buildMap("vanna",se,d,"0dte"); if(!g||!v){ DEN.lines=null; DEN.linesKey=key; return null; }
+  const spotAt=new Map(sn.map(s=>[tmin(s.t),s.x])); const P=(m,f)=>m.prices[0]+f*m.dp; const out=[];
+  g.times.forEach((t,i)=>{ if(t<RTH_OPEN||t>g.now) return; let S=null; for(let q=0;q<4&&S==null;q++) S=spotAt.get(t+q)??null; if(S==null) return;
+    const gz=g.feats[i].z.map(f=>P(g,f)), vz=v.feats[i].z.map(f=>P(v,f));
+    out.push({t,S,gz:gz.length?gz.reduce((b,x)=>Math.abs(x-S)<Math.abs(b-S)?x:b):null,vt:vz.length===2?Math.max(...vz):null,vb:vz.length===2?Math.min(...vz):null}); });
+  const i50=g.times.indexOf(15*60+50); const Sn=d&&d.spot; let proj=null;
+  if(i50>=0&&Sn){ const z=g.feats[i50].z.map(f=>P(g,f)); if(z.length) proj=z.reduce((b,x)=>Math.abs(x-Sn)<Math.abs(b-Sn)?x:b); }
+  const inow=g.times.reduce((b,t,i)=>t<=g.now?i:b,0);
+  DEN.lines={pts:out,proj,gcol:g.grid[inow],gprices:g.prices}; DEN.linesKey=key; return DEN.lines; }
+const denInf=(()=>{ const a=[]; for(let i=0;i<256;i++) a.push([parseInt(DEN_INF.substr(i*6,2),16),parseInt(DEN_INF.substr(i*6+2,2),16),parseInt(DEN_INF.substr(i*6+4,2),16)]); return a; })();
+function denZone(z,w){ if(z==null) return "–"; if(w!==5) return fmtN(z,w<1?2:0)+"–"+fmtN(z+w,w<1?2:0); const a=((Math.round(z)%100)+100)%100; return String(a).padStart(2,"0")+"-"+String((a+5)%100).padStart(2,"0"); }
+function renderDensity(se){
+  const rd=document.getElementById("denRead"), cv=document.getElementById("denMainC"), btn=document.getElementById("denEngBtn"), stEl=document.getElementById("denStatus");
+  if(!rd||!cv) return;
+  try{
+    if(btn){ const on=denOn(); btn.setAttribute("aria-pressed",on); btn.textContent=DEN.hard?"Engine OFF (address bar)":DEN.tripped?"Engine STOPPED":on?"Engine ON":"Engine OFF"; btn.disabled=DEN.hard; }
+    if(!denOn()){ const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+      rd.innerHTML=`<div class="l off">Density engine is ${DEN.tripped?"STOPPED after repeated errors":"OFF"} — nothing on this tab is being calculated.</div>`+
+        (DEN.err?`<div class="l note">Last error: ${esc(DEN.err)}</div>`:"")+(DEN.hard?`<div class="l note">Turned off by <code>?nodensity</code> in the address bar.</div>`:`<div class="l note">Press <b>Engine</b> to turn it back on.</div>`);
+      if(stEl) stEl.textContent=""; return; }
+    denReset(); const d=st.live&&st.live[st.sym]; const now=denNowMin();
+    if(!d||!d.rows||now<RTH_OPEN){ rd.innerHTML=`<div class="l">Waiting for the 09:30 snapshot (needs the minute log and live.json).</div>`; return; }
+    const L=denLines(se,d); const ks=Object.keys(DEN.runs).filter(x=>!x.startsWith("x")).map(Number).sort((a,b)=>a-b);
+    const cur=ks.length?DEN.runs[ks[ks.length-1]]:null, g0=DEN.runs[0];
+    const pend=Math.max(0,Math.floor((Math.min(now,MAP_T1-5)-RTH_OPEN)/5)+1-ks.length-Object.keys(DEN.runs).filter(x=>x.startsWith("x")).length);
+    if(stEl) stEl.textContent=DEN.busy?`computing ${tlabel(RTH_OPEN+DEN.busy.k0)} · ${pend} to go`:(cur?`last run ${cur.t}`:"");
+    denDraw(cv,L,cur,g0,now,d);
+    // read
+    const sn=denSnaps(); const S=d.spot||(sn.length?sn[sn.length-1][2].x:null); const lp=L&&L.pts.length?L.pts[L.pts.length-1]:null;
+    const inR=L?L.pts.filter(p=>p.vt!=null&&p.vb!=null&&p.S>p.vb&&p.S<p.vt).length/Math.max(1,L.pts.filter(p=>p.vt!=null).length):null;
+    const above=lp&&lp.gz!=null&&S>lp.gz; const ev=DEN_EVENTS[liveClock().date];
+    rd.innerHTML=
+      `<div class="l big">${esc(st.sym)} ${fmtN(S,2)} · straddle ${cur?cur.strad.toFixed(2):"–"} <span class="note">(±${cur?cur.sd.toFixed(0):"–"} pts 1σ left)</span></div>`+
+      (lp?`<div class="l"><b class="${above?"up":"dn"}">${above?"ABOVE gamma zero — long gamma, absorbs":"BELOW gamma zero — short gamma, chases"}</b> · γ-zero <b>${fmtN(lp.gz,1)}</b> · vanna <b>${lp.vb!=null?fmtN(lp.vb,1):"–"}</b> / <b>${lp.vt!=null?fmtN(lp.vt,1):"–"}</b> · in rails ${inR!=null?Math.round(inR*100)+"%":"–"} of the day</div>`:"")+
+      (cur?`<div class="l big">Cone from ${fmtN(cur.spot,0)} @ ${cur.t}: median ${fmtN(cur.med,0)} · P10 ${fmtN(cur.p10,0)} · P90 ${fmtN(cur.p90,0)}</div>
+       <div class="l">Most likely ${d.step===5?"5-pt zone":"zone"} <b>${denZone(cur.zone,d.step||5)}</b> (${Math.round(cur.pZone*100)}%) · P(close &gt; γ-zero) <b>${cur.pAboveGz!=null?Math.round(cur.pAboveGz*100)+"%":"–"}</b> · P(close between vanna rails) <b>${cur.pRails!=null?Math.round(cur.pRails*100)+"%":"–"}</b></div>`:`<div class="l">First cone is computing…</div>`)+
+      (g0&&cur&&cur!==g0?`<div class="l note">09:30 cone said: median ${fmtN(g0.med,0)}, P10–P90 ${fmtN(g0.p10,0)}–${fmtN(g0.p90,0)}, zone ${denZone(g0.zone,d.step||5)}.</div>`:"")+
+      (L&&L.proj!=null?`<div class="l note">Map's gamma zero projected to 15:50: <b>${fmtN(L.proj,1)}</b>.</div>`:"")+
+      (ev?`<div class="l ev">${esc(ev)}</div>`:"")+
+      `<div class="l note">Centred on spot by design: the cone gives width and odds, not direction. Book: 0DTE · basis ${esc(st.basis.toUpperCase())} (your Map setting).${DEN.err?" · last error: "+esc(DEN.err):""}</div>`;
+    denDrawCharm(denCharm());
+    const lg=document.getElementById("denLog");
+    if(lg){ const rows=ks.slice().reverse().map(k=>{ const r=DEN.runs[k]; return `<tr><td>${r.t}</td><td>${fmtN(r.spot,1)}</td><td>±${r.sd.toFixed(0)}</td><td>${fmtN(r.med,0)}</td><td>${fmtN(r.p10,0)}–${fmtN(r.p90,0)}</td><td>${denZone(r.zone,d.step||5)} ${Math.round(r.pZone*100)}%</td><td>${r.pAboveGz!=null?Math.round(r.pAboveGz*100)+"%":"–"}</td><td>${r.pRails!=null?Math.round(r.pRails*100)+"%":"–"}</td></tr>`; }).join("");
+      lg.innerHTML=`<table><tr><th>run</th><th>spot</th><th>1σ</th><th>median</th><th>P10–P90</th><th>top zone</th><th>&gt;γ0</th><th>rails</th></tr>${rows}</table>`; }
+  }catch(e){ denFail("render",e); try{ rd.innerHTML=`<div class="l off">Density tab error (the rest of the cockpit is unaffected): ${esc(e.message||e)}</div>`; }catch(_){} }
+}
+function denDraw(cv,L,cur,g0,now,d){
+  const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); ctx.fillStyle="#05080f"; ctx.fillRect(0,0,w,h);
+  const padL=70, padR=118, padT=22, padB=40, W=w-padL-padR, H=h-padT-padB; if(W<50||H<50) return;
+  const cursor=Math.max(0,Math.min(389,now-RTH_OPEN));
+  const sn=denSnaps().filter(r=>r[1]>=RTH_OPEN&&r[1]<MAP_T1); const path=sn.map(r=>[r[1]-RTH_OPEN,r[2].x]);
+  const ref=cur||g0; if(!ref&&!path.length) return;
+  // y range: path, rails, cones
+  let lo=1e9, hi=-1e9; const add=v=>{ if(v!=null&&isFinite(v)){ lo=Math.min(lo,v); hi=Math.max(hi,v); } };
+  path.forEach(p=>add(p[1])); for(const r of [cur,g0]) if(r){ add(r.p10); add(r.p90); }
+  if(L) L.pts.forEach(p=>{ add(p.vt); add(p.vb); });
+  if(lo>hi){ lo=d.spot-50; hi=d.spot+50; } const mid=(lo+hi)/2, span=Math.max(110,(hi-lo)*1.15); lo=mid-span/2; hi=mid+span/2;
+  const X=m=>padL+W*m/390, Y=p=>padT+H*(1-(p-lo)/(hi-lo));
+  // heat: left of the cursor = the 09:30 cone (dimmed), right = the current cone; each minute scaled to its own peak
+  if(ref){ const nb=ref.nb, b0=ref.b0, bdp=ref.bdp; const rowsPx=Math.max(2,Math.min(600,Math.round(H/2)));
+    const img=ctx.createImageData(390,rowsPx); const D0=DEN.dens[0], kc=cur?cur.k:null, Dc=kc!=null?DEN.dens[kc]:null;
+    for(let m=0;m<390;m++){ let src=null, off=0, dim=1;
+      if(Dc&&m>=kc&&m>=cursor){ src=Dc; off=m-kc; } else if(D0){ src=D0; off=m; dim=m<cursor?0.8:0.55; }
+      if(!src) continue; const base=off*nb; let mx=0; for(let b=0;b<nb;b++) if(src[base+b]>mx) mx=src[base+b]; if(!mx) continue;
+      for(let r=0;r<rowsPx;r++){ const p=hi-(r+0.5)*(hi-lo)/rowsPx; const fb=(p-b0)/bdp, b=Math.floor(fb); if(b<0||b>=nb-1) continue;
+        const v=(src[base+b]*(1-(fb-b))+src[base+b+1]*(fb-b))/mx*dim; const c=denInf[Math.max(0,Math.min(255,Math.round(v*255)))];
+        const o=(r*390+m)*4; img.data[o]=c[0]; img.data[o+1]=c[1]; img.data[o+2]=c[2]; img.data[o+3]=255; } }
+    const tmp=document.createElement("canvas"); tmp.width=390; tmp.height=rowsPx; tmp.getContext("2d").putImageData(img,0,0);
+    ctx.imageSmoothingEnabled=true; ctx.drawImage(tmp,padL,padT,W,H); }
+  // grid + axes
+  ctx.font="13px system-ui"; ctx.fillStyle="#C9D3E0"; ctx.strokeStyle="#ffffff14"; ctx.lineWidth=1;
+  const stp=[5,10,25,50,100].find(s=>(hi-lo)/s<=9)||100; for(let p=Math.ceil(lo/stp)*stp;p<=hi;p+=stp){ const y=Y(p); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillText(fmtN(p),6,y+4); }
+  for(const [m,lb] of [[0,"9:30"],[60,"10:30"],[120,"11:30"],[180,"12:30"],[240,"13:30"],[270,"14:00"],[300,"14:30"],[360,"15:30"],[390,"16:00"]]){ ctx.textAlign=m===390?"right":m===0?"left":"center"; ctx.fillText(lb,X(m),h-12); } ctx.textAlign="left";
+  // lines as they stood
+  const line=(key,col)=>{ if(!L) return null; ctx.strokeStyle=col; ctx.lineWidth=2.4; ctx.setLineDash([]); ctx.beginPath(); let on=false, lastV=null, lastM=null;
+    for(const p of L.pts){ const v=p[key]; const m=p.t-RTH_OPEN; if(v==null){ on=false; continue; } const x=X(m), y=Y(v); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; lastV=v; lastM=m; } ctx.stroke();
+    if(lastV!=null){ ctx.setLineDash([3,4]); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(X(lastM),Y(lastV)); ctx.lineTo(X(390),Y(lastV)); ctx.stroke(); ctx.setLineDash([]); } return lastV; };
+  const labs=[]; const lv=(k,c,n)=>{ const v=line(k,c); if(v!=null) labs.push([v,`${n} ${fmtN(v,1)}`,c]); };
+  lv("gz","#38C6E8","GAMMA ZERO"); lv("vt","#9DFF6B","VANNA TOP"); lv("vb","#C9A7FF","VANNA BOTTOM");
+  if(L&&L.proj!=null){ ctx.fillStyle="#38C6E8"; const x=X(390), y=Y(L.proj); ctx.beginPath(); ctx.moveTo(x,y-7); ctx.lineTo(x+7,y); ctx.lineTo(x,y+7); ctx.lineTo(x-7,y); ctx.closePath(); ctx.fill(); labs.push([L.proj,`◆ γ-zero @15:50 ${fmtN(L.proj,1)}`,"#38C6E8"]); }
+  labs.sort((a,b)=>a[0]-b[0]); const ys=labs.map(l=>Y(l[0])); for(let i=ys.length-2;i>=0;i--) if(ys[i]-ys[i+1]<18) ys[i]=ys[i+1]+18;
+  ctx.font="bold 14px system-ui"; ctx.textAlign="right"; const labDraw=()=>labs.forEach((l,i)=>{ const tw=ctx.measureText(l[1]).width; ctx.fillStyle="#05080fd9"; ctx.fillRect(padL+W-tw-12,ys[i]-21,tw+10,20); ctx.fillStyle=l[2]; ctx.fillText(l[1],padL+W-7,ys[i]-6); }); ctx.textAlign="left";
+  // realized path + cursor
+  if(path.length){ ctx.strokeStyle="#000000aa"; ctx.lineWidth=5; ctx.beginPath(); path.forEach((p,i)=>i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1]))); ctx.stroke();
+    ctx.strokeStyle="#fff"; ctx.lineWidth=2.4; ctx.beginPath(); path.forEach((p,i)=>i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1]))); ctx.stroke();
+    const lp=path[path.length-1]; ctx.strokeStyle="#ffffff55"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(X(cursor),padT); ctx.lineTo(X(cursor),padT+H); ctx.stroke();
+    ctx.fillStyle="#FFD34D"; ctx.strokeStyle="#000"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(X(lp[0]),Y(lp[1]),6,0,7); ctx.fill(); ctx.stroke(); }
+  ctx.textAlign="right"; labDraw(); ctx.font="bold 22px system-ui"; ctx.fillStyle="#fff"; ctx.fillText(tlabel(Math.min(now,MAP_T1))+" ET",padL+W-8,padT+26); ctx.textAlign="left";
+  // the Map's gamma column now (right strip)
+  if(L&&L.gcol){ const x0=padL+W+16, ww=padR-26, mx=Math.max(1e-9,...L.gcol.map(Math.abs)); ctx.fillStyle="#C9D3E0"; ctx.font="bold 12px system-ui"; ctx.fillText("Map γ now",x0,padT-2>8?padT-2:10);
+    L.gprices.forEach((p,i)=>{ if(p<lo||p>hi) return; const v=L.gcol[i]/mx, y=Y(p), bh=Math.max(1.5,H*(L.gprices[1]-L.gprices[0])/(hi-lo)); ctx.fillStyle=v>=0?"#3FD0B0":"#FF6B5A"; const xm=x0+ww/2; ctx.fillRect(v>=0?xm:xm+v*ww/2,y-bh/2,Math.abs(v)*ww/2,bh); });
+    ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText("red = short",x0+4,h-22); ctx.fillText("green = long",x0+4,h-8); }
+}
+function denDrawCharm(arr){
+  const cv=document.getElementById("denCharmC"); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); if(!arr.length) return;
+  const padL=40, padB=18, padT=22, W=w-padL-8, H=h-padT-padB; let lo=Math.min(0,...arr.map(a=>a[1])), hi=Math.max(0,...arr.map(a=>a[1])); if(hi-lo<1e-6){ hi+=1; }
+  const X=t=>padL+W*(t-RTH_OPEN)/390, Y=v=>padT+H*(1-(v-lo)/(hi-lo));
+  ctx.strokeStyle="#ffffff22"; ctx.beginPath(); ctx.moveTo(padL,Y(0)); ctx.lineTo(padL+W,Y(0)); ctx.stroke();
+  ctx.strokeStyle="#ffffff30"; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(X(14*60),padT); ctx.lineTo(X(14*60),padT+H); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle="#3FE0A0"; ctx.lineWidth=2.2; ctx.beginPath(); arr.forEach((a,i)=>i?ctx.lineTo(X(a[0]),Y(a[1])):ctx.moveTo(X(a[0]),Y(a[1]))); ctx.stroke();
+  const last=arr[arr.length-1], at14=arr.find(a=>a[0]>=14*60);
+  ctx.fillStyle="#DCE6F2"; ctx.font="bold 13px system-ui"; ctx.fillText(`total ${last[1]>=0?"+":"−"}$${Math.abs(last[1]).toFixed(2)}bn${at14?` · after 14:00 ${last[1]-at14[1]>=0?"+":"−"}$${Math.abs(last[1]-at14[1]).toFixed(2)}bn`:""}`,padL,14);
+  ctx.font="11px system-ui"; ctx.fillStyle="#9DB0CA"; ctx.fillText(fmtN(hi,1),4,padT+8); ctx.fillText(fmtN(lo,1),4,padT+H); ctx.fillText("$bn",4,padT+H/2);
+}
+function denCsv(){ try{ const ks=Object.keys(DEN.runs).filter(x=>!x.startsWith("x")).map(Number).sort((a,b)=>a-b);
+  const lines=["date,sym,basis,run,spot,straddle,sd_pts,median,p10,p90,top_zone,p_zone,p_above_gz,p_in_rails,gamma_zero,vanna_top,vanna_bottom"];
+  for(const k of ks){ const r=DEN.runs[k]; lines.push([liveClock().date,st.sym,st.basis,r.t,r.spot,r.strad,r.sd.toFixed(2),r.med.toFixed(2),r.p10.toFixed(2),r.p90.toFixed(2),r.zone,r.pZone.toFixed(4),r.pAboveGz==null?"":r.pAboveGz.toFixed(4),r.pRails==null?"":r.pRails.toFixed(4),r.gz==null?"":r.gz.toFixed(2),r.vt==null?"":r.vt.toFixed(2),r.vb==null?"":r.vb.toFixed(2)].join(",")); }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"})); a.download=`density_${st.sym}_${liveClock().date.replace(/-/g,"")}.csv`; document.body.appendChild(a); a.click(); a.remove(); }catch(e){ denFail("export",e); } }
+try{
+  const eb=document.getElementById("denEngBtn"); if(eb) eb.addEventListener("click",()=>{ if(DEN.hard) return; const on=!denOn(); if(on){ DEN.tripped=false; DEN.fails=0; DEN.err=null; } save("denOn",on?"1":"0"); if(!on) denStop(); else denTick(); render(); });
+  const cb=document.getElementById("denCsvBtn"); if(cb) cb.addEventListener("click",denCsv);
+  if(!DEN.hard){ DEN.timer=setInterval(denTick,10000); setTimeout(denTick,1500); }
+  window.__density=DEN;
+}catch(e){ denFail("init",e); }
 
 
 /* ---- vix.js (Convex only: the ToS feed has no VIX chain) ---- */
