@@ -446,6 +446,45 @@ _CBOE = "https://cdn-api.cboe.com/api/global/delayed_quotes/indices/"
 _v9d = {"val": 0.0, "at": 0.0}
 
 
+
+def vix_rows(dv):
+    import datetime as _dt
+    """VIX chain -> compact rows for the VIX dashboard.
+
+    Additive: nothing else in live.json changes. Defensive by design - this runs
+    inside the live writer, so any failure here must not take the cockpit down.
+    """
+    out = []
+    try:
+        v = dv.get("VIX") or {}
+        S = _n(v.get("spot"))
+        for head, book in (v.get("exps") or []):
+            rows = []
+            for k in sorted(book):
+                c, p = book[k]
+                rows.append({
+                    "k": k,
+                    "cOI": _n(c.get("oi")),   "pOI": _n(p.get("oi")),
+                    "cV":  _n(c.get("volm")), "pV":  _n(p.get("volm")),
+                    "cIV": _n(c.get("volatility")), "pIV": _n(p.get("volatility")),
+                    "cD":  _n(c.get("delta")),     "pD":  _n(p.get("delta")),
+                    "cG":  _n(c.get("gamma")),     "pG":  _n(p.get("gamma")),
+                    "cVan": _n(c.get("vanna")),    "pVan": _n(p.get("vanna")),
+                    "cGb": _n(c.get("gammas_buy")),  "cGs": _n(c.get("gammas_sell")),
+                    "pGb": _n(p.get("gammas_buy")),  "pGs": _n(p.get("gammas_sell")),
+                    "cPx": _n(c.get("price")),     "pPx": _n(p.get("price")),
+                })
+            if rows:
+                try:   # head is days-since-epoch on the VIX chain
+                    lbl = (_dt.date(1970, 1, 1) + _dt.timedelta(days=int(head))).isoformat()
+                except Exception:
+                    lbl = str(head)[:10]
+                out.append({"e": lbl, "n": len(rows), "rows": rows})
+    except Exception as exc:
+        log("vix_rows: %s" % str(exc)[:80])
+    return out
+
+
 def vix9d():
     import time as _t
     if _t.time() - _v9d["at"] < 60:
@@ -553,7 +592,8 @@ def process(rebuild=False):
         if rec.get("pull") == "vix":
             try:
                 dv = decode(rec)
-                pending_vix = {"spot": dv["VIX"]["spot"], "v9d": 0}
+                pending_vix = {"spot": dv["VIX"]["spot"], "v9d": 0,
+                               "exps": vix_rows(dv)}
             except Exception:
                 pass
             state["_vix"] = pending_vix

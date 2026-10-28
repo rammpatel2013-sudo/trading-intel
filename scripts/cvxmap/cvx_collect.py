@@ -57,7 +57,7 @@ NOT_CHAIN_PARAMS = ["flownet","vflownet","flowratio","vflowratio",
 # Pull plan. One request per entry.
 PULLS = [
     {"name":"idx", "symbols":["SPX","SPY","QQQ"], "exps":list(range(12)), "rng":0.035},
-    {"name":"vix", "symbols":["VIX"],             "exps":[0,1],         "rng":0.60},
+    {"name":"vix", "symbols":["VIX"],             "exps":list(range(6)), "rng":1.30},
 ]
 
 POLL_S     = 60

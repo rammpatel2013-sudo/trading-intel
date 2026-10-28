@@ -116,6 +116,24 @@ body.phone #tabPremium{grid-template-columns:1fr;grid-template-rows:auto auto 36
 .volread .log{color:#B9C6D8;font-size:13px}.volread .log div{margin:2px 0}.volread .log span.t{color:#fff;font-weight:600;margin-right:6px}
 #tabVol .body{position:relative;min-height:0}#tabVol canvas{width:100%;height:100%;display:block}
 body.phone #tabVol{grid-template-columns:1fr;grid-template-rows:520px 520px 520px}
+#tabVix{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.02fr);grid-template-rows:200px minmax(0,1fr);min-height:0}
+#tabVix .body{position:relative;min-height:0}#tabVix canvas{width:100%;height:100%;display:block}
+.vladder{overflow:auto;min-height:0}
+.vhead,.vrow{display:grid;grid-template-columns:54px minmax(0,1fr) minmax(0,1fr) 58px 56px 72px;align-items:center;gap:8px;padding:4px 12px;font-size:13px}
+.vhead{position:sticky;top:0;background:var(--pane);color:var(--mute);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--rule);z-index:2}
+.vrow{border-top:1px solid var(--grid)}
+.vrow.atm{background:#4C8DFF1A}
+.vrow b{font-weight:700}
+.vbar{position:relative;height:13px;border-radius:2px;background:#16264380}
+.vbar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;display:block}
+.vbar small{position:absolute;right:4px;top:0;line-height:13px;font-size:10px;opacity:.8}
+.vflow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:10px 12px 2px}
+.vcard{background:var(--pane2);border-radius:6px;padding:7px 10px}
+.vcard b{display:block;font-size:18px;line-height:1.3}
+.vcard small{display:block;color:var(--mute);font-size:10.5px;letter-spacing:.03em;text-transform:uppercase}
+.vverdict{padding:6px 12px 12px;font-size:13px;line-height:1.55}
+.vverdict .l{margin:3px 0}
+body.phone #tabVix{grid-template-columns:1fr;grid-template-rows:200px 420px auto}
 #tabMap .body{position:relative;min-height:0}#tabMap canvas{width:100%;height:100%;display:block}
 #mapBreakPane{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
 .mapread{padding:6px 10px 8px;font-size:13px;line-height:1.5;border-top:1px solid var(--rule);flex:1 1 auto;min-height:0;overflow:auto}
@@ -333,6 +351,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
       <button data-tab="vol" aria-pressed="false" title="Volume by strike, three views side by side: today · last 30 min · last 30 vs prior 30 (key V)">Volume</button>
       <button data-tab="premium" aria-pressed="false" title="Where today&rsquo;s option premium actually went: top call and put strikes by dollars, bought vs sold, and the biggest minutes (key $)">Premium</button>
+      <button data-tab="vix" aria-pressed="false" title="VIX term structure, strike ladder and measured call flow, from the Convex VIX chain (key X)">VIX</button>
       <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
       <button data-tab="plan" aria-pressed="false" title="Doc's morning plan graded live, plus trading-intel's morning book">Plan</button>
     </div>
@@ -500,6 +519,11 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     <section class="pane" id="premMinPane"><div class="phead"><h2>By the minute</h2><span class="hint">calls up &middot; puts down &middot; shared scale &middot; dashed guide = big-minute cutoff (top 5%, $0.85m floor)</span></div><div class="body"><canvas id="premMinC"></canvas></div></section>
     <section class="pane" id="premBigPane"><div class="phead"><h2>Big minutes</h2><span class="hint">minutes in the top 5% for their own side</span></div><div class="prembig" id="premBig"></div></section>
   </main>
+  <main id="tabVix" class="tab" hidden>
+    <section class="pane" id="vixTermPane" style="grid-column:1/-1"><div class="phead"><h2>VIX term structure</h2><div class="seg" role="group" id="vixExpSeg" aria-label="Expiry"></div><span class="sp"></span><span class="hint" id="vixRead"></span></div><div class="body"><canvas id="vixTermC"></canvas></div></section>
+    <section class="pane" id="vixLadPane"><div class="phead"><h2>Strike ladder</h2><span class="hint">selected expiry &middot; bars are open interest &middot; OI is fixed for the session</span></div><div class="vhead"><span>Strike</span><span>Call OI</span><span>Put OI</span><span>Volume</span><span>IV</span><span>&gamma;&middot;OI</span></div><div class="vladder" id="vixLadder"></div></section>
+    <section class="pane" id="vixFlowPane"><div class="phead"><h2>Measured flow</h2><span class="hint">Convex&rsquo;s own buy/sell split on gamma &middot; not inferred from &Delta;OI</span></div><div class="vflow" id="vixFlow"></div><div class="vverdict" id="vixVerdict"></div></section>
+  </main>
   <main id="tabHelp" class="tab" hidden>
     <section class="pane" id="helpPane"><div class="phead"><h2>Help</h2><span class="hint">what each tab shows, how to read the map, and where the numbers stop being reliable (key H)</span></div>
       <div class="helpbody">
@@ -511,6 +535,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Skew</dt><dd>The shape of implied volatility across strikes, and how it has moved since the open.</dd>
           <dt>Map</dt><dd>Gamma, charm and vanna as heat maps. Left of the dashed vertical is the book as it actually stood each minute. Right of it is today&rsquo;s book carried forward to the close as time decays.</dd>
           <dt>Volume</dt><dd>Three ladders side by side: everything so far today, just the last 30 minutes, and the last 30 compared with the 30 before it.</dd>
+          <dt>VIX</dt><dd>The VIX chain itself, from the Convex feed: ATM implied vol by expiry (vol of vol &mdash; how dearly VIX options price, not the VIX level), a strike ladder of open interest, volume and IV, and Convex&rsquo;s own measured buy/sell split on gamma rather than a direction inferred from &Delta;OI. Empty on the workbook feed, which carries VIX spot and VIX9D but no chain. The &gamma;&middot;OI column is a magnitude, not a signed dealer book.</dd>
           <dt>Premium</dt><dd>Where today&rsquo;s option money actually went &mdash; the heaviest strikes a side, how much of each was bought rather than sold, and which minutes carried outsized premium.</dd>
           <dt>Plan</dt><dd>Doc&rsquo;s morning plan graded against what price has since done, plus the morning book.</dd>
         </dl>
@@ -622,7 +647,7 @@ const st = {
 };
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
 if(!["ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
-if(!["flow","strikes","skew","plan","map","vol","premium","help"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","vix"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -1871,7 +1896,7 @@ function render(){
   syncSeg("focusSeg",st.focus);
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
-  document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help";
+  document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
@@ -1883,6 +1908,7 @@ function render(){
   else if(st.tab==="map") renderMapTab(se,d);
   else if(st.tab==="vol") renderVolTab(se,book);
   else if(st.tab==="premium") renderPremium(se);
+  else if(st.tab==="vix") renderVix();
   else renderSkew(se,d);
 }
 
@@ -2069,6 +2095,7 @@ document.addEventListener("keydown",e=>{
   else if(k==="m") setFocus("map"); else if(k==="s") setFocus(st.focus==="strike"?"both":"strike"); else if(e.key==="Escape"&&st.focus!=="map") setFocus("map");
   else if(k==="d"){ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); }
   else if(k==="v"){ st.tab="vol"; save("tab","vol"); render(); }
+  else if(k==="x"){ st.tab="vix"; save("tab","vix"); render(); }
   else if(k==="e"&&st.tab==="map"){ const o=["0dte","week","all"]; st.mapBook=o[(o.indexOf(st.mapBook||"0dte")+1)%3]; save("mapBook",st.mapBook); syncSeg("mapBookSeg",st.mapBook); render(); }
   else if(e.key==="$"||k==="r"){ st.tab="premium"; save("tab","premium"); render(); }
   else if(k==="h"||e.key==="?"){ st.tab="help"; save("tab","help"); render(); }
@@ -2938,6 +2965,139 @@ function drawChgBlocked(id){
   ];
   lines.forEach((t, i) => ctx.fillText(t, 14, 50 + i * 17));
 }
+
+
+/* ---- vix.js (Convex only: the ToS feed has no VIX chain) ---- */
+/* ============================================================ VIX tab
+   Reads the VIX chain that cvx_live.py writes into live.json as VIX.exps[]:
+     [{e:"2026-10-28", n:24, rows:[{k,cOI,pOI,cV,pV,cIV,pIV,cG,pG,cGb,cGs,pGb,pGs,...}]}]
+   The ToS workbook feed carries VIX spot + VIX9D only, no chain, so on that feed
+   this tab shows its empty state. Nothing here feeds the map.
+   SIGN NOTE: the gamma column is gamma x OI, a MAGNITUDE. It is deliberately not
+   signed into a dealer book - the SPX net-gamma sign question is still open, and
+   guessing a sign here would put an unverified number on screen. */
+function vixBook(){
+  const v=st.live&&st.live.VIX; if(!v) return null;
+  const exps=(Array.isArray(v.exps)?v.exps:[]).filter(x=>x&&Array.isArray(x.rows)&&x.rows.length);
+  return {spot:+v.spot||0, v9d:+v.v9d||0, exps};
+}
+const vixIV=r=>{ const c=+r.cIV||0, p=+r.pIV||0; return c>0&&p>0?(c+p)/2:(c>0?c:(p>0?p:0)); };
+function vixAtmRow(rows,S){ let a=null; for(const r of rows){ if(a==null||Math.abs(r.k-S)<Math.abs(a.k-S)) a=r; } return a; }
+
+function vixClear(msg,detail){
+  const set=(id,h)=>{ const el=document.getElementById(id); if(el) el.innerHTML=h; };
+  set("vixRead",`<span style="color:var(--faint)">${esc(detail)}</span>`);
+  set("vixLadder",`<div class="empty"><b>${esc(msg)}</b><span>${esc(detail)}</span></div>`);
+  set("vixExpSeg",""); set("vixFlow",""); set("vixVerdict","");
+  const cv=document.getElementById("vixTermC");
+  if(cv){ const g=cv.getContext("2d"); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,cv.width,cv.height); }
+  st._vixSig=null;
+}
+
+function renderVix(){
+  if(!st.live) return vixClear("No live.json","Start the feed. On the NAS that is cvx_live.py; on the laptop, the workbook.");
+  const b=vixBook();
+  if(!b||!b.exps.length) return vixClear("No VIX chain in live.json",
+    "This feed carries VIX spot and VIX9D but no chain. The ladder fills from the Convex feed, where cvx_live.py writes VIX.exps.");
+
+  if(st.vixExp==null) st.vixExp=+load("vixExp","0")||0;
+  if(st.vixExp>=b.exps.length) st.vixExp=0;
+
+  /* expiry selector - rebuilt only when the expiry list itself changes, so a
+     render tick does not steal focus mid-click */
+  const sig=b.exps.map(x=>x.e+":"+x.rows.length).join("|");
+  const seg=document.getElementById("vixExpSeg");
+  if(seg&&sig!==st._vixSig){
+    seg.innerHTML=b.exps.map((x,i)=>`<button data-v="${i}" aria-pressed="${i===st.vixExp}" title="${x.rows.length} strikes">${esc((x.e||"").slice(5)||("exp "+i))}</button>`).join("");
+    seg.querySelectorAll("button").forEach(btn=>btn.addEventListener("click",()=>{
+      st.vixExp=+btn.dataset.v; save("vixExp",String(st.vixExp)); syncSeg("vixExpSeg",st.vixExp); render(); }));
+    st._vixSig=sig;
+  }
+  if(seg) syncSeg("vixExpSeg",st.vixExp);
+
+  const S=b.spot, sel=b.exps[st.vixExp], rows=sel.rows.slice().sort((a,c)=>c.k-a.k);
+  const atm=vixAtmRow(sel.rows,S), atmIV=atm?vixIV(atm):0;
+
+  /* header read: spot, VIX9D, and what the 9D-VIX slope says */
+  const slope=(b.v9d>0&&S>0)?b.v9d-S:null;
+  const shape=slope==null?"":(slope<-0.35?"backwardation: 9-day under spot VIX - near-term stress bid":
+                              slope>0.35?"contango: 9-day over spot VIX - the normal, calm shape":
+                              "flat: 9-day and spot VIX within a third of a point");
+  document.getElementById("vixRead").innerHTML =
+    `VIX <b>${S>0?S.toFixed(2):"–"}</b> &middot; VIX9D <b>${b.v9d>0?b.v9d.toFixed(2):"–"}</b>`
+    + (slope!=null?` &middot; 9D&minus;VIX <b>${pts(slope,2)}</b> &middot; ${esc(shape)}`:"")
+    + ` &middot; ${b.exps.length} expir${b.exps.length===1?"y":"ies"} &middot; ATM ${atm?fmtN(atm.k,1):"–"} IV ${atmIV>0?(atmIV*100).toFixed(1)+"%":"–"}`;
+
+  /* ladder */
+  const mxOI=Math.max(1,...rows.map(r=>Math.max(+r.cOI||0,+r.pOI||0)));
+  const bar=(v,col)=>{ const w=Math.max(v>0?2:0,100*v/mxOI); return `<span class="vbar"><i style="width:${w.toFixed(1)}%;background:${col}"></i><small>${v>0?fmtN(v):""}</small></span>`; };
+  document.getElementById("vixLadder").innerHTML = rows.map(r=>{
+    const iv=vixIV(r), vol=(+r.cV||0)+(+r.pV||0);
+    const gOI=(+r.cG||0)*(+r.cOI||0)+(+r.pG||0)*(+r.pOI||0);
+    return `<div class="vrow${atm&&r.k===atm.k?" atm":""}"><b>${fmtN(r.k,1)}</b>`
+      + bar(+r.cOI||0,"var(--call)") + bar(+r.pOI||0,"var(--put)")
+      + `<span style="color:var(--mute)">${vol>0?fmtN(vol):"–"}</span>`
+      + `<span>${iv>0?(iv*100).toFixed(0)+"%":"–"}</span>`
+      + `<span style="color:var(--faint)">${gOI>0?fmtN(gOI,1):"–"}</span></div>`;
+  }).join("");
+
+  /* measured flow: Convex's own buy/sell split, summed over the selected expiry */
+  let cGb=0,cGs=0,pGb=0,pGs=0;
+  for(const r of sel.rows){ cGb+=+r.cGb||0; cGs+=+r.cGs||0; pGb+=+r.pGb||0; pGs+=+r.pGs||0; }
+  const card=(lab,v,col)=>`<div class="vcard"><small>${lab}</small><b style="color:${col}">${v?fmtN(v,1):"–"}</b></div>`;
+  document.getElementById("vixFlow").innerHTML =
+      card("Calls bought",cGb,"var(--longg)") + card("Calls sold",cGs,"var(--shortg)")
+    + card("Puts bought",pGb,"var(--longg)")  + card("Puts sold",pGs,"var(--shortg)");
+
+  const L=[]; const net=cGb-cGs;
+  if(cGb||cGs){
+    L.push(`<div class="l">VIX calls: customers net <b style="color:${net>=0?"var(--longg)":"var(--shortg)"}">${net>=0?"BUYING":"SELLING"}</b> ${fmtN(Math.abs(net),1)} gamma. ${net>=0?"Call buying is the usual hedging footprint - crowded upside calls can also force vol-of-vol higher on a shock.":"Call selling into a calm tape is short-vol supply, and it is what gets run over first when vol gaps."}</div>`);
+  } else L.push(`<div class="l" style="color:var(--faint)">No buy/sell split on this expiry yet - it fills as the tape prints.</div>`);
+  if(pGb||pGs){ const pn=pGb-pGs;
+    L.push(`<div class="l" style="color:var(--mute)">VIX puts net <b>${pn>=0?"bought":"sold"}</b> ${fmtN(Math.abs(pn),1)} gamma. ${pn>=0?"VIX puts pay when vol falls, so buying them is a positioning bet on calm.":"Selling VIX puts collects premium for the view that vol does NOT collapse - it leans against further calm, not toward it."}</div>`); }
+  L.push(`<div class="l" style="color:var(--faint)">The &gamma;&middot;OI column is a magnitude, not a signed dealer book - the net-gamma sign question is still open, so no sign is asserted here.</div>`);
+  document.getElementById("vixVerdict").innerHTML=L.join("");
+
+  drawVixTerm(b);
+}
+
+function drawVixTerm(b){
+  const cv=document.getElementById("vixTermC"); if(!cv) return;
+  const host=cv.parentElement, W=host.clientWidth||600, H=host.clientHeight||170;
+  const dpr=window.devicePixelRatio||1; cv.width=W*dpr; cv.height=H*dpr;
+  cv.style.width=W+"px"; cv.style.height=H+"px";
+  const g=cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  g.font="11px "+getComputedStyle(document.body).fontFamily;
+
+  const pts2=b.exps.map((x,i)=>{ const a=vixAtmRow(x.rows,b.spot); return {i,e:x.e||("exp "+i),iv:(a?vixIV(a):0)*100}; })
+                   .filter(d=>d.iv>0);
+  if(pts2.length<1){ g.fillStyle=C("--faint"); g.fillText("No ATM IV on any expiry yet",12,20); return; }
+
+  const vals=pts2.map(d=>d.iv);   // ATM IV only: spot VIX is a different unit, not comparable
+  let lo=Math.min(...vals), hi=Math.max(...vals); const pad=Math.max(0.6,(hi-lo)*0.25); lo-=pad; hi+=pad;
+  const L=46, R=W-12, T=14, B=H-24;
+  const x=i=>pts2.length===1?(L+R)/2:L+(R-L)*i/(pts2.length-1);
+  const y=v=>B-(B-T)*(v-lo)/(hi-lo||1);
+
+  g.strokeStyle=C("--grid"); g.fillStyle=C("--faint"); g.lineWidth=1;
+  for(let t=0;t<=3;t++){ const v=lo+(hi-lo)*t/3, yy=y(v);
+    g.beginPath(); g.moveTo(L,yy); g.lineTo(R,yy); g.stroke();
+    g.fillText(v.toFixed(1),8,yy+3.5); }
+
+  g.strokeStyle=C("--r2"); g.lineWidth=2; g.beginPath();
+  pts2.forEach((d,i)=>{ const px2=x(i), py=y(d.iv); i?g.lineTo(px2,py):g.moveTo(px2,py); }); g.stroke();
+  pts2.forEach((d,i)=>{ const px2=x(i), py=y(d.iv);
+    g.fillStyle=C("--r2"); g.beginPath(); g.arc(px2,py,3.5,0,7); g.fill();
+    g.fillStyle=C("--ink"); g.textAlign="center"; g.fillText(d.iv.toFixed(1),px2,py-9);
+    g.fillStyle=C("--mute"); g.fillText(String(d.e).slice(5),px2,B+14); g.textAlign="left"; });
+
+  g.fillStyle=C("--faint");
+  const sl=pts2.length>1?pts2[pts2.length-1].iv-pts2[0].iv:null;
+  g.fillText("ATM implied vol of the VIX chain, by expiry - vol of vol, not the VIX level"
+    +(sl==null?"":"  |  front to back "+(sl>=0?"+":"\u2212")+Math.abs(sl).toFixed(1)+" vol pts "
+      +(sl<-0.5?"(front bid: near-term vol-of-vol richest)":sl>0.5?"(back bid)":"(flat)")),L+4,T+2);
+}
+
 
 window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath};
 })();
