@@ -675,9 +675,34 @@ def process(rebuild=False):
 
     if last_live:
         atomic_write(os.path.join(DATA, "live.json"), last_live)
+        if not rebuild:
+            _log_regime(day, last_live, state)
     mirror_shared()
     atomic_write(spath, state)
     return n
+
+
+def _log_regime(day, live, state):
+    """2026-10-28: one line per NEW Cboe regime snapshot -> data/vixr_YYYYMMDD.ndjson, so the
+    nightly scorecard (scripts/cvx_replay.py) can tag each trade with the regime AT ENTRY;
+    live.json only ever holds "now". Log-only and fully guarded: a failure here is logged and
+    swallowed, after live.json is already written. Never runs on --rebuild (the snapshot is
+    today's, not the replayed minute's)."""
+    try:
+        R = live.get("VIXR")
+        if not R or not R.get("rows"):
+            return
+        key = "%s|%s" % (R.get("asof"), (R.get("idx") or {}).get("VIX"))
+        if state.get("_vixr_key") == key:
+            return
+        line = {"t": str(live.get("ts", ""))[11:16], "asof": R.get("asof"), "counts": R.get("counts"),
+                "rv20": R.get("rv20"), "idx": R.get("idx"),
+                "rows": [[r.get("id"), r.get("v"), r.get("pct"), r.get("state")] for r in R["rows"]]}
+        with open(os.path.join(DATA, "vixr_%s.ndjson" % day), "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(line, separators=(",", ":")) + "\n")
+        state["_vixr_key"] = key
+    except Exception as exc:
+        log("vixr log: %s" % str(exc)[:80])
 
 
 def main():
