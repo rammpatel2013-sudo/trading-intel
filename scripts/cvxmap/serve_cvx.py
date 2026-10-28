@@ -13,7 +13,8 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(ROOT, exist_ok=True)
 # the page itself lives one level up (it is version-controlled; data/ is not)
 import shutil
-for _pg in ("cvx_cockpit.html", "vix_dashboard.html"):
+# VIX is a TAB on the cockpit now, not a page of its own.
+for _pg in ("cvx_cockpit.html",):
     _src = os.path.join(os.path.dirname(ROOT), _pg)
     if os.path.exists(_src):
         try:
@@ -37,6 +38,6 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
-print("Convex cockpit  http://0.0.0.0:%d/cvx_cockpit.html" % PORT, flush=True)
-print("VIX dashboard   http://0.0.0.0:%d/vix_dashboard.html  (serving %s)" % (PORT, ROOT), flush=True)
+print("Convex cockpit  http://0.0.0.0:%d/cvx_cockpit.html  (VIX = tab, key X)" % PORT, flush=True)
+print("serving %s" % ROOT, flush=True)
 Server(("", PORT), NoCache).serve_forever()
