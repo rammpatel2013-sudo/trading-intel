@@ -313,6 +313,11 @@ body.phone .vxlines>.k{padding-top:6px}
 .exbput{background:#FF6B6B}
 .exspot{border-left:2px dashed #FFD23F;position:relative}
 .exspot::after{content:"spot";position:absolute;top:-14px;left:4px;font-size:9px;color:#FFD23F}
+.ex3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.ex3col .exsec{margin-bottom:0}
+.ex3col .exbar .exblbl{width:50px;font-size:9px}
+.ex3col .exbar .exbval{font-size:8px}
+@media(max-width:900px){.ex3col{grid-template-columns:1fr}}
 #tabMap .body{position:relative;min-height:0}#tabMap canvas{width:100%;height:100%;display:block}
 #mapBreakPane{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
 .mapread{padding:6px 10px 8px;font-size:13px;line-height:1.5;border-top:1px solid var(--rule);flex:1 1 auto;min-height:0;overflow:auto}
@@ -736,9 +741,11 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     <div class="exwrap">
       <section class="exhead" id="exHead"></section>
       <section class="exsec" id="exSummary"></section>
-      <section class="exsec" id="exGex"></section>
-      <section class="exsec" id="exDex"></section>
-      <section class="exsec" id="exOi"></section>
+      <div class="ex3col">
+        <section class="exsec ex3put" id="exPuts"><div class="exh"><h2>Put side</h2></div></section>
+        <section class="exsec ex3net" id="exNet"><div class="exh"><h2>Net position</h2></div></section>
+        <section class="exsec ex3call" id="exCalls"><div class="exh"><h2>Call side</h2></div></section>
+      </div>
       <div class="exfoot" id="exFoot"></div>
     </div>
   </main>
@@ -3428,7 +3435,7 @@ function exRender(){
   if(!d||!d.rows||!d.rows.length){
     exSet("exHead",`<h2>Exposure Board — ${esc(st.sym)}</h2>`);
     exSet("exSummary",`<div class="exnote">Waiting for live chain data.</div>`);
-    exSet("exGex",""); exSet("exDex",""); exSet("exOi",""); return; }
+    exSet("exPuts",""); exSet("exNet",""); exSet("exCalls",""); return; }
   const rows=d.rows, spot=d.spot||0;
   const step=rows.length>1?Math.abs(rows[1].k-rows[0].k):5;
 
@@ -3459,34 +3466,39 @@ function exRender(){
   const regime=gexT>=0?"Long gamma — dealers absorb moves":"Short gamma — dealers chase moves";
   exSet("exSummary",`<div class="exlvl">${lvls.join("")}</div><div style="text-align:center;font-size:12px;color:${gexT>=0?EX_UP:EX_DN}">${regime}</div>`);
 
-  // GEX bar chart
-  const maxGex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.gex||0))));
-  const gexBars=rows.map(r=>{
-    const g=r.gex||0, pct=Math.abs(g)/maxGex*100;
-    const col=g>=0?EX_UP:EX_DN;
-    const isSpot=Math.abs(r.k-spot)<step/2;
-    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(r.k,0)}</span><div class="exbfill" style="width:${pct.toFixed(0)}%;background:${col}"></div><span class="exbval">${exK(g)}</span></div>`;
-  }).join("");
-  exSet("exGex",`<div class="exh"><h2>GEX by strike</h2><span class="exsub">dealer gamma exposure · ${EX_UP.includes("5FE")?"teal":"green"} = long · red = short</span></div>${gexBars}`);
+  // ── 3-column layout: Put OI | Net GEX+DEX | Call OI ──
+  const maxNetGex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.gex||0))));
+  const maxNetDex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.dex||0))));
+  const maxPOi=Math.max(1,Math.max(...rows.map(r=>(r.pOI||0))));
+  const maxCOi=Math.max(1,Math.max(...rows.map(r=>(r.cOI||0))));
 
-  // DEX bar chart
-  const maxDex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.dex||0))));
-  const dexBars=rows.map(r=>{
-    const dx=r.dex||0, pct=Math.abs(dx)/maxDex*100;
-    const col=dx>=0?EX_UP:EX_DN;
-    const isSpot=Math.abs(r.k-spot)<step/2;
-    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(r.k,0)}</span><div class="exbfill" style="width:${pct.toFixed(0)}%;background:${col}"></div><span class="exbval">${exK(dx)}</span></div>`;
-  }).join("");
-  exSet("exDex",`<div class="exh"><h2>DEX by strike</h2><span class="exsub">dealer delta exposure · teal = dealers long · red = short</span></div>${dexBars}`);
+  function exBar(k,val,maxV,col,isSpot){
+    const pct=Math.abs(val)/maxV*100;
+    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(k,0)}</span><div class="exbfill" style="width:${pct.toFixed(0)}%;background:${col}"></div><span class="exbval">${exK(val)}</span></div>`;
+  }
 
-  // OI: call vs put per strike
-  const maxOi=Math.max(1,Math.max(...rows.map(r=>Math.max(r.cOI||0,r.pOI||0))));
-  const oiBars=rows.map(r=>{
-    const cPct=(r.cOI||0)/maxOi*100, pPct=(r.pOI||0)/maxOi*100;
-    const isSpot=Math.abs(r.k-spot)<step/2;
-    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(r.k,0)}</span><div class="exbfill exbcall" style="width:${cPct.toFixed(0)}%"></div><div class="exbfill exbput" style="width:${pPct.toFixed(0)}%;margin-left:2px"></div><span class="exbval">C:${exK(r.cOI||0)} P:${exK(r.pOI||0)}</span></div>`;
-  }).join("");
-  exSet("exOi",`<div class="exh"><h2>Open interest</h2><span class="exsub">call (teal) vs put (red) OI by strike</span></div>${oiBars}`);
+  // Put OI column (left)
+  const putTotalOi=rows.reduce((a,r)=>a+(r.pOI||0),0);
+  const putOiBars=rows.map(r=>{const v=r.pOI||0;return exBar(r.k,v,maxPOi,EX_DN,Math.abs(r.k-spot)<step/2);}).join("");
+  exSet("exPuts",`<div class="exh"><h2>Put side</h2><span class="exsub">OI: ${exK(putTotalOi)} contracts</span></div>`
+    +`<div class="exnote"><b>Put open interest by strike.</b> Where downside protection and short premium are stacked. Tall bars near spot = heavy put positioning = potential dealer gamma wall on the downside.</div>`
+    +putOiBars);
+
+  // Net GEX + DEX column (center)
+  const netGexBars=rows.map(r=>{const v=r.gex||0;return exBar(r.k,v,maxNetGex,v>=0?EX_UP:EX_DN,Math.abs(r.k-spot)<step/2);}).join("");
+  const netDexBars=rows.map(r=>{const v=r.dex||0;return exBar(r.k,v,maxNetDex,v>=0?EX_UP:EX_DN,Math.abs(r.k-spot)<step/2);}).join("");
+  exSet("exNet",`<div class="exh"><h2>Net position</h2><span class="exsub">calls + puts combined</span></div>`
+    +`<div class="exnote"><b>Net GEX (gamma exposure):</b> ${exK(gexT)}. Dealers' total gamma from all options. <span style="color:${EX_UP}">Positive</span> = long gamma &rarr; dealers mean-revert (sell rallies, buy dips = stabilizing). <span style="color:${EX_DN}">Negative</span> = short gamma &rarr; dealers chase (sell dips, buy rallies = amplifying). This is a <em>regime descriptor</em>, not a signal (FlashAlpha rule 4).</div>`
+    +netGexBars
+    +`<div style="margin-top:8px" class="exnote"><b>Net DEX (delta exposure):</b> ${exK(dexT)}. Dealers' net directional hedge. <span style="color:${EX_UP}">Positive</span> = dealers long shares (bullish lean). <span style="color:${EX_DN}">Negative</span> = dealers short shares (bearish lean). Changes in DEX drive hedging flows &mdash; a big DEX shift = dealers must buy or sell stock to rebalance.</div>`
+    +netDexBars);
+
+  // Call OI column (right)
+  const callTotalOi=rows.reduce((a,r)=>a+(r.cOI||0),0);
+  const callOiBars=rows.map(r=>{const v=r.cOI||0;return exBar(r.k,v,maxCOi,EX_UP,Math.abs(r.k-spot)<step/2);}).join("");
+  exSet("exCalls",`<div class="exh"><h2>Call side</h2><span class="exsub">OI: ${exK(callTotalOi)} contracts</span></div>`
+    +`<div class="exnote"><b>Call open interest by strike.</b> Where upside targets, covered calls, and call-writing supply sit. Tall bars above spot = call wall = potential resistance from dealer hedging.</div>`
+    +callOiBars);
 
   exSet("exFoot",`Updated ${d.t||"–"} · data from live chain · descriptor only (FlashAlpha rule 4)`);
 }
@@ -3755,7 +3767,7 @@ function vxRegime(R){
 /* ---------------- #95 Implied correlation panel */
 function vxICorrPanel(R){
   const head=`<div class="vxh"><h2>Implied correlation</h2><span class="vxsub">Cboe COR1M &amp; COR3M &middot; dispersion = DSPX &middot; term spread = COR1M &minus; COR3M</span></div>`;
-  if(!R||!R.icorr||R.icorr.cor1m==null){ vxSet("vxICorr",head+`<div class="vxnote">Waiting for COR1M / COR3M / DSPX quotes from the Cboe feed.</div>`); return; }
+  if(!R||!R.icorr||R.icorr.cor1m==null){ vxSet("vxICorr",head+`<div class="vxnote">Waiting for data &mdash; needs COR1M, COR3M, and DSPX index quotes from the Cboe feed. These are written by vixdash.py into the VIXR block. Panel populates once quotes arrive.</div>`); return; }
   const ic=R.icorr;
   const spreadCol=ic.spread!=null?(ic.spread>5?"#FF9A6B":ic.spread<-5?"#5FE0C0":"#999"):"#999";
   const corrLevel=ic.cor1m>70?["High","#FF6B6B"]:ic.cor1m>50?["Normal","#FFD23F"]:["Low","#5FE0C0"];
@@ -3770,7 +3782,7 @@ function vxICorrPanel(R){
 /* ---------------- #90 Spot-vol beta gauge */
 function vxSvbGauge(R){
   const head=`<div class="vxh"><h2>Spot-vol beta</h2><span class="vxsub">VIX % change per 1% SPX move &middot; 20-day regression slope</span></div>`;
-  if(!R||R.svb==null){ vxSet("vxSvb",head+`<div class="vxnote">Waiting for 20 days of VIX + SPX history from the Cboe feed.</div>`); return; }
+  if(!R||R.svb==null){ vxSet("vxSvb",head+`<div class="vxnote">Waiting for history &mdash; needs 20 trading days of VIX + SPX data from the Cboe feed to regress spot-vol beta. This panel populates once vixdash.py has enough history.</div>`); return; }
   const b=R.svb;
   /* typical range: -2 to -8; more negative = more reactive */
   const abs=Math.abs(b);
@@ -3791,7 +3803,7 @@ function vxSvbGauge(R){
 function vxRvIvBox(R){
   const head=`<div class="vxh"><h2>Realized vs implied</h2><span class="vxsub">SPX 20-day RV vs VIX &middot; VRP = VIX &minus; RV &middot; quadrant per Carroll</span></div>`;
   if(!R||R.rv20==null||!R.idx||R.idx.VIX==null){
-    vxSet("vxRvIv",head+`<div class="vxnote">Waiting for RV and VIX data from the Cboe feed.</div>`); return; }
+    vxSet("vxRvIv",head+`<div class="vxnote">Waiting for history &mdash; needs 20+ trading days of SPX closes from the Cboe feed to compute realized vol. This panel populates once vixdash.py has enough history in the VIXR block.</div>`); return; }
   const rv=R.rv20, vix=R.idx.VIX, v3m=R.idx.VIX3M;
   const vrp=vix-rv;
   /* quadrant: median splits — RV median ~15, VRP median ~4 (approximate long-run) */
