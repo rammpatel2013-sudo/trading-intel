@@ -72,6 +72,7 @@ echo      if you disabled it during debugging.
 echo.
 echo   D) Verify after next trading session:
 echo      - Check greeks_snapshot rows have source='convex' only
+echo      - Check oi_chain_eod queries filter source LIKE 'convex%%'
 echo      - Check vol_regime signal in signals table
 echo      - Check norseman_regime doesn't fire on weekends
 echo      - Check AM summary newsletter levels are in-range
