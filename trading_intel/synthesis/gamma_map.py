@@ -78,7 +78,7 @@ def _chain_rows(session: Session, symbol: str, today: date) -> tuple[list[tuple]
     most rows at that ts is kept.
     """
     ts = session.execute(
-        select(func.max(OiChainEod.ts)).where(OiChainEod.symbol == symbol)
+        select(func.max(OiChainEod.ts)).where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
     ).scalar_one_or_none()
     if ts is None:
         return ([], None)

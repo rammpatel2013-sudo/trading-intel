@@ -41,7 +41,7 @@ def _walls(session: Session, sym: str, *, dte_max: int = 60) -> tuple[float | No
     """Call/put wall (strike with max side gxoi) from the latest oi_chain snapshot."""
     ts = session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == sym)
+        .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"))
         .order_by(OiChainEod.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -51,6 +51,7 @@ def _walls(session: Session, sym: str, *, dte_max: int = 60) -> tuple[float | No
         select(OiChainEod.strike, OiChainEod.cp, func.sum(OiChainEod.gxoi).label("g"))
         .where(
             OiChainEod.symbol == sym,
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.dte >= 0,
             OiChainEod.dte <= dte_max,
@@ -133,7 +134,7 @@ def _call_strike_changes(
     ts_rows = (
         session.execute(
             select(OiChainEod.ts)
-            .where(OiChainEod.symbol == sym)
+            .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"))
             .distinct()
             .order_by(OiChainEod.ts.desc())
             .limit(2)
@@ -149,6 +150,7 @@ def _call_strike_changes(
         rows = session.execute(
             select(OiChainEod.strike, OiChainEod.oi, OiChainEod.iv, OiChainEod.gxoi).where(
                 OiChainEod.symbol == sym,
+                OiChainEod.source.like("convex%"),
                 OiChainEod.ts == ts,
                 OiChainEod.cp == "C",
                 OiChainEod.dte >= 0,

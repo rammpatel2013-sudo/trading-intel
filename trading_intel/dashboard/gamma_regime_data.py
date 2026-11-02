@@ -33,7 +33,7 @@ def latest_spx_gamma_regime(
     """
     ts: datetime | None = session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == symbol)
+        .where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
         .order_by(OiChainEod.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -46,6 +46,7 @@ def latest_spx_gamma_regime(
             OiChainEod.oi, OiChainEod.delta, OiChainEod.dte,
         ).where(
             OiChainEod.symbol == symbol,
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.gxoi.is_not(None),
             OiChainEod.dte <= max_dte,

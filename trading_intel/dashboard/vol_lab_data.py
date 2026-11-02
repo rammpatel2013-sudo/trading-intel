@@ -22,7 +22,7 @@ def _snapshot_days(session: Session, symbol: str) -> list[datetime]:
     return list(
         session.execute(
             select(OiChainEod.ts)
-            .where(OiChainEod.symbol == symbol)
+            .where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
             .distinct()
             .order_by(OiChainEod.ts.desc())
         ).scalars()
@@ -35,6 +35,7 @@ def _chain_for_ts(session: Session, symbol: str, ts: datetime) -> pd.DataFrame |
             OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.delta, OiChainEod.expiry
         ).where(
             OiChainEod.symbol == symbol,
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.iv.is_not(None),
         )
@@ -94,7 +95,7 @@ def list_symbols(session: Session) -> list[str]:
     """Distinct symbols present in ``oi_chain_eod`` (alphabetical)."""
     return list(
         session.execute(
-            select(OiChainEod.symbol).distinct().order_by(OiChainEod.symbol)
+            select(OiChainEod.symbol).where(OiChainEod.source.like("convex%")).distinct().order_by(OiChainEod.symbol)
         ).scalars()
     )
 

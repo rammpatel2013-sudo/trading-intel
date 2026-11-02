@@ -100,7 +100,7 @@ def load_recent_eod(
     ts_list = list(
         session.execute(
             select(OiChainEod.ts)
-            .where(OiChainEod.symbol == symbol)
+            .where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
             .distinct()
             .order_by(OiChainEod.ts.desc())
             .limit(n)
@@ -111,7 +111,7 @@ def load_recent_eod(
         rows = list(
             session.execute(
                 select(OiChainEod).where(
-                    OiChainEod.symbol == symbol, OiChainEod.ts == ts
+                    OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"), OiChainEod.ts == ts
                 )
             ).scalars()
         )

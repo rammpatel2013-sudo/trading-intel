@@ -120,7 +120,7 @@ _UPDATE_COLS = (
 def _latest_chain_for(session: Session, symbol: str) -> pd.DataFrame | None:
     ts = session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == symbol)
+        .where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
         .order_by(OiChainEod.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -129,6 +129,7 @@ def _latest_chain_for(session: Session, symbol: str) -> pd.DataFrame | None:
     rows = session.execute(
         select(OiChainEod.cp, OiChainEod.iv, OiChainEod.delta, OiChainEod.expiry).where(
             OiChainEod.symbol == symbol,
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.iv.is_not(None),
         )

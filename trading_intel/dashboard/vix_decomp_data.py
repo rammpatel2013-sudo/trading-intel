@@ -85,7 +85,7 @@ def latest_spx_decomposition(session: Session, *, symbol: str = "SPX") -> Decomp
     days = list(
         session.execute(
             select(OiChainEod.ts)
-            .where(OiChainEod.symbol == symbol)
+            .where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
             .distinct()
             .order_by(OiChainEod.ts.desc())
         ).scalars()

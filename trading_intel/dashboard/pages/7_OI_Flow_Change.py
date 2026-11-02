@@ -91,7 +91,7 @@ def main() -> None:
         with factory() as session:
             frame = load_oi_change_frame(session, symbol)
             latest_ts = session.execute(
-                select(func.max(OiChainEod.ts)).where(OiChainEod.symbol == symbol)
+                select(func.max(OiChainEod.ts)).where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
             ).scalar_one_or_none()
     except (TradingIntelError, SQLAlchemyError) as exc:
         st.error(f"Could not load OI change for {symbol}: {exc}")
