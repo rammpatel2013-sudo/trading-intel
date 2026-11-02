@@ -28,6 +28,8 @@ from trading_intel.mcp import tools as t
 from trading_intel.mcp import profile_tool as pt
 from trading_intel.mcp import index_bigtrades_tool as ibt
 from trading_intel.mcp import telegram_tool as tgt
+from trading_intel.mcp import exposure_tools as ext
+from trading_intel.mcp import vol_tools as vt
 from trading_intel.memory.db import make_session_factory
 from trading_intel.synthesis.llm import LLMProvider, OllamaProvider
 
@@ -697,6 +699,52 @@ def build_server(
 
         with session_factory() as session:
             return build_market_read(session, symbol=symbol)
+
+    # ── Ship 2: vol / correlation / color descriptors ──────────────────
+
+    @mcp.tool()
+    def get_rv_iv_box(days: int = 60) -> dict[str, Any]:
+        """Carroll-style RV/IV regime box: RV20, ATM IV, VIX, VIX3M (VX30 proxy), VRP, IV/RV ratio."""
+        with session_factory() as session:
+            return vt.get_rv_iv_box(session, days=days)
+
+    @mcp.tool()
+    def get_spot_vol_beta(window: int = 21, days: int = 60) -> dict[str, Any]:
+        """Spot-vol beta (SPX vs VIX): rolling β, today's residual, interpretation."""
+        with session_factory() as session:
+            return vt.get_spot_vol_beta(session, window=window, days=days)
+
+    @mcp.tool()
+    def get_implied_correlation(days: int = 60) -> dict[str, Any]:
+        """Cboe implied-correlation panel: COR1M/COR3M, VIXEQ, DSPX, slope, regime label."""
+        with session_factory() as session:
+            return vt.get_implied_correlation(session, days=days)
+
+    @mcp.tool()
+    def get_color_at_spot(symbol: str = "SPX", hours_ahead: float = 6.5) -> dict[str, Any]:
+        """Color (dΓ/dt) at spot — dealer gamma change from time alone (OI/spot/IV frozen)."""
+        with session_factory() as session:
+            return vt.get_color_at_spot(session, symbol, hours_ahead=hours_ahead)
+
+    # ── Ship 2: exposure board (#88) ─────────────────────────────────────
+
+    @mcp.tool()
+    def get_exposure_by_strike(symbol: str = "SPX", dte_max: int = 60) -> dict[str, Any]:
+        """Per-strike DEX/GEX profile: net + call/put split, walls, flip level."""
+        with session_factory() as session:
+            return ext.get_exposure_by_strike(session, symbol, dte_max=dte_max)
+
+    @mcp.tool()
+    def get_vol_drift(symbol: str = "SPX") -> dict[str, Any]:
+        """Intraday vol drift: realized vol from live ticks vs 0DTE ATM IV."""
+        with session_factory() as session:
+            return ext.get_vol_drift(session, symbol)
+
+    @mcp.tool()
+    def get_net_premium_drift(symbol: str = "SPX", days: int = 5) -> dict[str, Any]:
+        """Cumulative call vs put notional over trailing days — flow bias read."""
+        with session_factory() as session:
+            return ext.get_net_premium_drift(session, symbol, days=days)
 
     tgt.register(mcp, settings)
 

@@ -107,9 +107,134 @@ acts on:
 validated `strategies/` modules + the probability model — never from a Greek or a
 single decomposition factor on its own.*
 
+## 8. RV/IV box — realized vs. implied (Carroll's framework)
+
+The core question: **is implied vol rich or cheap relative to what the market is
+actually doing?**
+
+- **RV21** = trailing 21-day realized vol (annualized close-to-close log returns).
+- **VIX − RV21 spread** = variance risk premium in vol points. Wide positive =
+  rich premium (vol sellers are being paid). Compressed or negative = realized is
+  catching up to implied.
+- **VIX3M − RV21 spread** = the same read at the 3-month tenor (VX30 not banked;
+  VIX3M is the proxy). A wide 3M spread with a compressed 1M spread = the market
+  expects calm to persist even though near-term is choppy.
+- **IV/RV ratio** = ATM IV ÷ RV20. >1.2 = rich; <0.9 = cheap; between = fair.
+
+Four-quadrant box:
+
+| | **High IV spread** | **Low IV spread** |
+|---|---|---|
+| **Low RV** | Rich — premium-selling sweet spot | Calm — quiet tape, cheap hedging |
+| **High RV** | Stress — market moving AND priced for it | Cheap — market moving, vol not keeping up |
+
+*Tool: `get_rv_iv_box`. Source: Carroll "Vol Box" framework.*
+
+## 9. Spot-vol beta — is vol over- or under-reacting?
+
+`β = cov(ΔVIX, ΔSPX) / var(ΔSPX)` over a rolling window (default 21d).
+
+- **Normal:** β ≈ −2 to −4 (VIX drops 2–4 pts per +1% SPX move). More negative
+  = higher reactivity.
+- **Muted** (β near 0): vol barely responding to spot — complacency or a
+  mechanically pinned tape (dealer-gamma-driven).
+- **Inverted** (β > 0): vol rising WITH spot — the "bullish vol" anomaly (call
+  skew bid, squeeze dynamics, or an upside convexity bid in VIX options).
+
+The **residual** (actual ΔVIX − predicted ΔVIX) is the daily gauge:
+
+- Positive residual = "over-vixed" — vol running hotter than spot warrants.
+- Negative residual = "under-vixed" — vol lagging, potentially a spring loading.
+
+The 60d beta is pre-banked in `index_skew_daily.vix_spx_beta_60d`; the 21d
+version + same-day residual are computed fresh by the cockpit.
+
+*Tool: `get_spot_vol_beta`. Source: spot-vol-beta literature, VolSignals.*
+
+## 10. Implied correlation & dispersion
+
+Implied correlation (COR1M) measures how much the market prices SPX constituent
+options as moving together. High = macro-driven; low = single-stock alpha.
+
+Key reads:
+
+- **COR1M percentile (252d):** >85th = extreme correlation (macro fear, hedging
+  heavy); <15th = extreme dispersion (stock-picker's market).
+- **COR slope** = COR1M − COR3M: positive = near-term correlation stress
+  (index hedgers bidding short-dated correlation). Negative = longer-term
+  structural correlation.
+- **VIXEQ / VIX ratio:** VIXEQ is the equal-weight member VIX. Ratio >1 =
+  stock-level vol exceeds index vol → low correlation → dispersion regime.
+  Ratio <1 = index vol dominates.
+- **DSPX** = Cboe S&P 500 Dispersion Index. Rising DSPX with falling COR1M =
+  the classic "dispersion trade" environment.
+
+Carroll's dispersion read: **low COR1M + VIXEQ/VIX > 1** = a loaded spring —
+stock-level moves are bigger than the index suggests, and a catalyst can
+snap correlation back (suddenly everyone sells together). This is a fragility
+indicator, not a directional signal.
+
+*Tool: `get_implied_correlation`. Sources: Cboe COR1M/VIXEQ/DSPX indices,
+Carroll dispersion framework.*
+
+## 11. Color — dealer gamma's clock decay (dΓ/dt)
+
+Color tells you **how the gamma map changes just from time passing** — OI, spot,
+IV all frozen, only the clock moves. A −$2bn color means dealers will be $2bn
+shorter gamma by close than they are now, even if spot doesn't budge.
+
+Why it matters:
+
+- **Negative color** (dealers losing long gamma): the map gets more unstable
+  through the day → hedging flows amplify moves later in the session.
+- **Positive color** (dealers gaining long gamma): the map gets more supportive →
+  moves dampen into the close.
+- **Turn time**: if gamma flips sign between now and close, Color reports the
+  approximate time — useful for intraday regime transitions.
+
+Color is driven almost entirely by 0DTE and near-term expiries whose theta is
+steep. A book heavy in weeklies will show larger Color than one spread across
+monthlies.
+
+*Tool: `get_color_at_spot`. Source: VS3D / VolSignals "gamma clock" concept,
+greek_profiles engine.*
+
+## 12. Putting it all together (expanded)
+
+The dashboard now provides a multi-layered regime read:
+
+1. **Level & term structure** (§2–3): is vol elevated, and is the shape stressed?
+2. **VRP** (§4): is implied richer than realized?
+3. **VVIX** (§5): is there uncertainty about the path of vol itself?
+4. **Decomposition** (§6): mechanical move or genuine repricing?
+5. **RV/IV box** (§8): four-quadrant regime — rich/cheap/stress/calm.
+6. **Spot-vol beta** (§9): is vol over- or under-reacting to spot?
+7. **Implied correlation** (§10): macro-driven or dispersion regime?
+8. **Color** (§11): where is the gamma map heading by close?
+
+The combination is what makes the read sharp. Examples:
+
+- **Carry with a spring:** calm quadrant (low RV, low IV spread) + extreme
+  dispersion (COR1M <15th pctile) + negative color. The tape looks quiet but
+  gamma is decaying and stock-level moves are larger than the index shows. A
+  catalyst can snap everything correlated fast.
+- **Genuine risk-off:** stress quadrant + elevated correlation + positive
+  spot-vol beta residual (over-vixed) + backwardation + parallel-shift dominated
+  decomposition. Full defensive stance.
+- **Bullish vol trap:** muted beta (vol barely reacting) + rich IV quadrant +
+  call gradient/upside convexity in decomposition + negative color. The tape is
+  bid for calls, gamma is decaying, and vol is repricing upside — not fear.
+
+*Reminder: these are descriptive regime reads. Trade signals come only from the
+validated `strategies/` modules + the probability model — never from a Greek or a
+single decomposition factor on its own.*
+
 ---
 
 ## Sources
 - CBOE, *The VIX Index Decomposition — A Heuristic Framework* (Ed Tom, Aug 1 2025): `https://cdn.cboe.com/resources/vix/VIX-Decomposition-2025-08-01.pdf`
 - CBOE VIX Index Decomposition tool: `https://www.cboe.com/tradable-products/vix/vix-decomposition/`
 - Doc McGraw posts (`research/doc/`): "The VIX is Lying to You", "Why the VIX Can Rise Without a Full-Blown Panic", "VIX Decomposition Explained", "Shift vs Slide".
+- Carroll, "The Vol Box" / RV-vs-IV framework: dispersion + correlation regime classification.
+- VolSignals / VS3D: gamma clock / Color concept (`claude/volsignals-methodology.md`).
+- Cboe Implied Correlation (COR1M/COR3M), VIXEQ, DSPX indices: `https://www.cboe.com/tradable-products/vix/implied-correlation/`
