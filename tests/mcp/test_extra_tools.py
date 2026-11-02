@@ -134,10 +134,27 @@ def test_get_walls_drops_expired_same_day_rows(session: Session, monkeypatch) ->
                                strike=strike, cp="C", dte=dte, oi=1000, gxoi=gx, source="convex_am"))
     session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7740.0, gex_total=1.0))
     session.commit()
-    monkeypatch.setattr(et, "same_day_expired", lambda d, now=None: False)
+    monkeypatch.setattr(et, "live_expiry_floor", lambda d, now=None: d)
     assert et.get_walls(session, "SPX", dte_max=7)["call_wall"] == 7750.0   # morning: 0DTE counts
-    monkeypatch.setattr(et, "same_day_expired", lambda d, now=None: True)
+    monkeypatch.setattr(et, "live_expiry_floor", lambda d, now=None: d + timedelta(days=1))
     assert et.get_walls(session, "SPX", dte_max=7)["call_wall"] == 7800.0   # evening: expired
+
+
+def test_get_walls_drops_settled_expiry_when_read_on_a_later_day(session: Session) -> None:
+    """The Friday book read on the weekend (real clock, no patch): Friday's expiry is gone.
+
+    2026-10-25: the 10/23 SPX book kept its 10/23 contracts all weekend and named a
+    fake 7650 "magnet" from them.
+    """
+    ts = datetime(2026, 10, 23)  # a Friday, long settled by the time this test runs
+    for strike, exp, gx in ((7650.0, date(2026, 10, 23), 9.0e8), (7800.0, date(2026, 10, 26), 2.0e8)):
+        session.add(OiChainEod(symbol="SPX", ts=ts, expiry=exp, strike=strike, cp="C",
+                               dte=(exp - ts.date()).days, oi=1000, gxoi=gx, source="convex_eod"))
+    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7623.0, gex_total=1.0))
+    session.commit()
+    out = et.get_walls(session, "SPX", dte_max=10)
+    assert out["call_wall"] == 7800.0
+    assert out["magnet"]["strike"] == 7800.0
 
 
 def test_straddle_prices_same_day_leg_with_session_time(session: Session, monkeypatch) -> None:
@@ -147,7 +164,7 @@ def test_straddle_prices_same_day_leg_with_session_time(session: Session, monkey
                                dte=0, oi=1000, iv=0.12, source="convex_am"))
     session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7750.0, gex_total=1.0))
     session.commit()
-    monkeypatch.setattr(et, "same_day_expired", lambda d, now=None: False)
+    monkeypatch.setattr(et, "live_expiry_floor", lambda d, now=None: d)
     monkeypatch.setattr(et, "same_day_years", lambda d, now=None: 6.5 / (365 * 24))
     out = et.get_straddle(session, "SPX")
     assert out["found"] is True and out["dte"] == 0

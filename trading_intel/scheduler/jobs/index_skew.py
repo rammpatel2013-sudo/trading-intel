@@ -53,7 +53,7 @@ from trading_intel.memory.models import (
     VixData,
     VixOptionsChain,
 )
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 from trading_intel.vol.nations_dex import compute_dex_triplet
 from trading_intel.vol.skew import risk_reversal, skew_percentile
 from trading_intel.vol.vix_regime import compute_decomposition
@@ -471,6 +471,11 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="index_skew")
 
     as_of = eastern_now().date()
+    if not is_trading_session(as_of):
+        # Weekend/holiday runs re-read Friday's quotes and banked them as new days
+        # (rows 10/17, 10/18, 10/24 before 2026-10-29). Skip.
+        bound.info("index_skew.skipped_non_session", as_of=as_of.isoformat())
+        return
     record = build_row(session, cboe, as_of=as_of)
     if record is None:
         bound.warning("index_skew.no_record")

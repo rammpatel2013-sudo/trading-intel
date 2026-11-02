@@ -94,3 +94,29 @@ def test_chain_empty_response_is_empty(monkeypatch):
     monkeypatch.setattr(client, "_get", lambda *a, **k: {"params": list(_PARAMS), "chain": []})
     assert client.chain("X").empty
     client.close()
+
+
+def test_chain_drops_settled_expiries(monkeypatch):
+    """2026-10-28 #67: after the close CVForge still lists today's (settled) expiry."""
+    from datetime import date, datetime
+
+    from trading_intel.clients import cvforge as cvmod
+
+    today, nxt = "2026-10-28", "2026-10-29"
+    resp = {
+        "symbol": "X",
+        "params": list(_PARAMS),
+        "chain": [
+            {"expiration": e, "strikes": [[100.0, [*_CALL[:1], e, *_CALL[2:]], [*_PUT[:1], e, *_PUT[2:]]]]}
+            for e in (today, nxt)
+        ],
+    }
+    client = _client()
+    monkeypatch.setattr(client, "_get", lambda *a, **k: resp)
+    monkeypatch.setattr(cvmod, "eastern_now", lambda: datetime(2026, 10, 28, 18, 5))  # after the close
+    df = client.chain("X", ref=date(2026, 10, 28))
+    assert sorted(df["expiration"].dt.strftime("%Y-%m-%d").unique()) == [nxt]
+    monkeypatch.setattr(cvmod, "eastern_now", lambda: datetime(2026, 10, 28, 9, 40))  # live session
+    df = client.chain("X", ref=date(2026, 10, 28))
+    assert sorted(df["expiration"].dt.strftime("%Y-%m-%d").unique()) == [today, nxt]
+    client.close()

@@ -374,3 +374,22 @@ def _flips(total: float | None, remaining: float | None) -> bool:
     if total is None or remaining is None:
         return False
     return (total > 0) != (remaining > 0) and abs(remaining) > 0
+
+
+def _expired_html(ctx: dict[str, Any]) -> str:
+    """One line: how much of last night's gamma settled with its same-day expiry.
+
+    Explains the step from the last close's numbers to this morning's map
+    (``mcp.profile_tool.expired_rolloff``; values are $bn per 1% move).
+    """
+    e = ctx.get("expired") or {}
+    if e.get("gamma_expired") is None or e.get("gamma_total") is None:
+        return ""
+    gone, total, left = (e[k] * 1e9 for k in ("gamma_expired", "gamma_total", "gamma_after"))
+    return (
+        '<div class="card"><div class="mapline"><span class="lb">Expired at the close</span>'
+        f'<span class="vv">{_usd_signed(gone)}</span>'
+        f'<span class="sub2" style="font-size:13.5px;color:#33404f">of {_usd_signed(total)} per 1% at spot '
+        f'({_pct0(e.get("share"))}) was the {_esc(e.get("book_day"))} expiry. It settled, so today\'s '
+        f'map starts from {_usd_signed(left)}.</span></div></div>'
+    )

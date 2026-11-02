@@ -29,6 +29,7 @@ import pandas as pd
 from trading_intel.config import Settings
 from trading_intel.errors import DataSourceError
 from trading_intel.greeks.black_scholes import bs_charm, bs_vanna, years_to_expiry
+from trading_intel.timeutils import eastern_now, live_expiry_floor
 
 # Per-contract fields pulled for a chain: the greeks/IV/OI/vol we need to
 # synthesize the convex-equivalent exposure columns. Order is echoed back in the
@@ -121,6 +122,12 @@ class CVForgeClient:
         # near-money rows (seen: XLF ~10.0 = 1000%) that would corrupt ATM IV /
         # skew / the strike-IV grid. 5.0 (500%) is far above any real ETF vol.
         df = df[(df["iv"] > 0) & (df["iv"] < 5.0)].reset_index(drop=True)
+        # Settled expiries out: after 16:15 ET CVForge still lists today's expiry
+        # (and anything older it hasn't purged). Kept, it put a dead same-day book
+        # into the evening CVForge shadow and the sector SPDR GEX (2026-10-28 #67).
+        now = eastern_now()
+        floor = pd.Timestamp(live_expiry_floor(now.date(), now))
+        df = df[df["expiration"].dt.normalize() >= floor].reset_index(drop=True)
         if df.empty:
             return df
 

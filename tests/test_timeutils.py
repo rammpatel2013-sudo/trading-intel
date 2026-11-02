@@ -28,6 +28,17 @@ def test_same_day_expired_only_after_the_close_of_that_day():
     assert not same_day_expired(d, datetime(2026, 10, 23, 17, 0))  # an older book is as-of
 
 
+def test_live_expiry_floor_drops_the_settled_same_day_expiry_for_any_later_read():
+    from trading_intel.timeutils import live_expiry_floor, same_day_settled
+
+    fri = date(2026, 10, 23)
+    assert live_expiry_floor(fri, datetime(2026, 10, 23, 9, 0)) == fri            # live session
+    assert live_expiry_floor(fri, datetime(2026, 10, 23, 16, 15)) == date(2026, 10, 24)
+    assert live_expiry_floor(fri, datetime(2026, 10, 25, 17, 0)) == date(2026, 10, 24)  # Sunday read
+    assert not same_day_settled(fri, datetime(2026, 10, 23, 16, 14))
+    assert same_day_settled(fri, datetime(2026, 10, 26, 8, 0))
+
+
 def test_same_day_years_live_and_as_of():
     d, h = date(2026, 10, 22), 1.0 / (365 * 24)
     assert abs(same_day_years(d, datetime(2026, 10, 22, 8, 40)) - 6.5 * h) < 1e-9   # pre-open: full session

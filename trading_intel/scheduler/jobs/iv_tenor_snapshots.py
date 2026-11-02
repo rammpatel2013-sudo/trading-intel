@@ -37,7 +37,7 @@ from trading_intel.config import Settings, get_settings
 from trading_intel.errors import ComputationError, TradingIntelError
 from trading_intel.greeks.surface import build_delta_surface
 from trading_intel.memory.models import IvTenorSnapshot, Ticker
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 
 log = structlog.get_logger(__name__)
 
@@ -217,6 +217,11 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="iv_tenor_snapshots")
 
     as_of = as_of or eastern_now().date()
+    if not is_trading_session(as_of):
+        # Weekend runs banked Friday's surface again as Sat/Sun rows (10/17, 10/18,
+        # 10/24, 10/25 before 2026-10-29). Skip.
+        bound.info("iv_tenor_snapshots.skipped_non_session", as_of=as_of.isoformat())
+        return
     records = build_rows(source, settings, as_of=as_of, symbols=symbols)
     _ensure_tickers(session, {r["symbol"] for r in records})
     _upsert(session, records)

@@ -16,6 +16,7 @@ NOT emit a trade call. See [[market-synthesis-engine]].
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 from datetime import date, timedelta
 
@@ -133,9 +134,29 @@ def _levels_ladder(mech: dict) -> list[dict]:
 #: inflation read" as a live trigger — that PPI print was 2026-08-13.
 _TRIGGER_MAX_AGE_SESSIONS = 3
 
+#: A trigger price outside ±15 % of SPX spot is an extractor mis-tag, not a level
+#: (same band as the brief's level sanitiser). 2026-10-25: "SPX holds above 3450"
+#: — a Norseman fund level — reached market_read as a live SPX trigger.
+_TRIGGER_PRICE_BAND = 0.15
+_PRICE_RE = re.compile(r"(?<![\d.])(\d{1,2},?\d{3}(?:\.\d+)?)(?![\d,])")
 
-def _newsletter_triggers(newsletter: dict, today: date | None = None) -> list[dict]:
-    """If-then scenarios from the letters — CURRENT ones only, each dated."""
+
+def _trigger_plausible(text: object, spot: float | None) -> bool:
+    """False when ``text`` names a 4–5 digit price outside ±15 % of an index spot."""
+    if not text or not spot or spot < 1000:
+        return True
+    lo, hi = spot * (1 - _TRIGGER_PRICE_BAND), spot * (1 + _TRIGGER_PRICE_BAND)
+    for m in _PRICE_RE.findall(str(text)):
+        v = float(m.replace(",", ""))
+        if 1000 <= v <= 100000 and not (lo <= v <= hi):
+            return False
+    return True
+
+
+def _newsletter_triggers(
+    newsletter: dict, today: date | None = None, spot: float | None = None
+) -> list[dict]:
+    """If-then scenarios from the letters — CURRENT and plausible ones only, each dated."""
     today = today or date.today()
     out: list[dict] = []
     for src, blk in (newsletter or {}).get("sources", {}).items():
@@ -146,6 +167,8 @@ def _newsletter_triggers(newsletter: dict, today: date | None = None) -> list[di
         if age > _TRIGGER_MAX_AGE_SESSIONS:
             continue
         for sc in (blk or {}).get("scenarios", []) or []:
+            if not _trigger_plausible(sc.get("trigger"), spot):
+                continue
             out.append({
                 "source": src if age == 0 else f"{src} ({as_of:%b %d})",
                 "trigger": sc.get("trigger"),
@@ -250,7 +273,7 @@ def build_read(
                          "trigger": f"clock opens {reg.get('clock_open_date')} (session {reg['clock_session']}/128)",
                          "consequence": "a −10% test of the line becomes permitted (not predicted)",
                          "direction": "neutral"})
-    triggers.extend(_newsletter_triggers(newsletter))
+    triggers.extend(_newsletter_triggers(newsletter, spot=spot))
 
     # NARRATIVE — the fused one-liner
     vv = " + elevated VVIX (fragile)" if wx["vvix_elevated"] else ""

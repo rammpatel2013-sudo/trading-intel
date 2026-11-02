@@ -16,6 +16,7 @@ from typing import Any
 
 from trading_intel.synthesis.daily_brief_map_render import (  # noqa: F401
     MAP_CSS,
+    _expired_html,
     _map_grade_html,
     _map_section,
     _pct0,
@@ -912,6 +913,7 @@ def render_html(ctx: dict[str, Any]) -> str:
         _book_read_html(ctx)
         + _map_section(ctx)
         + _map_grade_html(ctx)
+        + _expired_html(ctx)
         + _rolloff_html(ctx)
         + _market_read_section(ctx)
         + _zero_dte_section(ctx)

@@ -114,12 +114,18 @@ def sp500_symbols(client: object, *, limit: int = 503) -> list[str]:
 
 
 def fetch_closes(
-    client: object, symbols: Sequence[str], *, days: int = 320
+    client: object,
+    symbols: Sequence[str],
+    *,
+    days: int = 320,
+    last_dates: dict[str, str] | None = None,
 ) -> dict[str, list[float]]:
     """EOD close series per symbol via the FMP light history endpoint (best-effort).
 
     Skips any symbol the vendor can't serve so one gap never zeros the whole breadth
     read. ``days`` gives enough history for a 200-day MA plus the 5-session trend.
+    ``last_dates`` (when given) collects each symbol's newest bar date (ISO) so the
+    caller can check the data is from the session it is about to stamp.
     """
     out: dict[str, list[float]] = {}
     for sym in symbols:
@@ -127,13 +133,26 @@ def fetch_closes(
             data = client.fmp("historical-price-eod/light", {"symbol": sym})  # type: ignore[attr-defined]
         except Exception:  # noqa: S112 — best-effort per symbol; logging 500 misses is noise
             continue
-        rows = data if isinstance(data, list) else []
-        closes = [
-            float(r["price"]) for r in rows if isinstance(r, dict) and r.get("price") is not None
+        rows = [
+            r for r in (data if isinstance(data, list) else [])
+            if isinstance(r, dict) and r.get("price") is not None
         ]
+        closes = [float(r["price"]) for r in rows]
         if len(closes) >= 60:
             out[sym] = list(reversed(closes[:days]))  # FMP returns newest-first → oldest→newest
+            if last_dates is not None and rows[0].get("date"):
+                last_dates[sym] = str(rows[0]["date"])[:10]
     return out
+
+
+def data_session(last_dates: Mapping[str, str]) -> str | None:
+    """The session most constituents' newest bar belongs to (ISO date), or None."""
+    if not last_dates:
+        return None
+    counts: dict[str, int] = {}
+    for d in last_dates.values():
+        counts[d] = counts.get(d, 0) + 1
+    return max(counts, key=lambda d: (counts[d], d))
 
 
 # ── Bull/Bear Line + cumulative A-D line + McClellan + divergence ──────────────

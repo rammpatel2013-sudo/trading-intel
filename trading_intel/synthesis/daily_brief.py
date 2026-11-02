@@ -1175,6 +1175,7 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
         "map_block": None,
         "map_history": [],
         "rolloff": None,
+        "expired": None,
         "filtered_levels": filtered_levels,
         "checks": [],
         "expiry_clock": _expiry_clock_block(today),
@@ -1226,6 +1227,14 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
                 record_morning(session, block, today=today)
             # The yesterday line + the Monday scorecard read the graded history.
             ctx["map_history"] = recent_rows(session, _DOC_ROOT, days=20, before=today)
+            # What settled at the last close (its same-day expiry), so the step from
+            # last night's numbers to this morning's map is explained.
+            try:
+                from trading_intel.mcp.profile_tool import expired_rolloff
+
+                ctx["expired"] = expired_rolloff(session, _DOC_ROOT, today=today)
+            except Exception:  # noqa: BLE001 — additive one-liner
+                log.warning("daily_brief.expired_rolloff_failed", exc_info=True)
             # Roll-off is a Monday / OpEx-day read, not a daily one.
             from trading_intel.market.rolloff import build_rolloff, is_monthly_opex
 

@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.greeks.exposure_profile import greek_profiles
 from trading_intel.memory.models import GreeksSnapshot, OiChainEod
-from trading_intel.timeutils import same_day_expired, same_day_years
+from trading_intel.timeutils import eastern_now, live_expiry_floor, same_day_years
 
 
 def _latest_oi_ts(session: Session, sym: str, as_of: date | None = None):
@@ -43,6 +43,87 @@ def _latest_spot(session: Session, sym: str, as_of: date | None = None) -> float
         q = q.where(GreeksSnapshot.ts < datetime.combine(as_of + timedelta(days=1), time.min))
     row = session.execute(q.order_by(GreeksSnapshot.ts.desc())).first()
     return float(row[0]) if row and row[0] is not None else None
+
+
+def _book_chain(
+    session: Session, sym: str, ts: datetime, floor: date, dte_max: int = 400
+) -> pd.DataFrame:
+    """One ``oi_chain_eod`` book shaped for the BS engine, expiries ``>= floor``."""
+    rows = session.execute(
+        select(
+            OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.oi, OiChainEod.expiry
+        ).where(
+            OiChainEod.symbol == sym,
+            OiChainEod.ts == ts,
+            OiChainEod.expiry >= floor,
+            OiChainEod.dte <= dte_max,
+            OiChainEod.iv.isnot(None),
+        )
+    ).all()
+    # The same-day expiry expires at 16:00, not at midnight: give it the real time
+    # left so its gamma isn't priced at the 1-hour floor.
+    book_day = ts.date()
+    d0_end = datetime.combine(book_day, time()) + timedelta(
+        seconds=same_day_years(book_day) * 365.0 * 24 * 3600
+    )
+    return pd.DataFrame(
+        [
+            {
+                "strike": r.strike,
+                "opt_kind": "call" if str(r.cp).upper().startswith("C") else "put",
+                "iv": r.iv,
+                "oi": r.oi,
+                "expiration": d0_end if r.expiry == book_day else r.expiry,
+            }
+            for r in rows
+        ]
+    )
+
+
+def expired_rolloff(
+    session: Session, symbol: str = "SPX", *, today: date | None = None
+) -> dict[str, Any] | None:
+    """How much of the last closed book's gamma AT SPOT sat in its own same-day expiry.
+
+    Reads the newest book stamped BEFORE ``today`` (yesterday's EOD book), prices it
+    once with and once without its same-day expiry, and returns the share that
+    settled at that close. The brief prints it as one line so the drop from last
+    night's numbers to this morning's map is explained, not a surprise. $bn per 1%
+    move (``get_profile`` units). None when there is no prior book or no such expiry.
+    """
+    today = today or eastern_now().date()
+    sym = symbol.upper()
+    ts = session.execute(
+        select(OiChainEod.ts)
+        .where(OiChainEod.symbol == sym, OiChainEod.ts < datetime.combine(today, time.min))
+        .order_by(OiChainEod.ts.desc())
+    ).scalars().first()
+    if ts is None:
+        return None
+    book_day = ts.date()
+    spot = _latest_spot(session, sym, book_day)
+    if spot is None:
+        return None
+    chain = _book_chain(session, sym, ts, book_day)
+    if chain.empty:
+        return None
+    prof = greek_profiles(chain, float(spot), span=0.001, n_points=3, ref=book_day,
+                          greeks=("gamma",))
+    g = (prof or {}).get("gamma") or {}
+    total = (g.get("all") or [None, None])[1]
+    expired = ((g.get("by_expiry") or {}).get(book_day.isoformat()) or [None, None])[1]
+    if total is None or expired is None:
+        return None
+    return {
+        "symbol": sym,
+        "book_day": book_day.isoformat(),
+        "spot": float(spot),
+        "gamma_total": float(total),
+        "gamma_expired": float(expired),
+        "gamma_after": float(total) - float(expired),
+        "share": (float(expired) / float(total)) if total else None,
+        "units": "$bn per 1% move",
+    }
 
 
 def get_profile(
@@ -72,37 +153,11 @@ def get_profile(
     if ts is None or spot is None:
         return {"symbol": sym, "found": False, "reason": "no oi_chain_eod snapshot or spot"}
 
-    rows = session.execute(
-        select(
-            OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.oi, OiChainEod.expiry
-        ).where(
-            OiChainEod.symbol == sym,
-            OiChainEod.ts == ts,
-            OiChainEod.dte >= (1 if same_day_expired(ts.date()) else 0),
-            OiChainEod.dte <= dte_max,
-            OiChainEod.iv.isnot(None),
-        )
-    ).all()
-    if not rows:
+    # Settled expiries are out: the book's own same-day expiry drops once its
+    # session has closed, for any later read (2026-10-29 fix).
+    chain = _book_chain(session, sym, ts, live_expiry_floor(ts.date()), dte_max)
+    if chain.empty:
         return {"symbol": sym, "as_of": ts.date().isoformat(), "found": False}
-
-    # The same-day expiry (dte 0, morning index book) expires at 16:00, not at
-    # midnight: give it the real time left so its gamma isn't priced at the 1-hour floor.
-    book_day = ts.date()
-    d0_end = datetime.combine(book_day, time()) + timedelta(seconds=same_day_years(book_day) * 365.0 * 24 * 3600)
-
-    chain = pd.DataFrame(
-        [
-            {
-                "strike": r.strike,
-                "opt_kind": "call" if str(r.cp).upper().startswith("C") else "put",
-                "iv": r.iv,
-                "oi": r.oi,
-                "expiration": d0_end if r.expiry == book_day else r.expiry,
-            }
-            for r in rows
-        ]
-    )
     # Time-to-expiry from the BOOK's own date: an as_of book priced with today's
     # clock under-states t (and over-states gamma/charm) for the earlier snapshot.
     profiles = greek_profiles(chain, float(spot), span=span, n_points=n_points,

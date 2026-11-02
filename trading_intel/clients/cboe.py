@@ -125,6 +125,29 @@ class CboeClient:
         out.sort(key=lambda t: t[0])
         return out
 
+    def index_history(self, name: str) -> list[tuple[date, float]]:
+        """Daily close history for a Cboe index (``VIX``, ``VIX9D``, ``VIX3M``, ``VIX6M``, ``VVIX``).
+
+        Reads ``<name>_History.csv``; the close is the LAST column (VIX-family files are
+        ``DATE,OPEN,HIGH,LOW,CLOSE``; ``VVIX_History.csv`` is ``DATE,VVIX``). ``[]`` on failure.
+        """
+        txt = self._get_text(_HISTORY_CSV.format(name=name))
+        if not txt:
+            return []
+        out: list[tuple[date, float]] = []
+        for line in txt.splitlines()[1:]:
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) < 2:
+                continue
+            try:
+                d = datetime.strptime(parts[0], "%m/%d/%Y").date()
+                c = float(parts[-1])
+            except (ValueError, IndexError):
+                continue
+            out.append((d, c))
+        out.sort(key=lambda t: t[0])
+        return out
+
     def skew_index(self) -> float | None:
         """Cboe SKEW Index (30d, model-free third moment of SPX) close.
 

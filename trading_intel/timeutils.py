@@ -11,7 +11,7 @@ them correctly with no per-chart conversion.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from datetime import time as dtime
 from zoneinfo import ZoneInfo
 
@@ -63,6 +63,28 @@ def same_day_expired(book_day: date, now: datetime | None = None) -> bool:
     """
     now = now or eastern_now()
     return book_day == now.date() and now.time() >= _SAME_DAY_GONE
+
+
+def same_day_settled(book_day: date, now: datetime | None = None) -> bool:
+    """True once the session of ``book_day`` has closed (16:15 ET that day, or any later time).
+
+    Unlike ``same_day_expired`` this does NOT keep an older book as-of: a Friday book
+    read on Sunday holds a Friday expiry that settled at Friday's close. Readers of the
+    LATEST book use this. 2026-10-29 fix: the Friday 10/23 SPX book kept its expired
+    10/23 contracts all weekend (a fake 7650 "magnet", a 44-point straddle at 26.6% IV,
+    and −21.7 of the −73.7 $B/1% gamma at spot).
+    """
+    now = now or eastern_now()
+    return now >= datetime.combine(book_day, _SAME_DAY_GONE)
+
+
+def live_expiry_floor(book_day: date, now: datetime | None = None) -> date:
+    """Earliest expiry still alive in a chain book stamped ``book_day``.
+
+    ``book_day`` while that session is still open (the 08:35 morning book), else
+    ``book_day + 1`` — the book's own same-day expiry has settled.
+    """
+    return book_day + timedelta(days=1) if same_day_settled(book_day, now) else book_day
 
 
 def same_day_years(book_day: date, now: datetime | None = None) -> float:

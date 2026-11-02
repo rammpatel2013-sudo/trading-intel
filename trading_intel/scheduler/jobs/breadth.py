@@ -1,5 +1,9 @@
 """Scheduled job (daily, after cash close): market breadth → ``breadth_snapshots``.
 
+DSM 18:30 ET (moved from 16:30 on 2026-10-29: at 16:30 the vendor bars and our own
+SPX bar were still the previous session's). The row is skipped, not mis-dated, when
+the constituent bars are not from today.
+
 Pulls S&P-500 constituent EOD closes through the CVForge FMP passthrough (existing
 vendor — ADR-004, rule 1), computes the S&P-wide breadth suite (``market.breadth``:
 %-above-50/200-MA, advancers/decliners, new-highs/lows), then adds the regime half:
@@ -37,17 +41,38 @@ _SOURCE = "fmp_sp500"
 _HIST = 80  # prior snapshots pulled for McClellan / divergence context
 
 
-def _spx_line_inputs(session: Session) -> tuple[list[float], float | None]:
-    """(daily SPX intraday highs, latest SPX close) for the Bull/Bear Line.
+def _spx_line_inputs(session: Session, as_of=None) -> tuple[list[float], float | None]:
+    """(daily SPX intraday highs, ``as_of``'s SPX close) for the Bull/Bear Line.
 
     Norseman's line is 0.90 × the all-time INTRADAY high (verified 3/3 against his
     published lines, 2026-09-27) — not the weekly close. Uses real SPX bars, extended
     with ratio-scaled SPY when the SPX series lags (``strategies.norseman_regime``).
+    The close is ``None`` unless the newest bar IS ``as_of``: a stale bar must not be
+    filed under today (2026-10-29 fix — the 10/23 row carried the 10/22 close).
     """
     from trading_intel.strategies.norseman_regime import spx_bars
 
-    bars = spx_bars(session, as_of=eastern_now().date())
-    return [b.high for b in bars], (bars[-1].close if bars else None)
+    as_of = as_of or eastern_now().date()
+    bars = spx_bars(session, as_of=as_of)
+    close = bars[-1].close if bars and bars[-1].d == as_of else None
+    if bars and close is None:
+        log.warning("breadth.spx_bar_stale", newest=str(bars[-1].d), as_of=str(as_of))
+    return [b.high for b in bars], close
+
+
+def _history(session: Session, cols, as_of, *filters) -> list:
+    """The newest ``_HIST`` banked rows before ``as_of``, oldest → newest.
+
+    Was ``order_by(ts).limit(_HIST)`` = the OLDEST 80 rows: once the A-D backfill
+    added a year of history, McClellan was fed rows from 2025 plus today.
+    """
+    rows = session.execute(
+        select(*cols)
+        .where(BreadthSnapshot.source == _SOURCE, BreadthSnapshot.ts < as_of, *filters)
+        .order_by(BreadthSnapshot.ts.desc())
+        .limit(_HIST)
+    ).all()
+    return list(reversed(rows))
 
 
 _SMALL_SOURCE = "fmp_sp600"
@@ -64,7 +89,7 @@ def bank_small_caps(session: Session, client: object, as_of) -> dict | None:
     from trading_intel.market import breadth_history as bh
 
     try:
-        syms = bh.etf_holding_symbols(client, _SMALL_ETF)
+        syms = bh.holdings_any(client, _SMALL_ETF)
         if len(syms) < 200:
             log.warning("breadth.small_caps_universe_thin", n=len(syms))
             return None
@@ -110,12 +135,22 @@ def run(session: Session, settings: Settings, *, client: object | None = None) -
 
         cvforge = CVForgeClient(settings)
     closes: dict[str, list[float]] = {}
+    last_dates: dict[str, str] = {}
     try:
         syms = bm.sp500_symbols(cvforge)
         if syms:
-            closes = bm.fetch_closes(cvforge, syms)
+            closes = bm.fetch_closes(cvforge, syms, last_dates=last_dates)
     except Exception as exc:  # noqa: BLE001 — degrade to Bull/Bear-Line-only
         log.warning("breadth.constituent_fetch_failed", error=str(exc))
+    data_day = bm.data_session(last_dates)
+    if closes and data_day != as_of.isoformat():
+        # The constituent bars are from an earlier session (vendor not updated yet).
+        # Filing them under today is how the 10/23 row came to hold 10/22's breadth,
+        # and a cumulative A-D line can't be patched afterwards by the next run.
+        # Skip; scripts/rebuild_breadth_history_20261029.py fills any missed day.
+        log.error("breadth.source_stale", data_day=data_day, as_of=str(as_of))
+        return {"skipped": "source_stale", "as_of": str(as_of), "data_day": data_day,
+                "small_caps": bank_small_caps(session, cvforge, as_of)}
     b = bm.compute_breadth(closes) if closes else None
 
     # 2) prior snapshot (STRICTLY before today) — for the A-D cumulation + McClellan
@@ -126,7 +161,7 @@ def run(session: Session, settings: Settings, *, client: object | None = None) -
     ).scalars().first()
 
     # 3) Norseman Bull/Bear Line = 0.90 × SPX all-time intraday high
-    highs, spx_close = _spx_line_inputs(session)
+    highs, spx_close = _spx_line_inputs(session, as_of)
     bbl = bm.bull_bear_line(highs)
     above_bbl = (spx_close > bbl) if (spx_close is not None and bbl is not None) else None
 
@@ -138,31 +173,16 @@ def run(session: Session, settings: Settings, *, client: object | None = None) -
     )
 
     # 5) McClellan from banked net-adv history + today
-    hist_net = session.execute(
-        select(BreadthSnapshot.net_adv)
-        .where(
-            BreadthSnapshot.source == _SOURCE,
-            BreadthSnapshot.ts < as_of,
-            BreadthSnapshot.net_adv.isnot(None),
-        )
-        .order_by(BreadthSnapshot.ts)
-        .limit(_HIST)
-    ).scalars().all()
+    hist_net = [r[0] for r in _history(session, (BreadthSnapshot.net_adv,), as_of,
+                                       BreadthSnapshot.net_adv.isnot(None))]
     net_series = list(hist_net) + ([net_adv] if net_adv is not None else [])
     mcc_osc, mcc_sum = bm.mcclellan(net_series, prev.mcclellan_sum if prev else None)
 
     # 6) divergence: banked (spx_close, ad_line) history + today
-    hist_rows = session.execute(
-        select(BreadthSnapshot.spx_close, BreadthSnapshot.ad_line)
-        .where(
-            BreadthSnapshot.source == _SOURCE,
-            BreadthSnapshot.ts < as_of,
-            BreadthSnapshot.spx_close.isnot(None),
-            BreadthSnapshot.ad_line.isnot(None),
-        )
-        .order_by(BreadthSnapshot.ts)
-        .limit(_HIST)
-    ).all()
+    hist_rows = _history(
+        session, (BreadthSnapshot.spx_close, BreadthSnapshot.ad_line), as_of,
+        BreadthSnapshot.spx_close.isnot(None), BreadthSnapshot.ad_line.isnot(None),
+    )
     price_series = [float(r[0]) for r in hist_rows]
     ad_series = [float(r[1]) for r in hist_rows]
     if spx_close is not None and ad_line is not None:

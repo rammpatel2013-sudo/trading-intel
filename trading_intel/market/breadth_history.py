@@ -7,6 +7,41 @@ Descriptor only (rule 4).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import date
+
+import structlog
+
+log = structlog.get_logger(__name__)
+
+
+def direct_fmp() -> object | None:
+    """The direct (paid-key) FMP client when ``FMP_API`` is set, else None."""
+    try:
+        from trading_intel.clients.fmp import FmpClient
+        from trading_intel.config import get_settings
+
+        st = get_settings()
+        key = st.FMP_API.get_secret_value() if hasattr(st.FMP_API, "get_secret_value") else st.FMP_API
+        return FmpClient(st) if key else None
+    except Exception:  # noqa: BLE001 — optional
+        return None
+
+
+def holdings_any(client: object, etf: str, *, minimum: int = 200) -> list[str]:
+    """ETF holdings from the direct FMP key first, then ``client`` (CVForge passthrough).
+
+    2026-10-29: the S&P 600 rail never filled — the ``--sp600`` backfill wrote nothing
+    and the rail stayed below its 5-row minimum. ``etf/holdings`` is a paid endpoint;
+    the passthrough allowlist may not carry it. Logs which source answered.
+    """
+    for name, c in (("fmp_direct", direct_fmp()), ("passthrough", client)):
+        if c is None:
+            continue
+        syms = etf_holding_symbols(c, etf)
+        log.info("breadth.holdings", etf=etf, source=name, n=len(syms))
+        if len(syms) >= minimum:
+            return syms
+    return []
 
 
 def etf_holding_symbols(client: object, etf: str, *, limit: int = 700) -> list[str]:
@@ -52,14 +87,19 @@ def batch_change_counts(client: object, symbols: Sequence[str], *, chunk: int = 
     return adv, dec, n
 
 
-def fetch_dated_closes(client: object, symbols: Sequence[str]) -> dict[str, dict]:
-    """``{sym: {date: close}}`` from FMP light history (for one-off A-D backfills)."""
-    from datetime import date as _date
+def fetch_dated_closes(
+    client: object, symbols: Sequence[str], *, start: date | None = None
+) -> dict[str, dict]:
+    """``{sym: {date: close}}`` from FMP light history (one-off backfills / rebuilds).
 
+    ``start`` asks for history from that day (FMP ``from``); otherwise the vendor default.
+    """
+    _date = date
+    params_base = {"from": start.isoformat()} if start else {}
     out: dict[str, dict] = {}
     for sym in symbols:
         try:
-            data = client.fmp("historical-price-eod/light", {"symbol": sym})  # type: ignore[attr-defined]
+            data = client.fmp("historical-price-eod/light", {"symbol": sym, **params_base})  # type: ignore[attr-defined]
         except Exception:
             continue
         rows = data if isinstance(data, list) else []

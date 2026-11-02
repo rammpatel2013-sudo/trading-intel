@@ -99,3 +99,13 @@ def test_usd_signed_helper():
     assert _usd_signed(1.1e9) == "$1.10B"
     assert _usd_signed(None) == "—"
     assert _usd(-1.1e9) == "$1.10B"  # unsigned on purpose — words carry direction
+
+
+def test_expired_line_renders_and_is_empty_without_data():
+    from trading_intel.synthesis.daily_brief_map_render import _expired_html
+
+    assert _expired_html({}) == ""
+    html = _expired_html({"expired": {"book_day": "2026-10-23", "gamma_total": -73.7,
+                                      "gamma_expired": -21.7, "gamma_after": -52.0, "share": 0.294}})
+    assert "Expired at the close" in html and "2026-10-23" in html
+    assert "−$21.7B" in html and "−$52.0B" in html and "29%" in html

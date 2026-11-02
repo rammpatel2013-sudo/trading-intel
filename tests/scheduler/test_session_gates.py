@@ -19,3 +19,14 @@ def test_vol_surface_cm_skips_saturday() -> None:
 def test_vix_options_widened_request() -> None:
     assert vix_options.VIX_EXPS == tuple(range(1, 9))
     assert vix_options.VIX_STRIKE_RANGE >= 1.2  # must reach strike 40 at VIX ~19
+
+
+def test_iv_tenor_and_index_skew_skip_weekends(monkeypatch) -> None:
+    """2026-10-29: weekend runs had banked Friday's values as Sat/Sun rows."""
+    from datetime import datetime
+
+    from trading_intel.scheduler.jobs import index_skew, iv_tenor_snapshots
+
+    iv_tenor_snapshots.run(_Boom(), _Boom(), settings=object(), as_of=date(2026, 10, 25))  # Sunday
+    monkeypatch.setattr(index_skew, "eastern_now", lambda: datetime(2026, 10, 24, 17, 0))  # Saturday
+    index_skew.run(_Boom(), _Boom(), settings=object())
