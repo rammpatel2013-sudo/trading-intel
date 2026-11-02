@@ -19,11 +19,14 @@ from pathlib import Path
 from typing import Any
 
 import structlog
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from trading_intel.clients.telegram import TelegramClient
 from trading_intel.config import Settings, get_settings
+from trading_intel.memory.models import GreeksSnapshot, ResearchNote
 from trading_intel.synthesis.daily_brief import build_brief_html
+from trading_intel.timeutils import is_trading_session
 
 log = structlog.get_logger(__name__)
 _OUT = Path("reports")
@@ -55,6 +58,61 @@ def _telegram_summary(ctx: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _upstream_fresh(session: Session, today: date) -> bool:
+    """Check that the greeks snapshot collector ran for today.
+
+    The daily brief is only meaningful when upstream jobs (greeks_snapshot,
+    vix_snapshot, breadth) have banked today's data. The greeks snapshot is
+    the bellwether: if it's missing, the brief would rehash yesterday's board.
+    """
+    latest_ts = session.execute(
+        select(func.max(GreeksSnapshot.ts))
+    ).scalar()
+    if latest_ts is None:
+        return False
+    return latest_ts.date() >= today
+
+
+def _letters_fresh(session: Session, today: date) -> bool:
+    """True when ``letters_fetch`` has already stored at least one source note today.
+
+    The digest renders newsletter commentary from ResearchNote rows keyed on the
+    letter's date. If no note has ``as_of >= today - 1`` the fetch likely hasn't
+    run yet (backlog #13 — chain digest off fetch).
+    """
+    latest = session.execute(
+        select(func.max(ResearchNote.as_of))
+        .where(ResearchNote.model == "letters")
+    ).scalar()
+    if latest is None:
+        return False
+    # Letters are dated by their own publication date, not the fetch date, so a
+    # letter from yesterday is normal. We only flag "stale" when the newest
+    # stored body is more than 2 days old — that means the fetch hasn't run.
+    return (today - latest).days <= 2
+
+
+def _ensure_letters_fetched(session: Session, settings: Settings, today: date) -> None:
+    """Run ``letters_fetch`` inline if its notes are stale (#13).
+
+    The NAS runs both jobs as independent DSM tasks. If the digest fires before
+    the fetch (or the fetch task is disabled), the brief's commentary section
+    would show stale letter bodies. Running the fetch here makes the digest
+    self-sufficient without requiring DSM task ordering.
+    """
+    if _letters_fresh(session, today):
+        return
+    log.info("letters_digest.running_upstream_fetch", reason="notes_stale")
+    try:
+        from trading_intel.scheduler.jobs import letters_fetch
+        from trading_intel.synthesis.llm import OllamaProvider
+
+        llm = OllamaProvider(settings)
+        letters_fetch.run(session, llm, settings=settings)
+    except Exception as exc:  # noqa: BLE001 — best-effort; brief still renders
+        log.warning("letters_digest.upstream_fetch_failed", error=str(exc))
+
+
 def run(
     session: Session,
     *,
@@ -64,6 +122,22 @@ def run(
     """Build the daily brief, write it, and push via Telegram."""
     settings = settings or get_settings()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="letters_digest")
+    today = date.today()
+    if not is_trading_session(today):
+        bound.info("letters_digest.skipped_non_session", as_of=str(today))
+        return {"skipped": "not_a_trading_session", "as_of": str(today)}
+    # Chain off letters_fetch (#13): ensure letter notes are fresh before
+    # building the brief. Runs the fetch inline if needed, best-effort.
+    _ensure_letters_fetched(session, settings, today)
+    if not _upstream_fresh(session, today):
+        bound.warning(
+            "letters_digest.upstream_stale",
+            as_of=str(today),
+            hint="greeks_snapshot has not banked today — brief would use stale data",
+        )
+        # Continue anyway: the brief degrades gracefully, and the warning is
+        # logged so the NAS health page surfaces it. A hard skip here would
+        # silently swallow the digest on late-running upstream jobs.
     html_doc, ctx = build_brief_html(session, settings)
 
     _OUT.mkdir(parents=True, exist_ok=True)

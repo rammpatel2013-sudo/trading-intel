@@ -32,7 +32,7 @@ from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.memory.models import OiChainEod
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -149,6 +149,14 @@ def run(
     settings = settings or get_settings()
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="oi_chain_eod")
+
+    as_of = eastern_now().date()
+    if not is_trading_session(as_of):
+        # Weekend/holiday: Convex serves stale Friday data — writing it under a
+        # Saturday ts creates ghost rows the day-over-day diff interprets as real
+        # OI changes (2026-10-26 #66). Same guard breadth/vix_snapshot use.
+        bound.info("oi_chain_eod.skipped_non_session", as_of=as_of.isoformat())
+        return
 
     ts = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
     symbols = symbols or effective_symbols(session, settings)

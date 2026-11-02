@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.join(TI, "scripts"))
 os.chdir(TI)                      # so get_settings() finds the .env
 
 from trading_intel.config import get_settings          # noqa: E402
-from trading_intel.timeutils import eastern_now         # noqa: E402
+from trading_intel.timeutils import eastern_now, is_trading_session  # noqa: E402
 import index_bigtrades_report as ibt                     # noqa: E402
 
 
@@ -98,6 +98,13 @@ def main():
     settings = get_settings()
     print(f"blocks_feed: writing {OUT} every {POLL_S}s (Ctrl+C to stop)")
     while True:
+        now = eastern_now()
+        # Only poll during market hours (+ 15min pre/post buffer).
+        # Outside that window, sleep longer and skip the API call so we don't
+        # burn Convex rate-limit tokens on stale tape (#8).
+        if not is_trading_session(now.date()) or not (9 <= now.hour <= 16):
+            time.sleep(300)
+            continue
         try:
             data = build_payload(settings)
             OUT.write_text(json.dumps(data), encoding="utf-8")

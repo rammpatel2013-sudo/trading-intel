@@ -85,11 +85,43 @@ class YFinancePriceSource:
         return out.sort_values("date").reset_index(drop=True)
 
 
+#: Plausible value bounds for Yahoo / Cboe index fetches. A value outside these
+#: is almost certainly a data glitch (e.g. SDEX printing 184,467,424 instead of
+#: ~60). Out-of-range prints degrade to None so the z-score pipeline never
+#: ingests garbage (backlog #82).
+_INDEX_RANGE: dict[str, tuple[float, float]] = {
+    "^SDEX": (0, 500),
+    "^VOLI": (0, 200),
+    "^TDEX": (0, 500),
+    "^SKEW": (80, 250),
+    "^COR1M": (0, 100),
+    "^COR3M": (0, 100),
+    "^VIXEQ": (0, 200),
+    "^DSPX": (0, 200),
+    # Cboe CDN keys (underscore-prefixed, same bounds).
+    "_COR1M": (0, 100),
+    "_COR3M": (0, 100),
+    "_VIXEQ": (0, 200),
+    "_DSPX": (0, 200),
+}
+
+
+def _range_ok(symbol: str, val: float) -> bool:
+    """Return True when ``val`` is within the known plausible range for ``symbol``."""
+    bounds = _INDEX_RANGE.get(symbol)
+    if bounds is None:
+        return True  # no range registered — pass through
+    return bounds[0] <= val <= bounds[1]
+
+
 def fetch_yf_index_close(symbol: str, *, period: str = "5d") -> float | None:
     """Latest close for a Yahoo index symbol (e.g. ``^SDEX``, ``^SKEW``).
 
     Degrades to ``None`` on any fetch / shape failure so an upstream Yahoo
     outage never blocks the calling job. Mirrors ``CboeClient`` semantics.
+
+    Added 2026-11-02: range guard (#82). A bogus print (e.g. SDEX 184M) is
+    rejected and logged so the z-score pipeline never ingests garbage.
     """
     try:
         import yfinance as yf
@@ -110,9 +142,13 @@ def fetch_yf_index_close(symbol: str, *, period: str = "5d") -> float | None:
     if closes.empty:
         return None
     try:
-        return float(closes.iloc[-1])
+        val = float(closes.iloc[-1])
     except (TypeError, ValueError):
         return None
+    if not _range_ok(symbol, val):
+        log.warning("yf.out_of_range", sym=symbol, value=val, bounds=_INDEX_RANGE.get(symbol))
+        return None
+    return val
 
 
 def fetch_cboe_index_close(cboe_sym: str, *, yahoo_sym: str | None = None) -> float | None:
@@ -134,7 +170,12 @@ def fetch_cboe_index_close(cboe_sym: str, *, yahoo_sym: str | None = None) -> fl
         log.warning("cboe.index_fetch_failed", sym=cboe_sym, error=str(exc))
         val = None
     if val is not None:
-        return val
+        if not _range_ok(cboe_sym, val):
+            log.warning("cboe.out_of_range", sym=cboe_sym, value=val,
+                        bounds=_INDEX_RANGE.get(cboe_sym))
+            val = None  # fall through to Yahoo
+        else:
+            return val
     if yahoo_sym:
         return fetch_yf_index_close(yahoo_sym)
     return None

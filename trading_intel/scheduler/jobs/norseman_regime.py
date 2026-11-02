@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from trading_intel.config import Settings, get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.strategies import norseman_regime as strategy
+from trading_intel.timeutils import is_trading_session
 
 log = structlog.get_logger(__name__)
 
@@ -38,6 +39,11 @@ def format_event(e: dict) -> str:
 def run(session: Session, *, settings: Settings | None = None, dry_run: bool = False) -> int:
     settings = settings or get_settings()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="norseman_regime")
+    if not dry_run and not is_trading_session():
+        # Weekend/holiday runs would bank a duplicate state row and push stale
+        # events to Telegram. Skip — same guard breadth.py / vix_snapshot.py use.
+        bound.info("norseman_regime.skipped_non_session")
+        return 0
     if dry_run:
         st = strategy.read_state(session)
         events = strategy.detect_events(st) if st else []
