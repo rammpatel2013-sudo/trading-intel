@@ -230,12 +230,15 @@ def tos_rows(sym, spot, book, T, sigma, iv_map):
         dex = (_n(c.get("delta")) * cOI + _n(p.get("delta")) * pOI) * 100.0 * spot / B
         charm = (charm_c * cOI - charm_p * pOI) * 100.0 * spot / 365.0 / B
         vanna = vanna_u * (cOI - pOI) * 100.0 * spot * 0.01 / B
+        # Color = d(gamma)/d(time) — how gamma decays from clock alone (#87)
+        color_u = gamma_u * (d1 * d2 - 1) / (2.0 * T) if T > 0 else 0.0
+        color = color_u * (cOI - pOI) * 100.0 * spot * spot * 0.01 / B
         gexV = gamma_u * 100.0 * spot * spot * 0.01 * (cV - pV) / B
 
         civ, piv = iv_map.get((k, "C")), iv_map.get((k, "P"))
         rows.append({
             "k": k,
-            "gex": gex, "dex": dex, "charm": charm, "vanna": vanna,
+            "gex": gex, "dex": dex, "charm": charm, "vanna": vanna, "color": color,
             "cV": cV, "pV": pV,
             "cPrem": cV * cm * 100.0 / 1e6, "pPrem": pV * pm * 100.0 / 1e6,
             "cIV": civ or 0, "pIV": piv or 0,
@@ -366,6 +369,7 @@ def build_symbol(sym, dec, today, state):
     dexT = sum(r["dex"] for r in rows)
     vanT = sum(r["vanna"] for r in rows)
     chaT = sum(r["charm"] for r in rows)
+    colT = sum(r["color"] for r in rows)
     cvT = sum(r["cV"] for r in rows)
     pvT = sum(r["pV"] for r in rows)
     focus = max(rows, key=lambda r: abs(r["gex"]))
@@ -373,7 +377,7 @@ def build_symbol(sym, dec, today, state):
     ser = state.setdefault("ser", {}).setdefault(sym, [])
     tl.append([hhmm, spot, focus["cM"], focus["pM"]])
     # ToS ser order is cols V,W,Y,X = gex, dex, VANNA, CHARM (vanna before charm)
-    ser.append([hhmm, gexT, dexT, vanT, chaT, cvT, pvT, straddle])
+    ser.append([hhmm, gexT, dexT, vanT, chaT, colT, cvT, pvT, straddle])
     del tl[:-121]
     del ser[:-121]
 

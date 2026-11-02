@@ -26,7 +26,7 @@ _Q_URL = "https://cdn-api.cboe.com/api/global/delayed_quotes/quotes/_%s.json"
 _H_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/%s_History.csv"
 _UA = {"User-Agent": "Mozilla/5.0"}
 
-QUOTE_SYMS = ("VIX1D", "VIX9D", "VIX", "VIX3M", "VIX6M", "VIX1Y", "VVIX", "COR1M", "SPX")
+QUOTE_SYMS = ("VIX1D", "VIX9D", "VIX", "VIX3M", "VIX6M", "VIX1Y", "VVIX", "COR1M", "COR3M", "DSPX", "SPX")
 TENORS = (("VIX1D", 1), ("VIX9D", 9), ("VIX", 30), ("VIX3M", 93), ("VIX6M", 186), ("VIX1Y", 365))
 
 
@@ -371,6 +371,7 @@ def build_regime(quotes, hist, today):
         ("vvix", "VVIX", "vol of VIX", _series(hist, "VVIX"), qv.get("VVIX"), True, False, 2),
         ("vix", "VIX", "30-day", _series(hist, "VIX"), qv.get("VIX"), True, False, 2),
         ("cor1m", "COR1M", "implied corr.", _series(hist, "COR1M"), qv.get("COR1M"), False, False, 2),
+        ("cor3m", "COR3M", "3m impl. corr.", _series(hist, "COR3M"), qv.get("COR3M"), False, False, 2),
         ("vrp", "VRP", "VIX − SPX RV20", [(d, vix_h[d] - v) for d, v in rv if d in vix_h],
          (qv["VIX"] - rv_now) if qv.get("VIX") and rv_now else None, False, False, 2),
     ]
@@ -404,12 +405,37 @@ def build_regime(quotes, hist, today):
                 vals.append(_on_or_before(hist.get(s, []), day))
         return [round(v, 2) if v else None for v in vals]
 
+    # Spot-vol beta: VIX % vs SPX % over last 20 trading days (#90)
+    svb = None
+    spx_h = hist.get("SPX", [])
+    vix_hs = hist.get("VIX", [])
+    if len(spx_h) >= 21 and len(vix_hs) >= 21:
+        spx_d = {d: v for d, v in spx_h}
+        vix_d = {d: v for d, v in vix_hs}
+        common = sorted(set(spx_d) & set(vix_d))[-21:]
+        if len(common) >= 21:
+            spx_ret = [(spx_d[common[i]] / spx_d[common[i-1]] - 1) for i in range(1, len(common))]
+            vix_ret = [(vix_d[common[i]] / vix_d[common[i-1]] - 1) for i in range(1, len(common))]
+            n = len(spx_ret)
+            mx, my = sum(spx_ret)/n, sum(vix_ret)/n
+            cov = sum((spx_ret[i]-mx)*(vix_ret[i]-my) for i in range(n)) / n
+            vx = sum((spx_ret[i]-mx)**2 for i in range(n)) / n
+            if vx > 1e-12:
+                svb = round(cov / vx, 2)
+
     last = (hist.get("VIX") or [(None, None)])[-1][0]
     return {
         "asof": (quotes.get("VIX") or {}).get("t", ""),
         "hist_through": last.isoformat() if last else None,
         "idx": {s: round(v, 2) for s, v in qv.items()},
         "rv20": round(rv_now, 2) if rv_now else None,
+        "svb": svb,
+        "icorr": {
+            "cor1m": qv.get("COR1M"),
+            "cor3m": qv.get("COR3M"),
+            "dspx": qv.get("DSPX"),
+            "spread": round(qv["COR1M"] - qv["COR3M"], 2) if qv.get("COR1M") and qv.get("COR3M") else None,
+        },
         "counts": counts, "rows": rows,
         "tenors": [[s, d] for s, d in TENORS],
         "curves": {
