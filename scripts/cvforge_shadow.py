@@ -73,6 +73,26 @@ def _gex_by_expiry(df) -> dict:
     return {d.isoformat(): _clean(v) for d, v in s.items()}
 
 
+def _convex_window(df, *, n_exp: int = 3, rng: float = 0.15):
+    """The slice Convex's greeks_snapshot sees (convex.py exposures defaults, added 2026-10-28):
+    the first ``n_exp`` LIVE expiries (after 16:15 ET the same-day expiry has settled) and
+    strikes within +-``rng`` of spot. Comparing CVForge's FULL chain against that slice made
+    the 10/28 compare fail on coverage, not data (GEX |ratio| 2.4x; windowed it is 1.03x)."""
+    if df is None or df.empty:
+        return df
+    from trading_intel.timeutils import eastern_now
+
+    now = eastern_now()
+    today = now.date()
+    after_close = (now.hour, now.minute) >= (16, 15)
+    exp = df["expiration"].dt.date
+    live = exp.map(lambda d: d is not None and (d > today if after_close else d >= today))
+    keep = sorted({d for d in exp[live] if d is not None})[:n_exp]
+    spot = float(df["underlying_price"].iloc[0])
+    m = exp.isin(keep) & df["strike"].between(spot * (1 - rng), spot * (1 + rng))
+    return df[m].reset_index(drop=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--limit", type=int, default=0, help="only the first N symbols (testing)")
@@ -108,10 +128,12 @@ def main(argv: list[str] | None = None) -> int:
                     rec["error"] = "empty chain"
                     empty += 1
                 else:
-                    ex = client.exposures(sym, ref=date.today(), chain=df) or {}
+                    win = _convex_window(df)
+                    ex = (client.exposures(sym, ref=date.today(), chain=win) or {}) if not win.empty else {}
                     for k in _FIELDS:
                         rec[k] = _clean(ex.get(k))
                     rec["n_contracts"] = int(len(df))
+                    rec["n_window"] = int(len(win))
                     rec["oi_total"] = _clean(df["oi"].fillna(0).sum())
                     rec["gex_by_expiry"] = _gex_by_expiry(df)
                     ok += 1

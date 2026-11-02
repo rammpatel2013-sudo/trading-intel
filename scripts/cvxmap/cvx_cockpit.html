@@ -222,6 +222,45 @@ body.phone .vxratios{grid-template-columns:repeat(2,minmax(0,1fr))}
 body.phone .vxpanel{flex-basis:320px}
 body.phone .vxwrap{padding:6px 8px 40px}
 @media (max-width:900px){.vxrow2{grid-template-columns:1fr}.vxratios{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* 2026-10-29 (#79): collapsible sections, expiry chips, All view, read box */
+.vxtog{flex:0 0 auto;background:var(--pane2);border:1px solid var(--rule);color:#fff;border-radius:5px;width:28px;height:26px;font-size:14px;line-height:1;cursor:pointer;align-self:center;padding:0}
+.vxtog:hover{border-color:#FFC24A}
+.vxh h2.vxclick{cursor:pointer}
+.vxsec.vxcollapsed>:not(.vxh){display:none!important}
+.vxsec.vxcollapsed .vxh{margin-bottom:0}
+.vxsec.vxcollapsed .vxh .vxsub{display:none}
+.vxchips{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.vxchip{background:var(--pane2);border:1px solid var(--rule);color:var(--ink);border-radius:16px;padding:5px 13px;font-size:14px;cursor:pointer;font-family:inherit}
+.vxchip small{color:var(--mute);font-size:11.5px;margin-left:4px}
+.vxchip[aria-pressed="true"]{background:rgba(255,194,74,.20);border-color:#FFC24A;color:#fff;font-weight:700}
+.vxchip[aria-pressed="true"] small{color:#FFD98A}
+.vxpre{background:transparent;border:1px dashed var(--rule);color:var(--mute);border-radius:16px;padding:5px 12px;font-size:13px;cursor:pointer;font-family:inherit}
+.vxpre:hover,.vxchip:hover{border-color:#FFC24A}
+.vxchipsep{width:1px;height:22px;background:var(--rule);margin:0 4px}
+.vxreadbox{border-color:#2B4470}
+.vxverdict{display:inline-block;font-size:21px;font-weight:800;padding:4px 14px;border-radius:6px;letter-spacing:.01em}
+.vxverdict.calm{color:#0A1426;background:#3FD0B0}
+.vxverdict.mixed{color:#0A1426;background:#FFD23F}
+.vxverdict.trap{color:#0A1426;background:#FF9A6B}
+.vxverdict.off{color:#fff;background:#E5484D}
+.vxvsub{font-size:15.5px;color:#fff;margin:8px 0 10px;line-height:1.5}
+.vxlines{display:grid;grid-template-columns:170px minmax(0,1fr);gap:7px 14px;font-size:15px;line-height:1.5}
+.vxlines>.k{color:var(--mute);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;padding-top:2px}
+.vxlines>.v{color:var(--ink)}
+.vxlines>.v b{color:#fff}
+.vxtag{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12.5px;font-weight:700;margin-right:6px;color:#0A1426}
+.vxpanel.all{border:1px solid #FFC24A80;flex-basis:400px}
+.vxbasis{display:inline-flex;gap:0;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.vxbasis button{background:transparent;border:0;color:var(--mute);padding:4px 11px;font-size:13px;cursor:pointer;font-family:inherit}
+.vxbasis button[aria-pressed="true"]{background:#FFC24A;color:#0A1426;font-weight:700}
+.vxtermc{width:100%;height:auto;display:block;margin:4px 0 10px}
+body.phone .vxlines{grid-template-columns:1fr}
+body.phone .vxlines>.k{padding-top:6px}
+@media (max-width:900px){.vxlines{grid-template-columns:1fr}}
+/* 2026-10-29: phone width. The tab is a grid item, so without min-width:0 it grew to its widest child (703px on a 400px phone) */
+#tabVix{min-width:0;max-width:100vw}
+.vxhead>span{min-width:0;overflow-wrap:anywhere}
+.vxh .vxsub{min-width:0;overflow-wrap:anywhere}
 #tabMap .body{position:relative;min-height:0}#tabMap canvas{width:100%;height:100%;display:block}
 #mapBreakPane{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
 .mapread{padding:6px 10px 8px;font-size:13px;line-height:1.5;border-top:1px solid var(--rule);flex:1 1 auto;min-height:0;overflow:auto}
@@ -621,13 +660,15 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   <main id="tabVix" class="tab" hidden>
     <div class="vxwrap">
       <section class="vxhead" id="vxHead"></section>
+      <section class="vxsec vxreadbox" id="vxRead"></section>
+      <section class="vxsec" id="vxPick"></section>
       <section class="vxsec" id="vxRegime"></section>
       <div class="vxrow2">
         <section class="vxsec" id="vxTerm"></section>
         <section class="vxsec" id="vxEvents"></section>
       </div>
       <section class="vxsec" id="vxIV">
-        <div class="vxh"><h2>Implied variance by expiry</h2><span class="vxsub">the VIX formula run on each VIX expiry (Dr.Vega&rsquo;s method) &middot; whole curve vs ATM only</span><span class="sp"></span><div class="seg" role="group" id="vixExpSeg" aria-label="Expiry for the strike breakdown"></div></div>
+        <div class="vxh"><h2>Implied variance by expiry</h2><span class="vxsub">the VIX formula run on each VIX expiry (Dr.Vega&rsquo;s method) &middot; whole curve vs ATM only &middot; breakdown for</span><span class="sp"></span><div class="seg" role="group" id="vixExpSeg" aria-label="Expiry for the strike breakdown"></div></div>
         <div id="vxIVBody"></div>
       </section>
       <section class="vxsec" id="vxStrikes"></section>
@@ -647,7 +688,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Map</dt><dd>Gamma, charm and vanna as heat maps. Left of the dashed vertical is the book as it actually stood each minute. Right of it is today&rsquo;s book carried forward to the close as time decays.</dd>
           <dt>Volume</dt><dd>Three ladders side by side: everything so far today, just the last 30 minutes, and the last 30 compared with the 30 before it.</dd>
           <dt>Density</dt><dd>Where the close is likely to land, re-estimated every 5 minutes. The bright band is a 20,000-path simulation started from live spot, sized by the live 0DTE at-the-money straddle, spread over the day by a historical time-of-day profile, and widened where the Map says dealers are short gamma (narrowed where long). Left of the cursor is the 09:30 cone for comparison. The cyan line is the Map&rsquo;s gamma zero and the green and lavender lines are its vanna top and bottom, each as it stood that minute (0DTE book, your basis setting). It is centred on spot, so it does not call the close by itself &mdash; read the lines for that. <b>Engine ON/OFF</b> is the kill switch: OFF stops all of its calculation; <code>?nodensity</code> in the address bar turns it off hard. Key N.</dd>
-          <dt>VIX</dt><dd>Convex feed only (the ToS workbook carries no VIX chain). <b>Regime board</b>: eight rows (four VIX curve ratios, VVIX, VIX, COR1M, VRP) coloured by their 1-year percentile read in the risky direction &mdash; green safest third, yellow middle, orange riskiest third (slow flash), red top 10% or any curve ratio above 1.00 (fast flash). <b>Term structure</b>: Cboe VIX1D &rarr; VIX1Y today vs yesterday, 1 week and 1 month ago, with each VIX expiry&rsquo;s forward in amber; 9-day <i>below</i> 30-day is contango (calm), above 1.00 is backwardation (stress). <b>Events</b> through the next VIX monthly. <b>Implied variance</b>: the VIX formula run on each VIX expiry, whole curve vs ATM, and where it comes from by strike. <b>Positions by strike</b>: open interest plus today&rsquo;s contracts bought and sold, from Convex&rsquo;s measured split (today only, not dealer inventory). ATM is taken at each expiry&rsquo;s forward, not VIX spot. Cboe indices are about 15 minutes delayed. Nothing on this tab feeds the map.</dd>
+          <dt>VIX</dt><dd>Convex feed only (the ToS workbook carries no VIX chain). Every section folds with the arrow (&#9662;/&#9656;) next to its title; the browser remembers which are folded. <b>Read</b>: one verdict (Calm, sellable &middot; Mixed &middot; Bullish-vol trap &middot; Risk-off) and six lines written from <i>docs/guides/reading-the-vix.md</i>: the VIX zone (under 22 carry, 22&ndash;32 fragility, over 32 stress), the curve shape plus VVIX&nbsp;&divide;&nbsp;VIX, <i>why VIX moved</i> (the Cboe 6-factor split of the SPX 30-day smile between the last two 08:35 books: sticky strike = mechanical, parallel shift = real repricing, put/call skew and wings = who is paying), the NAS vol-regime label with its own bias line, VIX options positioning across the picked expiries, and what that means for 0DTE trades. It is a descriptive read, never a trade signal. <b>Expiries</b>: tap chips to pick any set (nearest two on every load; Front 2 / Monthlies / All presets). <b>Regime board</b>: eight rows coloured by their 1-year percentile in the risky direction &mdash; green safest third, yellow middle, orange riskiest third (slow flash), red top 10% or any curve ratio above 1.00 (fast flash). <b>Term structure</b>: Cboe VIX1D &rarr; VIX1Y today vs yesterday, 1 week and 1 month ago, with each VIX expiry&rsquo;s forward in amber. <b>Events</b> through the next VIX monthly. <b>Implied variance</b>: a term curve of whole-curve vol vs ATM vol for every expiry (the gap is the price of the wings), cards for the picked expiries, and the strike breakdown for one of them. <b>Positions by strike</b>: with two or more picks, an <i>All picked</i> panel sums open interest and today&rsquo;s contracts bought and sold by strike; <i>From forward</i> lines each month up on its own forward instead (strike 20 is near the money in November but below it in March). Bought/sold is Convex&rsquo;s measured split, today only, not dealer inventory. Cboe indices are about 15 minutes delayed. Nothing on this tab feeds the map.</dd>
           <dt>Premium</dt><dd>Where today&rsquo;s option money actually went &mdash; the heaviest strikes a side, how much of each was bought rather than sold, and which minutes carried outsized premium.</dd>
           <dt>Plan</dt><dd>Doc&rsquo;s morning plan graded against what price has since done, plus the morning book.</dd>
         </dl>
@@ -3314,7 +3355,12 @@ try{
    Nothing here feeds the map. Every section degrades on its own: a missing block shows a note,
    and any error is caught and shown on this tab only, so it can never take the cockpit down.
    "Bought / sold today" = Convex's measured split (gammas_buy / gamma, checked against volume,
-   median ratio 0.997, n=79): today's customer contracts, NOT dealer inventory. */
+   median ratio 0.997, n=79): today's customer contracts, NOT dealer inventory.
+   2026-10-29 (master list #79, Mithil's picks): expiry chips (nearest 2 on every load; presets Front /
+   Monthlies / All), an "All picked" positions panel summed by strike with a toggle to distance-from-
+   forward (K - F), the squeeze flag across the picks, a whole-curve vs ATM term chart, a read box
+   (verdict + 6 lines) from docs/guides/reading-the-vix.md + the NAS regime label + the Cboe 6-factor
+   split (ti.json ti.vixread, written by am_feed.py), and every section collapses with its arrow. */
 const VX_KIND = {Fed:"#FF7A3D", Data:"#FFD23F", Expiry:"#2BC7D9", Election:"#E0579E", Holiday:"#9DB0CA"};
 const VX_UP = "#FF9A6B", VX_DN = "#5FE0C0";
 const vxN = (x,d=2) => (x==null||!isFinite(x)) ? "–" : (+x).toFixed(d);
@@ -3335,8 +3381,55 @@ const vxIVr = r => { const c=+r.cIV||0, p=+r.pIV||0; return c>0&&p>0?(c+p)/2:(c>
 
 function vixClear(msg,detail){
   vxSet("vxHead",""); vxSet("vxTerm",""); vxSet("vxEvents",""); vxSet("vxStrikes",""); vxSet("vxLink",""); vxSet("vxFoot","");
+  vxSet("vxRead",""); vxSet("vxPick",""); st._vxPickSig=null;
   vxSet("vxRegime",`<div class="vxempty"><b>${esc(msg)}</b>${esc(detail)}</div>`);
   vxSet("vxIVBody",""); vxSet("vixExpSeg",""); st._vixSig=null; st._vxKey=null;
+}
+
+/* ---------------- collapsible sections (arrow in each header; state kept per browser) */
+const VX_SECS=["vxRead","vxPick","vxRegime","vxTerm","vxEvents","vxIV","vxStrikes","vxLink"];
+function vxColState(){ if(!st._vxCol){ try{ st._vxCol=JSON.parse(load("vxCol","{}"))||{}; }catch(e){ st._vxCol={}; } } return st._vxCol; }
+function vxApplyCol(id){
+  const sec=document.getElementById(id); if(!sec) return; const c=!!vxColState()[id];
+  sec.classList.toggle("vxcollapsed",c);
+  const b=sec.querySelector(":scope > .vxh > .vxtog");
+  if(b){ b.textContent=c?"▸":"▾"; b.setAttribute("aria-expanded",String(!c)); b.title=c?"Show this section":"Hide this section"; }
+}
+function vxCollapsible(){
+  VX_SECS.forEach(id=>{ const sec=document.getElementById(id); if(!sec) return;
+    const h=sec.querySelector(":scope > .vxh"); if(!h) return;
+    if(!h.querySelector(":scope > .vxtog")){
+      const b=document.createElement("button"); b.type="button"; b.className="vxtog";
+      b.addEventListener("click",()=>{ const c=vxColState(); c[id]=!c[id]; save("vxCol",JSON.stringify(c)); vxApplyCol(id); });
+      h.insertBefore(b,h.firstChild);
+      const h2=h.querySelector(":scope > h2"); if(h2){ h2.classList.add("vxclick"); h2.addEventListener("click",()=>b.click()); }
+    }
+    vxApplyCol(id); });
+}
+
+/* ---------------- expiry picks: nearest 2 on every load (Mithil 10/29), presets one tap away */
+function vxPicks(exps){
+  const have=new Set(exps.map(x=>x.e));
+  let p=Array.isArray(st.vxPick)?st.vxPick.filter(e=>have.has(e)):[];
+  if(!p.length) p=exps.slice(0,2).map(x=>x.e);
+  st.vxPick=p; return p;
+}
+function vxPickBar(exps,EV){
+  const sig=exps.map(x=>x.e).join("|")+"#"+st.vxPick.join("|");
+  if(sig===st._vxPickSig) return; st._vxPickSig=sig;
+  const on=new Set(st.vxPick);
+  const chip=x=>`<button class="vxchip" data-e="${esc(x.e)}" aria-pressed="${on.has(x.e)}" title="${x.F>0?"forward "+vxN(x.F,2):"no forward"} · ${x.n||x.rows.length} strikes">${esc(vxDate(x.e))}<small>${vxMonthly(x.e,EV)?"monthly":"weekly"}</small></button>`;
+  vxSet("vxPick",`<div class="vxh"><h2>Expiries</h2><span class="vxsub">tap to add or remove · the implied-variance cards, positions and the read box use what is picked · resets to the nearest 2 on each load</span></div>`
+    +`<div class="vxchips">${exps.map(chip).join("")}<span class="vxchipsep"></span>`
+    +`<button class="vxpre" data-p="front">Front 2</button><button class="vxpre" data-p="mon">Monthlies</button><button class="vxpre" data-p="all">All</button></div>`);
+  const host=document.getElementById("vxPick"); if(!host) return;
+  host.querySelectorAll(".vxchip").forEach(b=>b.addEventListener("click",()=>{
+    const e=b.dataset.e, s=new Set(st.vxPick); if(s.has(e)){ if(s.size>1) s.delete(e); } else s.add(e);
+    st.vxPick=exps.map(x=>x.e).filter(x=>s.has(x)); st._vxKey=null; render(); }));
+  host.querySelectorAll(".vxpre").forEach(b=>b.addEventListener("click",()=>{
+    const p=b.dataset.p; st.vxPick=(p==="front"?exps.slice(0,2):(p==="mon"?exps.filter(x=>vxMonthly(x.e,EV)):exps)).map(x=>x.e);
+    if(!st.vxPick.length) st.vxPick=exps.slice(0,2).map(x=>x.e);
+    st._vxKey=null; render(); }));
 }
 
 function renderVix(){
@@ -3350,21 +3443,27 @@ function vxRender(){
   const exps=(Array.isArray(V.exps)?V.exps:[]).filter(x=>x&&Array.isArray(x.rows)&&x.rows.length);
   if(!exps.length&&!R) return vixClear("No VIX data in live.json","This feed carries no VIX chain. The Convex writer (cvx_live.py) fills VIX, VIXR and EVT.");
   const today=(st.live.ts||"").slice(0,10)||liveClock().date;
-  // expiry selection by DATE (expiries roll off; an index would drift)
+  const picks=vxPicks(exps), pk=exps.filter(x=>picks.includes(x.e));
+  // breakdown expiry by DATE (expiries roll off; an index would drift), always one of the picks
   if(st.vixExpE==null) st.vixExpE=load("vixExpE","");
-  if(!exps.some(x=>x.e===st.vixExpE)){ const m=exps.find(x=>vxMonthly(x.e,EV)); st.vixExpE=m?m.e:(exps[0]?exps[0].e:""); }
-  const key=[st.live.ts, R&&R.asof, exps.length, st.vixExpE, (document.getElementById("tabVix")||{}).clientWidth].join("|");
+  if(!pk.some(x=>x.e===st.vixExpE)){ const m=pk.find(x=>vxMonthly(x.e,EV)); st.vixExpE=m?m.e:(pk[0]?pk[0].e:""); }
+  if(st.vxAllBasis==null) st.vxAllBasis=load("vxAllBasis","k");
+  const XR=st.ti&&st.ti.ti&&st.ti.ti.vixread||null;
+  const key=[st.live.ts, R&&R.asof, exps.length, st.vixExpE, picks.join(","), st.vxAllBasis, st.ti&&st.ti.asof, (document.getElementById("tabVix")||{}).clientWidth].join("|");
   if(key===st._vxKey) return;            // nothing new: keep the DOM (and its animations) as it is
   st._vxKey=key;
   const S=+V.spot||0, v9=+V.v9dq||(R&&R.idx&&R.idx.VIX9D)||0;
   vxHeader(S,v9,R,exps);
+  vxReadBox(S,R,pk,XR,EV);
+  vxPickBar(exps,EV);
   vxRegime(R);
   vxTerm(R,exps,today,S);
   vxEvents(EV);
-  vxSeg(exps,EV);
-  vxIV(exps,EV,R,today);
-  vxStrikes(exps,EV,S,today);
+  vxSeg(pk,EV);
+  vxIV(exps,pk,EV,R,today);
+  vxStrikes(pk,EV,S,today);
   vxLink(R,EV,exps);
+  vxCollapsible();
   vxSet("vxFoot",`Convex VIX chain: live.json ${esc((st.live.ts||"").slice(11,16))} ET &middot; Cboe indices ${esc(R&&R.asof?String(R.asof).slice(11,16)||R.asof:"–")} (about 15 min delayed) &middot; history = Cboe daily closes through ${esc(R&&R.hist_through||"–")} &middot; zero Convex calls for regime and events.`);
 }
 
@@ -3383,6 +3482,92 @@ function vxHeader(S,v9,R,exps){
     +(r!=null?`<span><small>9D ÷ VIX</small><b>${r.toFixed(3)}</b> &middot; ${shape}</span>`:`<span style="color:var(--faint)">VIX9D not in this feed yet</span>`)
     +(front&&front.F?`<span><small>front forward</small><b>${vxN(front.F,2)}</b> <span style="color:var(--mute)">(${esc(vxDate(front.e))})</span></span>`:"")
     +(chips?`<span>${chips}</span>`:""));
+}
+
+/* ---------------- the read box: verdict + 6 lines (docs/guides/reading-the-vix.md, vol_regime.md) */
+const VX_FACT={   // Cboe 6-factor names -> plain English (sign of the factor decides the wording)
+  sticky_strike: [v=>v>=0?"mechanical: ATM slid up yesterday's skew as SPX fell (no new fear)":"mechanical: ATM slid down yesterday's skew as SPX rose (no new calm)", "Sticky strike"],
+  parallel_shift:[v=>v>=0?"the whole surface repriced UP: genuine risk-off repricing":"the whole surface repriced DOWN: fear bleeding out", "Parallel shift"],
+  put_gradient:  [v=>v>=0?"put shoulder bid: demand for downside hedges":"put shoulder offered: hedges being sold", "Put skew"],
+  call_gradient: [v=>v>=0?"call shoulder bid: upside chase":"call shoulder offered: upside supplied", "Call skew"],
+  down_convexity:[v=>v>=0?"deep puts bid: crash-insurance demand":"deep puts offered: tail hedges coming off", "Downside wings"],
+  up_convexity:  [v=>v>=0?"deep calls bid: levered upside chase":"deep calls offered", "Upside wings"]};
+const VX_REG={   // NAS classifier states (strategies/vol_regime.py, 7-state) -> plain bias lines (docs/playbooks/vol_regime.md)
+  CRASH_HEDGING:["#E5484D","ATM vol, tails and the front of the curve all stressed: hedging in force, defined risk only"],
+  TERM_STRESS_FLIP:["#FF7A3D","VIX9D above VIX: the front flipped into backwardation, near-term stress; do not buy short-dated premium"],
+  ACUTE_TAIL:["#E5484D","everything bid (ATM, tails, skew): fade overpriced wings, half size"],
+  VOL_CRUSH_SETUP:["#3FD0B0","IV high but put demand cooling: the classic vol-crush set-up"],
+  STEALTH_STRESS:["#FF7A3D","tails and skew bid while ATM is calm: stop selling premium, cut delta"],
+  BUILDING_STRESS:["#FF7A3D","tails and skew bid while ATM is calm: stop selling premium, cut delta"],
+  COMPLACENT:["#3FD0B0","ATM, tails and skew all cheap: premium selling at normal size"],
+  MIXED:["#FFD23F","no rule matched: no edge from this signal"]};
+function vxReadBox(S,R,pk,XR,EV){
+  const rows=(R&&R.rows)||[], byId=id=>rows.find(r=>r.id===id)||null, c=(R&&R.counts)||{};
+  const L=[];   // [label, html]
+  // 1 zone
+  const zone=S>32?["Stress","#E5484D","above 32: risk-off, crisis territory near 38+"]:(S>=22?["Fragility","#FF9A6B","22 to 32: transitional and unstable"]:["Carry","#3FD0B0","under 22: a premium-selling environment, premium is the edge"]);
+  L.push(["Zone", S>0?`<span class="vxtag" style="background:${zone[1]}">${zone[0]}</span>VIX <b>${S.toFixed(2)}</b> is ${zone[2]}.`:"VIX spot not in this feed."]);
+  // 2 curve shape + vol of vol
+  const rat=rows.filter(r=>/^r(9d|3m|6m|1y)$/.test(r.id)), back=rat.filter(r=>r.v>=1.0), r9=byId("r9d");
+  const flat=!back.length&&r9&&r9.v>=0.95;
+  let shape=back.length?`<span class="vxtag" style="background:#E5484D;color:#fff">Backwardation</span>${back.map(r=>esc(r.name)).join(", ")} above 1.00: protection is being paid for right now.`
+           :(flat?`<span class="vxtag" style="background:#FFD23F">Flat front</span>VIX9D ÷ VIX ${vxN(r9.v,3)}: near-term vol is rich, an early backwardation warning.`
+           :(rat.length?`<span class="vxtag" style="background:#3FD0B0">Contango</span>near under far${r9?` (VIX9D ÷ VIX ${vxN(r9.v,3)})`:""}: the calm, normal shape.`:"No curve ratios yet."));
+  const vvR=byId("vvix")||rows.find(r=>/VVIX/i.test(r.name||"")&&!/\//.test(r.name||"")), vixR=byId("vix")||rows.find(r=>(r.name||"")==="VIX");
+  const vv=(R&&R.idx&&R.idx.VVIX)||(vvR&&vvR.v)||null;
+  if(vv>0&&S>0){
+    const hid=vvR&&vixR&&["orange","red"].includes(vvR.state)&&["green","yellow"].includes(vixR.state);
+    shape+=` VVIX ÷ VIX <b>${(vv/S).toFixed(2)}</b>`+(hid?`: <b style="color:#FF9A6B">vol-of-vol is rich under a calm VIX, hidden fragility</b>.`:".");
+  }
+  L.push(["Curve shape", shape]);
+  // 3 why VIX moved (08:35 book to 08:35 book)
+  const D=XR&&XR.decomp;
+  let why="No 6-factor split yet: needs two 08:35 SPX books (am_feed.py writes it into ti.json).", dom=null, fx=null;
+  if(D&&D.factors){
+    fx=D.factors; const ord=Object.entries(fx).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+    dom=ord[0]; const two=ord.slice(0,2).filter(e=>Math.abs(e[1])>=0.05);
+    why=two.length?two.map((e,i)=>`${i?"then ":""}<b>${VX_FACT[e[0]][1]} ${vxSgn(e[1],2)}</b> vol pts, ${VX_FACT[e[0]][0](e[1])}`).join("; ")+"."
+                  :"Flat: no factor moved more than 0.05 vol pts.";
+    why+=` <span style="color:var(--mute)">SPX 30-day smile, ${esc(vxDate(String(D.prev).slice(0,10)))} → ${esc(vxDate(String(D.as_of).slice(0,10)))} 08:35 books, ${esc(vxDate(String(D.expiry)))} expiry.</span>`;
+  } else if(D&&D.error) why=`No 6-factor split: ${esc(D.error)}.`;
+  L.push(["Why VIX moved", why]);
+  // 4 NAS regime label
+  const G=XR&&XR.regime, gl=G&&G.label, gm=gl&&VX_REG[gl];
+  const skBad=G&&/z\(SKEW\)=-0\.06/.test(G.rationale||"");   // #80: the stuck skew z (bad 9/14 SDEX print)
+  L.push(["NAS regime", gl?`<span class="vxtag" style="background:${gm?gm[0]:"#9DB0CA"}">${esc(gl.replace(/_/g," "))}</span>${gm?esc(gm[1]):""}.${(G.overlays||[]).length?` <b>${esc(G.overlays.join(", ").replace(/_/g," "))}</b>.`:""} <span style="color:var(--mute)">${esc(G.rationale||"")}${G.vsi!=null?` · stress index ${Math.round(G.vsi)}/100`:""} · ${esc(String(G.as_of||"").slice(0,10))} · experimental${skBad?" · its skew z is stuck by a bad 9/14 SDEX print (fixed from the next 17:30 run)":""}</span>`
+                          :"No regime label in ti.json yet (the NAS 17:30 vol_regime job writes it)."]);
+  // 5 VIX options positioning across the picks
+  let pos="Pick at least one expiry.";
+  if(pk.length){
+    const sq=pk.map(x=>x.sq).filter(Boolean), b=sq.reduce((a,s)=>a+(+s.bought||0),0), sd=sq.reduce((a,s)=>a+(+s.sold||0),0), net=b-sd;
+    const agg=vxAgg(pk,"k"), F=agg.F||S, cw=agg.rows.filter(r=>r.k>F).sort((a,c)=>c.cOI-a.cOI)[0], pw=agg.rows.filter(r=>r.k<=F).sort((a,c)=>c.pOI-a.pOI)[0];
+    const nb=agg.rows.slice().sort((a,c)=>c.ct-a.ct)[0];
+    pos=(sq.length?`Calls above the forward today: bought <b>${fmtN(b)}</b> · sold <b>${fmtN(sd)}</b> → ${net>0?`<b style="color:#FF9A6B">net bought: squeeze set-up</b> (market makers short VIX gamma)`:`<b style="color:#3FD0B0">net sold: no squeeze</b>`}. `:"")
+       +(cw&&cw.cOI>0?`Biggest call OI <b>${vxK(cw.k)}</b> (${vxBig(cw.cOI)}), `:"")+(pw&&pw.pOI>0?`biggest put OI <b>${vxK(pw.k)}</b> (${vxBig(pw.pOI)}). `:"")
+       +(nb&&nb.ct>=1?`Most calls net bought today: <b>${vxK(nb.k)}</b> (${vxSBig(nb.ct)}).`:"")
+       +` <span style="color:var(--mute)">${pk.map(x=>esc(vxDate(x.e))).join(" + ")}</span>`;
+  }
+  L.push(["VIX options", pos]);
+  // verdict (descriptive read of the guide's section 7, never a trade signal)
+  const vrp=byId("vrp"), vixRow=vixR;
+  const stressLbl=["CRASH_HEDGING","TERM_STRESS_FLIP","ACUTE_TAIL","STEALTH_STRESS","BUILDING_STRESS"].includes(gl);
+  const pUp=fx&&fx.parallel_shift>0.5&&dom&&dom[0]==="parallel_shift"&&((fx.put_gradient||0)>0||(fx.down_convexity||0)>0);
+  const off=back.length>0||S>32||(c.red||0)>0||stressLbl||pUp;
+  const trap=!off&&fx&&dom&&["call_gradient","up_convexity"].includes(dom[0])&&dom[1]>0&&vixRow&&vixRow.d1>0;
+  const calm=!off&&!trap&&S>0&&S<22&&rat.length>0&&!flat&&(!fx||dom[0]==="sticky_strike"||(fx.parallel_shift||0)<=0)&&vrp&&vrp.pct>=33&&!stressLbl;   // calm needs the board: no board, no calm call
+  const V=off?["off","Risk-off","Defined risk only and follow breaks: map pins and walls are least reliable here; no premium selling."]
+         :trap?["trap","Bullish-vol trap","VIX is rising on call demand, not fear: rallies can extend; do not read the VIX rise as a short signal."]
+         :calm?["calm","Calm, sellable","Flies and credit spreads fit this read and trend continuation is more reliable; normal size, still respect the net/gross gate."]
+         :["mixed","Mixed","No clean read: smaller size, and only take levels that pass the net/gross gate."];
+  const why2=[back.length?"curve backwardated":"", S>32?"VIX above 32":"", (c.red||0)?`${c.red} red on the board`:"", stressLbl?gl.replace(/_/g," ").toLowerCase():"", pUp?"parallel shift up with put demand":"",
+              trap?"call-led VIX rise":"", calm?"contango, VIX under 22, sellers paid":"", (!off&&!trap&&!calm)?[!rat.length?"no regime board in this feed":"", flat?"front flat":"", S>=22?"VIX 22+":"", vrp&&vrp.pct<33?"VRP in the bottom third":"", fx&&dom&&dom[0]==="parallel_shift"&&fx.parallel_shift>0?"surface repricing up":""].filter(Boolean).join(", ")||"signals disagree":""].filter(Boolean).join(" · ");
+  const sqP=pk.map(x=>x.sq).filter(Boolean), sqNet=sqP.reduce((a,s)=>a+(+s.bought||0)-(+s.sold||0),0);
+  const sqNote=sqNet>0?` <b style="color:#FF9A6B">Caveat: VIX call squeeze set-up in the picked expiries</b> (customers net-bought calls above the forward): VIX can gap up, and SPX put walls are less reliable while it lasts.`:"";
+  L.push(["For 0DTE trades", `${esc(V[2])}${sqNote}${vrp?` <span style="color:var(--mute)">VRP ${Math.round(vrp.pct)}th percentile.</span>`:""}`]);
+  vxSet("vxRead",`<div class="vxh"><h2>Read</h2><span class="vxsub">descriptive regime read from the VIX knowledge guide (docs/guides/reading-the-vix.md) and the NAS vol-regime classifier · not a trade signal · nothing here feeds the map</span></div>`
+    +`<div><span class="vxverdict ${V[0]}">${V[1]}</span></div>`
+    +`<div class="vxvsub">${esc(why2)}</div>`
+    +`<div class="vxlines">${L.map(l=>`<div class="k">${l[0]}</div><div class="v">${l[1]}</div>`).join("")}</div>`);
 }
 
 /* ---------------- regime board */
@@ -3476,9 +3661,33 @@ function vxSeg(exps,EV){
 }
 
 /* ---------------- implied variance by expiry */
-function vxIV(exps,EV,R,today){
-  const withIV=exps.filter(x=>x.iv&&x.iv.vol>0);
-  if(!withIV.length){ vxSet("vxIVBody",`<div class="vxnote">No implied variance in live.json yet: the writer adds it per expiry (F, iv, contrib). If this stays empty, the writer is the old version.</div>`); return; }
+function vxTermChart(allIV,pk,today){   // whole-curve vol vs ATM vol by days to expiry, every expiry; picks drawn big
+  const host=document.getElementById("vxIVBody"), W=Math.max(360,Math.round((host&&host.clientWidth)||1000)), H=210, L=46, Rr=W-16, Tp=16, B=H-32;
+  const pts=allIV.map(x=>({e:x.e,d:Math.max(0.5,+x.iv.T||vxDays(x.e,today)||0.5),w:x.iv.vol*100,a:(x.atmIV||0)*100,lb:!x.iv.complete,p:pk.includes(x.e)})).sort((a,b)=>a.d-b.d);
+  if(pts.length<2) return "";
+  const vals=pts.flatMap(p=>[p.w,p.a]).filter(v=>v>0); let lo=Math.min(...vals), hi=Math.max(...vals); const pad=Math.max(4,(hi-lo)*0.12); lo=Math.max(0,Math.floor((lo-pad)/10)*10); hi=Math.ceil((hi+pad)/10)*10;
+  const dmax=Math.max(...pts.map(p=>p.d)), xd=d=>L+(Rr-L)*Math.sqrt(d)/Math.sqrt(dmax*1.04), y=v=>B-(B-Tp)*(v-lo)/((hi-lo)||1);
+  let g=""; const step=(hi-lo)>80?20:10;
+  for(let v=lo; v<=hi; v+=step) g+=`<line x1="${L}" x2="${Rr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="#16264380"/><text x="${L-6}" y="${(y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#7D93B3">${v}%</text>`;
+  const pl=(k,col,w)=>`<polyline points="${pts.filter(p=>p[k]>0).map(p=>`${xd(p.d).toFixed(1)},${y(p[k]).toFixed(1)}`).join(" ")}" fill="none" stroke="${col}" stroke-width="${w}"/>`;
+  g+=pl("a","#2BB8D9",1.8)+pl("w","#FFC24A",2.4);
+  pts.forEach(p=>{ const X=xd(p.d), r=p.p?5.5:3.2;
+    if(p.a>0) g+=`<circle cx="${X.toFixed(1)}" cy="${y(p.a).toFixed(1)}" r="${r}" fill="#2BB8D9"><title>${esc(vxDate(p.e))} ATM ${p.a.toFixed(1)}%</title></circle>`;
+    g+=`<circle cx="${X.toFixed(1)}" cy="${y(p.w).toFixed(1)}" r="${r}" fill="${p.lb?"#0A1426":"#FFC24A"}" stroke="#FFC24A" stroke-width="2"><title>${esc(vxDate(p.e))} whole curve ${p.lb?"≥ ":""}${p.w.toFixed(1)}%</title></circle>`;
+    g+=`<text x="${X.toFixed(1)}" y="${B+16}" text-anchor="middle" font-size="${p.p?12:10.5}" font-weight="${p.p?700:400}" fill="${p.p?"#fff":"#7D93B3"}">${esc(vxDate(p.e))}</text>`;
+    if(p.p) g+=`<text x="${X.toFixed(1)}" y="${(y(p.w)-10).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="#FFC24A" stroke="#0E1B33" stroke-width="3" paint-order="stroke">${p.lb?"≥":""}${p.w.toFixed(0)}%</text>`; });
+  const gaps=pts.filter(p=>p.a>0).map(p=>p.w-p.a), front=pts[0], back=pts[pts.length-1];
+  return `<div class="vxh" style="margin-top:2px"><h2 style="font-size:15px">Term curve, every expiry</h2><span class="vxsub">amber = whole-curve vol (the VIX formula) · cyan = ATM only · the gap between them is the price of the wings · big dots = your picks · hollow = lower bound (strikes stop early)</span></div>`
+    +`<svg class="vxtermc" viewBox="0 0 ${W} ${H}" role="img" aria-label="VIX options whole-curve and ATM implied vol by expiry">${g}</svg>`
+    +`<div class="vxread">Front ${esc(vxDate(front.e))}: whole curve <b>${front.lb?"≥":""}${front.w.toFixed(0)}%</b> vs ATM <b>${front.a>0?front.a.toFixed(0)+"%":"–"}</b> · back ${esc(vxDate(back.e))}: <b>${back.lb?"≥":""}${back.w.toFixed(0)}%</b> vs <b>${back.a>0?back.a.toFixed(0)+"%":"–"}</b>${gaps.length?` · wing premium ${Math.min(...gaps).toFixed(0)} to ${Math.max(...gaps).toFixed(0)} vol pts`:""}. Vol of VIX falling with time is the normal shape; a front that jumps above the back is a squeeze or event bid.</div>`;
+}
+
+function vxIV(exps,pk,EV,R,today){
+  const allIV=exps.filter(x=>x.iv&&x.iv.vol>0);
+  const withIV=allIV.filter(x=>pk.some(p=>p.e===x.e));
+  if(!allIV.length){ vxSet("vxIVBody",`<div class="vxnote">No implied variance in live.json yet: the writer adds it per expiry (F, iv, contrib). If this stays empty, the writer is the old version.</div>`); return; }
+  const chart=vxTermChart(allIV,pk.map(x=>x.e),today);
+  if(!withIV.length){ vxSet("vxIVBody",chart+`<div class="vxnote">None of the picked expiries has implied variance (the writer could not price them). Pick another expiry above.</div>`); return; }
   const mx=Math.max(...withIV.map(x=>Math.max(x.iv.vol, x.atmIV||0)))*1.12;
   const cards=withIV.map(x=>{ const iv=x.iv, lb=!iv.complete, sel=x.e===st.vixExpE;
     return `<div class="vxcard${sel?" sel":""}"><h3>${esc(vxDate(x.e))} · ${vxMonthly(x.e,EV)?"monthly":"weekly"}</h3>`
@@ -3506,38 +3715,74 @@ function vxIV(exps,EV,R,today){
   if(vv>0) notes.push(`VVIX (30-day vol of VIX, same unit) is <b style="color:#fff">${vxN(vv,1)}</b>.`);
   if(iv.vol>(sel.atmIV||0)+0.02) notes.push(`The whole-curve number sits above ATM because the wings are rich${iv.call>iv.put?", mostly the call wing":""}.`);
   if(!iv.complete) notes.push(`The pull stops at ${esc(vxK(iv.kmax))} before the call wing ends, so this expiry's number is a lower bound.`);
-  vxSet("vxIVBody",`<div class="vxcards">${cards}</div>`+det+(notes.length?`<div class="vxnote">${notes.join(" ")}</div>`:""));
+  const miss=pk.filter(p=>!withIV.some(x=>x.e===p.e)).map(p=>vxDate(p.e));
+  if(miss.length) notes.push(`${esc(miss.join(", "))}: the writer could not price ${miss.length>1?"these expiries":"this expiry"} (no forward or too few quotes), so ${miss.length>1?"they have":"it has"} no card.`);
+  vxSet("vxIVBody",chart+`<div class="vxcards">${cards}</div>`+det+(notes.length?`<div class="vxnote">${notes.join(" ")}</div>`:""));
 }
 
-/* ---------------- positions by strike, expiries side by side (OptionsDepth-style) */
-function vxStrikes(exps,EV,S,today){
-  const head=`<div class="vxh"><h2>Positions by strike</h2><span class="vxsub">open interest (◂ puts · calls ▸) plus TODAY's contracts bought ▸ / ◂ sold, from Convex's measured split · amber row = forward · white row = VIX spot · not dealer inventory</span></div>`;
-  if(!exps.length){ vxSet("vxStrikes",head+`<div class="vxnote">No VIX chain in live.json.</div>`); return; }
-  const panels=exps.map(x=>{
-    const F=+x.F||S, rows=x.rows.filter(r=>((+r.cOI||0)+(+r.pOI||0)+(+r.cV||0)+(+r.pV||0))>0).sort((a,b)=>b.k-a.k);
-    if(!rows.length) return "";
-    const kmaxShow=Math.max(F*2.6,40), shown=rows.filter(r=>r.k<=kmaxShow), hid=rows.length-shown.length;
-    let mOI=1,mF=1; shown.forEach(r=>{ mOI=Math.max(mOI,+r.cOI||0,+r.pOI||0); mF=Math.max(mF,Math.abs(vxCt(r)),Math.abs(vxPt(r))); });
-    const nf=shown.reduce((b,r)=>Math.abs(r.k-F)<Math.abs(b.k-F)?r:b,shown[0]);
-    const ns=S>0?shown.reduce((b,r)=>Math.abs(r.k-S)<Math.abs(b.k-S)?r:b,shown[0]):null;
-    const traded=x.rows.reduce((a,r)=>a+(+r.cV||0)+(+r.pV||0),0);
-    const fb=v=>{ const w=(Math.abs(v)/mF*50).toFixed(1); return v>=0?`left:50%;width:${w}%`:`right:50%;width:${w}%`; };
-    const body=shown.map(r=>{ const ct=vxCt(r), pt=vxPt(r), isF=r===nf, isS=!isF&&r===ns, notes=[];
-      if(Math.abs(ct)>=0.1*mF) notes.push("C "+vxSBig(ct)); if(Math.abs(pt)>=0.1*mF) notes.push("P "+vxSBig(pt));
-      const tag=isF?`<span style="color:#FFC24A"> fwd</span>`:(isS?`<span style="color:#fff"> spot</span>`:"");
-      return `<div class="vxsr${isF?" fwd":(isS?" spot":"")}" title="${vxK(r.k)}: call OI ${fmtN(+r.cOI||0)}, put OI ${fmtN(+r.pOI||0)} · today calls ${vxSBig(ct)}, puts ${vxSBig(pt)} contracts (bought − sold) · IV ${(vxIVr(r)*100).toFixed(0)}%">`
-        +`<span class="k">${vxK(r.k)}${tag}</span>`
-        +`<span class="vxdiv"><i class="oi" style="right:50%;width:${((+r.pOI||0)/mOI*50).toFixed(1)}%;background:#E0579E"></i><i class="oi" style="left:50%;width:${((+r.cOI||0)/mOI*50).toFixed(1)}%;background:#2BB8D9"></i></span>`
-        +`<span class="vxdiv"><i class="c" style="${fb(ct)};background:#2BB8D9"></i><i class="p" style="${fb(pt)};background:#E0579E"></i></span>`
-        +`<span class="n">${notes.join(" ")}</span></div>`; }).join("");
-    const sq=x.sq||null;
-    return `<div class="vxpanel"><h3>${esc(vxDate(x.e))} · ${vxMonthly(x.e,EV)?"monthly":"weekly"}</h3>`
-      +`<div class="s">forward ${vxN(F,2)}${x.atmK!=null?` · ATM ${esc(vxK(x.atmK))} at ${x.atmIV>0?(x.atmIV*100).toFixed(1)+"%":"–"}`:" · ATM at spot (old writer: no forward)"} · ${fmtN(traded)} traded today</div>`
-      +(sq?`<div class="s">calls above the forward today: bought ${fmtN(sq.bought)} · sold ${fmtN(sq.sold)} → <b style="color:${sq.on?"#FF7A3D":"#3FD0B0"}">${sq.on?"net BOUGHT: squeeze set-up":"net sold: no squeeze"}</b></div>`:"")
-      +`<div class="vxsrh"><span>Strike</span><span style="text-align:center">◂ put OI · call OI ▸</span><span style="text-align:center">◂ sold · bought ▸</span><span>Net</span></div>`
-      +body
-      +`<div class="vxnote" style="margin-top:4px">flow scale max ${vxBig(mF)} · OI scale max ${vxBig(mOI)}${hid>0?` · ${hid} strikes above ${vxK(kmaxShow)} not shown`:""}</div></div>`; }).join("");
-  vxSet("vxStrikes",head+`<div class="vxpanels">${panels}</div>`);
+/* ---------------- positions by strike: "All picked" (summed) + each picked expiry, side by side */
+// Sum picked expiries by strike ("k") or by distance from each expiry's own forward ("kf", 0.5 buckets).
+// Flows are per-row contracts (bought − sold) BEFORE summing, so each expiry's own gamma scales them.
+function vxAgg(list,basis){
+  const m=new Map(); let fw=0, fs=0;
+  list.forEach(x=>{ const F=+x.F||0, oi=x.rows.reduce((a,r)=>a+(+r.cOI||0)+(+r.pOI||0),0);
+    if(F>0){ fw+=oi; fs+=F*oi; }
+    x.rows.forEach(r=>{ const kk=basis==="kf"?(F>0?Math.round((r.k-F)*2)/2:null):+r.k; if(kk==null) return;
+      const a=m.get(kk)||{k:kk,cOI:0,pOI:0,cV:0,pV:0,ct:0,pt:0};
+      a.cOI+=+r.cOI||0; a.pOI+=+r.pOI||0; a.cV+=+r.cV||0; a.pV+=+r.pV||0; a.ct+=vxCt(r); a.pt+=vxPt(r); m.set(kk,a); }); });
+  return {rows:[...m.values()], F:basis==="kf"?0:(fw>0?fs/fw:null)};
+}
+function vxPanel(o){   // o: {title, cls, sub:[html], rows:[{k,cOI,pOI,cV,pV,ct,pt,iv?}], F, S, kf, sq}
+  const rows=o.rows.filter(r=>(r.cOI+r.pOI+r.cV+r.pV)>0).sort((a,b)=>b.k-a.k);
+  if(!rows.length) return "";
+  const F=o.F, kmaxShow=o.kf?Math.max(25,(o.S||18)*1.6):Math.max((F||18)*2.6,40), shown=rows.filter(r=>r.k<=kmaxShow), hid=rows.length-shown.length;
+  if(!shown.length) return "";
+  let mOI=1,mF=1; shown.forEach(r=>{ mOI=Math.max(mOI,r.cOI,r.pOI); mF=Math.max(mF,Math.abs(r.ct),Math.abs(r.pt)); });
+  const nf=F!=null?shown.reduce((b,r)=>Math.abs(r.k-F)<Math.abs(b.k-F)?r:b,shown[0]):null;
+  const ns=(!o.kf&&o.S>0)?shown.reduce((b,r)=>Math.abs(r.k-o.S)<Math.abs(b.k-o.S)?r:b,shown[0]):null;
+  const fb=v=>{ const w=(Math.abs(v)/mF*50).toFixed(1); return v>=0?`left:50%;width:${w}%`:`right:50%;width:${w}%`; };
+  const kl=k=>o.kf?(k>0?"+":(k<0?"−":"±"))+vxK(Math.abs(k)):vxK(k);
+  const body=shown.map(r=>{ const isF=r===nf, isS=!isF&&r===ns, notes=[];
+    if(Math.abs(r.ct)>=0.1*mF) notes.push("C "+vxSBig(r.ct)); if(Math.abs(r.pt)>=0.1*mF) notes.push("P "+vxSBig(r.pt));
+    const tag=isF?`<span style="color:#FFC24A"> fwd</span>`:(isS?`<span style="color:#fff"> spot</span>`:"");
+    return `<div class="vxsr${isF?" fwd":(isS?" spot":"")}" title="${o.kf?"forward "+kl(r.k):vxK(r.k)}: call OI ${fmtN(r.cOI)}, put OI ${fmtN(r.pOI)} · today calls ${vxSBig(r.ct)}, puts ${vxSBig(r.pt)} contracts (bought − sold)${r.iv?` · IV ${(r.iv*100).toFixed(0)}%`:""}">`
+      +`<span class="k">${kl(r.k)}${tag}</span>`
+      +`<span class="vxdiv"><i class="oi" style="right:50%;width:${(r.pOI/mOI*50).toFixed(1)}%;background:#E0579E"></i><i class="oi" style="left:50%;width:${(r.cOI/mOI*50).toFixed(1)}%;background:#2BB8D9"></i></span>`
+      +`<span class="vxdiv"><i class="c" style="${fb(r.ct)};background:#2BB8D9"></i><i class="p" style="${fb(r.pt)};background:#E0579E"></i></span>`
+      +`<span class="n">${notes.join(" ")}</span></div>`; }).join("");
+  const sq=o.sq;
+  return `<div class="vxpanel${o.cls?" "+o.cls:""}"><h3>${o.title}</h3>`+o.sub.map(s=>`<div class="s">${s}</div>`).join("")
+    +(sq?`<div class="s">calls above the forward today: bought ${fmtN(sq.bought)} · sold ${fmtN(sq.sold)} → <b style="color:${sq.on?"#FF7A3D":"#3FD0B0"}">${sq.on?"net BOUGHT: squeeze set-up":"net sold: no squeeze"}</b></div>`:"")
+    +`<div class="vxsrh"><span>${o.kf?"K − F":"Strike"}</span><span style="text-align:center">◂ put OI · call OI ▸</span><span style="text-align:center">◂ sold · bought ▸</span><span>Net</span></div>`
+    +body
+    +`<div class="vxnote" style="margin-top:4px">flow scale max ${vxBig(mF)} · OI scale max ${vxBig(mOI)}${hid>0?` · ${hid} rows above ${o.kf?"+"+vxK(kmaxShow):vxK(kmaxShow)} not shown`:""}</div></div>`;
+}
+function vxStrikes(pk,EV,S,today){
+  const basis=st.vxAllBasis==="kf"?"kf":"k";
+  const head=`<div class="vxh"><h2>Positions by strike</h2><span class="vxsub">open interest (◂ puts · calls ▸) plus TODAY's contracts bought ▸ / ◂ sold, from Convex's measured split · amber row = forward · white row = VIX spot · not dealer inventory</span><span class="sp"></span>`
+    +`<span class="vxbasis" role="group" aria-label="How the All panel lines up strikes"><button data-b="k" aria-pressed="${basis==="k"}">Strike</button><button data-b="kf" aria-pressed="${basis==="kf"}">From forward</button></span></div>`;
+  if(!pk.length){ vxSet("vxStrikes",head+`<div class="vxnote">No VIX chain in live.json, or no expiry picked.</div>`); vxBasisBind(); return; }
+  const one=x=>{ const F=+x.F||S;
+    return vxPanel({title:`${esc(vxDate(x.e))} · ${vxMonthly(x.e,EV)?"monthly":"weekly"}`, F, S, kf:false, sq:x.sq||null,
+      sub:[`forward ${vxN(F,2)}${x.atmK!=null?` · ATM ${esc(vxK(x.atmK))} at ${x.atmIV>0?(x.atmIV*100).toFixed(1)+"%":"–"}`:" · ATM at spot (old writer: no forward)"} · ${fmtN(x.rows.reduce((a,r)=>a+(+r.cV||0)+(+r.pV||0),0))} traded today`],
+      rows:x.rows.map(r=>({k:+r.k,cOI:+r.cOI||0,pOI:+r.pOI||0,cV:+r.cV||0,pV:+r.pV||0,ct:vxCt(r),pt:vxPt(r),iv:vxIVr(r)}))}); };
+  let all="";
+  if(pk.length>=2){
+    const a=vxAgg(pk,basis), sqs=pk.map(x=>x.sq).filter(Boolean);
+    const sq=sqs.length?{bought:sqs.reduce((t,s)=>t+(+s.bought||0),0),sold:sqs.reduce((t,s)=>t+(+s.sold||0),0)}:null;
+    if(sq) sq.on=(sq.bought-sq.sold)>0;
+    const fws=pk.filter(x=>x.F>0).map(x=>+x.F), spread=fws.length>1?Math.max(...fws)-Math.min(...fws):0;
+    all=vxPanel({title:`All picked · ${pk.length} expiries`, cls:"all", F:a.F, S, kf:basis==="kf", sq,
+      sub:[`${pk.map(x=>esc(vxDate(x.e))).join(" + ")} · ${basis==="kf"?"lined up by distance from each expiry's own forward (0.5 steps)":`summed by strike · OI-weighted forward ${vxN(a.F,2)}`}`,
+           basis==="k"&&spread>1.5?`<span style="color:#FF9A6B">forwards span ${vxN(Math.min(...fws),2)} to ${vxN(Math.max(...fws),2)}: the same strike means different things across these months; "From forward" lines them up</span>`:""].filter(Boolean),
+      rows:a.rows});
+  }
+  vxSet("vxStrikes",head+`<div class="vxpanels">${all}${pk.map(one).join("")}</div>`);
+  vxBasisBind();
+}
+function vxBasisBind(){
+  document.querySelectorAll("#vxStrikes .vxbasis button").forEach(b=>b.addEventListener("click",()=>{
+    st.vxAllBasis=b.dataset.b; save("vxAllBasis",st.vxAllBasis); st._vxKey=null; render(); }));
 }
 
 /* ---------------- how this feeds the SPX map trades (scorecard fields, log-only) */

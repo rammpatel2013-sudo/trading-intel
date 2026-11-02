@@ -550,7 +550,90 @@ def ti_context(factory) -> tuple[dict, list[str]]:
     run("walls_0dte", walls0)
     run("straddle", straddle)
     run("oi_lean", leans)
+    run("vixread", vix_read)
     return out, errs
+
+
+# ===================================================================== VIX read box (master list #79, 2026-10-29)
+_VXR_CACHE: dict = {}
+
+
+def vix_read(session) -> dict:
+    """End-of-day inputs for the Convex cockpit's VIX read box. Descriptive only, DB reads, no vendor calls.
+
+    regime : newest INDEX_VOL_REGIME signal (strategies/vol_regime.py; label + rationale + VSI + cards)
+    decomp : Cboe 6-factor split (docs/guides/reading-the-vix.md section 6) of the SPX ~30-day smile between
+             the two newest 08:35 SPX books, on the SAME expiry both days (the one nearest 30 DTE in the
+             newer book). Vol points. Cached per book pair, so the minute loop recomputes nothing.
+    skew   : newest index_skew_daily row (VVIX/VIX, COR1M, VIXEQ, VOLI/TDEX/SDEX and their percentiles)
+    """
+    from sqlalchemy import func, select
+    from trading_intel.memory.models import IndexSkewDaily, OiChainEod, Signal
+
+    out: dict = {}
+    sig = session.execute(select(Signal.ts, Signal.payload).where(Signal.signal_type == "INDEX_VOL_REGIME")
+                          .order_by(Signal.ts.desc()).limit(1)).first()
+    if sig and isinstance(sig[1], dict):
+        p = sig[1]
+        out["regime"] = {"as_of": sig[0], "label": p.get("label"), "rationale": p.get("rationale"),
+                         "vsi": p.get("vsi"), "overlays": p.get("overlays") or [],
+                         "cards": [{k: c.get(k) for k in ("name", "metric_name", "metric_value", "z_score",
+                                                          "percentile", "severity")}
+                                   for c in (p.get("cards") or []) if isinstance(c, dict)]}
+
+    row = session.execute(select(IndexSkewDaily).order_by(IndexSkewDaily.date.desc()).limit(1)).scalar_one_or_none()
+    if row is not None:
+        out["skew"] = {k: getattr(row, k, None) for k in (
+            "date", "vvix", "vvix_vix_ratio", "cor1m", "cor1m_pctile_252d", "vixeq", "vixeq_pctile_252d",
+            "vixeq_vix_spread", "dspx", "voli", "voli_pctile_252d", "tdex", "tdex_pctile_252d",
+            "sdex", "sdex_pctile_252d", "vix9d", "vix3m", "vix6m")}
+
+    src = (OiChainEod.symbol == "SPX", OiChainEod.source == "convex_am")
+    tc = session.execute(select(func.max(OiChainEod.ts)).where(*src)).scalar_one_or_none()
+    tp = session.execute(select(func.max(OiChainEod.ts)).where(*src, OiChainEod.ts < tc)).scalar_one_or_none() if tc else None
+    if tc is None or tp is None:
+        return out
+    key = (str(tc), str(tp))
+    if key in _VXR_CACHE:
+        out["decomp"] = _VXR_CACHE[key]
+        return out
+    out["decomp"] = _VXR_CACHE[key] = _decomp(session, src, tc, tp)
+    return out
+
+
+def _decomp(session, src, tc, tp) -> dict:
+    import pandas as pd
+    from sqlalchemy import select
+    from trading_intel.greeks.vix_decomposition import decompose, skew_from_chain
+    from trading_intel.memory.models import OiChainEod
+
+    exps = session.execute(select(OiChainEod.expiry, OiChainEod.dte).where(
+        *src, OiChainEod.ts == tc, OiChainEod.dte >= 14, OiChainEod.dte <= 60).distinct()).all()
+    if not exps:
+        return {"as_of": tc, "prev": tp, "error": "no 14-60 DTE expiry in the 08:35 book"}
+    exp, dte = min(exps, key=lambda e: abs((e[1] or 0) - 30))
+
+    def book(ts):
+        rows = session.execute(select(OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.delta).where(
+            *src, OiChainEod.ts == ts, OiChainEod.expiry == exp,
+            OiChainEod.iv.is_not(None), OiChainEod.delta.is_not(None))).all()
+        df = pd.DataFrame(rows, columns=["strike", "cp", "iv", "delta"]).dropna()
+        if df.empty:
+            return None
+        df["iv"] = df["iv"].astype(float) * (100.0 if df["iv"].median() < 2.0 else 1.0)   # vol points
+        df["cp"] = df["cp"].astype(str).str.upper().str[0]
+        calls = df[df["cp"] == "C"]
+        anchor = calls if not calls.empty else df
+        spot = float(anchor.loc[(anchor["delta"].abs() - 0.5).abs().idxmin(), "strike"])   # ATM-forward proxy
+        return skew_from_chain(df, spot)
+
+    now, prev = book(tc), book(tp)
+    if now is None or prev is None:
+        return {"as_of": tc, "prev": tp, "expiry": exp, "error": "expiry missing from one of the two books"}
+    d = decompose(prev, now)
+    return {"as_of": tc, "prev": tp, "expiry": exp, "dte": dte, "spot_prev": d.spot_prev, "spot_now": d.spot_now,
+            "factors": {k: round(float(v), 3) for k, v in d.factors.items()},
+            "dominant": d.dominant, "read": d.regime_read()}
 
 
 # ===================================================================== overnight OI change -> lean

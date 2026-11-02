@@ -153,7 +153,26 @@ def _history(
     if not rows:
         return []
     rows = sorted(rows, key=lambda r: r[0])
-    return [float(r[1]) for r in rows]
+    return drop_feed_glitches([float(r[1]) for r in rows])
+
+
+#: A stored print more than this many times the window's median is a vendor glitch, not a market
+#: value. 2026-10-29: one Yahoo ^SDEX print of 184,467,424 (2026-09-14) against a ~60 median made
+#: the SDEX SD ~11.6M, pinning z(SKEW) at -0.06 for six weeks and the label on MIXED. Only applied to
+#: strictly positive series, and the bar is orders of magnitude, so a real crash value (VIX 80 vs a
+#: median 16 = 5x) can never be dropped.
+GLITCH_RATIO = 50.0
+
+
+def drop_feed_glitches(vals: list[float], *, ratio: float = GLITCH_RATIO) -> list[float]:
+    """Drop non-finite values and, for a strictly positive series, values > ratio x median or < median / ratio."""
+    vals = [v for v in vals if np.isfinite(v)]
+    if len(vals) < 5 or min(vals) <= 0:
+        return vals
+    med = float(np.median(vals))
+    if med <= 0:
+        return vals
+    return [v for v in vals if med / ratio <= v <= med * ratio]
 
 
 def _z(history: list[float], current: float | None) -> float | None:

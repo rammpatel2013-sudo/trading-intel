@@ -68,6 +68,7 @@ STALE_MIN_ROWS = 5
 TRADED_MIN_VOL = 20
 IV_DEAD = 0.001         # 0.10 vol point dead zone on the IV cross-check
 FOUR = ("BTO", "STO", "STC", "BTC")
+CP_MIN_GROSS = 500    # put-heavy list: only names with >= this many contracts of OI change
 
 READ = {
     ("C", "BTO"): "bought calls",
@@ -307,7 +308,15 @@ def compare(sym: str, prior: dict, am_oi: dict, spot: float | None, asof: date,
     top = sorted((r for r in rows if r["tag"] in ("BTO", "STO", "STC", "BTC")),
                  key=lambda r: (-(r["prem"] or 0), -abs(r["d_oi"])))[:5]
     cust_usd = sum(r["cust_delta_usd"] or 0 for r in counted) if spot is not None else None
+    gross = sum(abs(r["d_oi"]) for r in rows)
     return {
+        # Call-minus-put share of all OI change, every changed contract counted (ADJ
+        # included). Backtest 2026-06-19..10-28 (claude/oi-change-backtest-20261028.md),
+        # names with >= 500 contracts changed: bottom fifth lagged SPY ~0.64% next day
+        # open->close, top fifth +0.15%; IC +0.10 (t 5.9, 87 days). The only part of this
+        # table with a tested edge; customer-delta and the IV-side read showed none.
+        "gross": gross,
+        "cp_score": None if gross == 0 else round((tot("C", None) - tot("P", None)) / gross, 3),
         "symbol": sym, "prior_eod": prior["date"].isoformat(), "spot": spot,
         "matched": sum(1 for k in prior["rows"] if k in am_oi and k[0] >= asof),
         "traded": traded, "unchanged_traded": same, "stale": stale,
@@ -358,8 +367,17 @@ def telegram_text(summary: dict, top_n: int) -> str:
     names = [s for s in h["names"] if not s["stale"] and s["cust_delta_usd"] is not None]
     names.sort(key=lambda s: -abs(s["cust_delta_usd"]))
     src = f"TEST, OI from EOD {h['test_from_eod']}" if h.get("test_from_eod") else f"CVForge {h['asof_time']}"
-    lines = [f"<b>OI change: {h['session']} session</b> ({h['n_names']} names, {src})",
-             "<i>Customer delta added, biggest first</i>"]
+    lines = [f"<b>OI change: {h['session']} session</b> ({h['n_names']} names, {src})"]
+    scored = sorted((s for s in h["names"] if not s["stale"] and s.get("cp_score") is not None
+                     and s.get("gross", 0) >= CP_MIN_GROSS), key=lambda s: s["cp_score"])
+    if len(scored) >= 10:
+        cut = scored[: max(1, len(scored) // 5)]
+        lines.append(f"<i>Put-heavy OI change, bottom fifth of {len(scored)} names with {CP_MIN_GROSS}+ contracts changed "
+                     "(backtest Jun-Oct: lagged SPY ~0.6% next day, open to close; 62% down)</i>")
+        for s in cut[:top_n]:
+            lines.append(f"<b>{s['symbol']}</b> {s['cp_score']:+.2f}  C {kfmt(s['d_oi_calls'])} / P {kfmt(s['d_oi_puts'])}")
+        lines.append("")
+    lines.append("<i>Customer delta added, biggest first (descriptive; no tested edge yet)</i>")
     for s in names[:top_n]:
         t = s["top"][0] if s["top"] else None
         tl = f'{contract_label(t)} {kfmt(t["d_oi"])} {t["tag"]}' if t else ""

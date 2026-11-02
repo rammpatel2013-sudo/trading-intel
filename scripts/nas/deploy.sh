@@ -42,6 +42,7 @@ curl -L "$TARBALL" -o /tmp/ti.tar.gz
 
 echo "== [2/3] extract (.env / secrets preserved) =="
 tar xzf /tmp/ti.tar.gz --strip-components=1
+rm -f /tmp/ti.tar.gz   # 2026-10-28: the 104 MB tarball was being left behind in /tmp
 
 if [ "$BUILD" = "1" ]; then
   echo "== [3/3] docker build --no-cache =="
