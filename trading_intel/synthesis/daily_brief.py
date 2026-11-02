@@ -314,7 +314,7 @@ def _tradeable(session: Session) -> set[str]:
     try:
         rows = session.execute(
             text(
-                "SELECT symbol FROM greeks_snapshots "
+                "SELECT symbol FROM greeks_snapshots WHERE source = 'convex' "
                 "UNION SELECT symbol FROM quotes_daily"
             )
         ).scalars().all()

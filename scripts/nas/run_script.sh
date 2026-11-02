@@ -18,7 +18,9 @@ IMAGE="trading-intel"
 NETWORK="trading-intel-net"
 PG_CONTAINER="trading-intel-pg"
 DOCKER="/usr/local/bin/docker"
-DB_URL="postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel"
+# Credentials from .env (backlog #10); falls back to docker-network default.
+DB_URL="$(grep -oP '(?<=^NAS_DATABASE_URL=).*' "$ENV_FILE" 2>/dev/null | tr -d '"'"'" || true)"
+DB_URL="${DB_URL:-postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel}"
 
 set -uo pipefail
 if [ "$#" -lt 1 ]; then

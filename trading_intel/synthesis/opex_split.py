@@ -105,7 +105,7 @@ def build_opex_split(session: Session, symbol: str = "SPX", *, today: date | Non
         log.info("opex_split.no_split", am=len(am), pm=len(pm))
         return None
     spot = session.execute(
-        select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.spot.isnot(None))
+        select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.source == "convex", GreeksSnapshot.spot.isnot(None))
         .order_by(GreeksSnapshot.ts.desc()).limit(1)
     ).scalar_one_or_none()
     try:

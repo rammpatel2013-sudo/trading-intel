@@ -30,6 +30,16 @@ _DIRECTIONS = {"bullish", "bearish", "neutral"}
 _CONFIDENCE = {"high", "medium", "low"}
 _MAX_ITEMS = 12
 
+# Plausible range for SPX-equivalent levels (2024-2028). Numbers outside this are
+# almost certainly page references, Fibonacci values, or historical quotes that the
+# LLM pulled from the letter text. Without this guard the extractor filed 3450 /
+# 3800 / 3950 / 4000 as live SPX levels (backlog #86).
+_SPX_RANGE: dict[str, tuple[float, float]] = {
+    "SPX": (4000, 15000),
+    "SPY": (400, 1500),
+    "QQQ": (250, 1500),
+}
+
 _PROMPT = """You are reading a markets / options newsletter and extracting ONLY the
 concrete numbers and IF-THEN scenarios the author EXPLICITLY states. Return ONLY a
 JSON object (no prose, no code fence):
@@ -99,6 +109,23 @@ def _clean_str(v: object, limit: int) -> str | None:
     return str(v).strip()[:limit] if isinstance(v, str) and str(v).strip() else None
 
 
+def _level_in_range(val: float, unit: str | None) -> bool:
+    """Reject levels that fall outside the plausible range for their unit (#86).
+
+    The LLM occasionally extracts page numbers, Fibonacci values, or historical
+    quotes as "levels". A 3450 tagged as SPX is either a 2022 relic or a
+    mis-extraction — either way it corrupts the cross-check with our computed
+    walls. Levels with no recognised unit pass through (they are informational
+    and never cross-checked against an index).
+    """
+    if unit is None:
+        return True
+    bounds = _SPX_RANGE.get(unit)
+    if bounds is None:
+        return True
+    return bounds[0] <= val <= bounds[1]
+
+
 def _parse_levels(raw: object) -> list[dict]:
     out: list[dict] = []
     if not isinstance(raw, list):
@@ -112,6 +139,10 @@ def _parse_levels(raw: object) -> list[dict]:
             continue
         unit = item.get("unit")
         unit = str(unit) if unit in _UNITS else None
+        if not _level_in_range(val, unit):
+            log.warning("newsletter_extract.level_out_of_range", name=name, value=val,
+                        unit=unit, bounds=_SPX_RANGE.get(unit))
+            continue
         out.append({"name": name.lower().replace(" ", "_"), "value": val, "unit": unit,
                     "note": _clean_str(item.get("note"), 120)})
     return out

@@ -31,14 +31,14 @@ from trading_intel.timeutils import eastern_now, live_expiry_floor, same_day_yea
 
 
 def _latest_oi_ts(session: Session, sym: str, as_of: date | None = None):
-    q = select(OiChainEod.ts).where(OiChainEod.symbol == sym)
+    q = select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source == "convex")
     if as_of is not None:
         q = q.where(OiChainEod.ts < datetime.combine(as_of + timedelta(days=1), time.min))
     return session.execute(q.order_by(OiChainEod.ts.desc())).scalars().first()
 
 
 def _latest_spot(session: Session, sym: str, as_of: date | None = None) -> float | None:
-    q = select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym)
+    q = select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.source == "convex")
     if as_of is not None:
         q = q.where(GreeksSnapshot.ts < datetime.combine(as_of + timedelta(days=1), time.min))
     row = session.execute(q.order_by(GreeksSnapshot.ts.desc())).first()
@@ -54,6 +54,7 @@ def _book_chain(
             OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.oi, OiChainEod.expiry
         ).where(
             OiChainEod.symbol == sym,
+            OiChainEod.source == "convex",
             OiChainEod.ts == ts,
             OiChainEod.expiry >= floor,
             OiChainEod.dte <= dte_max,
@@ -95,7 +96,8 @@ def expired_rolloff(
     sym = symbol.upper()
     ts = session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == sym, OiChainEod.ts < datetime.combine(today, time.min))
+        .where(OiChainEod.symbol == sym, OiChainEod.source == "convex",
+               OiChainEod.ts < datetime.combine(today, time.min))
         .order_by(OiChainEod.ts.desc())
     ).scalars().first()
     if ts is None:

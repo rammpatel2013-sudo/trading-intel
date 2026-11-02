@@ -149,7 +149,7 @@ def _latest_extras(session, symbol: str) -> dict:
 
     row = session.execute(
         select(GreeksSnapshot)
-        .where(GreeksSnapshot.symbol == symbol)
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex")
         .order_by(GreeksSnapshot.ts.desc())
         .limit(1)
     ).scalar_one_or_none()

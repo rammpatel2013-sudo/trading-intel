@@ -118,7 +118,7 @@ def build_zero_dte(session: Session, symbol: str = "SPX", *, today: date | None 
         if not rows:
             return None
         spot = session.execute(
-            select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.spot.isnot(None))
+            select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.source == "convex", GreeksSnapshot.spot.isnot(None))
             .order_by(GreeksSnapshot.ts.desc()).limit(1)
         ).scalar_one_or_none()
         spot_src = "greeks snapshot"

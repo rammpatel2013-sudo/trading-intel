@@ -62,7 +62,7 @@ def chart_frame(session: Session, symbol: str, *, rsi_period: int = 14) -> pd.Da
             GreeksSnapshot.ts, GreeksSnapshot.gex_total, GreeksSnapshot.dex_total,
             GreeksSnapshot.atm_iv, GreeksSnapshot.gex_rvol_ratio,
         )
-        .where(GreeksSnapshot.symbol == symbol)
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex")
         .order_by(GreeksSnapshot.ts)
     ).all()
     greeks = pd.DataFrame(grows, columns=["ts", "gex", "dex", "atm_iv", "gex_rvol"])

@@ -295,7 +295,7 @@ def load_snapshot_history(session: Session, symbol: str, *, days: int = 180) -> 
     rows = list(
         session.execute(
             select(GreeksSnapshot)
-            .where(GreeksSnapshot.symbol == symbol)
+            .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex")
             .order_by(GreeksSnapshot.ts.desc())
             .limit(days)
         ).scalars()
@@ -324,7 +324,7 @@ def latest_snapshot(session: Session, symbol: str) -> GreeksSnapshot | None:
     """Most recent aggregate ``greeks_snapshots`` row for ``symbol`` (or None)."""
     return session.execute(
         select(GreeksSnapshot)
-        .where(GreeksSnapshot.symbol == symbol)
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex")
         .order_by(GreeksSnapshot.ts.desc())
         .limit(1)
     ).scalar_one_or_none()

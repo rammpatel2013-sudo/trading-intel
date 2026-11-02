@@ -58,7 +58,7 @@ def main() -> None:
             symbols = effective_symbols(session, settings)
             metrics = load_watchlist_metrics(session, symbols) if symbols else None
             latest_ts = session.execute(
-                select(func.max(GreeksSnapshot.ts))
+                select(func.max(GreeksSnapshot.ts)).where(GreeksSnapshot.source == "convex")
             ).scalar_one_or_none()
     except SQLAlchemyError as exc:
         st.error(f"Could not load watchlist metrics: {exc}")

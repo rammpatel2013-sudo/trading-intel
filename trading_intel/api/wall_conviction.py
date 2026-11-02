@@ -37,7 +37,7 @@ def _day(ts: Any) -> date:
 def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[float | None]]]:
     """Per-EOD-snapshot call/put wall (max summed gxoi strike, <=60 DTE)."""
     ts_rows = session.execute(
-        select(OiChainEod.ts).where(OiChainEod.symbol == sym)
+        select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source == "convex")
         .group_by(OiChainEod.ts).order_by(OiChainEod.ts.desc()).limit(_HIST_SNAPS)
     ).scalars().all()
     stamps = sorted(ts_rows)
@@ -48,8 +48,8 @@ def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[f
         return [], walls
     rows = session.execute(
         select(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike, func.sum(OiChainEod.gxoi))
-        .where(OiChainEod.symbol == sym, OiChainEod.ts.in_(stamps),
-               OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
+        .where(OiChainEod.symbol == sym, OiChainEod.source == "convex",
+               OiChainEod.ts.in_(stamps), OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
         .group_by(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike)
     ).all()
     best: dict[tuple, tuple[float, float]] = {}
@@ -69,7 +69,8 @@ def _fixed_strike(session: Session, sym: str, strike: float, cp: str,
     """IV at ONE (strike, expiry) over time + today's liquidity at the wall."""
     rows = session.execute(
         select(OiChainEod.ts, OiChainEod.expiry, OiChainEod.iv, OiChainEod.oi, OiChainEod.volume)
-        .where(OiChainEod.symbol == sym, OiChainEod.strike == strike, OiChainEod.cp == cp,
+        .where(OiChainEod.symbol == sym, OiChainEod.source == "convex",
+               OiChainEod.strike == strike, OiChainEod.cp == cp,
                OiChainEod.ts.in_(stamps), OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
     ).all()
     if not rows:
@@ -90,7 +91,8 @@ def _fixed_strike(session: Session, sym: str, strike: float, cp: str,
 def _chain_oi(session: Session, sym: str, ts: datetime, cp: str) -> list[float]:
     rows = session.execute(
         select(func.sum(OiChainEod.oi)).where(
-            OiChainEod.symbol == sym, OiChainEod.ts == ts, OiChainEod.cp == cp,
+            OiChainEod.symbol == sym, OiChainEod.source == "convex",
+            OiChainEod.ts == ts, OiChainEod.cp == cp,
             OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
         .group_by(OiChainEod.strike)
     ).scalars().all()
@@ -102,7 +104,7 @@ def net_gex_series(session: Session, sym: str, *, days: int = 180,
     """Last greeks_snapshot per day: net GEX + a stale flag (bad IV / frozen value)."""
     rows = session.execute(
         select(GreeksSnapshot.ts, GreeksSnapshot.gex_total, GreeksSnapshot.atm_iv, GreeksSnapshot.spot)
-        .where(GreeksSnapshot.symbol == sym).order_by(GreeksSnapshot.ts)
+        .where(GreeksSnapshot.symbol == sym, GreeksSnapshot.source == "convex").order_by(GreeksSnapshot.ts)
     ).all()
     per_day: dict[date, tuple] = {}
     for ts, g, iv, sp in rows:
@@ -122,7 +124,8 @@ def build_wall_conviction(session: Session, symbol: str, *, today: date | None =
     today = today or date.today()
     stamps, walls = _walls(session, sym)
     spot_row = session.execute(
-        select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.spot.isnot(None))
+        select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.source == "convex",
+                                         GreeksSnapshot.spot.isnot(None))
         .order_by(GreeksSnapshot.ts.desc()).limit(1)
     ).scalar_one_or_none()
     ev = session.execute(

@@ -43,7 +43,7 @@ def _latest_greeks(session, symbol: str) -> dict:
 
     row = session.execute(
         select(GreeksSnapshot)
-        .where(GreeksSnapshot.symbol == symbol)
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex")
         .order_by(GreeksSnapshot.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -70,7 +70,8 @@ def _gex_history(session, symbol: str, *, n: int = 10) -> list[tuple]:
 
     rows = session.execute(
         select(GreeksSnapshot.ts, GreeksSnapshot.gex_total)
-        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.gex_total.is_not(None))
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex",
+               GreeksSnapshot.gex_total.is_not(None))
         .order_by(GreeksSnapshot.ts.desc())
         .limit(n * 4)
     ).all()
@@ -90,7 +91,8 @@ def _iv_percentile(session, symbol: str, *, lookback: int = 252) -> float | None
 
     rows = session.execute(
         select(GreeksSnapshot.atm_iv)
-        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.atm_iv.is_not(None))
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex",
+               GreeksSnapshot.atm_iv.is_not(None))
         .order_by(GreeksSnapshot.ts.desc())
         .limit(lookback)
     ).scalars().all()

@@ -66,7 +66,7 @@ def _upstream_fresh(session: Session, today: date) -> bool:
     the bellwether: if it's missing, the brief would rehash yesterday's board.
     """
     latest_ts = session.execute(
-        select(func.max(GreeksSnapshot.ts))
+        select(func.max(GreeksSnapshot.ts)).where(GreeksSnapshot.source == "convex")
     ).scalar()
     if latest_ts is None:
         return False

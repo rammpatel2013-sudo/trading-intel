@@ -26,16 +26,15 @@ PG_CONTAINER="trading-intel-pg"
 # path (matches your existing tasks' "Run: /usr/local/bin/docker ...").
 DOCKER="/usr/local/bin/docker"
 # Inside the docker network the Postgres container is reachable by name; this
-# overrides the host-IP DATABASE_URL in .env. Copy the exact value your existing
-# intraday/flow tasks already use.
-DB_URL="postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel"
+# overrides the host-IP DATABASE_URL in .env. Credentials come from NAS_DATABASE_URL
+# in .env so they stay out of version-controlled scripts (backlog #10). Falls back
+# to the docker-network default when the var is absent.
+DB_URL="$(grep -oP '(?<=^NAS_DATABASE_URL=).*' "$ENV_FILE" 2>/dev/null | tr -d '"'"'" || true)"
+DB_URL="${DB_URL:-postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel}"
 # Ollama runs on the LAPTOP, not the NAS (the DS923+ has 3.8GB RAM and cannot
-# host a 7B). The .env value is "http://localhost:11434", which is correct when a
-# job is run FROM the laptop but resolves to the CONTAINER inside `docker run`,
-# so every LLM leg failed here silently. Same problem, same fix as DB_URL above:
-# override it at the docker boundary. If the laptop is asleep the LLM legs just
-# degrade — letters_fetch stores the letter bodies regardless (see its run()).
-OLLAMA_URL="http://192.168.1.175:11434"
+# host a 7B). Same .env extraction pattern.
+OLLAMA_URL="$(grep -oP '(?<=^NAS_OLLAMA_URL=).*' "$ENV_FILE" 2>/dev/null | tr -d '"'"'" || true)"
+OLLAMA_URL="${OLLAMA_URL:-http://192.168.1.175:11434}"
 # ─────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail

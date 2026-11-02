@@ -29,7 +29,9 @@ PORT=8899
 DATA_DIR="$REPO_DIR/scripts/cvxmap/data"
 # 2026-10-28: the .env DATABASE_URL (host IP) does NOT work inside a container - every
 # DB leg of cvxmap-doc failed with OperationalError. Same override run_job.sh uses.
-DB_URL="postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel"
+# Credentials from .env (backlog #10); falls back to docker-network default.
+DB_URL="$(grep -oP '(?<=^NAS_DATABASE_URL=).*' "$ENV_FILE" 2>/dev/null | tr -d '"'"'" || true)"
+DB_URL="${DB_URL:-postgresql+psycopg://intel:intel@trading-intel-pg:5432/trading_intel}"
 PG_CONTAINER="trading-intel-pg"
 
 set -uo pipefail

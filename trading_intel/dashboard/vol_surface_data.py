@@ -206,7 +206,7 @@ def latest_net_gex(session: Session, symbol: str) -> float | None:
     snap = (
         session.execute(
             select(GreeksSnapshot)
-            .where(GreeksSnapshot.symbol == symbol)
+            .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex")
             .order_by(GreeksSnapshot.ts.desc())
             .limit(1)
         )

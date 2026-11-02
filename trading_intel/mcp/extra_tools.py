@@ -82,7 +82,7 @@ _TOP_DEFAULT = 15
 def _latest_oi_ts(session: Session, symbol: str) -> datetime | None:
     return session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == symbol)
+        .where(OiChainEod.symbol == symbol, OiChainEod.source == "convex")
         .order_by(OiChainEod.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -123,6 +123,7 @@ def get_walls(
         )
         .where(
             OiChainEod.symbol == sym,
+            OiChainEod.source == "convex",
             OiChainEod.ts == ts,
             OiChainEod.dte <= dte_c,
             OiChainEod.expiry >= _expiry_floor(ts),
@@ -171,7 +172,7 @@ def _prev_oi_ts(session: Session, symbol: str, ts: datetime) -> datetime | None:
     """Timestamp of the EOD snapshot immediately before ``ts`` (or None)."""
     return session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == symbol, OiChainEod.ts < ts)
+        .where(OiChainEod.symbol == symbol, OiChainEod.source == "convex", OiChainEod.ts < ts)
         .order_by(OiChainEod.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -181,7 +182,8 @@ def _snapshot_spot_on(session: Session, symbol: str, ts: datetime) -> float | No
     """Aggregate-snapshot spot for ``symbol`` on the calendar date of ``ts``."""
     row = session.execute(
         select(GreeksSnapshot.spot)
-        .where(GreeksSnapshot.symbol == symbol, func.date(GreeksSnapshot.ts) == ts.date())
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.source == "convex",
+               func.date(GreeksSnapshot.ts) == ts.date())
         .order_by(GreeksSnapshot.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -206,6 +208,7 @@ def _straddle_from_oi(
     rows = session.execute(
         select(OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.iv).where(
             OiChainEod.symbol == symbol,
+            OiChainEod.source == "convex",
             OiChainEod.ts == ts,
             OiChainEod.expiry >= floor,
             OiChainEod.dte <= dte_max,
@@ -314,6 +317,7 @@ def get_oi_changes(
             OiChainEod.volume,
         ).where(
             OiChainEod.symbol == sym,
+            OiChainEod.source == "convex",
             OiChainEod.ts == ts,
             OiChainEod.dte <= dte_c,
             OiChainEod.expiry >= _expiry_floor(ts),
