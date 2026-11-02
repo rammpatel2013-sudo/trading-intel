@@ -82,7 +82,7 @@ _TOP_DEFAULT = 15
 def _latest_oi_ts(session: Session, symbol: str) -> datetime | None:
     return session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == symbol, OiChainEod.source == "convex")
+        .where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"))
         .order_by(OiChainEod.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -123,7 +123,7 @@ def get_walls(
         )
         .where(
             OiChainEod.symbol == sym,
-            OiChainEod.source == "convex",
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.dte <= dte_c,
             OiChainEod.expiry >= _expiry_floor(ts),
@@ -172,7 +172,7 @@ def _prev_oi_ts(session: Session, symbol: str, ts: datetime) -> datetime | None:
     """Timestamp of the EOD snapshot immediately before ``ts`` (or None)."""
     return session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == symbol, OiChainEod.source == "convex", OiChainEod.ts < ts)
+        .where(OiChainEod.symbol == symbol, OiChainEod.source.like("convex%"), OiChainEod.ts < ts)
         .order_by(OiChainEod.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -208,7 +208,7 @@ def _straddle_from_oi(
     rows = session.execute(
         select(OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.iv).where(
             OiChainEod.symbol == symbol,
-            OiChainEod.source == "convex",
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.expiry >= floor,
             OiChainEod.dte <= dte_max,
@@ -317,7 +317,7 @@ def get_oi_changes(
             OiChainEod.volume,
         ).where(
             OiChainEod.symbol == sym,
-            OiChainEod.source == "convex",
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.dte <= dte_c,
             OiChainEod.expiry >= _expiry_floor(ts),

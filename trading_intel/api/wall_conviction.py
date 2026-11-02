@@ -37,7 +37,7 @@ def _day(ts: Any) -> date:
 def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[float | None]]]:
     """Per-EOD-snapshot call/put wall (max summed gxoi strike, <=60 DTE)."""
     ts_rows = session.execute(
-        select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source == "convex")
+        select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"))
         .group_by(OiChainEod.ts).order_by(OiChainEod.ts.desc()).limit(_HIST_SNAPS)
     ).scalars().all()
     stamps = sorted(ts_rows)
@@ -48,7 +48,7 @@ def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[f
         return [], walls
     rows = session.execute(
         select(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike, func.sum(OiChainEod.gxoi))
-        .where(OiChainEod.symbol == sym, OiChainEod.source == "convex",
+        .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"),
                OiChainEod.ts.in_(stamps), OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
         .group_by(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike)
     ).all()
@@ -69,7 +69,7 @@ def _fixed_strike(session: Session, sym: str, strike: float, cp: str,
     """IV at ONE (strike, expiry) over time + today's liquidity at the wall."""
     rows = session.execute(
         select(OiChainEod.ts, OiChainEod.expiry, OiChainEod.iv, OiChainEod.oi, OiChainEod.volume)
-        .where(OiChainEod.symbol == sym, OiChainEod.source == "convex",
+        .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"),
                OiChainEod.strike == strike, OiChainEod.cp == cp,
                OiChainEod.ts.in_(stamps), OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
     ).all()
@@ -91,7 +91,7 @@ def _fixed_strike(session: Session, sym: str, strike: float, cp: str,
 def _chain_oi(session: Session, sym: str, ts: datetime, cp: str) -> list[float]:
     rows = session.execute(
         select(func.sum(OiChainEod.oi)).where(
-            OiChainEod.symbol == sym, OiChainEod.source == "convex",
+            OiChainEod.symbol == sym, OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts, OiChainEod.cp == cp,
             OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
         .group_by(OiChainEod.strike)

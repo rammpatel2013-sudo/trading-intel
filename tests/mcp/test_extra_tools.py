@@ -115,7 +115,7 @@ def test_get_walls_picks_max_gxoi_strike_per_side(session: Session) -> None:
                 source="convex_eod",
             )
         )
-    session.add(GreeksSnapshot(symbol="NVDA", ts=ts, spot=214.0, gex_total=1.0))
+    session.add(GreeksSnapshot(symbol="NVDA", ts=ts, spot=214.0, gex_total=1.0, source="convex"))
     session.commit()
 
     out = et.get_walls(session, "nvda", dte_max=60)
@@ -132,7 +132,7 @@ def test_get_walls_drops_expired_same_day_rows(session: Session, monkeypatch) ->
     for strike, dte, gx in ((7750.0, 0, 9.0e8), (7800.0, 1, 2.0e8)):
         session.add(OiChainEod(symbol="SPX", ts=ts, expiry=date(2026, 10, 22) + timedelta(days=dte),
                                strike=strike, cp="C", dte=dte, oi=1000, gxoi=gx, source="convex_am"))
-    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7740.0, gex_total=1.0))
+    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7740.0, gex_total=1.0, source="convex"))
     session.commit()
     monkeypatch.setattr(et, "live_expiry_floor", lambda d, now=None: d)
     assert et.get_walls(session, "SPX", dte_max=7)["call_wall"] == 7750.0   # morning: 0DTE counts
@@ -150,7 +150,7 @@ def test_get_walls_drops_settled_expiry_when_read_on_a_later_day(session: Sessio
     for strike, exp, gx in ((7650.0, date(2026, 10, 23), 9.0e8), (7800.0, date(2026, 10, 26), 2.0e8)):
         session.add(OiChainEod(symbol="SPX", ts=ts, expiry=exp, strike=strike, cp="C",
                                dte=(exp - ts.date()).days, oi=1000, gxoi=gx, source="convex_eod"))
-    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7623.0, gex_total=1.0))
+    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7623.0, gex_total=1.0, source="convex"))
     session.commit()
     out = et.get_walls(session, "SPX", dte_max=10)
     assert out["call_wall"] == 7800.0
@@ -162,7 +162,7 @@ def test_straddle_prices_same_day_leg_with_session_time(session: Session, monkey
     for cp in ("C", "P"):
         session.add(OiChainEod(symbol="SPX", ts=ts, expiry=date(2026, 10, 22), strike=7750.0, cp=cp,
                                dte=0, oi=1000, iv=0.12, source="convex_am"))
-    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7750.0, gex_total=1.0))
+    session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7750.0, gex_total=1.0, source="convex"))
     session.commit()
     monkeypatch.setattr(et, "live_expiry_floor", lambda d, now=None: d)
     monkeypatch.setattr(et, "same_day_years", lambda d, now=None: 6.5 / (365 * 24))
@@ -605,6 +605,7 @@ def test_gamma_history_includes_dex_vex_chex(session: Session) -> None:
             chex_total=5.0,
             gex_flip=210.0,
             atm_iv=0.6,
+            source="convex",
         )
     )
     session.commit()

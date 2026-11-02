@@ -31,7 +31,7 @@ from trading_intel.timeutils import eastern_now, live_expiry_floor, same_day_yea
 
 
 def _latest_oi_ts(session: Session, sym: str, as_of: date | None = None):
-    q = select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source == "convex")
+    q = select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"))
     if as_of is not None:
         q = q.where(OiChainEod.ts < datetime.combine(as_of + timedelta(days=1), time.min))
     return session.execute(q.order_by(OiChainEod.ts.desc())).scalars().first()
@@ -54,7 +54,7 @@ def _book_chain(
             OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.oi, OiChainEod.expiry
         ).where(
             OiChainEod.symbol == sym,
-            OiChainEod.source == "convex",
+            OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
             OiChainEod.expiry >= floor,
             OiChainEod.dte <= dte_max,
@@ -96,7 +96,8 @@ def expired_rolloff(
     sym = symbol.upper()
     ts = session.execute(
         select(OiChainEod.ts)
-        .where(OiChainEod.symbol == sym, OiChainEod.source == "convex",
+        .where(OiChainEod.symbol == sym,
+               OiChainEod.source.like("convex%"),
                OiChainEod.ts < datetime.combine(today, time.min))
         .order_by(OiChainEod.ts.desc())
     ).scalars().first()
