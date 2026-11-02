@@ -261,6 +261,58 @@ body.phone .vxlines>.k{padding-top:6px}
 #tabVix{min-width:0;max-width:100vw}
 .vxhead>span{min-width:0;overflow-wrap:anywhere}
 .vxh .vxsub{min-width:0;overflow-wrap:anywhere}
+
+/* ── #94 Carroll RV/IV box ────────────────────────────── */
+.vxrvbox{display:grid;grid-template-columns:1fr auto 1fr;gap:0 12px;align-items:start}
+.vxrvleft,.vxrvright{display:flex;flex-direction:column;gap:2px}
+.vxrvleft{text-align:right}
+.vxrvright{text-align:left}
+.vxrvlbl{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.5px}
+.vxrvval{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.vxrvvrp{font-size:15px;font-weight:600;margin-top:2px}
+.vxrvq{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;margin-top:4px;letter-spacing:.3px}
+.vxrvq.rich{background:#5FE0C022;color:#5FE0C0}
+.vxrvq.stress{background:#FF6B6B22;color:#FF6B6B}
+.vxrvq.calm{background:#88889922;color:#999}
+.vxrvq.cheap{background:#FF9A6B22;color:#FF9A6B}
+.vxrvdiv{width:1px;background:#333;min-height:60px;align-self:stretch}
+.vxrvfoot{grid-column:1/-1;font-size:10px;color:#666;margin-top:6px;text-align:center}
+
+/* ── #90 Spot-vol beta gauge ─────────────────────────── */
+.vxsvbwrap{display:flex;align-items:center;justify-content:center;gap:16px;padding:4px 0}
+.vxsvbval{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.vxsvbmeta{font-size:12px;color:#999;line-height:1.5}
+.vxsvbbar{width:200px;height:8px;background:#222;border-radius:4px;position:relative;overflow:hidden}
+.vxsvbfill{height:100%;border-radius:4px;transition:width .3s}
+
+/* ── #95 Implied correlation panel ───────────────────── */
+.vxicrow{display:flex;gap:20px;align-items:center;justify-content:center;flex-wrap:wrap;padding:4px 0}
+.vxicitem{text-align:center}
+.vxiclbl{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block}
+.vxicval{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.vxicspread{font-size:13px;font-weight:600;margin-top:2px}
+.vxicdiv{width:1px;background:#333;height:48px}
+/* ── Exposure Board tab ──────────────────────────────── */
+.exwrap{max-width:900px;margin:0 auto;padding:12px 16px}
+.exhead{margin-bottom:8px}
+.exsec{margin-bottom:16px;background:var(--card,#181A1E);border-radius:8px;padding:12px 16px}
+.exsec .exh{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+.exsec .exh h2{font-size:15px;font-weight:700;margin:0}
+.exsec .exh .exsub{font-size:11px;color:var(--mute,#888)}
+.exnote{font-size:12px;color:var(--mute,#888);padding:8px 0}
+.exfoot{font-size:10px;color:#555;text-align:center;padding:8px 0}
+.exlvl{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:8px}
+.exlvl .exlv{text-align:center}
+.exlvl .exlvlbl{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.4px}
+.exlvl .exlvval{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.exbar{display:flex;align-items:center;height:18px;font-size:10px;margin:1px 0}
+.exbar .exblbl{width:60px;text-align:right;padding-right:6px;color:#999;font-variant-numeric:tabular-nums}
+.exbar .exbfill{height:14px;border-radius:2px;min-width:1px}
+.exbar .exbval{padding-left:4px;color:#999;font-size:9px;font-variant-numeric:tabular-nums}
+.exbcall{background:#5FE0C0}
+.exbput{background:#FF6B6B}
+.exspot{border-left:2px dashed #FFD23F;position:relative}
+.exspot::after{content:"spot";position:absolute;top:-14px;left:4px;font-size:9px;color:#FFD23F}
 #tabMap .body{position:relative;min-height:0}#tabMap canvas{width:100%;height:100%;display:block}
 #mapBreakPane{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
 .mapread{padding:6px 10px 8px;font-size:13px;line-height:1.5;border-top:1px solid var(--rule);flex:1 1 auto;min-height:0;overflow:auto}
@@ -478,6 +530,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
       <button data-tab="vol" aria-pressed="false" title="Volume by strike, three views side by side: today · last 30 min · last 30 vs prior 30 (key V)">Volume</button>
       <button data-tab="premium" aria-pressed="false" title="Where today&rsquo;s option premium actually went: top call and put strikes by dollars, bought vs sold, and the biggest minutes (key $)">Premium</button>
+      <button data-tab="exposure" aria-pressed="false" title="Per-strike dealer gamma and delta exposure from the live chain">Exposure</button>
       <button data-tab="density" aria-pressed="false" title="Where the close is likely to land: a cone re-run every 5 minutes from live spot and the live 0DTE straddle, with the Map&rsquo;s gamma zero and vanna rails (key N)">Density</button>
       <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, from the Convex VIX chain + Cboe indices (key X)">VIX</button>
       <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
@@ -663,6 +716,9 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <section class="vxsec vxreadbox" id="vxRead"></section>
       <section class="vxsec" id="vxPick"></section>
       <section class="vxsec" id="vxRegime"></section>
+      <section class="vxsec" id="vxRvIv"></section>
+      <section class="vxsec" id="vxSvb"></section>
+      <section class="vxsec" id="vxICorr"></section>
       <div class="vxrow2">
         <section class="vxsec" id="vxTerm"></section>
         <section class="vxsec" id="vxEvents"></section>
@@ -674,6 +730,16 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <section class="vxsec" id="vxStrikes"></section>
       <section class="vxsec" id="vxLink"></section>
       <div class="vxfoot" id="vxFoot"></div>
+    </div>
+  </main>
+  <main id="tabExposure" class="tab" hidden>
+    <div class="exwrap">
+      <section class="exhead" id="exHead"></section>
+      <section class="exsec" id="exSummary"></section>
+      <section class="exsec" id="exGex"></section>
+      <section class="exsec" id="exDex"></section>
+      <section class="exsec" id="exOi"></section>
+      <div class="exfoot" id="exFoot"></div>
     </div>
   </main>
   <main id="tabHelp" class="tab" hidden>
@@ -689,6 +755,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Volume</dt><dd>Three ladders side by side: everything so far today, just the last 30 minutes, and the last 30 compared with the 30 before it.</dd>
           <dt>Density</dt><dd>Where the close is likely to land, re-estimated every 5 minutes. The bright band is a 20,000-path simulation started from live spot, sized by the live 0DTE at-the-money straddle, spread over the day by a historical time-of-day profile, and widened where the Map says dealers are short gamma (narrowed where long). Left of the cursor is the 09:30 cone for comparison. The cyan line is the Map&rsquo;s gamma zero and the green and lavender lines are its vanna top and bottom, each as it stood that minute (0DTE book, your basis setting). It is centred on spot, so it does not call the close by itself &mdash; read the lines for that. <b>Engine ON/OFF</b> is the kill switch: OFF stops all of its calculation; <code>?nodensity</code> in the address bar turns it off hard. Key N.</dd>
           <dt>VIX</dt><dd>Convex feed only (the ToS workbook carries no VIX chain). Every section folds with the arrow (&#9662;/&#9656;) next to its title; the browser remembers which are folded. <b>Read</b>: one verdict (Calm, sellable &middot; Mixed &middot; Bullish-vol trap &middot; Risk-off) and six lines written from <i>docs/guides/reading-the-vix.md</i>: the VIX zone (under 22 carry, 22&ndash;32 fragility, over 32 stress), the curve shape plus VVIX&nbsp;&divide;&nbsp;VIX, <i>why VIX moved</i> (the Cboe 6-factor split of the SPX 30-day smile between the last two 08:35 books: sticky strike = mechanical, parallel shift = real repricing, put/call skew and wings = who is paying), the NAS vol-regime label with its own bias line, VIX options positioning across the picked expiries, and what that means for 0DTE trades. It is a descriptive read, never a trade signal. <b>Expiries</b>: tap chips to pick any set (nearest two on every load; Front 2 / Monthlies / All presets). <b>Regime board</b>: eight rows coloured by their 1-year percentile in the risky direction &mdash; green safest third, yellow middle, orange riskiest third (slow flash), red top 10% or any curve ratio above 1.00 (fast flash). <b>Term structure</b>: Cboe VIX1D &rarr; VIX1Y today vs yesterday, 1 week and 1 month ago, with each VIX expiry&rsquo;s forward in amber. <b>Events</b> through the next VIX monthly. <b>Implied variance</b>: a term curve of whole-curve vol vs ATM vol for every expiry (the gap is the price of the wings), cards for the picked expiries, and the strike breakdown for one of them. <b>Positions by strike</b>: with two or more picks, an <i>All picked</i> panel sums open interest and today&rsquo;s contracts bought and sold by strike; <i>From forward</i> lines each month up on its own forward instead (strike 20 is near the money in November but below it in March). Bought/sold is Convex&rsquo;s measured split, today only, not dealer inventory. Cboe indices are about 15 minutes delayed. Nothing on this tab feeds the map.</dd>
+          <dt>Exposure</dt><dd>Per-strike dealer gamma (GEX) and delta (DEX) exposure from the live chain. Call wall, put wall, GEX flip, and open-interest distribution. Descriptor only (FlashAlpha rule 4). Key B.</dd>
           <dt>Premium</dt><dd>Where today&rsquo;s option money actually went &mdash; the heaviest strikes a side, how much of each was bought rather than sold, and which minutes carried outsized premium.</dd>
           <dt>Plan</dt><dd>Doc&rsquo;s morning plan graded against what price has since done, plus the morning book.</dd>
         </dl>
@@ -800,7 +867,7 @@ const st = {
 };
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
 if(!["ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -2049,7 +2116,8 @@ function render(){
   syncSeg("focusSeg",st.focus);
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
-  document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix"; document.getElementById("tabDensity").hidden=st.tab!=="density";
+  document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
@@ -2062,6 +2130,7 @@ function render(){
   else if(st.tab==="vol") renderVolTab(se,book);
   else if(st.tab==="premium") renderPremium(se);
   else if(st.tab==="vix") renderVix();
+  else if(st.tab==="exposure"){ exRender(); }
   else if(st.tab==="density") renderDensity(se);
   else renderSkew(se,d);
 }
@@ -2250,6 +2319,7 @@ document.addEventListener("keydown",e=>{
   else if(k==="d"){ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); }
   else if(k==="v"){ st.tab="vol"; save("tab","vol"); render(); }
   else if(k==="x"){ st.tab="vix"; save("tab","vix"); render(); }
+  else if(k==="b"){ st.tab="exposure"; save("tab","exposure"); render(); }
   else if(k==="e"&&st.tab==="map"){ const o=["0dte","week","all"]; st.mapBook=o[(o.indexOf(st.mapBook||"0dte")+1)%3]; save("mapBook",st.mapBook); syncSeg("mapBookSeg",st.mapBook); render(); }
   else if(e.key==="$"||k==="r"){ st.tab="premium"; save("tab","premium"); render(); }
   else if(k==="h"||e.key==="?"){ st.tab="help"; save("tab","help"); render(); }
@@ -2695,6 +2765,8 @@ function mapRead(g,ch,va,se,d){
     L.push(`<div class="l">Charm at spot: dealers <b>${cS>=0?"buy":"sell"}</b> ${fmtN(Math.round(Math.abs(cS)))} Δ per 5 min as time passes${z!=null?`; flips at ${f(z)}${zC!=null&&Math.abs(zC-z)>=ch.dp?` (${f(zC)} by 15:30)`:""} — ${S>=z?"holding above it keeps the decay supportive":"below it the decay sells"}`:""}.</div>`); }
   if(va){ const vN=featLevels(va,jN); const i=Math.max(0,Math.min(va.prices.length-1,i0)); const vS=va.grid[jN][i]; const z=nearest(vN.z,S,-1)??nearest(vN.z,S,1);
     L.push(`<div class="l">Vanna at spot: a vol rise makes dealers <b>${vS>=0?"buy":"sell"}</b> ${fmtN(Math.round(Math.abs(vS)))} Δ/vol pt${z!=null?`; flips at ${f(z)}`:""} <i>(spot-down/vol-up ${vS>=0?"gets bought":"gets sold"}${va.near?"; week book included — baseline across the window "+(va.base[jN]>=0?"buy":"sell")+" "+fmtN(Math.round(Math.abs(va.base[jN])))+", colour shows where it differs":""})</i>.</div>`); }
+  /* #87 Color readout */
+  if(d&&d.rows){ const colT=d.rows.reduce((a,r)=>a+(r.color||0),0); if(Math.abs(colT)>0.01){ const sign=colT>0?"growing":"shrinking"; L.push(`<div class="l">Color (d\u0393/dt): gamma is <b>${sign}</b> from time decay alone (${fmtN(Math.round(colT))} \u0394/day). ${colT>0?"Time is adding to the gamma wall \u2014 dealers buy more as the day passes.":"Time is eroding the gamma wall \u2014 the book loosens into the close."}</div>`); } }
   // Doc confluence
   if(st.sym==="SPX"&&docFresh()){ const lv=docLevels("SPX"); const hits=[];
     for(const d0 of lv){ const near=(arr,nm)=>{ for(const v of arr) if(Math.abs(v-d0.v)/S<=0.0012) hits.push(`${f(d0.v)} ${d0.label} = ${nm}`); }; near(gN.pk,"gamma peak"); near(gN.tr,"gamma trough"); near(gN.z,"gamma zero"); if(ch) near(featLevels(ch,jN).z,"charm flip"); }
@@ -3344,6 +3416,81 @@ try{
 
 
 /* ---- vix.js (Convex only: the ToS feed has no VIX chain) ---- */
+/* ── Exposure Board tab (#88) — per-strike DEX/GEX/OI from live.json rows ── */
+const EX_UP="#5FE0C0", EX_DN="#FF6B6B", EX_MUTE="#888";
+
+function exSet(id,html){ const el=document.getElementById(id); if(el) el.innerHTML=html; }
+function exN(v,dp){ return v==null?"–":(+v).toFixed(dp||0); }
+function exK(v){ return Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":Math.abs(v)>=1e3?(v/1e3).toFixed(0)+"K":exN(v,0); }
+
+function exRender(){
+  const d=st.live&&st.live[st.sym];
+  if(!d||!d.rows||!d.rows.length){
+    exSet("exHead",`<h2>Exposure Board — ${esc(st.sym)}</h2>`);
+    exSet("exSummary",`<div class="exnote">Waiting for live chain data.</div>`);
+    exSet("exGex",""); exSet("exDex",""); exSet("exOi",""); return; }
+  const rows=d.rows, spot=d.spot||0;
+  const step=rows.length>1?Math.abs(rows[1].k-rows[0].k):5;
+
+  // Header
+  const gexT=rows.reduce((a,r)=>a+(r.gex||0),0);
+  const dexT=rows.reduce((a,r)=>a+(r.dex||0),0);
+  const colT=rows.reduce((a,r)=>a+(r.color||0),0);
+  exSet("exHead",`<h2>Exposure Board — ${esc(st.sym)} @ ${exN(spot,0)}</h2>`);
+
+  // Summary: call wall, put wall, gex flip
+  const byGex=[...rows].filter(r=>r.k>spot);
+  const callWall=byGex.length?byGex.reduce((a,r)=>r.gex>a.gex?r:a,byGex[0]):null;
+  const belowSpot=[...rows].filter(r=>r.k<spot);
+  const putWall=belowSpot.length?belowSpot.reduce((a,r)=>r.gex>a.gex?r:a,belowSpot[0]):null;
+  // GEX flip: zero crossing nearest to spot
+  let gexFlip=null;
+  for(let i=1;i<rows.length;i++){
+    const g0=rows[i-1].gex||0, g1=rows[i].gex||0;
+    if(g0<0&&g1>=0){ const k0=rows[i-1].k, k1=rows[i].k;
+      gexFlip=k0+(k1-k0)*(-g0)/(g1-g0); } }
+
+  const lvls=[];
+  if(callWall) lvls.push(`<div class="exlv"><span class="exlvlbl">Call wall</span><span class="exlvval" style="color:${EX_UP}">${exN(callWall.k,0)}</span></div>`);
+  if(gexFlip!=null) lvls.push(`<div class="exlv"><span class="exlvlbl">GEX flip</span><span class="exlvval" style="color:#FFD23F">${exN(gexFlip,1)}</span></div>`);
+  if(putWall) lvls.push(`<div class="exlv"><span class="exlvlbl">Put wall</span><span class="exlvval" style="color:${EX_DN}">${exN(putWall.k,0)}</span></div>`);
+  lvls.push(`<div class="exlv"><span class="exlvlbl">Net GEX</span><span class="exlvval" style="color:${gexT>=0?EX_UP:EX_DN}">${exK(gexT)}</span></div>`);
+  lvls.push(`<div class="exlv"><span class="exlvlbl">Net DEX</span><span class="exlvval" style="color:${dexT>=0?EX_UP:EX_DN}">${exK(dexT)}</span></div>`);
+  const regime=gexT>=0?"Long gamma — dealers absorb moves":"Short gamma — dealers chase moves";
+  exSet("exSummary",`<div class="exlvl">${lvls.join("")}</div><div style="text-align:center;font-size:12px;color:${gexT>=0?EX_UP:EX_DN}">${regime}</div>`);
+
+  // GEX bar chart
+  const maxGex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.gex||0))));
+  const gexBars=rows.map(r=>{
+    const g=r.gex||0, pct=Math.abs(g)/maxGex*100;
+    const col=g>=0?EX_UP:EX_DN;
+    const isSpot=Math.abs(r.k-spot)<step/2;
+    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(r.k,0)}</span><div class="exbfill" style="width:${pct.toFixed(0)}%;background:${col}"></div><span class="exbval">${exK(g)}</span></div>`;
+  }).join("");
+  exSet("exGex",`<div class="exh"><h2>GEX by strike</h2><span class="exsub">dealer gamma exposure · ${EX_UP.includes("5FE")?"teal":"green"} = long · red = short</span></div>${gexBars}`);
+
+  // DEX bar chart
+  const maxDex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.dex||0))));
+  const dexBars=rows.map(r=>{
+    const dx=r.dex||0, pct=Math.abs(dx)/maxDex*100;
+    const col=dx>=0?EX_UP:EX_DN;
+    const isSpot=Math.abs(r.k-spot)<step/2;
+    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(r.k,0)}</span><div class="exbfill" style="width:${pct.toFixed(0)}%;background:${col}"></div><span class="exbval">${exK(dx)}</span></div>`;
+  }).join("");
+  exSet("exDex",`<div class="exh"><h2>DEX by strike</h2><span class="exsub">dealer delta exposure · teal = dealers long · red = short</span></div>${dexBars}`);
+
+  // OI: call vs put per strike
+  const maxOi=Math.max(1,Math.max(...rows.map(r=>Math.max(r.cOI||0,r.pOI||0))));
+  const oiBars=rows.map(r=>{
+    const cPct=(r.cOI||0)/maxOi*100, pPct=(r.pOI||0)/maxOi*100;
+    const isSpot=Math.abs(r.k-spot)<step/2;
+    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(r.k,0)}</span><div class="exbfill exbcall" style="width:${cPct.toFixed(0)}%"></div><div class="exbfill exbput" style="width:${pPct.toFixed(0)}%;margin-left:2px"></div><span class="exbval">C:${exK(r.cOI||0)} P:${exK(r.pOI||0)}</span></div>`;
+  }).join("");
+  exSet("exOi",`<div class="exh"><h2>Open interest</h2><span class="exsub">call (teal) vs put (red) OI by strike</span></div>${oiBars}`);
+
+  exSet("exFoot",`Updated ${d.t||"–"} · data from live chain · descriptor only (FlashAlpha rule 4)`);
+}
+
 /* ============================================================ VIX tab v2 (2026-10-28)
    Convex cockpit only. Reads what cvx_live.py + vixdash.py write into live.json:
      VIX  {spot, v9d (held 0 for the map), v9dq (real VIX9D), exps:[{e, n, rows, F, atmK, atmIV, K0,
@@ -3387,7 +3534,7 @@ function vixClear(msg,detail){
 }
 
 /* ---------------- collapsible sections (arrow in each header; state kept per browser) */
-const VX_SECS=["vxRead","vxPick","vxRegime","vxTerm","vxEvents","vxIV","vxStrikes","vxLink"];
+const VX_SECS=["vxRead","vxPick","vxRegime","vxRvIv","vxSvb","vxICorr","vxTerm","vxEvents","vxIV","vxStrikes","vxLink"];
 function vxColState(){ if(!st._vxCol){ try{ st._vxCol=JSON.parse(load("vxCol","{}"))||{}; }catch(e){ st._vxCol={}; } } return st._vxCol; }
 function vxApplyCol(id){
   const sec=document.getElementById(id); if(!sec) return; const c=!!vxColState()[id];
@@ -3457,6 +3604,9 @@ function vxRender(){
   vxReadBox(S,R,pk,XR,EV);
   vxPickBar(exps,EV);
   vxRegime(R);
+  vxRvIvBox(R);
+  vxSvbGauge(R);
+  vxICorrPanel(R);
   vxTerm(R,exps,today,S);
   vxEvents(EV);
   vxSeg(pk,EV);
@@ -3597,6 +3747,77 @@ function vxRegime(R){
     +`<div class="vxread"><b style="color:${lvl[1]}">${lvl[0]}</b> &middot; ${c.red||0} red · ${c.orange||0} orange · ${c.yellow||0} yellow · ${c.green||0} green${why?` &middot; <span style="color:var(--mute)">${esc(why)}</span>`:""}</div>`
     +`<div class="vxscroll"><table class="vxtbl"><thead><tr><th>Metric</th><th>Now</th><th class="l">1-year percentile</th><th>State</th><th>1 day</th><th>1 week</th><th>1 month</th><th>Last 20 days</th><th class="l">Risk when</th></tr></thead><tbody>${body}</tbody></table></div>`
     +`<div class="vxnote">History: Cboe daily closes, 1 year to ${esc(R.hist_through||"–")}. VRP = VIX minus SPX 20-day realized vol${R.rv20?` (${vxN(R.rv20,2)} today)`:""}. Changes are coloured orange when they move toward risk, teal when away.</div>`);
+}
+
+
+
+
+/* ---------------- #95 Implied correlation panel */
+function vxICorrPanel(R){
+  const head=`<div class="vxh"><h2>Implied correlation</h2><span class="vxsub">Cboe COR1M &amp; COR3M &middot; dispersion = DSPX &middot; term spread = COR1M &minus; COR3M</span></div>`;
+  if(!R||!R.icorr||R.icorr.cor1m==null){ vxSet("vxICorr",head+`<div class="vxnote">Waiting for COR1M / COR3M / DSPX quotes from the Cboe feed.</div>`); return; }
+  const ic=R.icorr;
+  const spreadCol=ic.spread!=null?(ic.spread>5?"#FF9A6B":ic.spread<-5?"#5FE0C0":"#999"):"#999";
+  const corrLevel=ic.cor1m>70?["High","#FF6B6B"]:ic.cor1m>50?["Normal","#FFD23F"]:["Low","#5FE0C0"];
+  const items=[];
+  items.push(`<div class="vxicitem"><span class="vxiclbl">COR1M</span><span class="vxicval" style="color:${corrLevel[1]}">${vxN(ic.cor1m,1)}</span><div style="font-size:11px;color:${corrLevel[1]}">${corrLevel[0]}</div></div>`);
+  if(ic.cor3m!=null) items.push(`<div class="vxicdiv"></div><div class="vxicitem"><span class="vxiclbl">COR3M</span><span class="vxicval">${vxN(ic.cor3m,1)}</span></div>`);
+  if(ic.spread!=null) items.push(`<div class="vxicdiv"></div><div class="vxicitem"><span class="vxiclbl">Term spread</span><span class="vxicspread" style="color:${spreadCol}">${vxSgn(ic.spread,1)} pts</span><div style="font-size:10px;color:#666">${ic.spread>2?"near-term corr spike":ic.spread<-2?"near-term corr discount":"flat"}</div></div>`);
+  if(ic.dspx!=null) items.push(`<div class="vxicdiv"></div><div class="vxicitem"><span class="vxiclbl">DSPX</span><span class="vxicval">${vxN(ic.dspx,2)}</span><div style="font-size:10px;color:#666">dispersion</div></div>`);
+  vxSet("vxICorr",head+`<div class="vxicrow">${items.join("")}</div>`);
+}
+
+/* ---------------- #90 Spot-vol beta gauge */
+function vxSvbGauge(R){
+  const head=`<div class="vxh"><h2>Spot-vol beta</h2><span class="vxsub">VIX % change per 1% SPX move &middot; 20-day regression slope</span></div>`;
+  if(!R||R.svb==null){ vxSet("vxSvb",head+`<div class="vxnote">Waiting for 20 days of VIX + SPX history from the Cboe feed.</div>`); return; }
+  const b=R.svb;
+  /* typical range: -2 to -8; more negative = more reactive */
+  const abs=Math.abs(b);
+  const label= abs>6?"High reactivity":abs>3.5?"Normal":"Muted";
+  const col= abs>6?"#FF6B6B":abs>3.5?"#FFD23F":"#5FE0C0";
+  /* bar fill: clamp abs to 0-10 range */
+  const pct=Math.min(100,abs/10*100);
+  vxSet("vxSvb",head+`<div class="vxsvbwrap">
+    <div><span class="vxsvbval" style="color:${col}">${vxN(b,2)}</span></div>
+    <div>
+      <div class="vxsvbbar"><div class="vxsvbfill" style="width:${pct.toFixed(0)}%;background:${col}"></div></div>
+      <div class="vxsvbmeta">${label} &middot; every 1% SPX drop &rarr; ~${vxN(abs,1)}% VIX rally</div>
+    </div>
+  </div>`);
+}
+
+/* ---------------- #94 Carroll RV / IV box */
+function vxRvIvBox(R){
+  const head=`<div class="vxh"><h2>Realized vs implied</h2><span class="vxsub">SPX 20-day RV vs VIX &middot; VRP = VIX &minus; RV &middot; quadrant per Carroll</span></div>`;
+  if(!R||R.rv20==null||!R.idx||R.idx.VIX==null){
+    vxSet("vxRvIv",head+`<div class="vxnote">Waiting for RV and VIX data from the Cboe feed.</div>`); return; }
+  const rv=R.rv20, vix=R.idx.VIX, v3m=R.idx.VIX3M;
+  const vrp=vix-rv;
+  /* quadrant: median splits — RV median ~15, VRP median ~4 (approximate long-run) */
+  const rvHi=rv>15, vrpHi=vrp>4;
+  const quad= vrpHi&&!rvHi ? ["Rich","rich","Low RV + wide VRP &rarr; premium sellers’ market"]
+             :vrpHi&& rvHi ? ["Stress","stress","High RV + wide VRP &rarr; fear bid, hedges expensive"]
+             :!vrpHi&&!rvHi? ["Calm","calm","Low RV + tight VRP &rarr; quiet tape, cheap hedges"]
+             :               ["Cheap","cheap","High RV + tight VRP &rarr; realized catching up, hedges cheap"];
+  const body=`<div class="vxrvbox">
+    <div class="vxrvleft">
+      <span class="vxrvlbl">20-day RV</span>
+      <span class="vxrvval">${vxN(rv,2)}</span>
+    </div>
+    <div class="vxrvdiv"></div>
+    <div class="vxrvright">
+      <span class="vxrvlbl">VIX (30-day IV)</span>
+      <span class="vxrvval">${vxN(vix,2)}</span>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:6px">
+    <span class="vxrvlbl">VRP</span>
+    <span class="vxrvvrp" style="color:${vrp>0?VX_UP:VX_DN}">${vxSgn(vrp,2)} pts</span>
+    <br><span class="vxrvq ${quad[1]}">${quad[0]}</span>
+    <div style="font-size:11px;color:#888;margin-top:3px">${quad[2]}</div>${v3m!=null?`<div style="font-size:11px;color:var(--mute);margin-top:4px">VIX3M: ${vxN(v3m,2)} &middot; VIX/VIX3M ratio: ${vxN(vix/v3m,3)}</div>`:""}
+  </div>`;
+  vxSet("vxRvIv",head+body);
 }
 
 /* ---------------- term structure, then and now (+ each VIX expiry's forward in amber) */
