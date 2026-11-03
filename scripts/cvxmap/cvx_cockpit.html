@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CONVEX cockpit v2 (SPX/SPY/QQQ)</title>
+<title>SPX Cockpit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{
   --night:#0A1426; --pane:#0E1B33; --pane2:#112141; --rule:#1B2C4C; --grid:#16264380;
@@ -573,15 +574,15 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="premium" aria-pressed="false" title="Where today&rsquo;s option premium actually went: top call and put strikes by dollars, bought vs sold, and the biggest minutes (key $)">Premium</button>
       <button data-tab="exposure" aria-pressed="false" title="Per-strike dealer gamma and delta exposure from the live chain">Exposure</button>
       <button data-tab="density" aria-pressed="false" title="Where the close is likely to land: a cone re-run every 5 minutes from live spot and the live 0DTE straddle, with the Map&rsquo;s gamma zero and vanna rails (key N)">Density</button>
-      <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, from the Convex VIX chain + Cboe indices (key X)">VIX</button>
+      <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, VIX chain + Cboe indices (key X)">VIX</button>
       <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
-      <button data-tab="plan" aria-pressed="false" title="Doc's morning plan graded live, plus trading-intel's morning book">Plan</button>
+      <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus trading-intel's morning book">Plan</button>
       <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
     <span class="demo-flag">Demo data</span>
-    <div class="fresh"><span class="dot" id="fdot"></span><span id="ftxt">connecting…</span></div>
+    <button class="btn" id="screenshotBtn" title="Save a screenshot of the current view" style="font-size:11px;padding:2px 8px;margin-right:6px">📷</button><div class="fresh"><span class="dot" id="fdot"></span><span id="ftxt">connecting…</span></div>
   </header>
 
   <section class="read" aria-live="polite">
@@ -620,7 +621,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <button class="btn live" id="liveBtn" hidden title="Return to the latest minute, centred on spot (or double-click the map)">Back to live</button>
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
-        <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw Doc's levels from this morning's report (D)">Doc levels</button>
+        <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
         <button class="btn" id="maxBtn" title="Hide every panel, map only">Expand</button>
         <span class="hint" style="flex-basis:100%;margin-top:-2px">Drag a box over the map to zoom into it · scroll = zoom time · Shift+scroll = zoom strikes · Shift+drag = pan · + / − keys · double-click or F = back to live · Ctrl+scroll or Ctrl +/− = zoom the whole page</span>
@@ -726,9 +727,9 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   </main>
   <main id="tabMap" class="tab" hidden>
     <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><span class="hint" id="mapNote"></span></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
-    <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw Doc's levels on the maps (D)">Doc</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
+    <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
-    <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div><div class="seg" role="group" id="weekSrcSeg" title="Where the 1–7 DTE book comes from: Convex 08:35 OI with IVs re-marked by VIX9D (default), or the TOS Week_SPX sheet live (LiveLog v18, SPX only)"><button data-v="convex" aria-pressed="true">Convex</button><button data-v="tos" aria-pressed="false">TOS live</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
+    <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
@@ -821,10 +822,10 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Map</dt><dd>Gamma, charm and vanna as heat maps. Left of the dashed vertical is the book as it actually stood each minute. Right of it is today&rsquo;s book carried forward to the close as time decays.</dd>
           <dt>Volume</dt><dd>Three ladders side by side: everything so far today, just the last 30 minutes, and the last 30 compared with the 30 before it.</dd>
           <dt>Density</dt><dd>Where the close is likely to land, re-estimated every 5 minutes. The bright band is a 20,000-path simulation started from live spot, sized by the live 0DTE at-the-money straddle, spread over the day by a historical time-of-day profile, and widened where the Map says dealers are short gamma (narrowed where long). Left of the cursor is the 09:30 cone for comparison. The cyan line is the Map&rsquo;s gamma zero and the green and lavender lines are its vanna top and bottom, each as it stood that minute (0DTE book, your basis setting). It is centred on spot, so it does not call the close by itself &mdash; read the lines for that. <b>Engine ON/OFF</b> is the kill switch: OFF stops all of its calculation; <code>?nodensity</code> in the address bar turns it off hard. Key N.</dd>
-          <dt>VIX</dt><dd>Convex feed only (the ToS workbook carries no VIX chain). Every section folds with the arrow (&#9662;/&#9656;) next to its title; the browser remembers which are folded. <b>Read</b>: one verdict (Calm, sellable &middot; Mixed &middot; Bullish-vol trap &middot; Risk-off) and six lines written from <i>docs/guides/reading-the-vix.md</i>: the VIX zone (under 22 carry, 22&ndash;32 fragility, over 32 stress), the curve shape plus VVIX&nbsp;&divide;&nbsp;VIX, <i>why VIX moved</i> (the Cboe 6-factor split of the SPX 30-day smile between the last two 08:35 books: sticky strike = mechanical, parallel shift = real repricing, put/call skew and wings = who is paying), the NAS vol-regime label with its own bias line, VIX options positioning across the picked expiries, and what that means for 0DTE trades. It is a descriptive read, never a trade signal. <b>Expiries</b>: tap chips to pick any set (nearest two on every load; Front 2 / Monthlies / All presets). <b>Regime board</b>: eight rows coloured by their 1-year percentile in the risky direction &mdash; green safest third, yellow middle, orange riskiest third (slow flash), red top 10% or any curve ratio above 1.00 (fast flash). <b>Term structure</b>: Cboe VIX1D &rarr; VIX1Y today vs yesterday, 1 week and 1 month ago, with each VIX expiry&rsquo;s forward in amber. <b>Events</b> through the next VIX monthly. <b>Implied variance</b>: a term curve of whole-curve vol vs ATM vol for every expiry (the gap is the price of the wings), cards for the picked expiries, and the strike breakdown for one of them. <b>Positions by strike</b>: with two or more picks, an <i>All picked</i> panel sums open interest and today&rsquo;s contracts bought and sold by strike; <i>From forward</i> lines each month up on its own forward instead (strike 20 is near the money in November but below it in March). Bought/sold is Convex&rsquo;s measured split, today only, not dealer inventory. Cboe indices are about 15 minutes delayed. Nothing on this tab feeds the map.</dd>
+          <dt>VIX</dt><dd>Every section folds with the arrow (&#9662;/&#9656;) next to its title; the browser remembers which are folded. <b>Read</b>: one verdict (Calm, sellable &middot; Mixed &middot; Bullish-vol trap &middot; Risk-off) and six lines written from <i>docs/guides/reading-the-vix.md</i>: the VIX zone (under 22 carry, 22&ndash;32 fragility, over 32 stress), the curve shape plus VVIX&nbsp;&divide;&nbsp;VIX, <i>why VIX moved</i> (the Cboe 6-factor split of the SPX 30-day smile between the last two 08:35 books: sticky strike = mechanical, parallel shift = real repricing, put/call skew and wings = who is paying), the NAS vol-regime label with its own bias line, VIX options positioning across the picked expiries, and what that means for 0DTE trades. It is a descriptive read, never a trade signal. <b>Expiries</b>: tap chips to pick any set (nearest two on every load; Front 2 / Monthlies / All presets). <b>Regime board</b>: eight rows coloured by their 1-year percentile in the risky direction &mdash; green safest third, yellow middle, orange riskiest third (slow flash), red top 10% or any curve ratio above 1.00 (fast flash). <b>Term structure</b>: Cboe VIX1D &rarr; VIX1Y today vs yesterday, 1 week and 1 month ago, with each VIX expiry&rsquo;s forward in amber. <b>Events</b> through the next VIX monthly. <b>Implied variance</b>: a term curve of whole-curve vol vs ATM vol for every expiry (the gap is the price of the wings), cards for the picked expiries, and the strike breakdown for one of them. <b>Positions by strike</b>: with two or more picks, an <i>All picked</i> panel sums open interest and today&rsquo;s contracts bought and sold by strike; <i>From forward</i> lines each month up on its own forward instead (strike 20 is near the money in November but below it in March). Bought/sold is the vendor&rsquo;s measured split, today only, not dealer inventory. Cboe indices are about 15 minutes delayed. Nothing on this tab feeds the map.</dd>
           <dt>Exposure</dt><dd>Per-strike dealer gamma (GEX) and delta (DEX) exposure from the live chain. Call wall, put wall, GEX flip, and open-interest distribution. Descriptor only (FlashAlpha rule 4). Key B.</dd>
           <dt>Premium</dt><dd>Where today&rsquo;s option money actually went &mdash; the heaviest strikes a side, how much of each was bought rather than sold, and which minutes carried outsized premium.</dd>
-          <dt>Plan</dt><dd>Doc&rsquo;s morning plan graded against what price has since done, plus the morning book.</dd>
+          <dt>Plan</dt><dd>Morning plan graded against what price has since done, plus the morning book.</dd>
         </dl>
 
         <h3>Reading the map</h3>
@@ -847,7 +848,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <ol class="caveats">
           <li><b>A wall sitting on the edge of the ladder is not a wall.</b> The 0DTE chain only covers about &plusmn;100 points around spot. If the put wall or call wall lands on the very first or last row, that is where your data stops, not where the wall is. A wall with rows either side of it is real.</li>
           <li><b>Gamma above the week book&rsquo;s top strike can show the wrong sign.</b> The 1&ndash;7 DTE book is built once in the morning across a fixed strike range and does not follow price. On a trending day price can run up near the top of it, and above the last strike there is nothing left but a fading tail. On 26 Oct that tail read dealers as short gamma above spot when the full book had them clearly long. Check how far the week book reaches before trusting gamma near the top.</li>
-          <li><b>For gamma, Convex is usually the safer week source.</b> Open interest settles overnight and does not move during the day, so the 08:35 snapshot costs little &mdash; and it covers far more strikes. For vanna, TOS live has the better volatility but a much narrower range of strikes.</li>
+          <li><b>For gamma, the 08:35 OI is the safer week source.</b> Open interest settles overnight and does not move during the day, so the morning snapshot costs little &mdash; and it covers far more strikes.</li>
           <li><b>Vanna hides disagreements that gamma shows.</b> The vanna map has its background level removed so structure stands out. That also means two very different week books can look almost the same on vanna while the numbers underneath differ by a third. Gamma is not treated that way, so it shows the disagreement honestly.</li>
           <li><b>Basis is set on the Flow tab and governs the maps.</b> OI, today&rsquo;s volume, or both. It is also shown and switchable in the Gamma pane header. If two browser tabs disagree, one of them loaded before you last changed it &mdash; refresh.</li>
           <li><b>Premium and Flow count regular hours only.</b> Pre-open trading and anything after the 16:15 close are left out, so the lean reflects the session rather than the roll.</li>
@@ -861,7 +862,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <span><kbd>M</kbd> focus the map</span>
           <span><kbd>S</kbd> focus the strike panel</span>
           <span><kbd>Esc</kbd> back to the map</span>
-          <span><kbd>D</kbd> Doc&rsquo;s levels on or off</span>
+          <span><kbd>D</kbd> AM levels on or off</span>
           <span><kbd>W</kbd> add to watch</span>
           <span><kbd>V</kbd> Volume tab</span>
           <span><kbd>$</kbd> or <kbd>R</kbd> Premium tab</span>
@@ -877,9 +878,9 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   </main>
   <main id="tabPlan" class="tab" hidden>
     <section class="pane scroll" id="planRoad">
-      <div class="phead"><h2>Doc's road map, graded live on SPX</h2><span class="hint" id="docMeta"></span><span class="sp"></span>
+      <div class="phead"><h2>Morning road map, graded live on SPX</h2><span class="hint" id="docMeta"></span><span class="sp"></span>
         <div class="seg" role="group" aria-label="What counts as a conversion" id="convSeg">
-          <span class="lbl">Conversion</span><button data-v="5m" aria-pressed="true" title="Doc's rule: a 5-minute close through the level. A wick is noise.">5-min close</button><button data-v="1m" aria-pressed="false">1-min close</button><button data-v="touch" aria-pressed="false">Touch</button>
+          <span class="lbl">Conversion</span><button data-v="5m" aria-pressed="true" title="The rule: a 5-minute close through the level. A wick is noise.">5-min close</button><button data-v="1m" aria-pressed="false">1-min close</button><button data-v="touch" aria-pressed="false">Touch</button>
         </div>
       </div>
       <div id="docBanner"></div>
@@ -888,7 +889,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <div class="sclist" id="scList"></div>
     </section>
     <section class="pane" id="planChartPane">
-      <div class="phead"><h2>SPX against Doc's levels</h2><span class="sp"></span><span class="legend" id="planLegend"></span></div>
+      <div class="phead"><h2>SPX against AM levels</h2><span class="sp"></span><span class="legend" id="planLegend"></span></div>
       <div class="body"><canvas id="planC"></canvas><div class="empty" id="planEmpty"><b>Waiting for today's SPX log</b><span>The path starts at 9:30 from the minute log.</span></div></div>
       <div class="tip" id="planTip"></div>
     </section>
@@ -1168,18 +1169,18 @@ function docMapLabels(ctx,list,x,yMin,yMax,alignRight){
 /* ---- Flow reads: Doc block */
 function renderDocRead(){
   const el=document.getElementById("rbDoc"); const d=docObj();
-  if(!d){ el.innerHTML=`<h3>Doc's road map</h3><div class="note">${DEMO?"":"No plan loaded. am_feed.py reads Doc's email each morning; start_dashboard.bat starts it."}</div>`; return; }
-  if(!docFresh()){ el.innerHTML=`<h3>Doc's road map</h3><div class="note">Waiting for today's report (the last one is ${esc(d.date)}). It usually lands 8:00–8:30 ET.</div>`; bindOpenPlan(); return; }
+  if(!d){ el.innerHTML=`<h3>Morning road map</h3><div class="note">${DEMO?"":"No plan loaded. am_feed.py reads the morning report; start_dashboard.bat starts the feed."}</div>`; return; }
+  if(!docFresh()){ el.innerHTML=`<h3>Morning road map</h3><div class="note">Waiting for today\'s report (the last one is ${esc(d.date)}). It usually lands 8:00–8:30 ET.</div>`; bindOpenPlan(); return; }
   const G=docGrades()||[], S=(docPath().slice(-1)[0]||{}).x;
   const seen=new Set(), rows=[];
   const add=x=>{ if(x&&!seen.has(x.s.id)){ seen.add(x.s.id); rows.push(x); } };
   add(G.find(x=>x.s.kind==="lean"&&x.g.state==="active"));
   G.filter(x=>["live","hit","reversed","touched"].includes(x.g.state)).sort((a,b)=>evT(b)-evT(a)).slice(0,3).forEach(add);
   if(S) nearestArmed(G,S).forEach(add);
-  el.innerHTML=`<h3>Doc's road map · ${esc(d.date.slice(5).replace("-","/"))} <button class="btn openbtn" id="openPlan" style="float:right">Open plan</button></h3>`+
+  el.innerHTML=`<h3>Morning road map · ${esc(d.date.slice(5).replace("-","/"))} <button class="btn openbtn" id="openPlan" style="float:right">Open plan</button></h3>`+
     (rows.length?rows.map(({s,g})=>{ const [lab,cls]=scBadge(s,g); return `<div class="rline"><span>${scShort(s)}</span><span class="verdict bd ${cls}">${lab}</span></div><div class="note" style="margin:0 0 5px">${scStatus(s,g)}</div>`; }).join("")
       :`<div class="note">${docPath().length?"Nothing near price yet.":"Waiting for SPX after 9:30."}</div>`)+
-    `<div class="note">Conversion = ${ruleWord()} through the level (Doc: touch is information, conversion is permission).</div>`;
+    `<div class="note">Conversion = ${ruleWord()} through the level (touch is information, conversion is permission).</div>`;
   bindOpenPlan(); }
 function bindOpenPlan(){ const b=document.getElementById("openPlan"); if(b) b.onclick=()=>{ st.tab="plan"; save("tab","plan"); render(); }; }
 
@@ -1188,12 +1189,12 @@ function renderPlan(){
   const d=docObj(), meta=document.getElementById("docMeta"), ban=document.getElementById("docBanner"), one=document.getElementById("docOne"),
         paths=document.getElementById("docPaths"), list=document.getElementById("scList");
   syncSeg("convSeg",st.conv);
-  if(!d){ meta.textContent=""; ban.innerHTML=`<div class="banner">No plan yet. am_feed.py reads Doc's email each morning (start_dashboard.bat starts it); the report usually lands 8:00–8:30 ET.</div>`;
+  if(!d){ meta.textContent=""; ban.innerHTML=`<div class="banner">No plan yet. am_feed.py reads the morning report (start_dashboard.bat starts the feed); the report usually lands 8:00–8:30 ET.</div>`;
     one.innerHTML=paths.innerHTML=list.innerHTML=""; renderPlanChart(); renderPlanSide(); return; }
   const fresh=docFresh(), path=docPath();
-  meta.textContent=`${(d.title||"Doc McGraw").replace(/\s+—.*$/,"")} · via ${d.source||"?"}${d.received?" at "+d.received.slice(11,16):""}`;
+  meta.textContent=`${(d.title||"Morning Report").replace(/\s+—.*$/,"")} · via ${d.source||"?"}${d.received?" at "+d.received.slice(11,16):""}`;
   const notes=[];
-  if(!fresh) notes.push(`This is Doc's ${esc(d.date||"last")} report. Today's hasn't arrived yet (usually 8:00–8:30 ET; the feed checks every 3 minutes). Nothing is drawn or graded until it lands.`);
+  if(!fresh) notes.push(`This is the ${esc(d.date||"last")} report. Today's hasn't arrived yet (usually 8:00–8:30 ET; the feed checks every 3 minutes). Nothing is drawn or graded until it lands.`);
   else { (d.warnings||[]).forEach(w=>notes.push(esc(w)));
     if(path.length&&path[0].t>575) notes.push(`The minute log starts at ${tlabel(path[0].t)}, so anything before that is not graded.`); }
   ban.innerHTML=notes.length?`<div class="banner">${notes.join("<br>")}</div>`:"";
@@ -1266,9 +1267,9 @@ function renderPlanSide(){
       rows+=`<tr><td class="n">${fmtN(L.v)}</td><td><span class="role ${L.role}" title="${ROLE_NAME[L.role]||""}"></span>${esc(L.label)}</td><td>${s2?esc(s2.label+" · "+s2.action):""}</td><td class="n">${S?pts(L.v-S,1).replace(" pts",""):""}</td></tr>`; }
     if(!spotDone) rows+=`<tr class="spotrow"><td class="n">${fmtN(S,2)}</td><td>SPX now</td><td></td><td></td></tr>`;
     const rails=(d.rails||[]).map(r=>`${esc(r.name)} <b>${zoneTxt([r.lo,r.hi])}</b>`).join(" · ");
-    lvEl.innerHTML=`<h3>Doc's SPX levels${fresh?"":` (from ${esc(d.date)}, not today)`}</h3><table class="tbl"><thead><tr><th>Level</th><th>Doc's label</th><th>Scalper</th><th>vs spot</th></tr></thead><tbody>${rows}</tbody></table>`+
+    lvEl.innerHTML=`<h3>AM report levels${fresh?"":` (from ${esc(d.date)}, not today)`}</h3><table class="tbl"><thead><tr><th>Level</th><th>Label</th><th>Scalper</th><th>vs spot</th></tr></thead><tbody>${rows}</tbody></table>`+
       (rails?`<div class="note" style="font-size:12px;margin-top:6px">Rails: ${rails}</div>`:"");
-  } else lvEl.innerHTML=`<h3>Doc's SPX levels</h3><div class="note">None yet.</div>`;
+  } else lvEl.innerHTML=`<h3>AM report levels</h3><div class="note">None yet.</div>`;
   // cross-check
   const {book}=currentBook(st.sym==="SPX"?series("SPX"):null,"SPX");
   const T=st.ti&&st.ti.ti||{}, mr=T.market_read||{}, mech=mr.mechanics||{}, prof=T.profile||{}, wl=T.walls||{};
@@ -1293,9 +1294,9 @@ function renderPlanSide(){
     ["Expected range", strR?"STR "+zoneTxt([strR.lo,strR.hi]):"–", book&&book.em>0?`${fmtN(book.S-book.em)}–${fmtN(book.S+book.em)} <small style="color:var(--faint)">straddle left</small>`:"–",
       sd&&sd.lower!=null?`${fmtN(sd.lower)}–${fmtN(sd.upper)} <small style="color:var(--faint)">AM straddle</small>`+ag(sd.lower,strR&&strR.lo):"–"],
     ["Dealer gamma", "–", book?(book.long?"long (absorb)":"short (chase)"):"–", mech.state?esc(mech.state):"–"]];
-  crEl.innerHTML=`<h3>Cross-check: Doc vs our books</h3><table class="tbl"><thead><tr><th></th><th>Doc</th><th>TOS 0DTE live</th><th>trading-intel AM</th></tr></thead><tbody>`+
+  crEl.innerHTML=`<h3>Cross-check: AM report vs our books</h3><table class="tbl"><thead><tr><th></th><th>AM report</th><th>0DTE live</th><th>trading-intel AM</th></tr></thead><tbody>`+
     rowsX.map(r=>`<tr><td style="color:var(--mute)">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")+`</tbody></table>
-    <div class="note">✓ = within 5 points. TOS = today's 0DTE chain, live. trading-intel = the 8:35 chain: 0DTE rows use the morning OI, "0–7 DTE" and the flip cover the whole near-dated book.${w0?"":" (No same-day expiry in today's snapshot: the NAS fix lands the morning after it ships.)"}</div>`;
+    <div class="note">✓ = within 5 points. 0DTE live = today's 0DTE chain. trading-intel = the 8:35 chain: 0DTE rows use the morning OI, "0–7 DTE" and the flip cover the whole near-dated book.${w0?"":" (No same-day expiry in today's snapshot: the NAS fix lands the morning after it ships.)"}</div>`;
   // trading-intel morning book
   if(!st.ti||!st.ti.ti||!Object.keys(T).length){ bkEl.innerHTML=`<h3>trading-intel morning book</h3><div class="note">${DEMO?"":"No data from am_feed.py yet."}</div>`; }
   else { const rg=mr.regime||{}, wx=mr.weather||{};
@@ -1309,12 +1310,12 @@ function renderPlanSide(){
 
       (mr.path?`<div class="note" style="font-size:12px">Path: ${esc(mr.path)}</div>`:"")+
       ((mr.triggers||[]).length?`<ul class="trigs">${mr.triggers.slice(0,4).map(t=>`<li>${esc(t.trigger)} → ${esc(t.consequence)}</li>`).join("")}</ul>`:"")+
-      `<canvas id="profC"></canvas><div class="note">Dealer gamma by SPX level, each line scaled to itself: white = all expiries (trading-intel), blue dashed = ${(()=>{ const k=Object.keys(prof.near||{}).sort()[0]; return k===today?"today's expiry on the 8:35 OI":"next expiry"; })()}, yellow = today's 0DTE from TOS (live OI + IV). Where a line crosses zero is its flip.</div>`;
+      `<canvas id="profC"></canvas><div class="note">Dealer gamma by SPX level, each line scaled to itself: white = all expiries (trading-intel), blue dashed = ${(()=>{ const k=Object.keys(prof.near||{}).sort()[0]; return k===today?"today's expiry on the 8:35 OI":"next expiry"; })()}, yellow = today's 0DTE live chain (live OI + IV). Where a line crosses zero is its flip.</div>`;
     drawProfile(book); }
   renderLean(T.oi_lean, isToday);
   // sources
   const errs=(st.ti&&st.ti.errors)||[];
-  srEl.innerHTML=st.ti?`Feed ${esc((st.ti.asof||"").slice(11,16))} ET · Doc via ${esc(d?d.source:"–")} · ${errs.length?`<span class="errs">${errs.map(esc).join(" · ")}</span>`:"no feed errors"}`:(DEMO?"Demo plan (Doc's 10/21 report)":"ti.json not found: start am_feed.py");
+  srEl.innerHTML=st.ti?`Feed ${esc((st.ti.asof||"").slice(11,16))} ET · Report via ${esc(d?d.source:"–")} · ${errs.length?`<span class="errs">${errs.map(esc).join(" · ")}</span>`:"no feed errors"}`:(DEMO?"Demo plan (10/21 report)":"ti.json not found: start am_feed.py");
 }
 function renderLean(L, isToday){ // overnight OI change x IV vs ATM, from the two newest 8:35 books
   const el=document.getElementById("psLean"); if(!el) return;
@@ -1855,7 +1856,7 @@ function drawStrike(canvas, head, se, d, k, side, emptyMsg){
     for(const [arr,col] of ivSeries){ ctx.strokeStyle=col; polyline(ctx, js.map(j=>arr[j]==null?null:[X(se.T[j]),Yi(arr[j])])); }
     ctx.setLineDash([]);
     ctx.fillStyle=C("--mute"); ctx.textAlign="right"; ctx.fillText((mx*100).toFixed(1)+"%",padL-6,iTop+8); ctx.fillText((mn*100).toFixed(1)+"%",padL-6,iBot); ctx.textAlign="left"; }
-  else il.push(["text",null,"no IV (TOS sends -- for deep in-the-money)"]);
+  else il.push(["text",null,"no IV (feed sends -- for deep in-the-money)"]);
   legend(iTop-LEG+7, [["text",null,"IV"],...il]);
 
   // ---- band 3: volume per minute: calls up, puts down, net (calls − puts) as a line
@@ -2510,7 +2511,7 @@ function demo(){
 /* ============================================================ flow v2 — signed tape, cards, expiry mood, read line, robustness, implied close
    Sides come from LiveLog v16: each minute's volume change gets the side of the strike's LAST vs its quote at that poll.
    tier 1 = at/through the bid or ask (firm), tier 2 = inside the spread but off mid (soft), tier 3 = at mid (unsigned).
-   Interval-level: it misses prints between polls and mis-signs a minute with mixed trades. Convex index prints (ti.json
+   Interval-level: it misses prints between polls and mis-signs a minute with mixed trades. Vendor index prints (ti.json
    "tape", from the NAS tas_prints table, >= $100k/$250k) carry the vendor's own side and replace the estimate where they match. */
 const F2_SMALL = 20000, F2_TAIL = 0.15, F2_MID_FRAC = 0.15, LADDER_AGO = 30;
 let _f2 = {key:null, res:null};
@@ -2569,13 +2570,13 @@ function f2Cards(sr,se,d,book){
 function cardHtml(title,r,tp,sub){
   if(!r) return `<div class="f2card"><small>${title}</small><b>–</b><span>${sub||"nothing signed yet"}</span></div>`;
   const tierTxt=["","firm","soft","unsigned"][r.tier];
-  if(tp) return `<div class="f2card tape"><small>${title} · tape</small><b>${fmtN(tp.size)} × ${fmtN(r.k)}${r.cp}</b><span>${money(tp.notional)} · ${esc(tp.t)} ET · Convex side: ${esc(tp.side)}${tp.sweep?" · sweep":""}${tp.block?" · block":""}</span></div>`;
+  if(tp) return `<div class="f2card tape"><small>${title} · tape</small><b>${fmtN(tp.size)} × ${fmtN(r.k)}${r.cp}</b><span>${money(tp.notional)} · ${esc(tp.t)} ET · vendor side: ${esc(tp.side)}${tp.sweep?" · sweep":""}${tp.block?" · block":""}</span></div>`;
   return `<div class="f2card"><small>${title}</small><b>${fmtN(r.n)} × ${fmtN(r.k)}${r.cp}</b><span>${money(r.prem)} · ${tlabel(r.t)} ET · ${tierTxt} ${r.side>0?"buy":"sell"} at ${r.px.toFixed(2)}</span></div>`;
 }
 function expiryLabel(e){ if(!e) return ""; const d=new Date(e+"T12:00:00"); return d.toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
 function moodBoxes(sr,d){
   const boxes=[];
-  if(sr&&sr.share!=null) boxes.push({lbl:(d&&d.exp?expiryLabel(d.exp):"0DTE")+" · TOS",share:sr.share,grey:sr.unsShare||0,n:sr.rows.length,src:"tos"});
+  if(sr&&sr.share!=null) boxes.push({lbl:(d&&d.exp?expiryLabel(d.exp):"0DTE")+" · live",share:sr.share,grey:sr.unsShare||0,n:sr.rows.length,src:"tos"});
   const tape=tapeOf(st.sym);
   if(tape&&tape.by_expiry){ const es=Object.keys(tape.by_expiry).sort();
     for(const e of es.slice(0,6)){ const x=tape.by_expiry[e]; const dir=(x.bull||0)+(x.bear||0); if(!dir&&!x.mid) continue;
@@ -2616,7 +2617,7 @@ function renderFlow2(se,d,book){
     <div class="f2meta">Order-flow lean, signed premium ${money(sr.bull+sr.bear)} · net delta <b class="${sr.net>=0?"up":"dn"}">${sr.net>=0?"+":""}${fmtN(Math.round(sr.net))}</b> share-equiv${prev!=null?` · last logged session (${st.prevDate||'earlier'}) ${Math.round(prev*100)}%`:""}</div>`;
   const boxes=moodBoxes(sr,d);
   ex.innerHTML=boxes.length?`<div class="f2exh">Mood by expiration · share of directional premium that was bullish</div><div class="f2boxes">`+boxes.map(b=>`<div class="f2box ${b.src}"><small>${esc(b.lbl)}</small><b>${b.share==null?"–":Math.round(b.share*100)+"%"}</b><div class="mini"><i style="width:${b.share==null?0:(b.share*100).toFixed(0)}%"></i><s style="width:${(b.grey*100).toFixed(0)}%"></s></div><span>${b.src==="tape"?money(b.notional||0):fmtN(b.n)+" rows"}</span></div>`).join("")+`</div>`:"";
-  ft.innerHTML=`Sides from TOS LAST vs the quote at each 1-minute poll: at/through the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry Convex's own side. Descriptive positioning, not a signal.`;
+  ft.innerHTML=`Sides from LAST vs the quote at each 1-minute poll: at/through the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry the vendor's own side. Descriptive positioning, not a signal.`;
   drawHump("humpC",se,book,false);
   renderRobust(sr);
 }
@@ -2758,7 +2759,7 @@ function tosWeekRows(){ // 1–7 DTE book straight from TOS (live.json "week", L
   const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const out=[];
   for(const r of wk.rows){ const sg=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg>0)) continue; const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte}); }
   return out.length?out:null; }
-function nearRows(){ if(st.weekSrc==="tos"){ const t=tosWeekRows(); if(t) return t; } return nearRowsConvex(); }
+function nearRows(){ return nearRowsConvex(); }
 function weekDiff(){ // one line: how the two week books differ (OI match, ATM IV, walls) — only when both exist
   const cv=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym], wk=st.live&&st.live.week&&st.live.week[st.sym]; if(!cv||!cv.rows||!wk||!wk.rows||!wk.rows.length) return "";
   const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const key=r=>r.e+"|"+r.k; const A=new Map(cv.rows.map(r=>[key(r),r])), B=new Map(wk.rows.map(r=>[key(r),r]));
@@ -2769,10 +2770,10 @@ function weekDiff(){ // one line: how the two week books differ (OI match, ATM I
   for(const nm of ["cv","tos"]){ let bc=null,bp=null; for(const [k,v] of agg[nm]){ if(k>=S&&(bc==null||v.c>agg[nm].get(bc).c)) bc=k; if(k<=S&&(bp==null||v.p>agg[nm].get(bp).p)) bp=k; } wall.c[nm]=bc; wall.p[nm]=bp; }
   if(!n) return "";
   const avg=a=>a.length?a.reduce((q,x)=>q+x,0)/a.length*100:null; const f=v=>v==null?"–":fmtN(v);
-  const ivs=(avg(ivC)!=null&&avg(ivT)!=null)?` · 1-DTE ATM IV Convex 08:35 ${avg(ivC).toFixed(1)} vs TOS now ${avg(ivT).toFixed(1)}`:"";
-  return `<div class="l"><b>Week book check</b> (${n} contracts in both): OI identical on ${Math.round(same/n*100)}%${ivs} · put wall ${f(wall.p.cv)} / ${f(wall.p.tos)} · call wall ${f(wall.c.cv)} / ${f(wall.c.tos)} <i>(Convex / TOS)</i> · showing <b>${st.weekSrc==="tos"?"TOS live":"Convex"}</b>.</div>`;
+  const ivs=(avg(ivC)!=null&&avg(ivT)!=null)?` · 1-DTE ATM IV AM 08:35 ${avg(ivC).toFixed(1)} vs live ${avg(ivT).toFixed(1)}`:"";
+  return `<div class="l"><b>Week book check</b> (${n} contracts in both): OI identical on ${Math.round(same/n*100)}%${ivs} · put wall ${f(wall.p.cv)} / ${f(wall.p.tos)} · call wall ${f(wall.c.cv)} / ${f(wall.c.tos)} <i>(AM / live)</i> · showing <b>AM book</b>.</div>`;
 }
-function nearRowsConvex(){ // 1–7 DTE book from am_feed (ti.json near_book): rows with their own days-to-expiry
+function nearRowsConvex(){ // 1–7 DTE book from the morning feed (ti.json near_book): rows with their own days-to-expiry
   const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; if(!nb||!nb.rows||!nb.rows.length) return null;
   const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const out=[]; const dv=Math.max(-0.1,Math.min(0.1,weekIVShift().dv));
   for(const r of nb.rows){ const sg0=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue; const sg=Math.max(0.01,sg0+dv);
@@ -2787,7 +2788,7 @@ function buildMap(kind,se,d,bookArg){
   const S=d.spot, step=d.step||5, ks=d.rows.map(r=>r.k).sort((a,b)=>a-b); if(ks.length<5) return null;
   const pLo=ks[0], pHi=ks[ks.length-1], dp=step/MAP_SUB, prices=[]; for(let p=pLo;p<=pHi+1e-9;p+=dp) prices.push(p);
   const c=liveClock(), now=c.h*60+c.m; const times=[]; for(let t=MAP_T0;t<=MAP_T1;t+=MAP_STEP) times.push(t);
-  const key=kind+"|"+st.sym+"|"+st.basis+"|"+book+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+(st.weekSrc||"convex")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
+  const key=kind+"|"+st.sym+"|"+st.basis+"|"+book+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
   if(_mapCache.key!==key){ _mapCache={key,cols:new Map()}; }
   const liveRows=mapRowsAt(null,se,d); const byT=new Map(snaps.map((s,j)=>[tmin(s.t),j]));
   const grid=[]; let vmax=1e-9;
@@ -2911,7 +2912,7 @@ function mapRead(g,ch,va,se,d){
       sp.sort((a,b)=>b.last-a.last); if(sp.length) L.push(`<div class="l">Volume spiking (last 30 vs prior 30): ${sp.slice(0,4).map(x=>`<b>${f(x.k)}</b> ×${x.r.toFixed(1)}`).join(" · ")}.</div>`); } }
   { const sh=x=>x&&x.share&&x.share.p0!=null?Math.round(x.share.p0*100):null; const parts=[]; const nm={gamma:"gamma",charm:"charm",vanna:"vanna",chg:"gamma change"};
     for(const m of [g,ch,va]) if(m&&sh(m)!=null) parts.push(`${nm[m.kind]} <b>${sh(m)}%</b> 0DTE / ${100-sh(m)}% week`);
-    const bk=(g&&g.book)||"0dte"; const ivs=bk==="0dte"?"":(st.weekSrc==="tos"&&tosWeekRows()?" · week IV live from TOS":` · week IV re-marked by ${weekIVShift().src}`);
+    const bk=(g&&g.book)||"0dte"; const ivs=bk==="0dte"?"":` · week IV re-marked by ${weekIVShift().src}`;
     if(parts.length) L.push(`<div class="l">Book at spot (${bk==="0dte"?"showing 0DTE":bk==="week"?"showing 1–7 DTE":"showing both"}): ${parts.join(" · ")}${ivs}.</div>`); }
   { const wd=weekDiff(); if(wd) L.push(wd); }
   L.push(`<div class="l"><i>Rules, not a forecast. Sign is naive OI; a put-heavy book reads short gamma. Structure holds only while the book keeps this shape.</i></div>`);
@@ -2943,10 +2944,17 @@ document.getElementById("gDetBtn").addEventListener("click",()=>{ st.gDet=!st.gD
 document.querySelectorAll("#mapRightSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapRight=b.dataset.v; save("mapRight",st.mapRight); syncSeg("mapRightSeg",st.mapRight); render(); }));
 document.querySelectorAll("#mapBookSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapBook=b.dataset.v; save("mapBook",st.mapBook); syncSeg("mapBookSeg",st.mapBook); render(); }));
 document.querySelectorAll("#mapBookRSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapBookR=b.dataset.v; save("mapBookR",st.mapBookR); render(); }));
-document.querySelectorAll("#weekSrcSeg button").forEach(b=>b.addEventListener("click",()=>{ st.weekSrc=b.dataset.v; save("weekSrc",st.weekSrc); syncSeg("weekSrcSeg",st.weekSrc); render(); }));
-syncSeg("weekSrcSeg",st.weekSrc||"convex");
 syncSeg("mapBookSeg",st.mapBook||"all");
 syncSeg("mapRightSeg",st.mapRight||"charm");
+
+/* ---- screenshot */
+document.getElementById("screenshotBtn").addEventListener("click",()=>{
+  const btn=document.getElementById("screenshotBtn"); btn.disabled=true; btn.textContent="⏳";
+  html2canvas(document.body,{backgroundColor:"#0A1426",scale:2,logging:false,useCORS:true}).then(c=>{
+    const a=document.createElement("a"); a.download="cockpit_"+st.sym+"_"+(liveClock().date||"snap")+".png";
+    a.href=c.toDataURL("image/png"); a.click();
+  }).catch(e=>console.error("screenshot:",e)).finally(()=>{ btn.disabled=false; btn.textContent="📷"; });
+});
 
 /* ============================================================ boot */
 if(DEMO){ demo(); pollFlowPrev(); render(); }
@@ -3719,7 +3727,7 @@ function exRender(){
    Layout = the approved mockup "VIX Tab Redesign" v2 (Mithil OK 2026-10-28 15:38).
    Nothing here feeds the map. Every section degrades on its own: a missing block shows a note,
    and any error is caught and shown on this tab only, so it can never take the cockpit down.
-   "Bought / sold today" = Convex's measured split (gammas_buy / gamma, checked against volume,
+   "Bought / sold today" = the vendor's measured split (gammas_buy / gamma, checked against volume,
    median ratio 0.997, n=79): today's customer contracts, NOT dealer inventory.
    2026-10-29 (master list #79, Mithil's picks): expiry chips (nearest 2 on every load; presets Front /
    Monthlies / All), an "All picked" positions panel summed by strike with a toggle to distance-from-
@@ -3806,7 +3814,7 @@ function vxRender(){
   if(!st.live) return vixClear("No live.json","Start the feed. On the NAS that is cvx_live.py.");
   const V=st.live.VIX||{}, R=st.live.VIXR||null, EV=Array.isArray(st.live.EVT)?st.live.EVT:null;
   const exps=(Array.isArray(V.exps)?V.exps:[]).filter(x=>x&&Array.isArray(x.rows)&&x.rows.length);
-  if(!exps.length&&!R) return vixClear("No VIX data in live.json","This feed carries no VIX chain. The Convex writer (cvx_live.py) fills VIX, VIXR and EVT.");
+  if(!exps.length&&!R) return vixClear("No VIX data in live.json","This feed carries no VIX chain. cvx_live.py fills VIX, VIXR and EVT.");
   const today=(st.live.ts||"").slice(0,10)||liveClock().date;
   const picks=vxPicks(exps), pk=exps.filter(x=>picks.includes(x.e));
   // breakdown expiry by DATE (expiries roll off; an index would drift), always one of the picks
@@ -3832,7 +3840,7 @@ function vxRender(){
   vxStrikes(pk,EV,S,today);
   vxLink(R,EV,exps);
   vxCollapsible();
-  vxSet("vxFoot",`Convex VIX chain: live.json ${esc((st.live.ts||"").slice(11,16))} ET &middot; Cboe indices ${esc(R&&R.asof?String(R.asof).slice(11,16)||R.asof:"–")} (about 15 min delayed) &middot; history = Cboe daily closes through ${esc(R&&R.hist_through||"–")} &middot; zero Convex calls for regime and events.`);
+  vxSet("vxFoot",`VIX chain: live.json ${esc((st.live.ts||"").slice(11,16))} ET &middot; Cboe indices ${esc(R&&R.asof?String(R.asof).slice(11,16)||R.asof:"–")} (about 15 min delayed) &middot; history = Cboe daily closes through ${esc(R&&R.hist_through||"–")} &middot; zero extra calls for regime and events.`);
 }
 
 /* ---------------- header: spot, VIX9D, the 9D-vs-VIX shape (label FIXED 10/28: 9D under VIX = contango) */
@@ -3941,7 +3949,7 @@ function vxReadBox(S,R,pk,XR,EV){
 /* ---------------- regime board */
 function vxRegime(R){
   if(!R||!Array.isArray(R.rows)||!R.rows.length){
-    vxSet("vxRegime",`<div class="vxh"><h2>VIX regime board</h2></div><div class="vxnote">Waiting for the Cboe feed (the writer's vixdash thread loads 1-year history once a day and quotes once a minute). Zero Convex calls.</div>`); return; }
+    vxSet("vxRegime",`<div class="vxh"><h2>VIX regime board</h2></div><div class="vxnote">Waiting for the Cboe feed (the writer's vixdash thread loads 1-year history once a day and quotes once a minute). Zero extra calls.</div>`); return; }
   const c=R.counts||{}, rows=R.rows;
   const named=st=>rows.filter(r=>r.state===st).map(r=>r.name).join(", ");
   const lvl=(c.red>0)?["HIGH risk","#FF4D4D"]:(c.orange>=4?["Elevated risk","#FF7A3D"]:((c.orange>=1||c.yellow>=4)?["Middle risk","#FFD23F"]:["Low risk","#3FD0B0"]));
@@ -4198,7 +4206,7 @@ function vxPanel(o){   // o: {title, cls, sub:[html], rows:[{k,cOI,pOI,cV,pV,ct,
 }
 function vxStrikes(pk,EV,S,today){
   const basis=st.vxAllBasis==="kf"?"kf":"k";
-  const head=`<div class="vxh"><h2>Positions by strike</h2><span class="vxsub">open interest (◂ puts · calls ▸) plus TODAY's contracts bought ▸ / ◂ sold, from Convex's measured split · amber row = forward · white row = VIX spot · not dealer inventory</span><span class="sp"></span>`
+  const head=`<div class="vxh"><h2>Positions by strike</h2><span class="vxsub">open interest (◂ puts · calls ▸) plus TODAY's contracts bought ▸ / ◂ sold, from the vendor's measured split · amber row = forward · white row = VIX spot · not dealer inventory</span><span class="sp"></span>`
     +`<span class="vxbasis" role="group" aria-label="How the All panel lines up strikes"><button data-b="k" aria-pressed="${basis==="k"}">Strike</button><button data-b="kf" aria-pressed="${basis==="kf"}">From forward</button></span></div>`;
   if(!pk.length){ vxSet("vxStrikes",head+`<div class="vxnote">No VIX chain in live.json, or no expiry picked.</div>`); vxBasisBind(); return; }
   const one=x=>{ const F=+x.F||S;
@@ -4239,11 +4247,11 @@ function vxLink(R,EV,exps){
   ];
   vxSet("vxLink",`<div class="vxh"><h2>How this feeds the SPX map trades</h2><span class="vxsub">fields the scorecard logs at entry, so the seven tests can show whether they matter · none of them changes the map</span></div>`
     +`<div class="vxlink">${items.map(i=>`<div><b class="h">${i[0]}</b><span class="v">${i[1]}</span>${i[2]}</div>`).join("")}</div>`
-    +`<div class="vxnote"><b style="color:var(--ink)">What to trust.</b> Percentiles are against the last year only. "Bought / sold today" is Convex's measured split, today only, not dealer inventory. Implied variance uses bid/ask mids from the Convex feed. Cboe indices run about 15 minutes delayed: fine for regime, not for timing.</div>`);
+    +`<div class="vxnote"><b style="color:var(--ink)">What to trust.</b> Percentiles are against the last year only. "Bought / sold today" is the vendor's measured split, today only, not dealer inventory. Implied variance uses bid/ask mids from the this feed. Cboe indices run about 15 minutes delayed: fine for regime, not for timing.</div>`);
 }
 
 window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath};
 })();
 </script>
-<div id="cvxBadge" style="position:fixed;bottom:6px;left:6px;z-index:99999;background:#7c3aed;color:#fff;font:600 10px/1.5 system-ui,sans-serif;padding:2px 8px;border-radius:4px;letter-spacing:.08em;pointer-events:none;opacity:.85">CONVEX FEED</div></body>
+</body>
 </html>
