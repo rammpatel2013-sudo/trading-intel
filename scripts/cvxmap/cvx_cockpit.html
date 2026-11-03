@@ -610,10 +610,14 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <button data-v="n" aria-pressed="true">Contracts</button><button data-v="usd" aria-pressed="false">Premium $</button>
         </div>
         <div class="seg" role="group" aria-label="View" id="viewSeg">
-          <button data-v="ridge" aria-pressed="true">Ridges</button><button data-v="heat" aria-pressed="false">Heat</button><button data-v="iv" aria-pressed="false">IV vs ATM</button><button data-v="gamma" aria-pressed="false" title="Dealer gamma at each strike, minute by minute">Gamma</button><button data-go="charm" class="zb" title="Open the Map tab: gamma / charm / vanna projection maps">Charm ↗</button><button data-go="vanna" class="zb" title="Open the Map tab with vanna on the right">Vanna ↗</button>
+          <button data-v="bubble" aria-pressed="false" title="Straight strike lines + signed flow bubbles">Bubbles</button><button data-v="ridge" aria-pressed="true">Ridges</button><button data-v="heat" aria-pressed="false">Heat</button><button data-v="iv" aria-pressed="false">IV vs ATM</button><button data-v="gamma" aria-pressed="false" title="Dealer gamma at each strike, minute by minute">Gamma</button><button data-go="charm" class="zb" title="Open the Map tab: gamma / charm / vanna projection maps">Charm ↗</button><button data-go="vanna" class="zb" title="Open the Map tab with vanna on the right">Vanna ↗</button>
         </div>
+        <div class="seg" role="group" aria-label="Bubble mode" id="bubSeg" style="display:none"><button data-v="split" aria-pressed="true" title="Calls above the strike line, puts below">Calls | Puts</button><button data-v="total" aria-pressed="false" title="Calls + puts in one bubble, coloured by the net side">Total</button><button data-v="net" aria-pressed="false" title="Bubble size = bullish minus bearish">Net</button></div>
+        <div class="seg" role="group" aria-label="Bubble size filter" id="bubMinSeg" style="display:none"><span class="lbl">Size</span><button data-v="0" aria-pressed="false">All</button><button data-v="50" aria-pressed="false">Top 50%</button><button data-v="80" aria-pressed="true">Top 20%</button><button data-v="95" aria-pressed="false">Top 5%</button></div>
+        <button class="btn" id="bubUnuBtn" aria-pressed="true" style="display:none" title="Only minutes at least 3x the strike's typical minute">Unusual only</button>
+        <button class="btn" id="bubRidgeBtn" aria-pressed="false" style="display:none" title="Draw the ridge lines underneath the bubbles">+ Ridges</button>
         <div class="seg" role="group" aria-label="Time window" id="winSeg">
-          <span class="lbl">Time</span><button data-v="fit" aria-pressed="true">Fit</button><button data-v="120" aria-pressed="false">2h</button><button data-v="60" aria-pressed="false">1h</button><button data-v="30" aria-pressed="false">30m</button><button data-z="in" class="zb" title="Zoom in on time (+ key)" aria-label="Zoom in on time">＋</button><button data-z="out" class="zb" title="Zoom out on time (− key)" aria-label="Zoom out on time">−</button>
+          <span class="lbl">Time</span><button data-v="fit" aria-pressed="true">Fit</button><button data-v="120" aria-pressed="false">2h</button><button data-v="60" aria-pressed="false">1h</button><button data-v="30" aria-pressed="false">30m</button><button data-v="15" aria-pressed="false">15m</button><button data-z="in" class="zb" title="Zoom in on time (+ key)" aria-label="Zoom in on time">＋</button><button data-z="out" class="zb" title="Zoom out on time (− key)" aria-label="Zoom out on time">−</button>
         </div>
         <div class="seg" role="group" aria-label="Strikes shown" id="rowSeg">
           <span class="lbl">Strikes</span><button data-v="21" aria-pressed="false">21</button><button data-v="31" aria-pressed="false">31</button><button data-v="51" aria-pressed="true">51</button><button data-z="sin" class="zb" title="Fewer strikes, bigger rows (] key)" aria-label="Zoom in on strikes">＋</button><button data-z="sout" class="zb" title="More strikes ([ key)" aria-label="Zoom out on strikes">−</button>
@@ -621,6 +625,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <button class="btn live" id="liveBtn" hidden title="Return to the latest minute, centred on spot (or double-click the map)">Back to live</button>
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
+        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
         <button class="btn" id="maxBtn" title="Hide every panel, map only">Expand</button>
@@ -817,6 +822,8 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <h3>The tabs</h3>
         <dl>
           <dt>Flow</dt><dd>The order-flow lean. Signed premium split bought vs sold, the bullish/bearish needle, the biggest protection and upside trades, and a marker for the last logged session.</dd>
+          <dt>Bubbles</dt><dd>The default Flow-map view (Ridges, Heat, IV and Gamma are still one click away). Each strike is a straight line; each bubble is one minute of <i>signed</i> option flow at that strike &mdash; size = premium (or contracts on Contracts), <b class="up">green</b> = calls bought / puts sold, <b class="dn">red</b> = calls sold / puts bought, grey = mixed. Solid = traded at or through the bid/ask (firm), hollow = inside the spread (soft); at-mid prints are not drawn. <b>Calls | Puts</b> puts calls just above the line and puts just below; <b>Total</b> merges them into one bubble coloured by the net side; <b>Net</b> sizes the bubble by bullish minus bearish only. <b>Size</b> hides the small stuff by ranking against the whole day (default Top 20%; the legend prints the cut-off). <b>Unusual only</b> keeps a bubble only when it is at least 3&times; that strike&rsquo;s typical minute &mdash; this strips the constant drizzle at the money (on by default). <b>+ Ridges</b> draws the ridge lines underneath the bubbles (off by default). Every choice is remembered by the browser. Dashed rings are real vendor prints (&ge;$100k, NAS tape) on this expiry. Top right of the map: contracts, premium and bullish % for the time window on screen. These are 1-minute bubbles, not individual trades, and the side is estimated from last vs quote at each poll &mdash; descriptive, not a signal.</dd>
+          <dt>Flow bars</dt><dd>On the Flow map, button <b>Flow bars</b> (on by default). Each minute of the spot path becomes a bar from the previous close to this close, coloured by that minute&rsquo;s signed premium on near-the-money strikes (|&Delta;| 0.3&ndash;0.7): <b class="up">green</b> = calls bought / puts sold outweighed the reverse, <b class="dn">red</b> = the opposite, grey = mixed (net under 20% of gross) or nothing signed. Brighter = bigger. <b>W / M arrows</b> mark a double bottom / double top that closed through its neckline <i>and</i> where the 5-minute flow flipped the same way (bearish into the lows, bullish at the break &mdash; or the mirror). Pattern-only breaks are counted in the legend but not drawn. Sides are estimated from last vs quote at each 1-minute poll, so this is descriptive, not a signal.</dd>
           <dt>Strikes</dt><dd>Per-strike detail for whichever strike you have selected. Use the up and down arrows to walk through them.</dd>
           <dt>Skew</dt><dd>The shape of implied volatility across strikes, and how it has moved since the open.</dd>
           <dt>Map</dt><dd>Gamma, charm and vanna as heat maps. Left of the dashed vertical is the book as it actually stood each minute. Right of it is today&rsquo;s book carried forward to the close as time decays.</dd>
@@ -934,7 +941,12 @@ const st = {
   rob: load("rob","0")==="1", f2full: load("f2full","0")==="1", prevShare: {}, focus: load("focus","map"), ladMode: load("ladMode","gamma"), premOv: load("premOv","0")==="1"
 };
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
-if(!["ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
+if(!["bubble","ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
+if(load("bubDef")!=="1"){ st.view="bubble"; save("view","bubble"); st.rows="21"; save("rows","21"); save("bubDef","1"); }   // one-time: Bubbles becomes the default view
+st.bubMode=load("bubMode","split"); if(!["split","total","net"].includes(st.bubMode)) st.bubMode="split";
+st.bubMin=load("bubMin","80"); if(!["0","50","80","95"].includes(st.bubMin)) st.bubMin="80";
+st.bubUnu=load("bubUnu","1")==="1";
+st.bubRidge=load("bubRidge","0")==="1";
 if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
@@ -1526,7 +1538,7 @@ function renderMap(se,book){
   const docL=docMapLines(ctx,Yk,padL,w-padR,padT,h-padB);
 
   const dx=plotW/Math.max(1,(t1-t0));
-  if(st.view==="ridge"){
+  if(st.view==="ridge"||(st.view==="bubble"&&st.bubRidge)){
     const amp=rowH*3.2;
     for(let i=lo;i<hi;i++){ // back (top) to front (bottom)
       const yb=Y(i)+rowH*0.45; let rowSum=0, cnt=0;
@@ -1541,7 +1553,10 @@ function renderMap(se,book){
         ctx.strokeStyle=rampColor(u, 0.55+0.45*Math.min(1,u*1.4)); ctx.lineWidth=u>0.55?1.6:1.1;
         ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); }
     }
-  } else {
+  }
+  if(st.view==="bubble"){
+    drawBubbles(ctx,se,{lo,hi,Y,X,rowH,t0,t1,padL,padR,padT,w});
+  } else if(st.view!=="ridge"){
     for(let i=lo;i<hi;i++){ const y=Y(i)-rowH/2;
       for(let j=ja;j<jb;j++){ const v=cellVal(se,i,j); if(v==null) continue;
         ctx.fillStyle = st.view==="iv" ? divColor(v,ivLim) : st.view==="gamma" ? gamColor(v,top) : rampColor(Math.sqrt(Math.max(0,v)/top), v>0?1:0.35);
@@ -1558,8 +1573,10 @@ function renderMap(se,book){
   }
 
   // spot path
-  ctx.strokeStyle=C("--spot"); ctx.lineWidth=1.8;
+  const fbD=st.fbOn?flowBars(se):null;
+  ctx.strokeStyle=fbD?C("--spot")+"59":C("--spot"); ctx.lineWidth=1.8;
   polyline(ctx, se.T.slice(ja,jb).map((t,q)=>[X(t),Yk(se.spot[ja+q])]));
+  if(fbD) drawFlowBars(ctx,se,fbD,X,Yk,ja,jb,dx,t0,t1);
   if(jb===se.m){ const xs=X(se.T[se.m-1]), ys=Yk(S); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(xs,ys,3.2,0,Math.PI*2); ctx.fill(); }
   docMapMarks(ctx,X,Yk,t0,t1);
   ctx.restore();
@@ -1585,6 +1602,10 @@ function renderMap(se,book){
     ? `<span>IV offered vs ATM</span><span class="ramp iv"></span><span>IV bid vs ATM (±1.5 pts)</span>`
     : st.view==="gamma" ? `<span>dealers short gamma (chase)</span><span class="ramp" style="background:linear-gradient(90deg,var(--shortg),#10203D,var(--longg))"></span><span>long gamma (absorb) · ${st.basis==="oi"?"OI":st.basis==="vol"?"today's volume":"OI + volume so far"}</span>`
     : `<span>quiet</span><span class="ramp"></span><span>burst · ring = burst cluster</span>`;
+  if(st.view==="bubble") document.getElementById("mapLegend").innerHTML = bubLegend();
+  syncBub();
+  document.getElementById("mapLegend").innerHTML += fbLegend(fbD);
+  document.getElementById("fbBtn").setAttribute("aria-pressed",st.fbOn);
 }
 
 /* ============================================================ render: ladder (shares the map's strike axis) */
@@ -2272,7 +2293,9 @@ function fmtS(v){ if(v==null||v===0) return "–"; const s=v>0?"+":""; return s+
 /* ============================================================ interaction */
 function syncSeg(id,v){ document.querySelectorAll(`#${id} button[data-v]`).forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===String(v))); }
 function bindSeg(id,key,after){ syncSeg(id,st[key]); document.querySelectorAll(`#${id} button[data-v]`).forEach(b=>b.addEventListener("click",()=>{ st[key]=b.dataset.v; save(key,st[key]); syncSeg(id,st[key]); if(after) after(); render(); })); }
-bindSeg("sideSeg","side"); bindSeg("unitSeg","unit"); bindSeg("ladModeSeg","ladMode"); bindSeg("viewSeg","view");
+bindSeg("sideSeg","side"); bindSeg("unitSeg","unit"); bindSeg("ladModeSeg","ladMode"); bindSeg("viewSeg","view"); bindSeg("bubSeg","bubMode"); bindSeg("bubMinSeg","bubMin");
+document.getElementById("bubUnuBtn").addEventListener("click",()=>{ st.bubUnu=!st.bubUnu; save("bubUnu",st.bubUnu?"1":"0"); render(); });
+document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
 bindSeg("mapBasisSeg","basis",()=>syncSeg("basisSeg",st.basis));
 bindSeg("rowSeg","rows",()=>{ st.rowOff=0; });
@@ -2318,6 +2341,8 @@ document.getElementById("maxBtn").addEventListener("click",()=>{ st.max=!st.max;
 document.querySelectorAll("#focusSeg button").forEach(b=>b.addEventListener("click",()=>setFocus(b.dataset.v)));
 document.getElementById("backMapBtn").addEventListener("click",()=>setFocus("map"));
 document.getElementById("watchBtn").addEventListener("click",toggleWatch);
+st.fbOn=load("fbOn","1")!=="0";
+document.getElementById("fbBtn").addEventListener("click",()=>{ st.fbOn=!st.fbOn; save("fbOn",st.fbOn?"1":"0"); render(); });
 document.getElementById("docBtn").addEventListener("click",()=>{ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); });
 document.querySelectorAll("#convSeg button[data-v]").forEach(b=>b.addEventListener("click",()=>{ st.conv=b.dataset.v; save("conv",st.conv); render(); }));
 // plan chart hover: time, SPX and the nearest Doc levels
@@ -2348,7 +2373,7 @@ function hoverMap(e){
   const k=se.ks[i], S=se.spot[j], c=se.dC[i][j], p=se.dP[i][j];
   const ivc=se.ivC[i][j], ivp=se.ivP[i][j], rel=ivRel(se,i,j,k>=S);
   mapTip.innerHTML=`<b>${tlabel(se.T[j])} · ${fmtN(k)}</b><br><span style="color:var(--call)">calls ${c==null?"–":"+"+fmtN(c)}</span> · <span style="color:var(--put)">puts ${p==null?"–":"+"+fmtN(p)}</span><br>
-    IV call ${ivc?(ivc*100).toFixed(1)+"%":"–"} · put ${ivp?(ivp*100).toFixed(1)+"%":"–"}<br>${rel!=null?`OTM IV vs ATM since first seen ${pts(rel)}<br>`:""}<span style="color:var(--mute)">spot ${fmtN(S,2)} · click to open this strike</span>`;
+    IV call ${ivc?(ivc*100).toFixed(1)+"%":"–"} · put ${ivp?(ivp*100).toFixed(1)+"%":"–"}<br>${rel!=null?`OTM IV vs ATM since first seen ${pts(rel)}<br>`:""}${(()=>{ const f=st.fbOn?flowBars(se):null; if(!f||!f.gross[j]) return ""; const v=f.net[j]; return `bar <b class="${v>0?"up":v<0?"dn":""}">${v>=0?"+":"−"}${money(Math.abs(v))}</b> of ${money(f.gross[j])} signed (|Δ| 0.3–0.7) · 5-min ${f.roll[j]>=0?"+":"−"}${money(Math.abs(f.roll[j]))}<br>`; })()}<span style="color:var(--mute)">spot ${fmtN(S,2)} · click to open this strike</span>`;
   const pr=document.getElementById("mapPane").getBoundingClientRect();
   mapTip.style.display="block"; mapTip.style.left=Math.min(e.clientX-pr.left+14, pr.width-200)+"px"; mapTip.style.top=(e.clientY-pr.top+14)+"px";
 }
@@ -2553,6 +2578,168 @@ function robustness(sr){
   out.verdict = (a==null||d5==null) ? "no read" : (Math.abs(a-d5)>0.10 || (a-0.5)*(d5-0.5)<0) ? "one program" : "broad";
   return out;
 }
+/* ============================================================ B6 flow-coloured bars + W/M arrows
+   Display only. Reads signedRows(se) (the same signed premium the Flow strip uses) and se.spot; never edits buildSeries,
+   gammaMatrix, signedRows or any map cell. Bar colour = that minute's bullish minus bearish premium from strikes with
+   0.3 <= |delta| <= 0.7: near the money, where a print is a directional bet, not a wing hedge or stock replacement.
+   A minute whose net is under 20% of its gross is "mixed" (grey). Unsigned (at-mid) prints never count.
+   W / M = double bottom / double top on the 1-minute spot path, confirmed by a close through the neckline.
+   An arrow is drawn ONLY when the 5-minute flow flipped the same way: net bearish somewhere between the two lows and net
+   bullish at the break (W), or the mirror (M). Pattern-only breaks are counted in the legend, never drawn. */
+const FB_DLO=0.3, FB_DHI=0.7, FB_MIX=0.2, FB_ROLL=5;
+const WM_SW=3, WM_TOL=0.0004, WM_DEPTH=0.0012, WM_MINSEP=6, WM_MAXSPAN=75, WM_BREAK=30, WM_GAP=10;
+let _fb={key:null,res:null};
+function flowBars(se){
+  const sr=signedRows(se); if(!sr) return null;
+  if(_fb.key===_f2.key&&_fb.res) return _fb.res;
+  const m=se.m, net=new Array(m).fill(0), gross=new Array(m).fill(0); let noDelta=0, used=0;
+  for(const r of sr.rows){ if(!r.bullish) continue;
+    if(r.delta==null){ noDelta+=r.prem; continue; }
+    const a=Math.abs(r.delta); if(a<FB_DLO||a>FB_DHI) continue;
+    net[r.j]+=r.sp; gross[r.j]+=r.prem; used+=r.prem; }
+  const roll=new Array(m).fill(0); let acc=0;
+  for(let j=0,q=0;j<m;j++){ acc+=net[j]; while(se.T[j]-se.T[q]>=FB_ROLL){ acc-=net[q]; q++; } roll[j]=acc; }
+  const mag=net.map(Math.abs).filter(v=>v>0).sort((a,b)=>a-b);
+  const p90=mag.length?mag[Math.floor((mag.length-1)*0.9)]:1;
+  const sign=net.map((v,j)=>gross[j]>0&&Math.abs(v)>=FB_MIX*gross[j]?Math.sign(v):0);
+  const res={net,gross,roll,sign,p90:p90||1,noDelta,used,wm:wmEvents(se,roll)};
+  _fb={key:_f2.key,res}; return res;
+}
+function wmEvents(se,roll){
+  const x=se.spot, T=se.T, m=se.m, out=[], lows=[], highs=[], done=new Set(), lastT={W:-1e9,M:-1e9};
+  if(m<2*WM_SW+3) return out;
+  const isExt=(c,lo)=>{ for(let q=c-WM_SW;q<=c+WM_SW;q++){ if(q===c) continue;
+    if(lo?(x[q]<x[c]||(x[q]===x[c]&&q<c)):(x[q]>x[c]||(x[q]===x[c]&&q<c))) return false; } return true; };
+  for(let j=1;j<m;j++){
+    const c=j-WM_SW;   // a swing at c is only known WM_SW minutes later: causal, no look-ahead
+    if(c-WM_SW>=0&&T[c-WM_SW]>=RTH_OPEN&&T[j]-T[c-WM_SW]<=2*WM_SW+2){ if(isExt(c,true)) lows.push(c); if(isExt(c,false)) highs.push(c); }
+    if(T[j]<RTH_OPEN||T[j]>=RTH_OPEN+390) continue;
+    for(const lo of [true,false]){
+      const sw=lo?lows:highs; if(sw.length<2) continue;
+      const b=sw[sw.length-1]; if(T[j]-T[b]>WM_BREAK||b+WM_SW>j) continue;
+      for(let s=sw.length-2;s>=0;s--){ const a=sw[s]; if(T[b]-T[a]>WM_MAXSPAN) break; if(T[b]-T[a]<WM_MINSEP) continue;
+        const id=(lo?"W":"M")+a+"_"+b; if(done.has(id)) continue;
+        const S=x[b], tol=WM_TOL*S, dep=WM_DEPTH*S; if(Math.abs(x[a]-x[b])>tol) continue;
+        let neck=lo?-1e99:1e99; for(let q=a+1;q<b;q++){ if(lo?x[q]>neck:x[q]<neck) neck=x[q]; }
+        const edge=lo?Math.max(x[a],x[b]):Math.min(x[a],x[b]); if(lo?neck-edge<dep:edge-neck<dep) continue;
+        const ext=lo?Math.min(x[a],x[b])-tol:Math.max(x[a],x[b])+tol; let bad=false;
+        for(let q=b+1;q<=j;q++){ if(lo?x[q]<ext:x[q]>ext){ bad=true; break; } }
+        if(bad){ done.add(id); continue; }                      // ran through the second extreme: pattern void
+        if(!(lo?x[j]>neck:x[j]<neck)) continue;                // not through the neckline yet
+        done.add(id);
+        if(T[j]-lastT[lo?"W":"M"]<WM_GAP) break;                // same breakout re-found on a neighbouring pair: one arrow
+        lastT[lo?"W":"M"]=T[j];
+        let into=0; for(let q=a;q<=b;q++) into=lo?Math.min(into,roll[q]):Math.max(into,roll[q]);
+        const agree=lo?(into<0&&roll[j]>0):(into>0&&roll[j]<0);
+        out.push({type:lo?"W":"M",j,t:T[j],px:x[j],a,b,ta:T[a],neck,into,at:roll[j],agree}); break; }
+    }
+  }
+  return out;
+}
+function fbColor(sg,u){ const al=Math.round(255*(0.45+0.55*Math.min(1,Math.sqrt(u)))).toString(16).padStart(2,"0");
+  return sg>0?"#58D68D"+al:sg<0?"#FF7B72"+al:C("--mute")+"80"; }
+function drawFlowBars(ctx,se,fb,X,Yk,ja,jb,dx,t0,t1){
+  const bw=Math.max(1.5,Math.min(9,dx*0.72));
+  for(let j=Math.max(1,ja);j<jb;j++){ if(se.T[j]-se.T[j-1]>2) continue;
+    const x=X(se.T[j]), y0=Yk(se.spot[j-1]), y1=Yk(se.spot[j]), top=Math.min(y0,y1), hh=Math.max(2,Math.abs(y1-y0));
+    ctx.fillStyle=C("--night"); ctx.fillRect(x-bw/2-0.5,top-0.5,bw+1,hh+1);
+    ctx.fillStyle=fbColor(fb.sign[j],Math.abs(fb.net[j])/fb.p90); ctx.fillRect(x-bw/2,top,bw,hh); }
+  ctx.font="bold 11px "+C("--font"); ctx.textAlign="center";
+  for(const e of fb.wm){ if(!e.agree||e.t<t0||e.t>t1) continue;
+    const x=X(e.t), y=Yk(e.px), up=e.type==="W", col=up?"#58D68D":"#FF7B72";
+    ctx.strokeStyle=col+"aa"; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(Math.max(X(t0),X(e.ta)),Yk(e.neck)); ctx.lineTo(x,Yk(e.neck)); ctx.stroke(); ctx.setLineDash([]);
+    const ty=up?y+9:y-9, d=up?1:-1;
+    ctx.fillStyle=C("--night"); ctx.beginPath(); ctx.moveTo(x,ty-d*1.5); ctx.lineTo(x-7.5,ty+d*12); ctx.lineTo(x+7.5,ty+d*12); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x,ty); ctx.lineTo(x-6,ty+d*10); ctx.lineTo(x+6,ty+d*10); ctx.closePath(); ctx.fill();
+    ctx.fillText(e.type,x,up?ty+d*10+11:ty+d*10-3); }
+  ctx.textAlign="left";
+}
+function fbLegend(fb){ if(!fb) return "";
+  const a=fb.wm.filter(e=>e.agree).length, p=fb.wm.length-a;
+  return `<span style="margin-left:10px">bars: <b class="up">bull $</b> / <b class="dn">bear $</b> · |Δ| 0.3–0.7 · W/M ${a} drawn${p?`, ${p} pattern-only hidden`:""}</span>`; }
+
+/* ============================================================ Bubbles view (Flow map)
+   Straight strike lines + one bubble per strike x minute, from signedRows(se) only (same signing as the Flow strip).
+   Split = calls above the line, puts below. Total = calls+puts together, size = signed premium, colour = net side.
+   Net = size is |bullish - bearish|. Green = call bought / put sold, red = the reverse, grey = mixed (net < 20% of
+   gross). Solid = mostly at/through the bid or ask, hollow = inside the spread. At-mid prints are never drawn.
+   Size filter ranks against the whole day's bubbles in this mode; "Unusual only" keeps a bubble only when it is
+   >= 3x that strike's typical minute. Dashed rings = real vendor prints (>= $100k, NAS tape) on this expiry. */
+const BUB_UNU=3, BUB_LABELS=8;
+let _bub={key:null,res:null}, _bubInfo=null;
+function bubCells(se){
+  const sr=signedRows(se); if(!sr) return null;
+  const key=_f2.key+"|"+st.bubMode+"|"+st.unit+"|"+st.side;
+  if(_bub.key===key) return _bub.res;
+  const usd=st.unit==="usd", mode=st.bubMode, side=st.side, cells=[], val=r=>usd?r.prem:r.n;
+  const keep=r=>r.bullish&&(side==="both"||side===r.cp.toLowerCase());
+  if(mode==="split"){
+    for(const r of sr.rows){ if(!keep(r)) continue;
+      cells.push({i:se.idx.get(r.k),j:r.j,t:r.t,cp:r.cp,v:val(r),prem:r.prem,sg:r.bullish,firm:r.tier===1}); }
+  } else {
+    const m=new Map();
+    for(const r of sr.rows){ if(!keep(r)) continue;
+      const q=r.k*100000+r.j; let c=m.get(q);
+      if(!c){ c={i:se.idx.get(r.k),j:r.j,t:r.t,cp:null,g:0,nv:0,prem:0,firmP:0}; m.set(q,c); }
+      c.g+=val(r); c.nv+=r.bullish*val(r); c.prem+=r.prem; if(r.tier===1) c.firmP+=r.prem; }
+    for(const c of m.values()){
+      if(mode==="net"){ c.v=Math.abs(c.nv); c.sg=Math.sign(c.nv); if(!(c.v>0)) continue; }
+      else { c.v=c.g; c.sg=Math.abs(c.nv)>=FB_MIX*c.g?Math.sign(c.nv):0; }
+      c.firm=c.firmP>=0.5*c.prem; cells.push(c); } }
+  const by=new Map(); for(const c of cells){ const q=c.i+"|"+(c.cp||""); if(!by.has(q)) by.set(q,[]); by.get(q).push(c.v); }
+  const med=new Map(); for(const [q,a] of by){ a.sort((x,y)=>x-y); med.set(q,a[Math.floor(a.length/2)]); }
+  for(const c of cells) c.rel=c.v/(med.get(c.i+"|"+(c.cp||""))||c.v);
+  const res={cells,all:cells.map(c=>c.v).sort((a,b)=>a-b),usd};
+  _bub={key,res}; return res;
+}
+function drawBubbles(ctx,se,g){
+  ctx.strokeStyle=C("--rule"); ctx.lineWidth=1;
+  for(let i=g.lo;i<g.hi;i++){ const y=Math.round(g.Y(i))+0.5; ctx.beginPath(); ctx.moveTo(g.padL,y); ctx.lineTo(g.w-g.padR,y); ctx.stroke(); }
+  const B=bubCells(se); if(!B){ _bubInfo={none:true}; return; }
+  const q=+st.bubMin||0, cut=q>0&&B.all.length?B.all[Math.min(B.all.length-1,Math.floor(B.all.length*q/100))]:0;
+  const vis=B.cells.filter(c=>c.i>=g.lo&&c.i<g.hi&&c.t>=g.t0-0.5&&c.t<=g.t1+0.5&&c.v>=cut&&(!st.bubUnu||c.rel>=BUB_UNU));
+  let top=0; for(const c of vis) if(c.v>top) top=c.v; top=top||1;
+  const rMax=Math.max(4,Math.min(g.rowH*0.95,26)), off=st.bubMode==="split"?Math.min(g.rowH*0.22,8):0;
+  const R=c=>Math.max(1.6,rMax*Math.sqrt(c.v/top)), P=c=>[g.X(c.t), g.Y(c.i)+(c.cp==="C"?-off:c.cp==="P"?off:0)];
+  vis.sort((a,b)=>a.v-b.v);
+  for(const c of vis){ const r=R(c), [x,y]=P(c), col=c.sg>0?"#58D68D":c.sg<0?"#FF7B72":C("--mute");
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=col+(c.firm?"c8":"38"); ctx.fill();
+    ctx.lineWidth=c.firm?1:1.4; ctx.strokeStyle=c.firm?"#ffffff60":col; ctx.stroke(); }
+  ctx.font="bold 10px "+C("--font"); ctx.textAlign="center";
+  for(const c of vis.slice(-BUB_LABELS)){ const r=R(c); if(r<6) continue; const [x,y]=P(c);
+    const lab=(st.bubMode==="net"?(c.sg>0?"+":"−"):"")+(B.usd?money(c.v):fmtN(Math.round(c.v)));
+    ctx.fillStyle=C("--night"); ctx.fillText(lab,x+1,y-r-2); ctx.fillStyle=C("--ink"); ctx.fillText(lab,x,y-r-3); }
+  // real vendor prints on this expiry (dashed ring, side colour)
+  const tp=tapeOf(st.sym), exp=st.live&&st.live[st.sym]&&st.live[st.sym].exp; let nTape=0;
+  if(tp&&tp.prints){ ctx.setLineDash([3,2]); ctx.lineWidth=2;
+    for(const p of tp.prints){ if(p.financing||!p.t||(exp&&p.expiry&&p.expiry!==exp)) continue;
+      const k=+p.strike; if(!se.idx.has(k)) continue; const i=se.idx.get(k), t=tmin(String(p.t).slice(0,5));
+      if(i<g.lo||i>=g.hi||t<g.t0||t>g.t1) continue;
+      if(st.side!=="both"&&st.side!==String(p.cp).toLowerCase()) continue;
+      const bull=(p.cp==="C"&&p.side==="buy")||(p.cp==="P"&&p.side==="sell"), bear=(p.cp==="C"&&p.side==="sell")||(p.cp==="P"&&p.side==="buy");
+      const x=g.X(t), y=g.Y(i)+(st.bubMode==="split"?(p.cp==="C"?-off:off):0);
+      ctx.strokeStyle=bull?"#58D68D":bear?"#FF7B72":C("--warn"); ctx.beginPath(); ctx.arc(x,y,rMax+3,0,Math.PI*2); ctx.stroke(); nTape++; }
+    ctx.setLineDash([]); }
+  // window footer: everything signed in the visible time window (all strikes, current side filter, no size filter)
+  const sr=signedRows(se); let n=0,pr=0,bu=0,be=0;
+  for(const r of sr.rows){ if(r.t<g.t0||r.t>g.t1) continue; if(st.side!=="both"&&st.side!==r.cp.toLowerCase()) continue;
+    n+=r.n; pr+=r.prem; if(r.bullish>0) bu+=r.prem; else if(r.bullish<0) be+=r.prem; }
+  const pct=(bu+be)>0?bu/(bu+be):null;
+  ctx.font="11px "+C("--font"); ctx.textAlign="right";
+  const txt=`window: ${fmtN(n)} contracts · ${money(pr)} premium · bullish `;
+  const pt=pct==null?"–":Math.round(pct*1000)/10+"%";
+  ctx.fillStyle=pct==null?C("--mute"):pct>=0.5?"#58D68D":"#FF7B72"; ctx.fillText(pt,g.w-g.padR-6,g.padT-5);
+  const wp=ctx.measureText(pt).width; ctx.fillStyle=C("--mute"); ctx.fillText(txt,g.w-g.padR-6-wp,g.padT-5); ctx.textAlign="left";
+  _bubInfo={cut,q,shown:vis.length,total:B.cells.length,usd:B.usd,nTape};
+}
+function bubLegend(){ const b=_bubInfo; if(!b||b.none) return `<span>Bubbles need the quote fields (bid/ask/last) — none in this log</span>`;
+  const cut=b.q>0?` · size ≥ ${b.usd?money(b.cut):fmtN(Math.round(b.cut))} (top ${100-b.q}% of today)`:"";
+  return `<span><b class="up">●</b> bullish <b class="dn">●</b> bearish · solid = at bid/ask, hollow = inside · ${st.bubMode==="split"?"calls above the line, puts below":st.bubMode==="net"?"size = net":"size = calls + puts"}${cut}${st.bubUnu?` · ≥${BUB_UNU}× strike's typical minute`:""}${st.bubRidge?" · ridges underneath":""} · ${fmtN(b.shown)} shown${b.nTape?` · ${b.nTape} real prints (dashed)`:""}</span>`; }
+function syncBub(){ const on=st.view==="bubble";
+  for(const id of ["bubSeg","bubMinSeg","bubUnuBtn","bubRidgeBtn"]){ const el=document.getElementById(id); if(el) el.style.display=on?"":"none"; }
+  syncSeg("bubSeg",st.bubMode); syncSeg("bubMinSeg",st.bubMin); document.getElementById("bubUnuBtn").setAttribute("aria-pressed",st.bubUnu); document.getElementById("bubRidgeBtn").setAttribute("aria-pressed",st.bubRidge); }
+
 function tapeOf(sym){ const T=st.ti&&st.ti.tape; if(!T) return null; return T[sym]||null; }
 function f2Cards(sr,se,d,book){
   if(!sr) return null;
