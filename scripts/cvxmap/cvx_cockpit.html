@@ -92,6 +92,26 @@ body.phone #tabDensity{grid-template-columns:1fr;grid-template-rows:520px auto}
 .keys kbd{display:inline-block;min-width:19px;text-align:center;padding:2px 6px;border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;background:var(--pane2);color:var(--ink);font:600 12px/1.3 var(--font)}
 body.phone .helpbody dl{grid-template-columns:1fr;gap:2px 0}
 body.phone .helpbody dt{margin-top:8px}
+/* --- signed-position ledger tab --- */
+#tabLedger{display:grid;grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);min-height:0;overflow:hidden}
+#ledgerHeader{display:flex;gap:16px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+#ledgerHeader .tabs{margin-right:auto}
+#ledgerBody{overflow:auto;padding:0 8px 20px}
+.ledger-tbl{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:12.5px}
+.ledger-tbl th{position:sticky;top:0;z-index:2;background:var(--night);color:var(--mute);font-weight:600;text-align:right;padding:5px 6px;border-bottom:2px solid var(--rule);font-size:11px;white-space:nowrap}
+.ledger-tbl th:first-child,.ledger-tbl td:first-child{text-align:left;padding-left:10px}
+.ledger-tbl td{text-align:right;padding:3px 6px;border-bottom:1px solid var(--grid);color:var(--ink)}
+.ledger-tbl .exprow td{background:var(--pane);font-weight:700;color:var(--r4);border-bottom:1px solid var(--rule);padding:6px 6px}
+.ledger-tbl .pos{color:var(--longg)}.ledger-tbl .neg{color:var(--shortg)}
+.ledger-tbl .lo{opacity:.45}
+.ledger-tbl .balanced{color:var(--mute);font-style:italic}
+.ledger-tbl .directional{color:var(--warn);font-weight:600}
+.ledger-tbl .colC{color:var(--call)}.ledger-tbl .colP{color:var(--put)}
+.ledger-stat{display:flex;gap:22px;flex-wrap:wrap;color:var(--ink);font-size:14px;padding:6px 0}
+.ledger-stat b{font-weight:600;font-size:16px;margin-left:4px}
+.ledger-stat .lbl{color:var(--mute);font-size:12px}
+.ledger-nodata{padding:40px;text-align:center;color:var(--mute);font-size:15px}
+body.phone #tabLedger{grid-template-rows:auto 1fr}
 #tabPremium{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;min-height:0}
 #premReadPane{grid-column:1/-1;display:block;height:auto;max-height:32vh;overflow:auto}
 #premBigPane{grid-column:1/-1;display:block;height:auto}
@@ -556,6 +576,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, from the Convex VIX chain + Cboe indices (key X)">VIX</button>
       <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
       <button data-tab="plan" aria-pressed="false" title="Doc's morning plan graded live, plus trading-intel's morning book">Plan</button>
+      <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
@@ -762,6 +783,32 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <div class="exfoot" id="exFoot"></div>
     </div>
   </main>
+  <main id="tabLedger" class="tab" hidden>
+    <div id="ledgerHeader">
+      <div class="tabs" role="group" aria-label="Ledger variant" id="ledgerVarSeg">
+        <button data-v="raw" aria-pressed="true">pos_raw</button>
+        <button data-v="oi" aria-pressed="false">pos_oi</button>
+      </div>
+      <div class="tabs" role="group" aria-label="Ledger side" id="ledgerSideSeg">
+        <button data-v="both" aria-pressed="true">Both</button>
+        <button data-v="C" aria-pressed="false">Calls</button>
+        <button data-v="P" aria-pressed="false">Puts</button>
+      </div>
+      <div class="ledger-stat" id="ledgerStat"></div>
+    </div>
+    <div id="ledgerBody">
+      <div class="ledger-nodata" id="ledgerNoData">Loading ledger.json…</div>
+      <table class="ledger-tbl" id="ledgerTbl" hidden>
+        <thead><tr>
+          <th>Strike</th><th>Right</th><th>DTE</th>
+          <th>pos_raw</th><th>pos_oi</th>
+          <th>Today net</th><th>Today vol</th>
+          <th>Cov</th><th>Gate</th><th>Label</th>
+        </tr></thead>
+        <tbody id="ledgerTbody"></tbody>
+      </table>
+    </div>
+  </main>
   <main id="tabHelp" class="tab" hidden>
     <section class="pane" id="helpPane"><div class="phead"><h2>Help</h2><span class="hint">what each tab shows, how to read the map, and where the numbers stop being reliable (key H)</span></div>
       <div class="helpbody">
@@ -887,7 +934,7 @@ const st = {
 };
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
 if(!["ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -2137,7 +2184,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
@@ -2152,8 +2199,74 @@ function render(){
   else if(st.tab==="vix") renderVix();
   else if(st.tab==="exposure"){ exRender(); }
   else if(st.tab==="density") renderDensity(se);
+  else if(st.tab==="ledger") renderLedger();
   else renderSkew(se,d);
 }
+
+/* ============================================================ signed-position ledger */
+let ledgerData=null, ledgerLoaded=false;
+st.ledgerVar=load("ledgerVar")||"raw";
+st.ledgerSide=load("ledgerSide")||"both";
+
+function loadLedger(){
+  if(ledgerLoaded) return;
+  ledgerLoaded=true;
+  fetch("ledger.json").then(r=>{if(!r.ok) throw r; return r.json()})
+    .then(d=>{ ledgerData=d; if(st.tab==="ledger") renderLedger(); })
+    .catch(()=>{
+      const nd=document.getElementById("ledgerNoData");
+      if(nd){nd.textContent="ledger.json not found — run pos_ledger.py first"; nd.hidden=false;}
+      document.getElementById("ledgerTbl").hidden=true;
+    });
+}
+
+function renderLedger(){
+  loadLedger();
+  if(!ledgerData){return;}
+  const nd=document.getElementById("ledgerNoData"), tbl=document.getElementById("ledgerTbl"), tb=document.getElementById("ledgerTbody");
+  const stat=document.getElementById("ledgerStat");
+  if(!ledgerData.rows||!ledgerData.rows.length){ nd.textContent="No ledger rows for "+ledgerData.as_of; nd.hidden=false; tbl.hidden=true; return; }
+  nd.hidden=true; tbl.hidden=false;
+  const variant=st.ledgerVar, sideF=st.ledgerSide;
+  const rows=ledgerData.rows.filter(r=>sideF==="both"||r.r===sideF);
+  // group by expiry
+  const byExp=new Map();
+  rows.forEach(r=>{ if(!byExp.has(r.exp)) byExp.set(r.exp,[]); byExp.get(r.exp).push(r); });
+  // stats
+  const totalLong=rows.filter(r=>(variant==="raw"?r.raw:r.oi)>0).reduce((s,r)=>s+(variant==="raw"?r.raw:r.oi),0);
+  const totalShort=rows.filter(r=>(variant==="raw"?r.raw:r.oi)<0).reduce((s,r)=>s+Math.abs(variant==="raw"?r.raw:r.oi),0);
+  const dirCount=rows.filter(r=>r.slab==="directional").length;
+  stat.innerHTML=`<span><span class="lbl">as of</span><b>${ledgerData.as_of}</b></span>`
+    +`<span><span class="lbl">contracts</span><b>${rows.length}</b></span>`
+    +`<span class="pos"><span class="lbl">net long</span><b>${fmt(totalLong)}</b></span>`
+    +`<span class="neg"><span class="lbl">net short</span><b>${fmt(totalShort)}</b></span>`
+    +`<span><span class="lbl">directional clusters</span><b>${dirCount}</b></span>`;
+  // build rows
+  let html="";
+  for(const [exp,ers] of byExp){
+    const dte=ers[0]?.dte; const nC=ers.filter(r=>r.r==="C").length, nP=ers.filter(r=>r.r==="P").length;
+    html+=`<tr class="exprow"><td colspan="10">${exp}  (${dte} DTE)  — ${nC}C / ${nP}P</td></tr>`;
+    ers.sort((a,b)=>a.k-b.k||a.r.localeCompare(b.r));
+    for(const r of ers){
+      const posVal=variant==="raw"?r.raw:r.oi;
+      const posOther=variant==="raw"?r.oi:r.raw;
+      const dkey=`${r.exp}|${r.k}|${r.r}`;
+      const td=ledgerData.today&&ledgerData.today[dkey];
+      const net=td?td.net:0, vol=td?td.vol:0;
+      const pCls=posVal>0?"pos":posVal<0?"neg":"";
+      const nCls=net>0?"pos":net<0?"neg":"";
+      const loCls=r.lo?" lo":"";
+      const lbCls=r.slab==="directional"?"directional":"balanced";
+      html+=`<tr class="${loCls}"><td class="col${r.r}">${r.k}</td><td class="col${r.r}">${r.r}</td><td>${r.dte}</td>`
+        +`<td class="${pCls}">${fmtS(posVal)}</td><td class="${variant==="raw"?"":pCls}">${fmtS(posOther)}</td>`
+        +`<td class="${nCls}">${fmtS(net)}</td><td>${fmt(vol)}</td>`
+        +`<td>${r.cov||0}d</td><td>${r.gate!=null?r.gate.toFixed(2):"–"}</td><td class="${lbCls}">${r.slab||"–"}</td></tr>`;
+    }
+  }
+  tb.innerHTML=html;
+}
+function fmt(v){ return v==null?"–":Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":Math.abs(v)>=1e3?(v/1e3).toFixed(1)+"K":String(Math.round(v)); }
+function fmtS(v){ if(v==null||v===0) return "–"; const s=v>0?"+":""; return s+fmt(v); }
 
 /* ============================================================ interaction */
 function syncSeg(id,v){ document.querySelectorAll(`#${id} button[data-v]`).forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===String(v))); }
@@ -2163,6 +2276,7 @@ bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
 bindSeg("mapBasisSeg","basis",()=>syncSeg("basisSeg",st.basis));
 bindSeg("rowSeg","rows",()=>{ st.rowOff=0; });
 bindSeg("conSide","conSide");
+bindSeg("ledgerVarSeg","ledgerVar"); bindSeg("ledgerSideSeg","ledgerSide");
 syncSeg("winSeg",st.win.preset); syncSeg("gridWin",st.win.preset);
 function setPreset(v){ st.win={preset:v,t0:null,t1:null,follow:true}; st.rowOff=0; save("win",v); syncSeg("winSeg",v); syncSeg("gridWin",v); render(); }
 document.querySelectorAll("#winSeg button[data-v], #gridWin button[data-v]").forEach(b=>b.addEventListener("click",()=>setPreset(b.dataset.v)));

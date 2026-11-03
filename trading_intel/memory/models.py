@@ -1610,3 +1610,96 @@ class MapDaily(Base):
     inside_range70: Mapped[bool | None] = mapped_column(Boolean)
     wall_broke: Mapped[bool | None] = mapped_column(Boolean)  # closed beyond either wall
     graded_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+# ── Signed-position ledger (0–11 DTE) ────────────────────────────────
+
+
+class PosDay(Base):
+    """One row per (trade_date, symbol, expiry, strike, right) capturing the
+    day's signed flow from the raw collector dump.
+
+    ``vb`` / ``vs`` are the customer buy / sell volumes at the last good
+    snapshot (16:20–17:00 ET).  The dealer takes the other side.
+
+    This is a stage-2 transform: it reads the banked raw NDJSON, never the
+    Convex API.  See ``scripts/cvxmap/pos_ledger.py``.
+    """
+
+    __tablename__ = "pos_days"
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol", "trade_date", "expiry", "strike", "right",
+            name="uq_pos_days",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    trade_date: Mapped[date] = mapped_column(Date)
+    expiry: Mapped[date] = mapped_column(Date)
+    strike: Mapped[float] = mapped_column(Float)
+    right: Mapped[str] = mapped_column(String(1))  # 'C' or 'P'
+    dte_at_date: Mapped[int | None] = mapped_column(Integer)
+    # Signed flow from the raw dump (customer side)
+    vb: Mapped[float | None] = mapped_column(Float)   # volume buy
+    vs: Mapped[float | None] = mapped_column(Float)   # volume sell
+    vol: Mapped[float | None] = mapped_column(Float)  # total volume (vb + vs)
+    # Gamma-weighted signed flow
+    gb: Mapped[float | None] = mapped_column(Float)   # gammas_buy
+    gs: Mapped[float | None] = mapped_column(Float)   # gammas_sell
+    # Delta-weighted signed flow
+    db: Mapped[float | None] = mapped_column(Float)   # deltas_buy
+    ds: Mapped[float | None] = mapped_column(Float)   # deltas_sell
+    # Value-weighted signed flow
+    val_b: Mapped[float | None] = mapped_column(Float)  # value_buy
+    val_s: Mapped[float | None] = mapped_column(Float)  # value_sell
+    # OI at the morning's first pull (prior close OI)
+    oi_am: Mapped[int | None] = mapped_column(Integer)
+    # Snapshot metadata
+    snap_ts: Mapped[datetime | None] = mapped_column(DateTime)  # ET timestamp of the snapshot used
+    n_snaps: Mapped[int | None] = mapped_column(Integer)  # how many pulls saw this contract today
+
+
+class PosLedger(Base):
+    """Running signed-position state as of each morning before the open.
+
+    One row per (symbol, as_of_date, expiry, strike, right).  Updated nightly
+    after the close by accumulating the day's ``PosDay`` into the running
+    ``pos_raw`` / ``pos_oi`` tallies.
+
+    This is a SECOND VIEW beside the frozen MAP — it never replaces the naive
+    OI base view (MAP rule).  See ``scripts/cvxmap/pos_ledger.py``.
+    """
+
+    __tablename__ = "pos_ledger"
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol", "as_of_date", "expiry", "strike", "right",
+            name="uq_pos_ledger",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    as_of_date: Mapped[date] = mapped_column(Date)  # morning this state is valid
+    expiry: Mapped[date] = mapped_column(Date)
+    strike: Mapped[float] = mapped_column(Float)
+    right: Mapped[str] = mapped_column(String(1))  # 'C' or 'P'
+    dte_at_date: Mapped[int | None] = mapped_column(Integer)
+    # Variant A: pure flow accumulation
+    pos_raw: Mapped[float | None] = mapped_column(Float)  # running sum(vb - vs)
+    # Variant B: OI-reconciled
+    pos_oi: Mapped[float | None] = mapped_column(Float)   # reconciled against overnight OI
+    # Coverage
+    coverage_days: Mapped[int | None] = mapped_column(Integer)  # days of ledger history
+    days_since_listing: Mapped[int | None] = mapped_column(Integer)
+    seed_gap: Mapped[bool | None] = mapped_column(Boolean)  # listed before depth window
+    # Flags
+    low_confidence: Mapped[bool | None] = mapped_column(Boolean)  # |dOI| > volume etc.
+    # Spread annotation (gated)
+    gate_ratio: Mapped[float | None] = mapped_column(Float)  # |net|/total within cluster
+    spread_label: Mapped[str | None] = mapped_column(String(32))  # e.g. "bull_call_spread"
+    # OI for reconciliation
+    oi_prior: Mapped[int | None] = mapped_column(Integer)  # OI at prior close
+    oi_current: Mapped[int | None] = mapped_column(Integer)  # OI at this morning

@@ -71,14 +71,30 @@ case "${1:-}" in
   stop)
     {
       echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap STOP ==="
-      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks; do
+      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-ledger; do
           "$DOCKER" rm -f "$n" >/dev/null 2>&1 && echo "  stopped $n" || echo "  $n not running"
       done
       echo "  (serve left up so the cockpit stays readable)"
     } >> "$LOG" 2>&1
     ;;
+  ledger)
+    # One-shot: build signed-position ledger from today's raw dump.
+    # DSM task: 17:10 weekdays (after collector self-exits at 17:00).
+    #     bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_cvxmap.sh ledger
+    # Optional: pass a date  →  run_cvxmap.sh ledger 20261028
+    {
+      echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap LEDGER ==="
+      "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+      "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
+      DATE_ARG="${2:-}"
+      CMD="python scripts/cvxmap/pos_ledger.py"
+      [ -n "$DATE_ARG" ] && CMD="$CMD --date $DATE_ARG"
+      run_one cvxmap-ledger "-e TI_DIR=/app" "$CMD"
+      echo "  ledger job launched"
+    } >> "$LOG" 2>&1
+    ;;
   stopall)
-    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-serve >/dev/null 2>&1
+    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-serve cvxmap-ledger >/dev/null 2>&1
     echo "all cvxmap containers removed"
     ;;
   status)
@@ -86,6 +102,7 @@ case "${1:-}" in
     echo
     echo "--- collector ---"; tail -3 "$DATA_DIR"/collector_*.log 2>/dev/null || echo "  (none)"
     echo "--- writer ---";    tail -3 "$DATA_DIR"/stage2_*.log    2>/dev/null || echo "  (none)"
+    echo "--- ledger ---";   tail -3 "$DATA_DIR"/pos_ledger_*.log 2>/dev/null || echo "  (none)"
     echo "--- shared feeds ---"
     for f in ti.json blocks.json; do
         if [ -f "$DATA_DIR/$f" ]; then
@@ -96,7 +113,7 @@ case "${1:-}" in
     done
     ;;
   *)
-    echo "usage: run_cvxmap.sh start|stop|stopall|status" >&2
+    echo "usage: run_cvxmap.sh start|stop|stopall|ledger [YYYYMMDD]|status" >&2
     exit 2
     ;;
 esac
