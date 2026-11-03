@@ -235,6 +235,14 @@ def tos_rows(sym, spot, book, T, sigma, iv_map):
         color = color_u * (cOI - pOI) * 100.0 * spot * spot * 0.01 / B
         gexV = gamma_u * 100.0 * spot * spot * 0.01 * (cV - pV) / B
 
+        # Per-side exposures for butterfly Exposure tab (additive — no existing field changed)
+        cGEX = gamma_u * cOI * 100.0 * spot * spot * 0.01 / B
+        pGEX = gamma_u * pOI * 100.0 * spot * spot * 0.01 / B
+        cDEX = _n(c.get("delta")) * cOI * 100.0 * spot / B
+        pDEX = _n(p.get("delta")) * pOI * 100.0 * spot / B
+        cVanna = vanna_u * cOI * 100.0 * spot * 0.01 / B
+        pVanna = vanna_u * pOI * 100.0 * spot * 0.01 / B
+
         civ, piv = iv_map.get((k, "C")), iv_map.get((k, "P"))
         rows.append({
             "k": k,
@@ -244,6 +252,8 @@ def tos_rows(sym, spot, book, T, sigma, iv_map):
             "cIV": civ or 0, "pIV": piv or 0,
             "gexV": gexV,
             "cOI": cOI, "pOI": pOI,
+            "cGEX": cGEX, "pGEX": pGEX, "cDEX": cDEX, "pDEX": pDEX,
+            "cVanna": cVanna, "pVanna": pVanna,
             "cD": _n(c.get("delta")), "pD": _n(p.get("delta")),
             "cM": cm, "pM": pm,
             "cL": _n(c.get("price")), "pL": _n(p.get("price")),

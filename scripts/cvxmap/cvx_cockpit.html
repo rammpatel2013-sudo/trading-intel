@@ -313,11 +313,27 @@ body.phone .vxlines>.k{padding-top:6px}
 .exbput{background:#FF6B6B}
 .exspot{border-left:2px dashed #FFD23F;position:relative}
 .exspot::after{content:"spot";position:absolute;top:-14px;left:4px;font-size:9px;color:#FFD23F}
-.ex3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.ex3col .exsec{margin-bottom:0}
-.ex3col .exbar .exblbl{width:50px;font-size:9px}
-.ex3col .exbar .exbval{font-size:8px}
-@media(max-width:900px){.ex3col{grid-template-columns:1fr}}
+/* ── Butterfly exposure layout ── */
+.ex4col{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:1100px){.ex4col{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.ex4col{grid-template-columns:1fr}}
+.ex4col .exsec{margin-bottom:0}
+.extoggle{text-align:center;margin:6px 0 2px}
+.extoggle button{background:var(--bg2,#222);border:1px solid var(--rule,#444);color:var(--fg,#ccc);padding:3px 14px;font-size:11px;cursor:pointer;border-radius:3px;margin:0 2px}
+.extoggle button.active{background:var(--r4,#5FE0C0);color:#111;font-weight:700;border-color:var(--r4,#5FE0C0)}
+.bfcol-title{text-align:center;font-size:13px;font-weight:600;color:var(--fg,#ccc);margin-bottom:4px}
+/* butterfly row: bar-left | strike label | bar-right */
+.bfrow{display:grid;grid-template-columns:1fr 44px 1fr;align-items:center;height:16px;margin:1px 0;position:relative}
+.bfrow.bfspot{background:rgba(255,210,63,0.08)}
+.bfrow .bf-left{display:flex;justify-content:flex-end;align-items:center;height:14px;gap:2px}
+.bfrow .bf-right{display:flex;justify-content:flex-start;align-items:center;height:14px;gap:2px}
+.bfrow .bf-strike{text-align:center;font-size:9px;font-variant-numeric:tabular-nums;color:var(--fg,#aaa)}
+.bfrow.bfspot .bf-strike{color:#FFD23F;font-weight:700}
+.bfbar{height:12px;border-radius:2px;min-width:0}
+.bfval{font-size:8px;color:#888;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* horizontal marker lines */
+.bfmarker{position:absolute;left:0;right:0;height:0;border-top:1px dashed;z-index:2;pointer-events:none}
+.bfmarker-label{position:absolute;right:4px;top:-12px;font-size:8px;font-weight:600}
 #tabMap .body{position:relative;min-height:0}#tabMap canvas{width:100%;height:100%;display:block}
 #mapBreakPane{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
 .mapread{padding:6px 10px 8px;font-size:13px;line-height:1.5;border-top:1px solid var(--rule);flex:1 1 auto;min-height:0;overflow:auto}
@@ -741,11 +757,8 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     <div class="exwrap">
       <section class="exhead" id="exHead"></section>
       <section class="exsec" id="exSummary"></section>
-      <div class="ex3col">
-        <section class="exsec ex3put" id="exPuts"><div class="exh"><h2>Put side</h2></div></section>
-        <section class="exsec ex3net" id="exNet"><div class="exh"><h2>Net position</h2></div></section>
-        <section class="exsec ex3call" id="exCalls"><div class="exh"><h2>Call side</h2></div></section>
-      </div>
+      <div class="extoggle" id="exToggle"></div>
+      <div class="ex4col" id="exButterfly"></div>
       <div class="exfoot" id="exFoot"></div>
     </div>
   </main>
@@ -3430,19 +3443,21 @@ function exSet(id,html){ const el=document.getElementById(id); if(el) el.innerHT
 function exN(v,dp){ return v==null?"–":(+v).toFixed(dp||0); }
 function exK(v){ return Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":Math.abs(v)>=1e3?(v/1e3).toFixed(0)+"K":exN(v,0); }
 
+/* ── Exposure tab state ── */
+let exMode="total"; // "total" | "net"
+
 function exRender(){
   const d=st.live&&st.live[st.sym];
   if(!d||!d.rows||!d.rows.length){
     exSet("exHead",`<h2>Exposure Board — ${esc(st.sym)}</h2>`);
     exSet("exSummary",`<div class="exnote">Waiting for live chain data.</div>`);
-    exSet("exPuts",""); exSet("exNet",""); exSet("exCalls",""); return; }
+    exSet("exToggle",""); exSet("exButterfly",""); return; }
   const rows=d.rows, spot=d.spot||0;
   const step=rows.length>1?Math.abs(rows[1].k-rows[0].k):5;
 
   // Header
   const gexT=rows.reduce((a,r)=>a+(r.gex||0),0);
   const dexT=rows.reduce((a,r)=>a+(r.dex||0),0);
-  const colT=rows.reduce((a,r)=>a+(r.color||0),0);
   exSet("exHead",`<h2>Exposure Board — ${esc(st.sym)} @ ${exN(spot,0)}</h2>`);
 
   // Summary: call wall, put wall, gex flip
@@ -3450,7 +3465,6 @@ function exRender(){
   const callWall=byGex.length?byGex.reduce((a,r)=>r.gex>a.gex?r:a,byGex[0]):null;
   const belowSpot=[...rows].filter(r=>r.k<spot);
   const putWall=belowSpot.length?belowSpot.reduce((a,r)=>r.gex>a.gex?r:a,belowSpot[0]):null;
-  // GEX flip: zero crossing nearest to spot
   let gexFlip=null;
   for(let i=1;i<rows.length;i++){
     const g0=rows[i-1].gex||0, g1=rows[i].gex||0;
@@ -3466,39 +3480,117 @@ function exRender(){
   const regime=gexT>=0?"Long gamma — dealers absorb moves":"Short gamma — dealers chase moves";
   exSet("exSummary",`<div class="exlvl">${lvls.join("")}</div><div style="text-align:center;font-size:12px;color:${gexT>=0?EX_UP:EX_DN}">${regime}</div>`);
 
-  // ── 3-column layout: Put OI | Net GEX+DEX | Call OI ──
-  const maxNetGex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.gex||0))));
-  const maxNetDex=Math.max(1,Math.max(...rows.map(r=>Math.abs(r.dex||0))));
-  const maxPOi=Math.max(1,Math.max(...rows.map(r=>(r.pOI||0))));
-  const maxCOi=Math.max(1,Math.max(...rows.map(r=>(r.cOI||0))));
+  // Toggle: Total (call | put) vs Net
+  exSet("exToggle",
+    `<button class="${exMode==="total"?"active":""}" onclick="exMode='total';exRender()">Total (call | put)</button>`
+    +`<button class="${exMode==="net"?"active":""}" onclick="exMode='net';exRender()">Net</button>`);
 
-  function exBar(k,val,maxV,col,isSpot){
-    const pct=Math.abs(val)/maxV*100;
-    return `<div class="exbar${isSpot?" exspot":""}"><span class="exblbl">${exN(k,0)}</span><div class="exbfill" style="width:${pct.toFixed(0)}%;background:${col}"></div><span class="exbval">${exK(val)}</span></div>`;
+  // ── Marker strikes (for horizontal lines) ──
+  const markers=[];
+  // spot
+  markers.push({k:spot,color:"#FFD23F",label:"Spot "+exN(spot,0)});
+  if(callWall) markers.push({k:callWall.k,color:EX_UP,label:"CW "+exN(callWall.k,0)});
+  if(putWall) markers.push({k:putWall.k,color:EX_DN,label:"PW "+exN(putWall.k,0)});
+  if(gexFlip!=null) markers.push({k:gexFlip,color:"#FFD23F",label:"Flip "+exN(gexFlip,0)});
+
+  // ── Build 4 butterfly columns ──
+  // columns: Delta Exposure | Gamma Exposure | Open Interest | Vanna Exposure
+  const cols = exMode==="total"
+    ? [
+        {title:"Delta Exposure", leftKey:"pDEX", rightKey:"cDEX", leftLabel:"Put", rightLabel:"Call"},
+        {title:"Gamma Exposure", leftKey:"pGEX", rightKey:"cGEX", leftLabel:"Put", rightLabel:"Call"},
+        {title:"Open Interest",  leftKey:"pOI",  rightKey:"cOI",  leftLabel:"Put", rightLabel:"Call"},
+        {title:"Vanna Exposure", leftKey:"pVanna",rightKey:"cVanna",leftLabel:"Put",rightLabel:"Call"},
+      ]
+    : [
+        {title:"Net Delta (DEX)", valKey:"dex"},
+        {title:"Net Gamma (GEX)", valKey:"gex"},
+        {title:"Net OI (C−P)",    calc:r=>(r.cOI||0)-(r.pOI||0)},
+        {title:"Net Vanna",       valKey:"vanna"},
+      ];
+
+  let bfHTML="";
+  for(const col of cols){
+    let maxV=1;
+    if(col.valKey){
+      maxV=Math.max(1,...rows.map(r=>Math.abs(r[col.valKey]||0)));
+    } else if(col.calc){
+      maxV=Math.max(1,...rows.map(r=>Math.abs(col.calc(r))));
+    } else {
+      // total mode: max of either side
+      maxV=Math.max(1,...rows.map(r=>Math.max(Math.abs(r[col.leftKey]||0),Math.abs(r[col.rightKey]||0))));
+    }
+
+    let rowsHTML="";
+    for(const r of rows){
+      const isSpot=Math.abs(r.k-spot)<step/2;
+      const kLbl=exN(r.k,0);
+
+      let leftPct=0, rightPct=0, leftCol=EX_DN, rightCol=EX_UP, leftVal="", rightVal="";
+      if(exMode==="total"){
+        // Total: put extends left (red), call extends right (green)
+        const lv=Math.abs(r[col.leftKey]||0);
+        const rv=Math.abs(r[col.rightKey]||0);
+        leftPct=lv/maxV*100;
+        rightPct=rv/maxV*100;
+        leftVal=exK(r[col.leftKey]||0);
+        rightVal=exK(r[col.rightKey]||0);
+        leftCol=EX_DN; rightCol=EX_UP;
+      } else {
+        // Net: negative extends left (red), positive extends right (green)
+        const v=col.valKey ? (r[col.valKey]||0) : col.calc(r);
+        if(v<0){
+          leftPct=Math.abs(v)/maxV*100; rightPct=0;
+        } else {
+          rightPct=v/maxV*100; leftPct=0;
+        }
+        leftCol=EX_DN; rightCol=EX_UP;
+        leftVal=v<0?exK(v):"";
+        rightVal=v>=0?exK(v):"";
+      }
+
+      rowsHTML+=`<div class="bfrow${isSpot?" bfspot":""}">`
+        +`<div class="bf-left">`
+          +(leftVal?`<span class="bfval">${leftVal}</span>`:""  )
+          +`<div class="bfbar" style="width:${leftPct.toFixed(1)}%;background:${leftCol}"></div>`
+        +`</div>`
+        +`<div class="bf-strike">${kLbl}</div>`
+        +`<div class="bf-right">`
+          +`<div class="bfbar" style="width:${rightPct.toFixed(1)}%;background:${rightCol}"></div>`
+          +(rightVal?`<span class="bfval">${rightVal}</span>`:"")
+        +`</div>`
+      +`</div>`;
+    }
+
+    // Marker lines: compute position as fraction of rows
+    let markerHTML="";
+    if(rows.length>1){
+      const kMin=rows[0].k, kMax=rows[rows.length-1].k;
+      for(const m of markers){
+        if(m.k>=kMin && m.k<=kMax){
+          const pct=((m.k-kMin)/(kMax-kMin))*100;
+          // invert: first row is top, last is bottom; strikes ascending → top=max, bottom=min
+          // actually rows are sorted ascending, so row[0].k is lowest = bottom of visual
+          // since HTML renders top-down, row[0] is at top → lowest strike at top
+          // So position: pct from top = (1 - (k-kMin)/(kMax-kMin)) * 100
+          const topPct=((kMax-m.k)/(kMax-kMin))*100;
+          markerHTML+=`<div class="bfmarker" style="top:${topPct.toFixed(1)}%;border-color:${m.color}"><span class="bfmarker-label" style="color:${m.color}">${m.label}</span></div>`;
+        }
+      }
+    }
+
+    const colLabel=exMode==="total"
+      ?`<div style="display:flex;justify-content:space-between;font-size:9px;color:#888;margin-bottom:2px"><span style="color:${EX_DN}">&larr; ${col.leftLabel}</span><span style="color:${EX_UP}">${col.rightLabel} &rarr;</span></div>`
+      :`<div style="display:flex;justify-content:space-between;font-size:9px;color:#888;margin-bottom:2px"><span style="color:${EX_DN}">&larr; Negative</span><span style="color:${EX_UP}">Positive &rarr;</span></div>`;
+
+    bfHTML+=`<section class="exsec" style="position:relative;overflow:hidden">`
+      +`<div class="bfcol-title">${col.title}</div>`
+      +colLabel
+      +markerHTML
+      +rowsHTML
+      +`</section>`;
   }
-
-  // Put OI column (left)
-  const putTotalOi=rows.reduce((a,r)=>a+(r.pOI||0),0);
-  const putOiBars=rows.map(r=>{const v=r.pOI||0;return exBar(r.k,v,maxPOi,EX_DN,Math.abs(r.k-spot)<step/2);}).join("");
-  exSet("exPuts",`<div class="exh"><h2>Put side</h2><span class="exsub">OI: ${exK(putTotalOi)} contracts</span></div>`
-    +`<div class="exnote"><b>Put open interest by strike.</b> Where downside protection and short premium are stacked. Tall bars near spot = heavy put positioning = potential dealer gamma wall on the downside.</div>`
-    +putOiBars);
-
-  // Net GEX + DEX column (center)
-  const netGexBars=rows.map(r=>{const v=r.gex||0;return exBar(r.k,v,maxNetGex,v>=0?EX_UP:EX_DN,Math.abs(r.k-spot)<step/2);}).join("");
-  const netDexBars=rows.map(r=>{const v=r.dex||0;return exBar(r.k,v,maxNetDex,v>=0?EX_UP:EX_DN,Math.abs(r.k-spot)<step/2);}).join("");
-  exSet("exNet",`<div class="exh"><h2>Net position</h2><span class="exsub">calls + puts combined</span></div>`
-    +`<div class="exnote"><b>Net GEX (gamma exposure):</b> ${exK(gexT)}. Dealers' total gamma from all options. <span style="color:${EX_UP}">Positive</span> = long gamma &rarr; dealers mean-revert (sell rallies, buy dips = stabilizing). <span style="color:${EX_DN}">Negative</span> = short gamma &rarr; dealers chase (sell dips, buy rallies = amplifying). This is a <em>regime descriptor</em>, not a signal (FlashAlpha rule 4).</div>`
-    +netGexBars
-    +`<div style="margin-top:8px" class="exnote"><b>Net DEX (delta exposure):</b> ${exK(dexT)}. Dealers' net directional hedge. <span style="color:${EX_UP}">Positive</span> = dealers long shares (bullish lean). <span style="color:${EX_DN}">Negative</span> = dealers short shares (bearish lean). Changes in DEX drive hedging flows &mdash; a big DEX shift = dealers must buy or sell stock to rebalance.</div>`
-    +netDexBars);
-
-  // Call OI column (right)
-  const callTotalOi=rows.reduce((a,r)=>a+(r.cOI||0),0);
-  const callOiBars=rows.map(r=>{const v=r.cOI||0;return exBar(r.k,v,maxCOi,EX_UP,Math.abs(r.k-spot)<step/2);}).join("");
-  exSet("exCalls",`<div class="exh"><h2>Call side</h2><span class="exsub">OI: ${exK(callTotalOi)} contracts</span></div>`
-    +`<div class="exnote"><b>Call open interest by strike.</b> Where upside targets, covered calls, and call-writing supply sit. Tall bars above spot = call wall = potential resistance from dealer hedging.</div>`
-    +callOiBars);
+  exSet("exButterfly",bfHTML);
 
   exSet("exFoot",`Updated ${d.t||"–"} · data from live chain · descriptor only (FlashAlpha rule 4)`);
 }
