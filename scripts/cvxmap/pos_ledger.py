@@ -254,7 +254,7 @@ def write_pos_days(engine, trade_date: datetime.date, flow: dict[tuple, dict]) -
 
     upsert_sql = text("""
         INSERT INTO pos_days
-            (symbol, trade_date, expiry, strike, right, dte_at_date,
+            (symbol, trade_date, expiry, strike, "right", dte_at_date,
              vb, vs, vol, gb, gs, db, ds, val_b, val_s, oi_am, snap_ts, n_snaps)
         VALUES
             (:symbol, :trade_date, :expiry, :strike, :right, :dte_at_date,
@@ -316,19 +316,19 @@ def update_pos_ledger(
 
     # Load prior ledger state for contracts we're updating
     prior_sql = text("""
-        SELECT expiry, strike, right, pos_raw, pos_oi, coverage_days,
+        SELECT expiry, strike, "right", pos_raw, pos_oi, coverage_days,
                days_since_listing, seed_gap, oi_current
         FROM pos_ledger
         WHERE symbol = :symbol
           AND as_of_date = :as_of_date
           AND expiry = :expiry
           AND strike = :strike
-          AND right = :right
+          AND "right" = :right
     """)
 
     upsert_sql = text("""
         INSERT INTO pos_ledger
-            (symbol, as_of_date, expiry, strike, right, dte_at_date,
+            (symbol, as_of_date, expiry, strike, "right", dte_at_date,
              pos_raw, pos_oi, coverage_days, days_since_listing, seed_gap,
              low_confidence, oi_prior, oi_current)
         VALUES
@@ -516,7 +516,7 @@ def reconcile_oi(engine, as_of_date: datetime.date) -> int:
                           WHERE pd.symbol = pos_ledger.symbol
                             AND pd.expiry = pos_ledger.expiry
                             AND pd.strike = pos_ledger.strike
-                            AND pd.right = pos_ledger.right
+                            AND pd."right" = pos_ledger."right"
                             AND pd.trade_date = :prior_date), 0)
                 THEN TRUE
                 ELSE low_confidence
@@ -525,7 +525,7 @@ def reconcile_oi(engine, as_of_date: datetime.date) -> int:
           AND as_of_date = :as_of_date
           AND expiry = :expiry
           AND strike = :strike
-          AND right = :right
+          AND "right" = :right
     """)
 
     prior_date = as_of_date - datetime.timedelta(days=1)
@@ -563,12 +563,12 @@ def export_ledger_json(engine, as_of_date: datetime.date) -> str:
     from sqlalchemy import text
 
     sql = text("""
-        SELECT expiry, strike, right, dte_at_date, pos_raw, pos_oi,
+        SELECT expiry, strike, "right", dte_at_date, pos_raw, pos_oi,
                coverage_days, days_since_listing, seed_gap, low_confidence,
                oi_prior, oi_current
         FROM pos_ledger
         WHERE symbol = :symbol AND as_of_date = :as_of_date
-        ORDER BY expiry, strike, right
+        ORDER BY expiry, strike, "right"
     """)
 
     rows = []
@@ -591,10 +591,10 @@ def export_ledger_json(engine, as_of_date: datetime.date) -> str:
 
     # Also pull today's pos_days for the daily flow column
     day_sql = text("""
-        SELECT expiry, strike, right, vb, vs, vol, gb, gs, db, ds, val_b, val_s, oi_am
+        SELECT expiry, strike, "right", vb, vs, vol, gb, gs, db, ds, val_b, val_s, oi_am
         FROM pos_days
         WHERE symbol = :symbol AND trade_date = :trade_date
-        ORDER BY expiry, strike, right
+        ORDER BY expiry, strike, "right"
     """)
 
     day_rows = {}
