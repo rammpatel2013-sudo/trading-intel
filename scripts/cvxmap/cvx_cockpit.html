@@ -434,6 +434,15 @@ body.phone .phead{padding:6px 10px 2px}body.phone .pane{max-width:100vw;overflow
 .seg .lbl{padding:3px 6px 3px 8px;color:var(--faint);font-size:11px;align-self:center}
 .btn{border:1px solid var(--rule);background:var(--pane);color:var(--ink);padding:3px 10px;border-radius:5px;cursor:pointer;font-size:12px}
 .btn:hover{border-color:var(--faint)}
+/* on/off toggles: a lit dot + filled face when ON, dim when OFF (2026-11-04) */
+.btn[aria-pressed]::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px;background:#3a4a66}
+.btn[aria-pressed=true]{background:#1F8FC433;border-color:#2BB8D9;color:#fff;font-weight:600}
+.btn[aria-pressed=true]::before{background:#58D68D;box-shadow:0 0 6px #58D68D}
+.btn[aria-pressed=false]{color:var(--faint);border-style:dashed}
+.seg button[aria-pressed=true]{background:#1F8FC4;color:#fff;font-weight:600}
+.extoggle button[aria-pressed=true]{background:#1F8FC4;color:#fff;font-weight:700;border-color:#2BB8D9}
+.exdesc{font-size:12px;color:var(--mute);line-height:1.5;margin:4px 0 2px;text-align:center}
+.exdesc b{color:var(--ink)}
 .btn.live{border-color:var(--r4);color:var(--r4)}
 .btn.on{background:#FFD23F22;border-color:var(--r4);color:var(--r4)}
 .phead .sp{flex:1}
@@ -628,7 +637,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
         <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button>
-        <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128276;</button>
+        <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128277; off</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
         <button class="btn" id="maxBtn" title="Hide every panel, map only">Expand</button>
@@ -788,6 +797,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <section class="exhead" id="exHead"></section>
       <section class="exsec" id="exSummary"></section>
       <div class="extoggle" id="exToggle"></div>
+      <div class="exdesc" id="exDesc"></div>
       <div class="ex4col" id="exButterfly"></div>
       <div class="exfoot" id="exFoot"></div>
     </div>
@@ -1617,7 +1627,7 @@ function renderMap(se,book){
   if(st.view==="bubble") document.getElementById("mapLegend").innerHTML = bubLegend();
   syncBub();
   document.getElementById("mapLegend").innerHTML += fbLegend(fbD) + seqLegend(sqR);
-  document.getElementById("seqBtn").setAttribute("aria-pressed",st.seqOn); document.getElementById("seqSndBtn").setAttribute("aria-pressed",st.seqSnd);
+  document.getElementById("seqBtn").setAttribute("aria-pressed",st.seqOn); document.getElementById("seqSndBtn").setAttribute("aria-pressed",st.seqSnd); document.getElementById("seqSndBtn").textContent=st.seqSnd?"🔔 on":"🔕 off";
   document.getElementById("fbBtn").setAttribute("aria-pressed",st.fbOn);
 }
 
@@ -3935,17 +3945,18 @@ const EX_UP="#5FE0C0", EX_DN="#FF6B6B", EX_MUTE="#888";
 
 function exSet(id,html){ const el=document.getElementById(id); if(el) el.innerHTML=html; }
 function exN(v,dp){ return v==null?"–":(+v).toFixed(dp||0); }
-function exK(v){ return Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":Math.abs(v)>=1e3?(v/1e3).toFixed(0)+"K":exN(v,0); }
+function exK(v){ return Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":Math.abs(v)>=1e3?(v/1e3).toFixed(0)+"K":Math.abs(v)<10&&v!==0?(+v).toFixed(2):exN(v,0); }
 
 /* ── Exposure tab state ── */
-let exMode="total"; // "total" | "net"
+let exMode=load("exMode","total"); if(!["total","net"].includes(exMode)) exMode="total"; // "total" | "net"
+document.getElementById("exToggle").addEventListener("click",e=>{ const b=e.target.closest("button[data-ex]"); if(!b) return; exMode=b.dataset.ex; save("exMode",exMode); exRender(); });
 
 function exRender(){
   const d=st.live&&st.live[st.sym];
   if(!d||!d.rows||!d.rows.length){
     exSet("exHead",`<h2>Exposure Board — ${esc(st.sym)}</h2>`);
     exSet("exSummary",`<div class="exnote">Waiting for live chain data.</div>`);
-    exSet("exToggle",""); exSet("exButterfly",""); return; }
+    exSet("exToggle",""); exSet("exDesc",""); exSet("exButterfly",""); return; }
   const rows=d.rows, spot=d.spot||0;
   const step=rows.length>1?Math.abs(rows[1].k-rows[0].k):5;
 
@@ -3976,8 +3987,17 @@ function exRender(){
 
   // Toggle: Total (call | put) vs Net
   exSet("exToggle",
-    `<button class="${exMode==="total"?"active":""}" onclick="exMode='total';exRender()">Total (call | put)</button>`
-    +`<button class="${exMode==="net"?"active":""}" onclick="exMode='net';exRender()">Net</button>`);
+    `<button data-ex="total" aria-pressed="${exMode==="total"}">Total (call | put)</button>`
+    +`<button data-ex="net" aria-pressed="${exMode==="net"}">Net</button>`);
+  // What this board covers (Mithil 2026-11-04: say what it shows and how many expiries)
+  { const ts=(st.live&&st.live.ts)||"", hm=(ts.match(/T(\d\d:\d\d)/)||[])[1]||"–";
+    const k0=rows[0].k, k1=rows[rows.length-1].k;
+    exSet("exDesc",`<b>One expiry only: ${esc(st.sym)} ${esc(d.exp?expiryLabel(d.exp):"today")} (0DTE)</b> · ${rows.length} strikes, ${exN(k0,0)}–${exN(k1,0)} (±${exN((k1-k0)/2,0)} pts around spot, every ${exN(step,0)}) · live chain, updated ${hm} ET · OI = start-of-day.<br>`+
+      (exMode==="total"
+        ? `<b>Total</b>: each strike's put side (left, red) and call side (right, green) drawn separately — how big each side is.`
+        : `<b>Net</b>: one bar per strike = call side + put side combined; right/green = positive, left/red = negative.`)+
+      ` Dealer sign is the naive OI convention (customers long puts / short calls), not cleared positioning. Week book (1–7 DTE) is on the Map tab, not here. Descriptor only.`); }
+
 
   // ── Marker strikes (for horizontal lines) ──
   const markers=[];
@@ -4043,7 +4063,8 @@ function exRender(){
         rightVal=v>=0?exK(v):"";
       }
 
-      rowsHTML+=`<div class="bfrow${isSpot?" bfspot":""}">`
+      const mk=markers.filter(m=>Math.abs(r.k-m.k)<step/2);
+      rowsHTML+=`<div class="bfrow${isSpot?" bfspot":""}" style="position:relative${mk.length?`;border-top:1px dashed ${mk[0].color}`:""}">`+(mk.length?`<span class="bfmarker-label" style="position:absolute;right:2px;top:-11px;color:${mk[0].color}">${mk.map(m=>m.label).join(" · ")}</span>`:"")
         +`<div class="bf-left">`
           +(leftVal?`<span class="bfval">${leftVal}</span>`:""  )
           +`<div class="bfbar" style="width:${leftPct.toFixed(1)}%;background:${leftCol}"></div>`
@@ -4068,7 +4089,7 @@ function exRender(){
           // since HTML renders top-down, row[0] is at top → lowest strike at top
           // So position: pct from top = (1 - (k-kMin)/(kMax-kMin)) * 100
           const topPct=((kMax-m.k)/(kMax-kMin))*100;
-          markerHTML+=`<div class="bfmarker" style="top:${topPct.toFixed(1)}%;border-color:${m.color}"><span class="bfmarker-label" style="color:${m.color}">${m.label}</span></div>`;
+          void topPct;   // per-row markers now (see rowsHTML)
         }
       }
     }
@@ -4086,7 +4107,7 @@ function exRender(){
   }
   exSet("exButterfly",bfHTML);
 
-  exSet("exFoot",`Updated ${d.t||"–"} · data from live chain · descriptor only (FlashAlpha rule 4)`);
+  exSet("exFoot",`Updated ${((st.live&&st.live.ts||"").match(/T(\d\d:\d\d)/)||[])[1]||"–"} ET · data from live chain · descriptor only (FlashAlpha rule 4)`);
 }
 
 /* ============================================================ VIX tab v2 (2026-10-28)
