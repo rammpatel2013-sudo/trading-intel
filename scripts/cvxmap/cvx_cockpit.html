@@ -612,10 +612,12 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <div class="seg" role="group" aria-label="View" id="viewSeg">
           <button data-v="bubble" aria-pressed="false" title="Straight strike lines + signed flow bubbles">Bubbles</button><button data-v="ridge" aria-pressed="true">Ridges</button><button data-v="heat" aria-pressed="false">Heat</button><button data-v="iv" aria-pressed="false">IV vs ATM</button><button data-v="gamma" aria-pressed="false" title="Dealer gamma at each strike, minute by minute">Gamma</button><button data-go="charm" class="zb" title="Open the Map tab: gamma / charm / vanna projection maps">Charm ↗</button><button data-go="vanna" class="zb" title="Open the Map tab with vanna on the right">Vanna ↗</button>
         </div>
-        <div class="seg" role="group" aria-label="Bubble mode" id="bubSeg" style="display:none"><button data-v="split" aria-pressed="true" title="Calls above the strike line, puts below">Calls | Puts</button><button data-v="total" aria-pressed="false" title="Calls + puts in one bubble, coloured by the net side">Total</button><button data-v="net" aria-pressed="false" title="Bubble size = bullish minus bearish">Net</button></div>
+        <div class="seg" role="group" aria-label="Bubble mode" id="bubSeg" style="display:none"><button data-v="split" aria-pressed="true" title="Calls above the strike line, puts below">Calls | Puts</button><button data-v="total" aria-pressed="false" title="Calls + puts in one bubble, coloured by the net side">Total</button><button data-v="net" aria-pressed="false" title="Bubble size = bullish minus bearish">Net</button><button data-v="pie" aria-pressed="false" title="One bubble, split green (bullish $) / red (bearish $)">Pie</button></div>
         <div class="seg" role="group" aria-label="Bubble size filter" id="bubMinSeg" style="display:none"><span class="lbl">Size</span><button data-v="0" aria-pressed="false">All</button><button data-v="50" aria-pressed="false">Top 50%</button><button data-v="80" aria-pressed="true">Top 20%</button><button data-v="95" aria-pressed="false">Top 5%</button></div>
         <button class="btn" id="bubUnuBtn" aria-pressed="true" style="display:none" title="Only minutes at least 3x the strike's typical minute">Unusual only</button>
         <button class="btn" id="bubRidgeBtn" aria-pressed="false" style="display:none" title="Draw the ridge lines underneath the bubbles">+ Ridges</button>
+        <div class="seg" role="group" aria-label="Heat behind the bubbles" id="bubBgSeg" style="display:none"><span class="lbl">Behind</span><button data-v="off" aria-pressed="true">Off</button><button data-v="gamma" aria-pressed="false" title="Dealer gamma, same basis as the Gamma view">Gamma</button><button data-v="oi" aria-pressed="false" title="Open interest per strike: calls upper half, puts lower half">OI</button></div>
+        <label class="seg" id="bubOpaWrap" style="display:none;align-items:center;gap:6px;padding:2px 8px" title="Bubble opacity (bubbles only)"><span class="lbl">Opacity</span><input type="range" id="bubOpa" min="10" max="100" step="5" value="85" style="width:90px"></label>
         <div class="seg" role="group" aria-label="Time window" id="winSeg">
           <span class="lbl">Time</span><button data-v="fit" aria-pressed="true">Fit</button><button data-v="120" aria-pressed="false">2h</button><button data-v="60" aria-pressed="false">1h</button><button data-v="30" aria-pressed="false">30m</button><button data-v="15" aria-pressed="false">15m</button><button data-z="in" class="zb" title="Zoom in on time (+ key)" aria-label="Zoom in on time">＋</button><button data-z="out" class="zb" title="Zoom out on time (− key)" aria-label="Zoom out on time">−</button>
         </div>
@@ -626,6 +628,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
         <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button>
+        <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128276;</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
         <button class="btn" id="maxBtn" title="Hide every panel, map only">Expand</button>
@@ -731,7 +734,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     </div>
   </main>
   <main id="tabMap" class="tab" hidden>
-    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><span class="hint" id="mapNote"></span></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
+    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><span class="hint" id="mapNote"></span></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
     <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
@@ -822,6 +825,10 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <h3>The tabs</h3>
         <dl>
           <dt>Flow</dt><dd>The order-flow lean. Signed premium split bought vs sold, the bullish/bearish needle, the biggest protection and upside trades, and a marker for the last logged session.</dd>
+          <dt>Bubbles: Pie, Behind, Opacity</dt><dd><b>Pie</b> shows each strike-minute as one bubble split green (bullish $) / red (bearish $), like Bookmap&rsquo;s pie dots. <b>Behind</b> draws the Flow map&rsquo;s own dealer gamma (same basis setting as the Gamma view) or today&rsquo;s open interest (calls cyan upper half, puts pink lower half) faintly under the bubbles &mdash; the Bookmap &ldquo;liquidity heatmap&rdquo; idea. <b>Opacity</b> fades the bubbles only, so the price bars and the heat stay readable. All remembered.</dd>
+          <dt>Sequence bubbles</dt><dd>Button <b>Seq</b> on the Flow map (on by default). <b>Small grey</b>: after a ~25-pt move (0.33% of spot) inside an hour, calls sold then puts bought within 15 min at a top (&darr;) &mdash; or puts sold then calls bought at a bottom (&uarr;). <b>Big coloured &ldquo;Reversal&rdquo;</b>: price at a top-4 premium line built from premium traded <i>so far</i> (calls at a top, puts at a bottom) or an expected-move edge (9:30 open &plusmn; the 9:31 ATM straddle &ldquo;EM&rdquo;, or &plusmn; spot&times;VIX/15.87 &ldquo;VIX&rdquo;), <i>and</i> dealers short gamma at spot, <i>and</i> the 5-minute signed flow flipped the reversal way within 10&ndash;15 min. Each bubble is scored 30 min later: &check; if price moved ~10 SPX pts (0.135%) the expected way first, &cross; if against first, &middot; if neither. The legend shows today&rsquo;s count and the running hit rate over every day logged in this browser. Hover a bubble for the detail. <b>&#128276;</b> adds a beep and a flashing tab title for a new live bubble (off by default). Built only from data up to that minute; descriptive, not a signal.</dd>
+          <dt>AM cone / Live cone</dt><dd>On the Map tab. <b>AM cone</b> (amber): width = the 0DTE at-the-money IV from the 08:35 book (falls back to the first logged minute), starting at the open (first real print, 9:31), &plusmn;1&sigma; dashed and &plusmn;2&sigma; dotted, frozen for the day. <b>Live cone</b> (thin white): the original moving curve &mdash; it re-centres on live spot and resizes with live ATM IV every update. Each has its own toggle.</dd>
+          <dt>Screenshot</dt><dd>&#128247; copies the Flow map (or the tab you are on) to the clipboard, ready to paste. Browsers only allow that on an https address (the Tailscale one) or localhost; on plain http it saves a PNG instead.</dd>
           <dt>Bubbles</dt><dd>The default Flow-map view (Ridges, Heat, IV and Gamma are still one click away). Each strike is a straight line; each bubble is one minute of <i>signed</i> option flow at that strike &mdash; size = premium (or contracts on Contracts), <b class="up">green</b> = calls bought / puts sold, <b class="dn">red</b> = calls sold / puts bought, grey = mixed. Solid = traded at or through the bid/ask (firm), hollow = inside the spread (soft); at-mid prints are not drawn. <b>Calls | Puts</b> puts calls just above the line and puts just below; <b>Total</b> merges them into one bubble coloured by the net side; <b>Net</b> sizes the bubble by bullish minus bearish only. <b>Size</b> hides the small stuff by ranking against the whole day (default Top 20%; the legend prints the cut-off). <b>Unusual only</b> keeps a bubble only when it is at least 3&times; that strike&rsquo;s typical minute &mdash; this strips the constant drizzle at the money (on by default). <b>+ Ridges</b> draws the ridge lines underneath the bubbles (off by default). Every choice is remembered by the browser. Dashed rings are real vendor prints (&ge;$100k, NAS tape) on this expiry. Top right of the map: contracts, premium and bullish % for the time window on screen. These are 1-minute bubbles, not individual trades, and the side is estimated from last vs quote at each poll &mdash; descriptive, not a signal.</dd>
           <dt>Flow bars</dt><dd>On the Flow map, button <b>Flow bars</b> (on by default). Each minute of the spot path becomes a bar from the previous close to this close, coloured by that minute&rsquo;s signed premium on near-the-money strikes (|&Delta;| 0.3&ndash;0.7): <b class="up">green</b> = calls bought / puts sold outweighed the reverse, <b class="dn">red</b> = the opposite, grey = mixed (net under 20% of gross) or nothing signed. Brighter = bigger. <b>W / M arrows</b> mark a double bottom / double top that closed through its neckline <i>and</i> where the 5-minute flow flipped the same way (bearish into the lows, bullish at the break &mdash; or the mirror). Pattern-only breaks are counted in the legend but not drawn. Sides are estimated from last vs quote at each 1-minute poll, so this is descriptive, not a signal.</dd>
           <dt>Strikes</dt><dd>Per-strike detail for whichever strike you have selected. Use the up and down arrows to walk through them.</dd>
@@ -943,10 +950,14 @@ const st = {
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
 if(!["bubble","ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
 if(load("bubDef")!=="1"){ st.view="bubble"; save("view","bubble"); st.rows="21"; save("rows","21"); save("bubDef","1"); }   // one-time: Bubbles becomes the default view
-st.bubMode=load("bubMode","split"); if(!["split","total","net"].includes(st.bubMode)) st.bubMode="split";
+st.bubMode=load("bubMode","split"); if(!["split","total","net","pie"].includes(st.bubMode)) st.bubMode="split";
 st.bubMin=load("bubMin","80"); if(!["0","50","80","95"].includes(st.bubMin)) st.bubMin="80";
 st.bubUnu=load("bubUnu","1")==="1";
 st.bubRidge=load("bubRidge","0")==="1";
+st.bubBg=load("bubBg","off"); if(!["off","gamma","oi"].includes(st.bubBg)) st.bubBg="off";
+st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
+st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
+st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0";
 if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
@@ -1577,6 +1588,7 @@ function renderMap(se,book){
   ctx.strokeStyle=fbD?C("--spot")+"59":C("--spot"); ctx.lineWidth=1.8;
   polyline(ctx, se.T.slice(ja,jb).map((t,q)=>[X(t),Yk(se.spot[ja+q])]));
   if(fbD) drawFlowBars(ctx,se,fbD,X,Yk,ja,jb,dx,t0,t1);
+  const sqR=st.seqOn?drawSeq(ctx,se,X,Yk,t0,t1):(_seqDrawn=[],null);
   if(jb===se.m){ const xs=X(se.T[se.m-1]), ys=Yk(S); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(xs,ys,3.2,0,Math.PI*2); ctx.fill(); }
   docMapMarks(ctx,X,Yk,t0,t1);
   ctx.restore();
@@ -1604,7 +1616,8 @@ function renderMap(se,book){
     : `<span>quiet</span><span class="ramp"></span><span>burst · ring = burst cluster</span>`;
   if(st.view==="bubble") document.getElementById("mapLegend").innerHTML = bubLegend();
   syncBub();
-  document.getElementById("mapLegend").innerHTML += fbLegend(fbD);
+  document.getElementById("mapLegend").innerHTML += fbLegend(fbD) + seqLegend(sqR);
+  document.getElementById("seqBtn").setAttribute("aria-pressed",st.seqOn); document.getElementById("seqSndBtn").setAttribute("aria-pressed",st.seqSnd);
   document.getElementById("fbBtn").setAttribute("aria-pressed",st.fbOn);
 }
 
@@ -2295,6 +2308,12 @@ function syncSeg(id,v){ document.querySelectorAll(`#${id} button[data-v]`).forEa
 function bindSeg(id,key,after){ syncSeg(id,st[key]); document.querySelectorAll(`#${id} button[data-v]`).forEach(b=>b.addEventListener("click",()=>{ st[key]=b.dataset.v; save(key,st[key]); syncSeg(id,st[key]); if(after) after(); render(); })); }
 bindSeg("sideSeg","side"); bindSeg("unitSeg","unit"); bindSeg("ladModeSeg","ladMode"); bindSeg("viewSeg","view"); bindSeg("bubSeg","bubMode"); bindSeg("bubMinSeg","bubMin");
 document.getElementById("bubUnuBtn").addEventListener("click",()=>{ st.bubUnu=!st.bubUnu; save("bubUnu",st.bubUnu?"1":"0"); render(); });
+bindSeg("bubBgSeg","bubBg");
+document.getElementById("bubOpa").addEventListener("input",e=>{ st.bubOpa=+e.target.value; save("bubOpa",String(st.bubOpa)); render(); });
+document.getElementById("seqBtn").addEventListener("click",()=>{ st.seqOn=!st.seqOn; save("seqOn",st.seqOn?"1":"0"); render(); });
+document.getElementById("seqSndBtn").addEventListener("click",()=>{ st.seqSnd=!st.seqSnd; save("seqSnd",st.seqSnd?"1":"0"); render(); });
+document.getElementById("coneAmBtn").addEventListener("click",()=>{ st.coneAm=!st.coneAm; save("coneAm",st.coneAm?"1":"0"); render(); });
+document.getElementById("coneLiveBtn").addEventListener("click",()=>{ st.coneLive=!st.coneLive; save("coneLive",st.coneLive?"1":"0"); render(); });
 document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
 bindSeg("mapBasisSeg","basis",()=>syncSeg("basisSeg",st.basis));
@@ -2368,6 +2387,8 @@ function hoverMap(e){
   const i=rowAt(y); const t=geo.t0+(x-geo.padL)/geo.plotW*(geo.t1-geo.t0);
   let j=0,bd=1e9; se.T.forEach((tt,q)=>{ if(Math.abs(tt-t)<bd){bd=Math.abs(tt-t);j=q;} });
   const {ctx,w,h}=fitCanvas(mapO); ctx.clearRect(0,0,w,h);
+  { const sq=st.seqOn?seqAt(x,y):null; if(sq){ mapTip.innerHTML=seqTip(sq); const pr=document.getElementById("mapPane").getBoundingClientRect();
+      mapTip.style.display="block"; mapTip.style.left=Math.min(e.clientX-pr.left+14, pr.width-260)+"px"; mapTip.style.top=(e.clientY-pr.top+14)+"px"; return; } }
   if(i==null||x<geo.padL||x>w-geo.padR||bd>3){ mapTip.style.display="none"; return; }
   ctx.strokeStyle="#ffffff40"; ctx.beginPath(); ctx.moveTo(geo.X(se.T[j]),geo.padT); ctx.lineTo(geo.X(se.T[j]),h-geo.padB); ctx.moveTo(geo.padL,geo.Y(i)); ctx.lineTo(w-geo.padR,geo.Y(i)); ctx.stroke();
   const k=se.ks[i], S=se.spot[j], c=se.dC[i][j], p=se.dP[i][j];
@@ -2612,7 +2633,7 @@ function wmEvents(se,roll){
     if(lo?(x[q]<x[c]||(x[q]===x[c]&&q<c)):(x[q]>x[c]||(x[q]===x[c]&&q<c))) return false; } return true; };
   for(let j=1;j<m;j++){
     const c=j-WM_SW;   // a swing at c is only known WM_SW minutes later: causal, no look-ahead
-    if(c-WM_SW>=0&&T[c-WM_SW]>=RTH_OPEN&&T[j]-T[c-WM_SW]<=2*WM_SW+2){ if(isExt(c,true)) lows.push(c); if(isExt(c,false)) highs.push(c); }
+    if(c-WM_SW>=0&&T[c-WM_SW]>=RTH_OPEN+1&&T[j]-T[c-WM_SW]<=2*WM_SW+2){ if(isExt(c,true)) lows.push(c); if(isExt(c,false)) highs.push(c); }
     if(T[j]<RTH_OPEN||T[j]>=RTH_OPEN+390) continue;
     for(const lo of [true,false]){
       const sw=lo?lows:highs; if(sw.length<2) continue;
@@ -2640,7 +2661,7 @@ function fbColor(sg,u){ const al=Math.round(255*(0.45+0.55*Math.min(1,Math.sqrt(
   return sg>0?"#58D68D"+al:sg<0?"#FF7B72"+al:C("--mute")+"80"; }
 function drawFlowBars(ctx,se,fb,X,Yk,ja,jb,dx,t0,t1){
   const bw=Math.max(1.5,Math.min(9,dx*0.72));
-  for(let j=Math.max(1,ja);j<jb;j++){ if(se.T[j]-se.T[j-1]>2) continue;
+  for(let j=Math.max(1,ja);j<jb;j++){ if(se.T[j]-se.T[j-1]>2||(se.T[j-1]<RTH_OPEN+1&&se.T[j]>=RTH_OPEN+1)) continue;   // no bar across the open: the 9:30 row is the prior close
     const x=X(se.T[j]), y0=Yk(se.spot[j-1]), y1=Yk(se.spot[j]), top=Math.min(y0,y1), hh=Math.max(2,Math.abs(y1-y0));
     ctx.fillStyle=C("--night"); ctx.fillRect(x-bw/2-0.5,top-0.5,bw+1,hh+1);
     ctx.fillStyle=fbColor(fb.sign[j],Math.abs(fb.net[j])/fb.p90); ctx.fillRect(x-bw/2,top,bw,hh); }
@@ -2681,7 +2702,7 @@ function bubCells(se){
     for(const r of sr.rows){ if(!keep(r)) continue;
       const q=r.k*100000+r.j; let c=m.get(q);
       if(!c){ c={i:se.idx.get(r.k),j:r.j,t:r.t,cp:null,g:0,nv:0,prem:0,firmP:0}; m.set(q,c); }
-      c.g+=val(r); c.nv+=r.bullish*val(r); c.prem+=r.prem; if(r.tier===1) c.firmP+=r.prem; }
+      c.g+=val(r); c.nv+=r.bullish*val(r); if(r.bullish>0) c.bv=(c.bv||0)+val(r); else c.sv=(c.sv||0)+val(r); c.prem+=r.prem; if(r.tier===1) c.firmP+=r.prem; }
     for(const c of m.values()){
       if(mode==="net"){ c.v=Math.abs(c.nv); c.sg=Math.sign(c.nv); if(!(c.v>0)) continue; }
       else { c.v=c.g; c.sg=Math.abs(c.nv)>=FB_MIX*c.g?Math.sign(c.nv):0; }
@@ -2693,6 +2714,7 @@ function bubCells(se){
   _bub={key,res}; return res;
 }
 function drawBubbles(ctx,se,g){
+  bubBehind(ctx,se,g);
   ctx.strokeStyle=C("--rule"); ctx.lineWidth=1;
   for(let i=g.lo;i<g.hi;i++){ const y=Math.round(g.Y(i))+0.5; ctx.beginPath(); ctx.moveTo(g.padL,y); ctx.lineTo(g.w-g.padR,y); ctx.stroke(); }
   const B=bubCells(se); if(!B){ _bubInfo={none:true}; return; }
@@ -2702,10 +2724,9 @@ function drawBubbles(ctx,se,g){
   const rMax=Math.max(4,Math.min(g.rowH*0.95,26)), off=st.bubMode==="split"?Math.min(g.rowH*0.22,8):0;
   const R=c=>Math.max(1.6,rMax*Math.sqrt(c.v/top)), P=c=>[g.X(c.t), g.Y(c.i)+(c.cp==="C"?-off:c.cp==="P"?off:0)];
   vis.sort((a,b)=>a.v-b.v);
-  for(const c of vis){ const r=R(c), [x,y]=P(c), col=c.sg>0?"#58D68D":c.sg<0?"#FF7B72":C("--mute");
-    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
-    ctx.fillStyle=col+(c.firm?"c8":"38"); ctx.fill();
-    ctx.lineWidth=c.firm?1:1.4; ctx.strokeStyle=c.firm?"#ffffff60":col; ctx.stroke(); }
+  ctx.save(); ctx.globalAlpha=(st.bubOpa||85)/100;
+  for(const c of vis){ const r=R(c), [x,y]=P(c), col=c.sg>0?"#58D68D":c.sg<0?"#FF7B72":C("--mute"); bubDot(ctx,c,x,y,r,col); }
+  ctx.restore();
   ctx.font="bold 10px "+C("--font"); ctx.textAlign="center";
   for(const c of vis.slice(-BUB_LABELS)){ const r=R(c); if(r<6) continue; const [x,y]=P(c);
     const lab=(st.bubMode==="net"?(c.sg>0?"+":"−"):"")+(B.usd?money(c.v):fmtN(Math.round(c.v)));
@@ -2735,10 +2756,166 @@ function drawBubbles(ctx,se,g){
 }
 function bubLegend(){ const b=_bubInfo; if(!b||b.none) return `<span>Bubbles need the quote fields (bid/ask/last) — none in this log</span>`;
   const cut=b.q>0?` · size ≥ ${b.usd?money(b.cut):fmtN(Math.round(b.cut))} (top ${100-b.q}% of today)`:"";
-  return `<span><b class="up">●</b> bullish <b class="dn">●</b> bearish · solid = at bid/ask, hollow = inside · ${st.bubMode==="split"?"calls above the line, puts below":st.bubMode==="net"?"size = net":"size = calls + puts"}${cut}${st.bubUnu?` · ≥${BUB_UNU}× strike's typical minute`:""}${st.bubRidge?" · ridges underneath":""} · ${fmtN(b.shown)} shown${b.nTape?` · ${b.nTape} real prints (dashed)`:""}</span>`; }
+  return `<span><b class="up">●</b> bullish <b class="dn">●</b> bearish · solid = at bid/ask, hollow = inside · ${st.bubMode==="split"?"calls above the line, puts below":st.bubMode==="net"?"size = net":st.bubMode==="pie"?"pie = bullish / bearish share":"size = calls + puts"}${cut}${st.bubUnu?` · ≥${BUB_UNU}× strike's typical minute`:""}${st.bubRidge?" · ridges underneath":""} · ${fmtN(b.shown)} shown${b.nTape?` · ${b.nTape} real prints (dashed)`:""}</span>`; }
 function syncBub(){ const on=st.view==="bubble";
-  for(const id of ["bubSeg","bubMinSeg","bubUnuBtn","bubRidgeBtn"]){ const el=document.getElementById(id); if(el) el.style.display=on?"":"none"; }
+  syncSeg("bubBgSeg",st.bubBg); { const o=document.getElementById("bubOpa"); if(o&&+o.value!==st.bubOpa) o.value=st.bubOpa; }
+  for(const id of ["bubSeg","bubMinSeg","bubUnuBtn","bubRidgeBtn","bubBgSeg","bubOpaWrap"]){ const el=document.getElementById(id); if(el) el.style.display=on?"":"none"; }
   syncSeg("bubSeg",st.bubMode); syncSeg("bubMinSeg",st.bubMin); document.getElementById("bubUnuBtn").setAttribute("aria-pressed",st.bubUnu); document.getElementById("bubRidgeBtn").setAttribute("aria-pressed",st.bubRidge); }
+
+/* ============================================================ Bubbles: heat behind (Bookmap-style), opacity, pie
+   Behind = the Flow map's own gamma matrix (same basis setting) or today's OI per strike, drawn faint under the bubbles.
+   Display only. */
+function bubBehind(ctx,se,g){
+  if(st.bubBg==="off") return;
+  ctx.save();
+  if(st.bubBg==="gamma"){ const G=gammaMatrix(se); if(G){
+      const ja=Math.max(0,se.T.findIndex(t=>t>=g.t0-1)), jbx=se.T.findIndex(t=>t>g.t1+1), jb=jbx<0?se.m:jbx;
+      const vals=[]; for(let i=g.lo;i<g.hi;i++) for(let j=ja;j<jb;j++){ const v=G[i][j]; if(v!=null) vals.push(Math.abs(v)); }
+      vals.sort((a,b)=>a-b); const top=vals.length?vals[Math.floor((vals.length-1)*0.995)]||1:1;
+      const dx=(g.X(g.t0+1)-g.X(g.t0)); ctx.globalAlpha=0.42;
+      for(let i=g.lo;i<g.hi;i++){ const y=g.Y(i)-g.rowH/2;
+        for(let j=ja;j<jb;j++){ const v=G[i][j]; if(v==null) continue; ctx.fillStyle=gamColor(v,top); ctx.fillRect(g.X(se.T[j])-dx/2,y,Math.max(1,dx+0.4),Math.max(1,g.rowH)); } } } }
+  else if(st.bubBg==="oi"){ const d=st.live&&st.live[st.sym]; if(d&&d.rows){
+      const oi=new Map(d.rows.map(r=>[r.k,[r.cOI||0,r.pOI||0]])); let mx=1; for(const [k,o] of oi) mx=Math.max(mx,o[0],o[1]);
+      for(let i=g.lo;i<g.hi;i++){ const o=oi.get(se.ks[i]); if(!o) continue; const y=g.Y(i);
+        ctx.globalAlpha=0.30*Math.sqrt(o[0]/mx); ctx.fillStyle=C("--call"); ctx.fillRect(g.padL,y-g.rowH/2,g.w-g.padL-g.padR,g.rowH/2);
+        ctx.globalAlpha=0.30*Math.sqrt(o[1]/mx); ctx.fillStyle=C("--put"); ctx.fillRect(g.padL,y,g.w-g.padL-g.padR,g.rowH/2); } } }
+  ctx.restore();
+}
+function bubDot(ctx,c,x,y,r,col){
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+  if(st.bubMode==="pie"&&(c.bv||c.sv)){ const tot=(c.bv||0)+(c.sv||0), fb=(c.bv||0)/tot, a=c.firm?"c8":"55";
+    ctx.fillStyle="#FF7B72"+a; ctx.fill();
+    if(fb>0){ ctx.beginPath(); ctx.moveTo(x,y); ctx.arc(x,y,r,-Math.PI/2,-Math.PI/2+fb*Math.PI*2); ctx.closePath(); ctx.fillStyle="#58D68D"+a; ctx.fill(); }
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.lineWidth=1; ctx.strokeStyle="#ffffff60"; ctx.stroke(); return; }
+  ctx.fillStyle=col+(c.firm?"c8":"38"); ctx.fill();
+  ctx.lineWidth=c.firm?1:1.4; ctx.strokeStyle=c.firm?"#ffffff60":col; ctx.stroke();
+}
+
+/* ============================================================ B3 sequence bubbles + self-score
+   Grey (simple): after a move of >= ~25 SPX pts (0.33% of spot) inside 60 min, calls SOLD then puts BOUGHT within 15 min
+   at a top (or puts sold then calls bought at a bottom).
+   Coloured (refined): price at a top-4 premium line (calls at a top, puts at a bottom; lines built only from premium
+   traded SO FAR) or an expected-move edge (9:30 open +/- the 9:31 ATM straddle, or +/- spot x VIX/15.87) + dealers short
+   gamma at spot (the Flow map's gamma matrix) + the 5-min signed flow flipped the reversal way within 10-15 min.
+   Self-score: 30 min after each bubble, ✓ if price moved ~10 SPX pts (0.135%) the expected way before the same against,
+   ✗ if against first, · if neither. Results are logged per day in this browser; the legend shows the running hit rate.
+   Everything is causal: a bubble at minute j only uses data up to j. Descriptive, not a signal. */
+const SEQ_MOVE=0.0033, SEQ_LOOK=60, SEQ_WIN=15, SEQ_NEAR=0.0004, SEQ_SCORE=0.00135, SEQ_HOLD=30, SEQ_GAP=15;
+let _seq={key:null,res:null}, _seqDrawn=[], _seqSeen=null, _seqFlash=null;
+function seqEvents(se){
+  const fb=flowBars(se); if(!fb) return null;
+  const key=_f2.key+"|"+st.basis+"|"+(st.live&&st.live.VIX?st.live.VIX.spot:"");
+  if(_seq.key===key) return _seq.res;
+  const sr=signedRows(se), m=se.m, T=se.T, x=se.spot;
+  const cN=new Array(m).fill(0), pN=new Array(m).fill(0), byJ=Array.from({length:m},()=>[]);
+  for(const r of sr.rows){ if(!r.bullish) continue; if(r.cp==="C") cN[r.j]+=r.sp; else pN[r.j]+=r.sp; byJ[r.j].push(r); }
+  const roll=a=>{ const o=new Array(m).fill(0); let s=0; for(let j=0,q=0;j<m;j++){ s+=a[j]; while(T[j]-T[q]>=5){ s-=a[q]; q++; } o[j]=s; } return o; };
+  const cR=roll(cN), pR=roll(pN), nR=fb.roll;
+  const ins=(arr,v)=>{ let lo=0,hi=arr.length; while(lo<hi){ const md=(lo+hi)>>1; if(arr[md]<v) lo=md+1; else hi=md; } arr.splice(lo,0,v); };
+  const med=a=>a.length?a[a.length>>1]:Infinity;
+  const sc=[],sp=[],sn=[];
+  const G=gammaMatrix(se);
+  const j931=T.findIndex(t=>t>=RTH_OPEN+1);   // SPX prints its first real value at 9:31; the 9:30 row still carries the prior close
+  let S0=null, em=null; if(j931>=0){ S0=x[j931]; }
+  if(S0!=null&&j931>=0){ let bi=-1,bd=1e99; se.ks.forEach((k,i)=>{ if(Math.abs(k-S0)<bd){bd=Math.abs(k-S0);bi=i;} });
+    const c=se.mC[bi]&&se.mC[bi][j931], p=se.mP[bi]&&se.mP[bi][j931]; if(c>0&&p>0) em=c+p; }
+  const vix=st.live&&st.live.VIX&&st.live.VIX.spot>0?st.live.VIX.spot:null, emV=S0!=null&&vix?S0*vix/1587:null;
+  const cum=new Map(), out=[], last={};
+  for(let j=0;j<m;j++){
+    for(const r of byJ[j]){ const k=r.k+r.cp; cum.set(k,(cum.get(k)||0)+r.prem); }
+    if(cR[j]) ins(sc,Math.abs(cR[j])); if(pR[j]) ins(sp,Math.abs(pR[j])); if(nR[j]) ins(sn,Math.abs(nR[j]));
+    if(T[j]<RTH_OPEN+5||T[j]>=RTH_OPEN+390) continue;
+    const fc=med(sc), fp=med(sp), fn=med(sn), S=x[j], mv=SEQ_MOVE*S;
+    let lo=S,hi=S; for(let q=j;q>=0&&T[j]-T[q]<=SEQ_LOOK&&T[q]>=RTH_OPEN+1;q--){ if(x[q]<lo) lo=x[q]; if(x[q]>hi) hi=x[q]; }
+    const add=(type,dir,loc)=>{ const kk=type+dir; if(last[kk]!=null&&T[j]-last[kk]<SEQ_GAP) return; last[kk]=T[j];
+      let gi=-1,bd=1e99; se.ks.forEach((k,i)=>{ if(Math.abs(k-S)<bd){bd=Math.abs(k-S);gi=i;} });
+      out.push({id:type+dir+T[j],type,dir,j,t:T[j],px:S,loc,gam:G&&gi>=0?G[gi][j]:null,c5:cR[j],p5:pR[j],n5:nR[j]}); };
+    // grey: move, then the two-leg sequence
+    if(S-lo>=mv){ for(let q=j-1;q>=0&&T[j]-T[q]<=SEQ_WIN;q--){ if(T[j]-T[q]<2) continue; if(cR[q]<-fc&&pR[q]>-fp&&pR[j]<-fp){ add("grey",-1,null); break; } } }
+    if(hi-S>=mv){ for(let q=j-1;q>=0&&T[j]-T[q]<=SEQ_WIN;q--){ if(T[j]-T[q]<2) continue; if(pR[q]>fp&&cR[q]<fc&&cR[j]>fc){ add("grey",1,null); break; } } }
+    // coloured: location + short gamma + flip
+    if(!G) continue; let gi=-1,bd=1e99; se.ks.forEach((k,i)=>{ if(Math.abs(k-S)<bd){bd=Math.abs(k-S);gi=i;} });
+    const gv=gi>=0?G[gi][j]:null; if(!(gv<0)) continue;
+    const tol=SEQ_NEAR*S;
+    const top4=cp=>[...cum.entries()].filter(([k])=>k.endsWith(cp)).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k])=>parseFloat(k));
+    const locTop=()=>{ for(const k of top4("C")) if(Math.abs(S-k)<=tol) return fmtN(k)+"C";
+      if(S0!=null&&em&&Math.abs(S-(S0+em))<=tol) return "EM↑"; if(emV&&Math.abs(S-(S0+emV))<=tol) return "VIX↑"; return null; };
+    const locBot=()=>{ for(const k of top4("P")) if(Math.abs(S-k)<=tol) return fmtN(k)+"P";
+      if(S0!=null&&em&&Math.abs(S-(S0-em))<=tol) return "EM↓"; if(emV&&Math.abs(S-(S0-emV))<=tol) return "VIX↓"; return null; };
+    const flip=dir=>{ if(dir<0?!(nR[j]<-fn):!(nR[j]>fn)) return false;
+      for(let q=j-1;q>=0&&T[j]-T[q]<=SEQ_WIN;q--){ if(T[j]-T[q]<5) continue; if(dir<0?nR[q]>fn:nR[q]<-fn) return true; } return false; };
+    const lt=locTop(); if(lt&&flip(-1)) add("color",-1,lt);
+    const lb=locBot(); if(lb&&flip(1)) add("color",1,lb);
+  }
+  for(const e of out){ const w=SEQ_SCORE*e.px; e.res="pend";
+    for(let q=e.j+1;q<m;q++){ if(T[q]-e.t>SEQ_HOLD){ e.res="·"; break; } const mvq=e.dir*(x[q]-e.px);
+      if(mvq>=w){ e.res="✓"; break; } if(mvq<=-w){ e.res="✗"; break; } } }
+  const res={ev:out,S0,em,emV}; _seq={key,res}; seqLog(out); return res;
+}
+function seqLog(ev){ const c=liveClock(); const day=c&&c.date?c.date:null; if(!day) return;
+  try{ const L=JSON.parse(localStorage.getItem(NS+"seqlog")||"{}");
+    L[day+"|"+st.sym]=ev.filter(e=>e.res!=="pend").map(e=>({t:e.t,type:e.type,dir:e.dir,loc:e.loc,res:e.res}));
+    localStorage.setItem(NS+"seqlog",JSON.stringify(L)); }catch(e){} }
+function seqStats(){ const out={grey:[0,0],color:[0,0],days:0};
+  try{ const L=JSON.parse(localStorage.getItem(NS+"seqlog")||"{}");
+    for(const [k,a] of Object.entries(L)){ if(!k.endsWith("|"+st.sym)) continue; out.days++;
+      for(const e of a){ const b=out[e.type]; if(!b) continue; if(e.res==="✓") b[0]++; else if(e.res==="✗") b[1]++; } } }catch(e){}
+  return out; }
+function seqTip(e){ const typ=e.type==="color"?"Reversal (refined)":"Sequence (simple)";
+  const g=e.gam==null?"–":(e.gam<0?"short γ":"long γ");
+  return `<b>${typ} ${e.dir>0?"↑":"↓"} · ${tlabel(e.t)}</b>${e.loc?` · at ${e.loc}`:""}<br>`+
+    `calls 5-min ${e.c5>=0?"+":"−"}${money(Math.abs(e.c5))} (${e.c5>=0?"bought":"sold"}) · puts 5-min ${e.p5>=0?"+":"−"}${money(Math.abs(e.p5))} (${e.p5>=0?"sold":"bought"})<br>`+
+    `net 5-min ${e.n5>=0?"+":"−"}${money(Math.abs(e.n5))} · ${g} · spot ${fmtN(e.px,2)}<br>`+
+    `score after 30 min: <b>${e.res==="pend"?"pending":e.res}</b> (±${fmtN(SEQ_SCORE*e.px,1)} first)`; }
+function drawSeq(ctx,se,X,Yk,t0,t1){
+  _seqDrawn=[]; const R=seqEvents(se); if(!R) return null;
+  ctx.save(); ctx.font="bold 10px "+C("--font"); ctx.textAlign="center";
+  for(const e of R.ev){ if(e.t<t0||e.t>t1) continue;
+    const x=X(e.t), y=Yk(e.px)+(e.dir<0?-16:16), big=e.type==="color", r=big?9:5;
+    const col=big?(e.dir>0?"#58D68D":"#FF7B72"):"#9DB0CA";
+    ctx.beginPath(); ctx.arc(x,y,r+1.5,0,Math.PI*2); ctx.fillStyle=C("--night"); ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=col+(big?"e6":"cc"); ctx.fill(); ctx.lineWidth=big?1.6:1; ctx.strokeStyle="#ffffffb0"; ctx.stroke();
+    ctx.fillStyle=C("--night"); ctx.fillText(e.dir>0?"↑":"↓",x,y+3.5);
+    const lab=(big?`Reversal ${e.dir>0?"↑":"↓"}${e.loc?" "+e.loc:""}`:"")+(e.res==="pend"?"":(big?" ":"")+e.res);
+    if(lab){ const ly=e.dir<0?y-r-4:y+r+11; ctx.fillStyle=C("--night"); ctx.fillText(lab,x+1,ly+1); ctx.fillStyle=e.res==="✓"?"#58D68D":e.res==="✗"?"#FF7B72":C("--ink"); ctx.fillText(lab,x,ly); }
+    _seqDrawn.push({x,y,r:r+4,e}); }
+  ctx.restore();
+  // new live bubble -> optional sound + flashing tab title
+  const ids=new Set(R.ev.map(e=>e.id));
+  if(_seqSeen==null){ _seqSeen=ids; }
+  else { const lastT=se.T[se.m-1]; for(const e of R.ev){ if(_seqSeen.has(e.id)) continue; _seqSeen.add(e.id); if(lastT-e.t<=3&&st.seqSnd) seqAlert(e); } }
+  return R;
+}
+function seqAlert(e){
+  try{ const A=window.AudioContext||window.webkitAudioContext; const a=new A(), o=a.createOscillator(), g=a.createGain();
+    o.frequency.value=e.dir>0?880:440; g.gain.value=0.08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+0.25); }catch(err){}
+  if(_seqFlash) clearInterval(_seqFlash); const base=document.title.replace(/^● [^·]*· /,""); let n=0;
+  _seqFlash=setInterval(()=>{ n++; document.title=(n%2?`● ${e.type==="color"?"REVERSAL":"SEQ"} ${e.dir>0?"↑":"↓"} · `:"")+base; if(n>=12){ clearInterval(_seqFlash); _seqFlash=null; document.title=base; } },700); }
+function seqAt(x,y){ for(const d of _seqDrawn){ if(Math.hypot(d.x-x,d.y-y)<=d.r) return d.e; } return null; }
+function seqLegend(R){ if(!st.seqOn||!R) return "";
+  const today={grey:[0,0,0],color:[0,0,0]}; for(const e of R.ev){ const b=today[e.type]; b[2]++; if(e.res==="✓") b[0]++; else if(e.res==="✗") b[1]++; }
+  const S=seqStats(), pct=b=>(b[0]+b[1])?Math.round(100*b[0]/(b[0]+b[1]))+"%":"–";
+  return `<span style="margin-left:10px">seq: grey ${today.grey[2]} (${today.grey[0]}✓ ${today.grey[1]}✗) · reversal ${today.color[2]} (${today.color[0]}✓ ${today.color[1]}✗) · ${S.days} day${S.days===1?"":"s"} logged: grey ${pct(S.grey)}, reversal ${pct(S.color)}</span>`; }
+
+/* ============================================================ AM cone (static) on the Map tab
+   Width = the 0DTE ATM IV at 08:35 (OTM-side IV at the strike nearest spot in the minute log), anchored at the 9:30
+   open, +/-1 sigma and +/-2 sigma, frozen for the day. Same calendar-minute clock as the live cone. */
+function amCone(se){ if(!se||!se.m) return null;
+  // the 08:35 book (ti.json straddle: 0DTE, today) first; else the first logged minute's OTM-side ATM IV
+  const TI=st.ti&&st.ti.ti, sd=TI&&TI.straddle&&TI.straddle.found&&TI.straddle.dte===0&&String(TI.straddle.as_of||"").slice(0,10)===liveClock().date?TI.straddle:null;
+  let sg=sd&&sd.atm_iv>0?sd.atm_iv:null, src=sg?"08:35 book":null;
+  if(!sg){ for(let j=0;j<se.m&&se.T[j]<RTH_OPEN+5;j++){ if(se.atm[j]>0){ sg=se.atm[j]; src=tlabel(se.T[j])+" minute log"; break; } } }
+  const jO=se.T.findIndex(t=>t>=RTH_OPEN+1);   // first real print (the 9:30 row still carries the prior close)
+  const S0=jO>=0?se.spot[jO]:null;
+  return sg&&S0?{sg,S0,src}:null; }
+function drawAmCone(ctx,m,X,Y){ if(!st.coneAm) return; const se=series(st.sym), c=amCone(se); if(!c) return;
+  const t0=RTH_OPEN+1; ctx.save(); ctx.strokeStyle="#FFC24A"; ctx.lineWidth=1.2;
+  for(const [k,dash,al] of [[1,[5,3],"cc"],[2,[2,3],"88"]]) for(const s of [1,-1]){ ctx.strokeStyle="#FFC24A"+al; ctx.setLineDash(dash); ctx.beginPath(); let on=false;
+    for(const t of m.times){ if(t<t0) continue; const p=c.S0*Math.exp(s*k*c.sg*Math.sqrt(Math.max(t-t0,0)/525600)); const x=X(t),y=Y(p); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; } ctx.stroke(); }
+  ctx.setLineDash([]); ctx.fillStyle="#FFC24A"; ctx.font="10px system-ui"; const tl=m.times[m.times.length-1], tt=Math.max(tl-t0,0)/525600;
+  ctx.fillText("AM 1σ "+Math.round(c.sg*100)+"%",X(tl)-58,Y(c.S0*Math.exp(c.sg*Math.sqrt(tt)))-3); ctx.fillText("AM 2σ",X(tl)-58,Y(c.S0*Math.exp(2*c.sg*Math.sqrt(tt)))-3);
+  ctx.restore(); }
 
 function tapeOf(sym){ const T=st.ti&&st.ti.tape; if(!T) return null; return T[sym]||null; }
 function f2Cards(sr,se,d,book){
@@ -3024,8 +3201,9 @@ function drawHeat(id,m,se,d,legendTxt){
     ctx.stroke(); ctx.setLineDash([]); };
   trace(f=>f.z,"#dfe6f2",[2,3]); if(m.kind==="gamma"||m.kind==="vanna"||m.kind==="charm"){ trace(f=>f.pk,"#2ecc71"); trace(f=>f.tr,"#f4d03f"); }
   // ±1σ anchored at 9:35 from ATM IV of today's expiry
-  const sg=(d&&d.iv>0)?d.iv:null; if(sg){ const t0=9*60+35; ctx.strokeStyle="#ffffff66"; ctx.lineWidth=1; for(const s of [1,-1]){ ctx.beginPath(); let on=false;
+  const sg=(d&&d.iv>0)?d.iv:null; if(sg&&st.coneLive){ const t0=9*60+35; ctx.strokeStyle="#ffffff66"; ctx.lineWidth=1; for(const s of [1,-1]){ ctx.beginPath(); let on=false;
       for(const t of m.times){ if(t<t0) continue; const ty=(t-t0)/525600; const p=m.S*Math.exp(s*sg*Math.sqrt(ty)); const x=X(t),y=Y(p); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; } ctx.stroke(); } }
+  drawAmCone(ctx,m,X,Y);
   // spot path (history) + now line
   const snaps=st.flow[st.sym]||[]; const pc=st.prevClose||{}; const spyBy=new Map((st.flow.SPY||[]).map(s=>[s.t,s.x]));
   const preX=(s)=>{ if(st.sym!=="SPX") return s.x; const sp=spyBy.get(s.t); return (sp>0&&pc.SPX>0&&pc.SPY>0)?pc.SPX*sp/pc.SPY:null; };
@@ -3121,6 +3299,7 @@ function renderMapTab(se,d){
   document.getElementById("mapDocBtn").setAttribute("aria-pressed",st.docOn);
   { const pb=document.getElementById("mapPremBtn"); if(pb) pb.setAttribute("aria-pressed",!!st.premOv); }
   { const gb=document.getElementById("gDetBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gDet); }
+  document.getElementById("coneAmBtn").setAttribute("aria-pressed",st.coneAm); document.getElementById("coneLiveBtn").setAttribute("aria-pressed",st.coneLive);
   const rd=document.getElementById("mapRead"); if(rd) rd.innerHTML=mapRead(g,st.mapRight==="vanna"?null:r,st.mapRight==="vanna"?r:null,se,d);
   const nt=document.getElementById("mapNote"); if(nt) nt.textContent=`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile.`;
 }
@@ -3137,10 +3316,16 @@ syncSeg("mapRightSeg",st.mapRight||"charm");
 /* ---- screenshot */
 document.getElementById("screenshotBtn").addEventListener("click",()=>{
   const btn=document.getElementById("screenshotBtn"); btn.disabled=true; btn.textContent="⏳";
-  html2canvas(document.body,{backgroundColor:"#0A1426",scale:2,logging:false,useCORS:true}).then(c=>{
-    const a=document.createElement("a"); a.download="cockpit_"+st.sym+"_"+(liveClock().date||"snap")+".png";
-    a.href=c.toDataURL("image/png"); a.click();
-  }).catch(e=>console.error("screenshot:",e)).finally(()=>{ btn.disabled=false; btn.textContent="📷"; });
+  const el=st.tab==="flow"?document.getElementById("mapPane"):(document.querySelector("main.tab:not([hidden])")||document.body);
+  const name="cockpit_"+st.sym+"_"+st.tab+"_"+(liveClock().date||"snap")+".png";
+  const png=html2canvas(el,{backgroundColor:"#0A1426",scale:2,logging:false,useCORS:true}).then(c=>new Promise(r=>c.toBlob(r,"image/png")));
+  const save=()=>png.then(b=>{ const a=document.createElement("a"); a.download=name; a.href=URL.createObjectURL(b); a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); return "✓ saved"; });
+  const done=t=>{ btn.textContent=t; setTimeout(()=>{ btn.disabled=false; btn.textContent="📷"; },1400); };
+  let job;   // clipboard needs HTTPS (or localhost); the ClipboardItem is created inside the click so Safari allows it
+  if(window.isSecureContext&&navigator.clipboard&&navigator.clipboard.write&&window.ClipboardItem){
+    job=navigator.clipboard.write([new ClipboardItem({"image/png":png})]).then(()=>"✓ copied").catch(e=>{ console.warn("clipboard:",e); return save(); }); }
+  else job=save();
+  job.then(done).catch(e=>{ console.error("screenshot:",e); done("✗"); });
 });
 
 /* ============================================================ boot */
