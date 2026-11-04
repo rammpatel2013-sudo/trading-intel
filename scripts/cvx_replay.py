@@ -62,7 +62,7 @@ VIEWS = (("density", "Density cone"),
 HOOK = "window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath}"
 REPLAY_HOOK = ("window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath,"
                "buildSeries,signedRows,buildMap,greekCol,greekColNear,nearRows,mapRowsAt,changeMap,"
-               "currentBook,liveClock,pollLive,pollFlow,pollTI,tmin}")
+               "currentBook,liveClock,pollLive,pollFlow,pollTI,tmin,seqEvents,flowBars}")
 # Docker gives /dev/shm 64 MB; Chromium must not rely on it inside the trading-intel container
 CHROME_ARGS = ["--disable-dev-shm-usage"]
 DEN_HOOK = "window.__density=DEN;"
@@ -134,10 +134,13 @@ JS_LEVELS = r"""(bases) => { const c=window.__cockpit, st=c.st, d=st.live[st.sym
       const g=c.buildMap('gamma',se,d,'0dte'), v=c.buildMap('vanna',se,d,'0dte'), ch=c.buildMap('charm',se,d,'0dte');
       if(!g||!v||!ch){ out[b]=null; continue; }
       const P=(m,f)=>m.prices[0]+f*m.dp; const cols=[];
+      const snb=new Map((st.flow[st.sym]||[]).map(s=>[c.tmin(s.t),s.x]));
+      const spAt=t=>{ for(let q=0;q<4;q++){ const x=snb.get(t+q); if(x>0) return x; } return null; };
       g.times.forEach((t,i)=>{ if(t<570||t>g.now) return;
         const gz=g.feats[i].z.map(f=>P(g,f)), vz=v.feats[i].z.map(f=>P(v,f)), cz=ch.feats[i].z.map(f=>P(ch,f));
         let gpk=null, gv=-1e99; g.feats[i].pk.forEach(k=>{ if(g.grid[i][k]>gv){ gv=g.grid[i][k]; gpk=g.prices[k]; } });
-        cols.push({t,gz,vz,cz,gpk}); });
+        const Sx=spAt(t); let gs=null; if(Sx){ const k=Math.max(0,Math.min(g.prices.length-1,Math.round((Sx-g.prices[0])/g.dp))); gs=g.grid[i][k]; }
+        cols.push({t,gz,vz,cz,gpk,S:Sx,gs}); });
       let sod=null; const ga=c.buildMap('gamma',se,d,'all');
       if(ga){ const snaps=st.flow[st.sym]||[]; const i=ga.times.findIndex(t=>t>=571);
         let S=null; for(const s of snaps){ const tm=c.tmin(s.t); if(tm>=571&&tm<=ga.times[i]+3&&s.x>0){ S=s.x; break; } }
@@ -145,6 +148,21 @@ JS_LEVELS = r"""(bases) => { const c=window.__cockpit, st=c.st, d=st.live[st.sym
       out[b]={cols, now:g.now, sod}; } }
   finally{ st.basis=keep; }
   return out; }"""
+
+JS_PHASE1 = r"""(basis) => { const c=window.__cockpit, st=c.st, keep=st.basis, out={}; st.basis=basis;
+  const se=c.series('SPX'), d=st.live.SPX, snaps=st.flow.SPX||[];
+  try{ const byT=new Map(snaps.map((s,j)=>[c.tmin(s.t),j])), nr=c.nearRows(), gate=[];
+    for(let t=572;t<=958;t+=10){ let j=null; for(let q=0;q<4;q++){ if(byT.has(t+q)){ j=byT.get(t+q); break; } } if(j==null) continue;
+      const S=snaps[j].x; if(!(S>0)) continue; const rows=c.mapRowsAt(j,se,d), ty=Math.max(960-t,1)/525600;
+      let n0=0,g0=0; for(const r of rows){ const v=c.greekCol('gamma',[r],S,ty); n0+=v; g0+=Math.abs(v); }
+      let n1=n0,g1=g0; if(nr){ for(const r of nr){ const v=c.greekColNear('gamma',[r],S,t); n1+=v; g1+=Math.abs(v); } }
+      gate.push({t,S,r0:g0?Math.abs(n0)/g0:null,r1:g1?Math.abs(n1)/g1:null}); }
+    out.gate=gate; }catch(e){ out.gate_err=String(e); }
+  try{ const G=c.docGrades(); out.doc=G?G.map(x=>({id:x.s.id,kind:x.s.kind,dir:x.s.dir,level:x.s.level,text:x.s.text,state:x.g.state,
+      played:!!x.g.played,t0:x.g.last?x.g.last.t0:null,hit:x.g.last?x.g.last.hit:null})):null; }catch(e){ out.doc_err=String(e); }
+  try{ const R=c.seqEvents(se); out.seq=R?R.ev.map(e=>({t:e.t,type:e.type,dir:e.dir,loc:e.loc,px:e.px,res:e.res})):null; }catch(e){ out.seq_err=String(e); }
+  try{ const F=c.flowBars(se); out.wm=F&&F.wm?F.wm.map(e=>({type:e.type,t:e.t,px:e.px,agree:e.agree})):null; }catch(e){ out.wm_err=String(e); }
+  st.basis=keep; return out; }"""
 
 JS_VIEW = r"""(v) => { const c=window.__cockpit, st=c.st;
   if(v==='density'){ st.tab='density'; } else { st.tab='map'; st.mapBook='0dte'; st.mapBookR='all'; st.mapRight=v; }
@@ -238,7 +256,7 @@ def extract(raw_path, day):
     day_iso = day.isoformat()
     oi, week, quotes, spot = {}, {}, {}, {}
     oi_ts, n_idx, exp_bad = None, 0, []
-    am, sq = None, {}
+    am, sq, viv = None, {}, {}
     with gzip.open(raw_path, "rt", encoding="utf-8") as fh:
         for line in fh:
             head = line[:400]
@@ -299,8 +317,10 @@ def extract(raw_path, day):
                     quotes[t] = {str(int(k)): [c.get("bid_price"), c.get("ask_price"), p.get("bid_price"), p.get("ask_price")]
                                  for k, (c, p) in book0.items() if abs(k - S) <= 200}
                     spot[t] = S
+                    if t[-1] in "05" and t not in viv:
+                        viv[t] = {"S": S, "k": {"%.1f" % k: [c.get("volatility"), p.get("volatility")] for k, (c, p) in book0.items() if abs(k - S) <= 150}}
     return {"day": day_iso, "oi": oi, "oi_ts": oi_ts, "week": week, "q": quotes, "spot": spot,
-            "n_idx": n_idx, "exp_bad": exp_bad, "am": am, "sq": sq}
+            "n_idx": n_idx, "exp_bad": exp_bad, "am": am, "sq": sq, "viv": viv}
 
 
 def vix_squeeze(dec, day_iso, exp_date, vixdash):
@@ -473,6 +493,10 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
         res["view_state"] = page.evaluate(JS_VIEW, "charm")
         res["density"] = page.evaluate(JS_DEN_OUT)
         res["levels"] = page.evaluate(JS_LEVELS, list(BASES))
+        try:
+            res["p1"] = page.evaluate(JS_PHASE1, VIEW_BASIS)
+        except Exception as exc:
+            res["p1"] = {"err": str(exc)[:200]}
         # charm clock: a blank page, the functions verbatim, the day's minute rows + 09:31 OI
         p2 = ctx.new_page()
         p2.set_content("<html><body></body></html>")
@@ -1123,6 +1147,8 @@ img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}d
         h.append(meta["tags_html"])
     h.append("<details><summary>Conventions where the spec is silent (v1, fixed 2026-10-28, not tuned)</summary><ul>%s</ul></details>"
              % "".join("<li><b>%s</b>: %s</li>" % (k, v) for k, v in CONV.items()))
+    if meta.get("p1_html"):
+        h.append(meta["p1_html"])
     # map levels
     h.append("<h2>Map lines (0DTE, basis %s)</h2>" % BASIS_NAME[VIEW_BASIS])
     lv = (levels or {}).get(VIEW_BASIS) or {}
@@ -1218,7 +1244,8 @@ HIST_COLS = ["date", "view_basis", "open", "high", "low", "close", "cone0_med", 
              "flow_minutes", "week_src", "page_md5",
              # 2026-11-04 (Phase 1): opening gap + start-of-day tags; older rows stay blank here
              "prev_close", "on_straddle", "on_iv", "am_straddle", "am_iv", "gap", "gap_pct_on", "am_on_ratio", "iv_chg",
-             "used_pct", "range_pct", "sod_gamma", "vixr_red_open", "vixr_orange_open", "vrp_pct_open", "squeeze_net_open"]
+             "used_pct", "range_pct", "sod_gamma", "vixr_red_open", "vixr_orange_open", "vrp_pct_open", "squeeze_net_open",
+             "regime", "gate_median", "flip_split_ours", "flip_split_doc", "iv_gz_diff"]
 
 
 def write_history(path, row):
@@ -1414,6 +1441,50 @@ def main():
         sq0 = [ex["sq"][k] for k in sorted(ex.get("sq") or {}) if k >= "09:31"][:1]
         if sq0:
             hist_row["squeeze_net_open"] = sq0[0].get("net")
+        p1_html, p1 = "", None
+        try:
+            import p1score
+            import window_effect
+            doc = None
+            if ti_bytes:
+                dd = (json.loads(ti_bytes) or {}).get("doc")
+                if dd and dd.get("date") == day_iso:
+                    doc = dd
+            lvv = (res["levels"] or {}).get(VIEW_BASIS) or {}
+            p1 = p1score.build(day_iso, p1score.path_of(spx), day_info["close"], lvv.get("cols"), den.get("runs"),
+                               (dens or {}).get("cone0"), res.get("p1"), doc, gs, ex.get("viv"), spx,
+                               ((ex.get("oi") or {}).get("SPX") or {}).get("oi") or {}, window_effect.greek_col)
+            with open(out_dir / "p1.json", "w", encoding="utf-8") as fh:
+                json.dump(p1, fh, separators=(",", ":"), default=str)
+            gate_t = {r["t"]: r for r in ((res.get("p1") or {}).get("gate") or [])}
+            iv_t = {mm(r["t"]): r for r in ((p1.get("iv") or {}).get("rows") or [])}
+            with open(out_dir / ("levels_%s.ndjson" % ymd), "w", encoding="utf-8") as fh:     # #16 levels log, one row per 2-min column
+                for c in lvv.get("cols") or []:
+                    row = {"t": hh(c["t"]), "S": c.get("S"), "gamma_at_spot": c.get("gs"), "gz": c["gz"], "vz": c["vz"], "cz": c["cz"], "gpk": c["gpk"]}
+                    g_ = gate_t.get(c["t"])
+                    if g_:
+                        row.update(gate_0dte=g_.get("r0"), gate_all=g_.get("r1"))
+                    v_ = iv_t.get(c["t"])
+                    if v_:
+                        row.update(gz_parity_py=v_.get("gz_parity"), gz_vendor_py=v_.get("gz_vendor"), atm_iv_parity=v_.get("atm_parity"), atm_iv_vendor=v_.get("atm_vendor"))
+                    fh.write(json.dumps(row, separators=(",", ":")) + "\n")
+            days_p1 = []
+            for pp in sorted(out_root.glob("2*/p1.json")):
+                try:
+                    pj = json.load(open(pp, encoding="utf-8"))
+                except Exception:
+                    continue
+                if pj.get("day") and pj["day"] <= day_iso:
+                    days_p1.append((pj["day"], pj))
+            p1_html = p1score.html(p1, p1score.running(days_p1))
+            b_ = p1.get("boundary") or {}
+            hist_row.update(regime=b_.get("regime"), gate_median=(p1.get("gate") or {}).get("gate_median"),
+                            flip_split_ours=((p1["flip"].get("ours") or {}).get("split") or {}).get("ratio"),
+                            flip_split_doc=((p1["flip"].get("doc") or {}).get("split") or {}).get("ratio"),
+                            iv_gz_diff=(p1.get("iv") or {}).get("gz_diff_med"))
+        except Exception:
+            log("phase-1 scoring failed:\n%s" % traceback.format_exc())
+            p1_html = "<div class='card'>Phase-1 scoring failed tonight - see ~/ti_cvx_replay.log.</div>"
         write_history(out_root / "history.csv", hist_row)
         tag_acc, tag_days = tag_tables(out_root, day_iso)
         running = running_tests(out_root, day_iso)
@@ -1459,7 +1530,7 @@ def main():
 
         stage = "scorecard"
         meta = {"built": et_now().strftime("%Y-%m-%d %H:%M"), "den_runs": den.get("runs") or [], "running": running,
-                "open_html": open_html(gs, gap, sod_v), "tags_html": tags_html(tag_acc, tag_days),
+                "open_html": open_html(gs, gap, sod_v), "tags_html": tags_html(tag_acc, tag_days), "p1_html": p1_html,
                 "inputs": {"raw": "%s (%d idx pulls; OI from the %s pull)" % (raw.name, ex.get("n_idx", 0), (ex.get("oi_ts") or "")[11:19]),
                            "flow": "%s (%d SPX minutes 09:31–16:00; %d missing%s)" % (flow_p.name, len(rth), len(missing), (": " + ", ".join(missing[:30])) if missing else ""),
                            "All book": "weekSrc %s (%s)" % (week_src, ti_note),
