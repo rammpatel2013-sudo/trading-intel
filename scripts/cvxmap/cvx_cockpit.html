@@ -456,6 +456,7 @@ body.phone .phead{padding:6px 10px 2px}body.phone .pane{max-width:100vw;overflow
 .tip{position:absolute;pointer-events:none;background:#06101FEE;border:1px solid var(--rule);border-radius:6px;padding:7px 9px;font-size:12px;line-height:1.45;display:none;z-index:5;min-width:150px}
 .tip b{font-weight:600}
 .hint{color:#B9C6D8;font-size:12.5px}
+.gapstrip{padding:4px 12px 6px;font-size:15px;line-height:1.45;color:#EEF3FA;border-bottom:1px solid var(--rule)}.gapstrip b{color:#D9B3FF;font-weight:700}.gapstrip .up{color:#58D68D}.gapstrip .dn{color:#FF8A8A}.gapstrip i{font-style:normal;color:#C9D4E3}
 select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:5px;padding:2px 6px;color:var(--ink);font-size:13px;font-weight:600}
 
 /* contract pane */
@@ -743,7 +744,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     </div>
   </main>
   <main id="tabMap" class="tab" hidden>
-    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><span class="hint" id="mapNote"></span></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
+    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
     <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
@@ -967,7 +968,7 @@ st.bubRidge=load("bubRidge","0")==="1";
 st.bubBg=load("bubBg","off"); if(!["off","gamma","oi"].includes(st.bubBg)) st.bubBg="off";
 st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
-st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0";
+st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0";
 if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
@@ -2324,6 +2325,7 @@ document.getElementById("seqBtn").addEventListener("click",()=>{ st.seqOn=!st.se
 document.getElementById("seqSndBtn").addEventListener("click",()=>{ st.seqSnd=!st.seqSnd; save("seqSnd",st.seqSnd?"1":"0"); render(); });
 document.getElementById("coneAmBtn").addEventListener("click",()=>{ st.coneAm=!st.coneAm; save("coneAm",st.coneAm?"1":"0"); render(); });
 document.getElementById("coneLiveBtn").addEventListener("click",()=>{ st.coneLive=!st.coneLive; save("coneLive",st.coneLive?"1":"0"); render(); });
+document.getElementById("gapBtn").addEventListener("click",()=>{ st.gapOn=!st.gapOn; save("gapOn",st.gapOn?"1":"0"); render(); });
 document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
 bindSeg("mapBasisSeg","basis",()=>syncSeg("basisSeg",st.basis));
@@ -2927,6 +2929,31 @@ function drawAmCone(ctx,m,X,Y){ if(!st.coneAm) return; const se=series(st.sym), 
   ctx.fillText("AM 1σ "+Math.round(c.sg*100)+"%",X(tl)-58,Y(c.S0*Math.exp(c.sg*Math.sqrt(tt)))-3); ctx.fillText("AM 2σ",X(tl)-58,Y(c.S0*Math.exp(2*c.sg*Math.sqrt(tt)))-3);
   ctx.restore(); }
 
+/* ============================================================ Gap (2026-11-04) on the Map tab
+   live.json GAP (writer, gapread.py): prior close + overnight straddle = today's expiry at yesterday's last pull <= 16:00;
+   AM straddle = the same at the first two-sided pull >= 09:30. Open = the 9:31 print (the 9:30 row carries the prior close).
+   SPX only. Lines: prior close (solid) and prior close ± overnight straddle (dashed). The Gap button turns both off. */
+function gapInfo(se){ const G=st.live&&st.live.GAP; if(st.sym!=="SPX"||!G||G.day!==liveClock().date) return null;
+  let open=null, hi=null, lo=null, now=null;
+  if(se&&se.m){ for(let j=0;j<se.m;j++){ if(se.T[j]<RTH_OPEN+1||!(se.spot[j]>0)) continue; const x=se.spot[j]; if(open==null) open=x; hi=hi==null?x:Math.max(hi,x); lo=lo==null?x:Math.min(lo,x); now=x; } }
+  return {G,open,hi,lo,now}; }
+function gapStripHTML(se){ const g=gapInfo(se); if(!g) return st.sym==="SPX"?"<i>Gap: waiting for the writer's overnight read (needs yesterday's raw file on the NAS).</i>":"";
+  const G=g.G, on=G.on, am=G.am, pc=G.prev_close, f1=x=>fmtN(x,1), f2=x=>fmtN(x,2), out=[];
+  if(pc) out.push(`Prior close <b>${f2(pc)}</b> <i>(${String(G.prev_day||"").slice(5).replace("-","/")} ${G.prev_t||""})</i>`);
+  if(on) out.push(`Overnight straddle <b>${f1(on.straddle)}</b>${on.iv?` <i>IV ${(on.iv*100).toFixed(1)}%</i>`:""}`);
+  else out.push(`<i>Overnight straddle: ${G.err||"not read"}</i>`);
+  if(g.open!=null&&pc){ const gp=g.open-pc, cls=gp>=0?"up":"dn"; out.push(`Open <b>${f2(g.open)}</b> gap <b class="${cls}">${gp>=0?"+":""}${f1(gp)}</b>${on&&on.straddle?` = <b>${Math.round(100*Math.abs(gp)/on.straddle)}%</b> of overnight`:""}`); }
+  if(am){ let t=`AM straddle <b>${f1(am.straddle)}</b> <i>(${am.t})</i>`; if(on&&on.straddle) t+=` = <b>${(am.straddle/on.straddle).toFixed(2)}×</b> overnight`; if(on&&on.iv&&am.iv){ const dv=(am.iv-on.iv)*100; t+=` <i>IV ${dv>=0?"+":""}${dv.toFixed(1)} pts</i>`; } out.push(t); }
+  if(am&&am.straddle&&g.open!=null&&g.now!=null){ out.push(`Used today: <b>${Math.round(100*Math.abs(g.now-g.open)/am.straddle)}%</b> of AM straddle <i>(range ${Math.round(100*(g.hi-g.lo)/am.straddle)}%)</i>`); }
+  return out.join(" &nbsp;·&nbsp; "); }
+function drawGapLines(ctx,m,X,Y){ if(!st.gapOn||!m) return; const g=gapInfo(series(st.sym)); if(!g||!g.G.prev_close) return;
+  const pc=g.G.prev_close, sd=g.G.on&&g.G.on.straddle, xa=X(m.times[0]), xb=X(m.times[m.times.length-1]);
+  ctx.save(); ctx.lineWidth=1.3; ctx.font="11px system-ui"; ctx.fillStyle="#D9B3FF";
+  const line=(p,dash,lab)=>{ const y=Y(p); ctx.strokeStyle="#C77DFF"; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(xa,y); ctx.lineTo(xb,y); ctx.stroke(); ctx.fillText(lab,xa+4,y-3); };
+  line(pc,[],"prior close "+fmtN(pc,1));
+  if(sd){ line(pc+sd,[6,4],"+ overnight straddle "+fmtN(pc+sd,1)); line(pc-sd,[6,4],"− overnight straddle "+fmtN(pc-sd,1)); }
+  ctx.restore(); }
+
 function tapeOf(sym){ const T=st.ti&&st.ti.tape; if(!T) return null; return T[sym]||null; }
 function f2Cards(sr,se,d,book){
   if(!sr) return null;
@@ -3214,6 +3241,7 @@ function drawHeat(id,m,se,d,legendTxt){
   const sg=(d&&d.iv>0)?d.iv:null; if(sg&&st.coneLive){ const t0=9*60+35; ctx.strokeStyle="#ffffff66"; ctx.lineWidth=1; for(const s of [1,-1]){ ctx.beginPath(); let on=false;
       for(const t of m.times){ if(t<t0) continue; const ty=(t-t0)/525600; const p=m.S*Math.exp(s*sg*Math.sqrt(ty)); const x=X(t),y=Y(p); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; } ctx.stroke(); } }
   drawAmCone(ctx,m,X,Y);
+  drawGapLines(ctx,m,X,Y);
   // spot path (history) + now line
   const snaps=st.flow[st.sym]||[]; const pc=st.prevClose||{}; const spyBy=new Map((st.flow.SPY||[]).map(s=>[s.t,s.x]));
   const preX=(s)=>{ if(st.sym!=="SPX") return s.x; const sp=spyBy.get(s.t); return (sp>0&&pc.SPX>0&&pc.SPY>0)?pc.SPX*sp/pc.SPY:null; };
@@ -3310,6 +3338,7 @@ function renderMapTab(se,d){
   { const pb=document.getElementById("mapPremBtn"); if(pb) pb.setAttribute("aria-pressed",!!st.premOv); }
   { const gb=document.getElementById("gDetBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gDet); }
   document.getElementById("coneAmBtn").setAttribute("aria-pressed",st.coneAm); document.getElementById("coneLiveBtn").setAttribute("aria-pressed",st.coneLive);
+  { const gb=document.getElementById("gapBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gapOn); const gs=document.getElementById("gapStrip"); if(gs){ const html=st.gapOn?gapStripHTML(se):""; gs.hidden=!html; if(html&&gs.innerHTML!==html) gs.innerHTML=html; } }
   const rd=document.getElementById("mapRead"); if(rd) rd.innerHTML=mapRead(g,st.mapRight==="vanna"?null:r,st.mapRight==="vanna"?r:null,se,d);
   const nt=document.getElementById("mapNote"); if(nt) nt.textContent=`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile.`;
 }

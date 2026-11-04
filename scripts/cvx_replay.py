@@ -62,7 +62,7 @@ VIEWS = (("density", "Density cone"),
 HOOK = "window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath}"
 REPLAY_HOOK = ("window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath,"
                "buildSeries,signedRows,buildMap,greekCol,greekColNear,nearRows,mapRowsAt,changeMap,"
-               "currentBook,liveClock,pollLive,pollFlow,pollTI}")
+               "currentBook,liveClock,pollLive,pollFlow,pollTI,tmin}")
 # Docker gives /dev/shm 64 MB; Chromium must not rely on it inside the trading-intel container
 CHROME_ARGS = ["--disable-dev-shm-usage"]
 DEN_HOOK = "window.__density=DEN;"
@@ -138,7 +138,11 @@ JS_LEVELS = r"""(bases) => { const c=window.__cockpit, st=c.st, d=st.live[st.sym
         const gz=g.feats[i].z.map(f=>P(g,f)), vz=v.feats[i].z.map(f=>P(v,f)), cz=ch.feats[i].z.map(f=>P(ch,f));
         let gpk=null, gv=-1e99; g.feats[i].pk.forEach(k=>{ if(g.grid[i][k]>gv){ gv=g.grid[i][k]; gpk=g.prices[k]; } });
         cols.push({t,gz,vz,cz,gpk}); });
-      out[b]={cols, now:g.now}; } }
+      let sod=null; const ga=c.buildMap('gamma',se,d,'all');
+      if(ga){ const snaps=st.flow[st.sym]||[]; const i=ga.times.findIndex(t=>t>=571);
+        let S=null; for(const s of snaps){ const tm=c.tmin(s.t); if(tm>=571&&tm<=ga.times[i]+3&&s.x>0){ S=s.x; break; } }
+        if(i>=0&&S){ const k=Math.max(0,Math.min(ga.prices.length-1,Math.round((S-ga.prices[0])/ga.dp))); sod={t:ga.times[i],S,g:ga.grid[i][k],vmax:ga.vmax,near:ga.nearN}; } }
+      out[b]={cols, now:g.now, sod}; } }
   finally{ st.basis=keep; }
   return out; }"""
 
@@ -226,12 +230,29 @@ def extract(raw_path, day):
     """0DTE OI (first idx pull >= 09:31), the week book from that pull, SPX 0DTE bid/ask per minute."""
     sys.path.insert(0, str(CVX))
     import cvx_live   # the writer's own decoder and week builder
+    import gapread    # 2026-11-04: AM straddle (shared with the live writer)
+    try:
+        import vixdash    # VIX squeeze read (forward + squeeze_read), same code as the VIX tab
+    except Exception:
+        vixdash = None
     day_iso = day.isoformat()
     oi, week, quotes, spot = {}, {}, {}, {}
     oi_ts, n_idx, exp_bad = None, 0, []
+    am, sq = None, {}
     with gzip.open(raw_path, "rt", encoding="utf-8") as fh:
         for line in fh:
             head = line[:400]
+            if vixdash is not None and ('"pull": "vix"' in head or '"pull":"vix"' in head):
+                try:
+                    rec = json.loads(line)
+                    ts = str(rec.get("ts", ""))
+                    if ts[:10] == day_iso and "09:30" <= ts[11:16] <= T_END:
+                        r = vix_squeeze(cvx_live.decode(rec), day_iso, cvx_live.exp_date, vixdash)
+                        if r:
+                            sq[ts[11:16]] = r
+                except Exception:
+                    pass
+                continue
             if '"pull": "idx"' not in head and '"pull":"idx"' not in head:
                 continue
             try:
@@ -249,6 +270,11 @@ def extract(raw_path, day):
             except Exception:
                 continue
             n_idx += 1
+            if am is None:
+                try:
+                    am = gapread.am_read(dec, day_iso, ts, cvx_live.exp_date)
+                except Exception:
+                    am = None
             if oi_ts is None and t >= "09:31":
                 for sym in SYMS:
                     d = dec.get(sym)
@@ -274,7 +300,24 @@ def extract(raw_path, day):
                                  for k, (c, p) in book0.items() if abs(k - S) <= 200}
                     spot[t] = S
     return {"day": day_iso, "oi": oi, "oi_ts": oi_ts, "week": week, "q": quotes, "spot": spot,
-            "n_idx": n_idx, "exp_bad": exp_bad}
+            "n_idx": n_idx, "exp_bad": exp_bad, "am": am, "sq": sq}
+
+
+def vix_squeeze(dec, day_iso, exp_date, vixdash):
+    """Front VIX expiry still trading (settles AFTER today) with a parity forward -> squeeze read
+    (customer call contracts net bought above the forward = MMs short VIX gamma)."""
+    v = dec.get("VIX") or {}
+    for head, book in v.get("exps") or []:
+        e = exp_date(head)
+        if e <= day_iso:
+            continue
+        F = vixdash.forward(book)
+        if F is None:
+            continue
+        r = vixdash.squeeze_read(book, F)
+        r["e"] = e
+        return r
+    return None
 
 
 # ------------------------------------------------------------------ stage 2: inputs for the page
@@ -299,7 +342,7 @@ def load_flow(path, day_iso):
     return per, lines
 
 
-def build_live(day_iso, T, flow, oi, tmpl, week):
+def build_live(day_iso, T, flow, oi, tmpl, week, gap=None):
     """live.json as the writer would have had it at minute T: rows carry the day's 0DTE OI, the IV /
     volume / quotes of the last logged minute <= T; ts sets the page clock."""
     live = {"ts": "%sT%s:00" % (day_iso, T)}
@@ -337,11 +380,16 @@ def build_live(day_iso, T, flow, oi, tmpl, week):
     live["ES"] = {"last": 0, "cvd": 0, "tl": []}
     live["week"] = week or {}
     live["_source"] = "convex-replay"
+    if gap:
+        g = dict(gap)
+        if T < (g.get("am") or {}).get("t", "99:99"):
+            g.pop("am", None)          # no look-ahead: the AM straddle appears from its own minute
+        live["GAP"] = g
     return live
 
 
 # ------------------------------------------------------------------ stage 3: the page, headless
-def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_bytes, week_src, data_dir, out_dir, step):
+def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_bytes, week_src, data_dir, out_dir, step, gap=None):
     from playwright.sync_api import sync_playwright
     flow_name = "flow_%s.ndjson" % day_iso.replace("-", "")
     state = {"live": b"{}", "flow": b""}
@@ -372,7 +420,7 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
         return route.fulfill(status=404, body=b"")
 
     def set_time(T):
-        state["live"] = json.dumps(build_live(day_iso, T, flow, oi, tmpl, week), separators=(",", ":")).encode()
+        state["live"] = json.dumps(build_live(day_iso, T, flow, oi, tmpl, week, gap), separators=(",", ":")).encode()
         state["flow"] = ("\n".join(l for (t, s, l) in flow_lines if t <= T) + "\n").encode()
 
     with sync_playwright() as pw:
@@ -731,6 +779,199 @@ def tests_table(rows):
     return "".join(out)
 
 
+# ------------------------------------------------------------------ Phase 1 (2026-11-04): entry tags + opening gap
+def load_vixr(data, ymd):
+    """data/vixr_YYYYMMDD.ndjson (the writer logs each new Cboe regime snapshot) -> [(t, red, orange, vrp_pct)]."""
+    out = []
+    p = data / ("vixr_%s.ndjson" % ymd)
+    if not p.is_file():
+        return out
+    for line in open(p, encoding="utf-8"):
+        try:
+            j = json.loads(line)
+        except Exception:
+            continue
+        cnt = j.get("counts") or {}
+        vrp = next((r[2] for r in j.get("rows") or [] if r and r[0] == "vrp"), None)
+        out.append((j.get("t") or "", cnt.get("red"), cnt.get("orange"), vrp))
+    out.sort(key=lambda r: r[0])
+    return out
+
+
+def event_windows(day_iso, path=None):
+    """events.json -> [(start, end, label)] for the day. 08:30-style releases (before the open) -> 09:30-10:00;
+    Fed -> its time + 60 min (decision + presser); any other timed event -> its time + 30 min."""
+    path = path or (CVX / "events.json")
+    out = []
+    try:
+        evs = json.load(open(path, encoding="utf-8")).get("events") or []
+    except Exception:
+        return out
+    for e in evs:
+        if e.get("d") != day_iso or not e.get("t"):
+            continue
+        t0 = mm(e["t"])
+        if t0 < RTH_OPEN:
+            a, b = RTH_OPEN, RTH_OPEN + 30
+        else:
+            a, b = t0, t0 + (60 if e.get("kind") == "Fed" else 30)
+        out.append((a, b, "%s %s" % (e.get("kind", ""), e["t"])))
+    return out
+
+
+def sod_bucket(sod):
+    if not sod or sod.get("g") is None:
+        return "no data"
+    return "long gamma (+)" if sod["g"] > 0 else "short gamma (−)"
+
+
+def tag_trades(tests, levels, vixr, sq, evw, gapsum):
+    """Add t["tags"] to every trade with a P/L. Day tags: start-of-day All-book gamma (per basis), gap size.
+    Entry-minute tags: VIX board red/orange counts + VRP percentile (last snapshot at/before entry),
+    VIX squeeze (last VIX pull at/before entry), event window."""
+    sq_t = sorted(sq)
+    for b, tb in tests.items():
+        sod = ((levels or {}).get(b) or {}).get("sod")
+        for t in tb.get("trades", []):
+            if "pl" not in t:
+                continue
+            m = mm(t["in"])
+            vr = None
+            for row in vixr:
+                if row[0] <= t["in"]:
+                    vr = row
+            vr = vr or (vixr[0] if vixr else None)
+            sqr = None
+            for k in sq_t:
+                if k <= t["in"]:
+                    sqr = sq[k]
+            ev = [w[2] for w in evw if w[0] <= m <= w[1]]
+            t["tags"] = {
+                "sod_gamma": sod_bucket(sod),
+                "gap": gapread_bucket(gapsum.get("gap_pct_on")),
+                "vix_red": None if not vr or vr[1] is None else ("red 0" if vr[1] == 0 else "red 1+"),
+                "vix_orange": None if not vr or vr[2] is None else ("orange 0–1" if vr[2] <= 1 else "orange 2+"),
+                "vrp": None if not vr or vr[3] is None else ("VRP low third" if vr[3] < 33.3 else "VRP high third" if vr[3] > 66.7 else "VRP middle third"),
+                "squeeze": None if not sqr else ("squeeze ON" if sqr.get("on") else "squeeze off"),
+                "event": ("in window: " + ", ".join(ev)) if ev else "no event",
+            }
+    return tests
+
+
+def gapread_bucket(pct):
+    sys.path.insert(0, str(CVX))
+    import gapread
+    return gapread.gap_bucket(pct)
+
+
+TAG_ORDER = (("sod_gamma", "Start-of-day gamma (All expiries, 09:31, at spot)"),
+             ("gap", "Opening gap vs overnight straddle"),
+             ("vix_red", "VIX board: red count at entry"),
+             ("vix_orange", "VIX board: orange count at entry"),
+             ("vrp", "VRP percentile at entry (VIX − 20-day realized)"),
+             ("squeeze", "VIX squeeze at entry"),
+             ("event", "Event window at entry"))
+TAG_HELP = {
+    "sod_gamma": "Dealer gamma at the 09:31 price on the All-expiry book. + = dealers long gamma: they sell rallies and buy dips, moves tend to stall. − = they chase moves, moves tend to run.",
+    "gap": "How far the open was from yesterday's close, as a share of the straddle that was priced for today at yesterday's close. Small = the night was quiet versus what was priced.",
+    "vix_red": "Number of red rows on the VIX regime board (any row in its top 10% for the year, or a term ratio above 1). Red 1+ = stress somewhere in vol.",
+    "vix_orange": "Number of orange rows (top third for the year).",
+    "vrp": "VIX minus SPX 20-day realized vol, ranked over a year. High = options rich vs what the market is doing (premium sellers paid); low = options cheap.",
+    "squeeze": "Customers net-buying VIX calls above the VIX forward = market makers short VIX upside. Expected to make SPX put walls break more often.",
+    "event": "Entry inside a scheduled-news window (08:30 data → 09:30–10:00; Fed → decision time + 60 min).",
+}
+
+
+def tag_tables(out_root, day_iso):
+    """Running results by tag over every night that has tags: {tag: {value: {basis: [n, pl, wins]}}}, days."""
+    acc, days = {}, []
+    for p in sorted(out_root.glob("2*/seven_tests.json")):
+        d = p.parent.name
+        d_iso = "%s-%s-%s" % (d[:4], d[4:6], d[6:8])
+        if d_iso > day_iso:
+            continue
+        try:
+            tj = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        seen = False
+        for b in BASES:
+            for t in (tj.get(b) or {}).get("trades", []):
+                if "pl" not in t or "tags" not in t:
+                    continue
+                seen = True
+                for key, _ in TAG_ORDER:
+                    v = t["tags"].get(key) or "no data"
+                    a = acc.setdefault(key, {}).setdefault(v, {}).setdefault(b, [0, 0, 0])
+                    a[0] += 1
+                    a[1] += t["pl"]
+                    a[2] += 1 if t["pl"] > 0 else 0
+        if seen:
+            days.append(d_iso)
+    return acc, days
+
+
+def tags_html(acc, days):
+    if not acc:
+        return "<div class='card'>No tagged trades yet.</div>"
+    h = ["<div class='sub'>Every tagged trade since %s (%d day%s). Each block splits the same trades by one tag. "
+         "n = trades · P/L in $ · win = share of trades that made money. Few trades = noise; read these only once n is in the dozens.</div>"
+         % (days[0] if days else "–", len(days), "" if len(days) == 1 else "s")]
+    for key, title in TAG_ORDER:
+        rows = acc.get(key)
+        if not rows:
+            continue
+        h.append("<h3>%s</h3><div class='sub'>%s</div><div class='wrap'><table><tr><th>value</th>" % (title, TAG_HELP[key]))
+        for b in ("vol", "oiv", "oi"):
+            h.append("<th>%s n</th><th>%s P/L</th><th>%s win</th>" % (BASIS_NAME[b], BASIS_NAME[b], BASIS_NAME[b]))
+        h.append("</tr>")
+        for v in sorted(rows):
+            h.append("<tr><td>%s</td>" % v)
+            for b in ("vol", "oiv", "oi"):
+                n, pl, w = rows[v].get(b, [0, 0, 0])
+                cls = "up" if pl > 0 else "dn" if pl < 0 else ""
+                h.append("<td>%d</td><td class='%s'>%s</td><td>%s</td>" % (n, cls, money(pl) if n else "–", ("%d%%" % round(100 * w / n)) if n else "–"))
+            h.append("</tr>")
+        h.append("</table></div>")
+    return "".join(h)
+
+
+def open_html(gs, gap, sod):
+    """The Open block: gap vs overnight straddle, AM vs overnight, how much of the AM straddle the day used."""
+    if not gs.get("prev_close") and not gs.get("am_straddle"):
+        return "<div class='card'>No overnight read: %s.</div>" % ((gap or {}).get("err") or "no earlier raw file")
+    on, am = (gap or {}).get("on") or {}, (gap or {}).get("am") or {}
+    rows = []
+    if gs.get("prev_close"):
+        rows.append(("Prior close", "%s (%s %s)" % (fmt(gs["prev_close"], 2), (gap.get("prev_day") or "")[5:].replace("-", "/"), gap.get("prev_t") or ""),
+                     "SPX in the last Convex pull at or before 16:00 the previous session."))
+    if on:
+        rows.append(("Overnight straddle", "%s (strike %s, IV %s)" % (fmt(on["straddle"], 2), fmt(on["k"]), ("%.1f%%" % (on["iv"] * 100)) if on.get("iv") else "–"),
+                     "Today's expiry at-the-money straddle at yesterday's close = what the market priced for the move from yesterday's close to today's 16:15 settlement."))
+    if gs.get("gap") is not None:
+        rows.append(("Open (09:31) and gap", "%s · gap %+.1f pts%s" % (fmt(gs["open"], 2), gs["gap"], (" = <b>%.0f%%</b> of the overnight straddle" % gs["gap_pct_on"]) if gs.get("gap_pct_on") is not None else ""),
+                     "How much of the priced move the night already used before the bell. Bucket: %s." % gapread_bucket(gs.get("gap_pct_on"))))
+    if am:
+        extra = ""
+        if gs.get("am_on_ratio"):
+            extra = " = <b>%.2f×</b> overnight" % gs["am_on_ratio"]
+            if gs.get("iv_chg") is not None:
+                extra += " · IV %+.1f pts" % gs["iv_chg"]
+        rows.append(("AM straddle (%s)" % am.get("t", "09:30"), "%s (strike %s)%s" % (fmt(am["straddle"], 2), fmt(am["k"]), extra),
+                     "Same straddle at the open. The $ ratio falls by itself (less time left), so read the IV change: + = vol bid overnight, − = vol sold."))
+    if gs.get("used_pct") is not None:
+        rows.append(("Used by the close", "open→close %.0f%% · high−low %.0f%% of the AM straddle" % (gs["used_pct"], gs.get("range_pct") or 0),
+                     "Under ~80% open→close = the straddle buyer lost (the day moved less than priced); over 100% = the move beat the price."))
+    if sod and sod.get("g") is not None:
+        rows.append(("Start-of-day gamma", "%s at %s (All expiries, %s basis)" % ("dealers LONG gamma" if sod["g"] > 0 else "dealers SHORT gamma", fmt(sod.get("S"), 1), BASIS_NAME[VIEW_BASIS]),
+                     "The page's All-expiry gamma map at spot, first column after 09:31. Long = moves get damped; short = moves get pushed."))
+    h = ["<div class='wrap'><table><tr><th>item</th><th>value</th><th>what it means</th></tr>"]
+    for a, b, c in rows:
+        h.append("<tr><td>%s</td><td>%s</td><td style='text-align:left'>%s</td></tr>" % (a, b, c))
+    h.append("</table></div>")
+    return "".join(h)
+
+
 def running_tests(out_root, day_iso):
     """Sum every nightly seven_tests.json up to this day, per basis per test; the volume basis
     starts from the 10/26-27 table (SEED)."""
@@ -808,6 +1049,9 @@ img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}d
              % (d.strftime("%A %d %b %Y"), BASIS_NAME[VIEW_BASIS], meta["built"]))
     h.append("<div class='card big'>Open %s · High %s · Low %s · <b>Close %s</b> · range %s pts (Convex minute log, 09:31–16:00)</div>"
              % (fmt(day_info["open"], 2), fmt(day_info["high"], 2), fmt(day_info["low"], 2), fmt(day_info["close"], 2), fmt(day_info["high"] - day_info["low"], 1)))
+    if meta.get("open_html"):
+        h.append("<h2>The open: gap vs the straddle</h2>")
+        h.append(meta["open_html"])
     # density
     h.append("<h2>Density cone</h2>")
     if dens:
@@ -867,11 +1111,16 @@ img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}d
             h.append("<details><summary>Running total · %s basis · since %s</summary>%s</details>" % (BASIS_NAME[b], run["first_day"], tests_table(run[b])))
     for b in BASES:
         tr = [t for t in tests.get(b, {}).get("trades", []) if "pl" in t]
-        h.append("<details><summary>Trades, basis %s (%d)</summary><div class='wrap'><table><tr><th>test</th><th>in</th><th>out</th><th>why</th><th>open</th><th>close</th><th>P/L</th><th>level</th><th>spot</th></tr>" % (BASIS_NAME[b], len(tr)))
+        h.append("<details><summary>Trades, basis %s (%d)</summary><div class='wrap'><table><tr><th>test</th><th>in</th><th>out</th><th>why</th><th>open</th><th>close</th><th>P/L</th><th>level</th><th>spot</th><th>tags at entry</th></tr>" % (BASIS_NAME[b], len(tr)))
         for t in tr:
-            h.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
-                     % (t["test"], t["in"], t["out"], t["why"], t["open"], t["close"], money(t["pl"]), t.get("level", ""), fmt(t.get("spot"), 1)))
+            tg = t.get("tags") or {}
+            tgs = " · ".join(str(tg[k]) for k, _ in TAG_ORDER if tg.get(k) and k not in ("sod_gamma", "gap"))
+            h.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td style='text-align:left'>%s</td></tr>"
+                     % (t["test"], t["in"], t["out"], t["why"], t["open"], t["close"], money(t["pl"]), t.get("level", ""), fmt(t.get("spot"), 1), tgs))
         h.append("</table></div></details>")
+    if meta.get("tags_html"):
+        h.append("<h2>Results by entry tag (running)</h2>")
+        h.append(meta["tags_html"])
     h.append("<details><summary>Conventions where the spec is silent (v1, fixed 2026-10-28, not tuned)</summary><ul>%s</ul></details>"
              % "".join("<li><b>%s</b>: %s</li>" % (k, v) for k, v in CONV.items()))
     # map levels
@@ -897,7 +1146,8 @@ img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}d
 
 # ------------------------------------------------------------------ video
 def find_ffmpeg(out_root):
-    """(path, kind): system ffmpeg with libx264 -> mp4; else Playwright's ffmpeg (VP8) -> webm."""
+    """(path, kind): system ffmpeg with libx264 -> mp4; system ffmpeg with libvpx -> webm ("webm-libvpx");
+    else Playwright's ffmpeg (encoder named "vp8") -> webm."""
     sysff = shutil.which("ffmpeg")
     if sysff:
         try:
@@ -905,7 +1155,7 @@ def find_ffmpeg(out_root):
             if "libx264" in enc:
                 return sysff, "mp4"
             if "libvpx" in enc:
-                return sysff, "webm"
+                return sysff, "webm-libvpx"     # 2026-11-04: system ffmpeg calls the encoder libvpx, not vp8 (rc 8 on the NAS)
         except Exception:
             pass
     cands = []
@@ -936,12 +1186,15 @@ def make_video(seq, fps, out_path_noext, out_root):
     ff, kind = find_ffmpeg(out_root)
     if not ff:
         return None, "no ffmpeg"
+    vp8 = "vp8"
+    if kind == "webm-libvpx":
+        kind, vp8 = "webm", "libvpx"
     out = Path(str(out_path_noext) + "." + kind)
     if kind == "mp4":
         enc = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
     else:
         # Playwright's ffmpeg build: pipe/file protocols only, VP8 encoder, WebM muxer (tested 2026-10-28)
-        enc = ["-c:v", "vp8", "-qmin", "0", "-qmax", "50", "-crf", "8", "-b:v", "2M", "-deadline", "good", "-cpu-used", "4",
+        enc = ["-c:v", vp8, "-qmin", "0", "-qmax", "50", "-crf", "8", "-b:v", "2M", "-deadline", "good", "-cpu-used", "4",
                "-threads", "2", "-pix_fmt", "yuv420p"]
     cmd = [ff, "-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", str(fps), "-c:v", "mjpeg", "-i", "pipe:0", "-an"] + enc + [str(out)]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -962,7 +1215,10 @@ def make_video(seq, fps, out_path_noext, out_root):
 HIST_COLS = ["date", "view_basis", "open", "high", "low", "close", "cone0_med", "cone0_p10", "cone0_p90", "cone0_zone", "close_zone",
              "cone0_hit", "inside_n", "runs_n", "zonehit_n", "avg_pzone", "med_err", "naive_err", "charm_bn", "charm_after14_bn",
              "clock_buy_min", "clock_n", "clock_peak_es", "clock_peak_t", "oi_n", "oi_pl", "oiv_n", "oiv_pl", "vol_n", "vol_pl",
-             "flow_minutes", "week_src", "page_md5"]
+             "flow_minutes", "week_src", "page_md5",
+             # 2026-11-04 (Phase 1): opening gap + start-of-day tags; older rows stay blank here
+             "prev_close", "on_straddle", "on_iv", "am_straddle", "am_iv", "gap", "gap_pct_on", "am_on_ratio", "iv_chg",
+             "used_pct", "range_pct", "sod_gamma", "vixr_red_open", "vixr_orange_open", "vrp_pct_open", "squeeze_net_open"]
 
 
 def write_history(path, row):
@@ -1094,9 +1350,20 @@ def main():
             raise RuntimeError("cockpit page %s has no debug hook / Density tab" % page_p)
         page_html = page_src.replace(HOOK, REPLAY_HOOK).replace(DEN_HOOK, DEN_REPLAY).encode("utf-8")
 
+        stage = "gap"
+        sys.path.insert(0, str(CVX))
+        import cvx_live
+        import gapread
+        try:
+            on_part = gapread.overnight_read(str(data), day_iso, cvx_live.decode, cvx_live.exp_date)
+        except Exception as exc:
+            on_part = {"err": str(exc)[:160]}
+        gap = gapread.block(on_part, ex.get("am"), day_iso)
+        log("gap: %s" % json.dumps(gap)[:240])
+
         stage = "browser"
         res = replay_page(args, day_iso, page_html, flow, flow_lines, ex["oi"], tmpl, ex.get("week"), ti_bytes, week_src,
-                          data, out_dir, args.step)
+                          data, out_dir, args.step, gap)
         log("browser done in %ss, hook %s, view %s" % (res["browser_s"], res["hook_ok"], res.get("view_state")))
         errs = [c for c in res["console"] if "pageerror" in c or "[density]" in c]
         if errs:
@@ -1112,7 +1379,14 @@ def main():
             lvb = (res["levels"] or {}).get(b)
             if lvb and lvb.get("cols"):
                 tests[b] = seven_tests(lvb["cols"], ex["q"], spx, b)
-        for name, obj in (("density_runs.json", den), ("charm_clock.json", clock), ("map_levels.json", res["levels"]), ("seven_tests.json", tests)):
+        gs = gapread.summarize(gap, day_info["open"], day_info["close"], day_info["high"], day_info["low"])
+        vixr = load_vixr(data, ymd)
+        evw = event_windows(day_iso)
+        tag_trades(tests, res["levels"], vixr, ex.get("sq") or {}, evw, gs)
+        sod_v = ((res["levels"] or {}).get(VIEW_BASIS) or {}).get("sod")
+        log("tags: vixr %d snapshots, squeeze %d minutes, events %s, sod %s" % (len(vixr), len(ex.get("sq") or {}), evw, sod_v))
+        for name, obj in (("density_runs.json", den), ("charm_clock.json", clock), ("map_levels.json", res["levels"]), ("seven_tests.json", tests),
+                          ("open_gap.json", {"gap": gap, "summary": gs, "sod": {b: ((res["levels"] or {}).get(b) or {}).get("sod") for b in BASES}})):
             with open(out_dir / name, "w", encoding="utf-8") as fh:
                 json.dump(obj, fh, separators=(",", ":"))
         hist_row = {"date": day_iso, "view_basis": VIEW_BASIS, "open": day_info["open"], "high": day_info["high"], "low": day_info["low"],
@@ -1130,11 +1404,33 @@ def main():
             if b in tests:
                 hist_row[b + "_n"] = tests[b]["total"]["n"]
                 hist_row[b + "_pl"] = tests[b]["total"]["pl"]
+        for k in ("prev_close", "on_straddle", "on_iv", "am_straddle", "am_iv", "gap", "gap_pct_on", "am_on_ratio", "iv_chg", "used_pct", "range_pct"):
+            if gs.get(k) is not None:
+                hist_row[k] = gs[k]
+        if sod_v and sod_v.get("g") is not None:
+            hist_row["sod_gamma"] = round(sod_v["g"], 2)
+        if vixr:
+            hist_row.update(vixr_red_open=vixr[0][1], vixr_orange_open=vixr[0][2], vrp_pct_open=vixr[0][3])
+        sq0 = [ex["sq"][k] for k in sorted(ex.get("sq") or {}) if k >= "09:31"][:1]
+        if sq0:
+            hist_row["squeeze_net_open"] = sq0[0].get("net")
         write_history(out_root / "history.csv", hist_row)
+        tag_acc, tag_days = tag_tables(out_root, day_iso)
         running = running_tests(out_root, day_iso)
 
         stage = "video"
         lines = []
+        if gs.get("gap") is not None:
+            ln = "Gap %+.1f from %s" % (gs["gap"], fmt(gs["prev_close"], 2))
+            if gs.get("gap_pct_on") is not None:
+                ln += " = %.0f%% of the overnight straddle (%s)" % (gs["gap_pct_on"], fmt(gs.get("on_straddle"), 1))
+            if gs.get("am_straddle"):
+                ln += " · AM straddle %s" % fmt(gs["am_straddle"], 1)
+                if gs.get("iv_chg") is not None:
+                    ln += " (IV %+.1f pts)" % gs["iv_chg"]
+            if gs.get("used_pct") is not None:
+                ln += " · day used %.0f%%" % gs["used_pct"]
+            lines.append(ln)
         if dens:
             c0 = dens["cone0"]
             lines.append("Close <b>%s</b> (Convex 16:00 print) · 09:31 cone %s–%s · top zone %s–%s → %s" % (fmt(day_info["close"], 2), fmt(c0["p10"]), fmt(c0["p90"]),
@@ -1163,6 +1459,7 @@ def main():
 
         stage = "scorecard"
         meta = {"built": et_now().strftime("%Y-%m-%d %H:%M"), "den_runs": den.get("runs") or [], "running": running,
+                "open_html": open_html(gs, gap, sod_v), "tags_html": tags_html(tag_acc, tag_days),
                 "inputs": {"raw": "%s (%d idx pulls; OI from the %s pull)" % (raw.name, ex.get("n_idx", 0), (ex.get("oi_ts") or "")[11:19]),
                            "flow": "%s (%d SPX minutes 09:31–16:00; %d missing%s)" % (flow_p.name, len(rth), len(missing), (": " + ", ".join(missing[:30])) if missing else ""),
                            "All book": "weekSrc %s (%s)" % (week_src, ti_note),

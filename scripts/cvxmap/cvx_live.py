@@ -36,6 +36,12 @@ try:
     import vixdash
 except Exception:
     vixdash = None
+# 2026-11-04: opening gap vs overnight / AM 0DTE straddle -> live.json "GAP" (Map tab Gap button).
+# Optional and fully guarded, like vixdash: a failure here never touches the map.
+try:
+    import gapread
+except Exception:
+    gapread = None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
@@ -654,6 +660,13 @@ def process(rebuild=False):
             log("decode failed on line %d" % i)
             state["lines_done"] = i + 1
             continue
+        if gapread is not None and "_gap_am" not in state and str(rec.get("ts", ""))[11:16] >= "09:30":
+            try:
+                a = gapread.am_read(dec, today.isoformat(), rec.get("ts"), exp_date)
+                if a:
+                    state["_gap_am"] = a
+            except Exception as exc:
+                log("gap am: %s" % str(exc)[:80])
         live = {"ts": rec.get("ts")}
         flows = []
         for sym in SYMS:
@@ -687,6 +700,15 @@ def process(rebuild=False):
         state["lines_done"] = i + 1
         n += 1
 
+    if last_live and gapread is not None:
+        try:
+            if "_gap_on" not in state:      # once per day: one pass over yesterday's raw file
+                state["_gap_on"] = gapread.overnight_read(DATA, today.isoformat(), decode, exp_date)
+                log("gap: %s" % json.dumps(state["_gap_on"])[:160])
+            last_live["GAP"] = gapread.block(state.get("_gap_on"), state.get("_gap_am"), today.isoformat())
+        except Exception as exc:
+            state["_gap_on"] = {"err": str(exc)[:120]}
+            log("gap: %s" % str(exc)[:80])
     if last_live:
         atomic_write(os.path.join(DATA, "live.json"), last_live)
         if not rebuild:
