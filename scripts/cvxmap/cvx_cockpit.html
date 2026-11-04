@@ -637,7 +637,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <button class="btn live" id="liveBtn" hidden title="Return to the latest minute, centred on spot (or double-click the map)">Back to live</button>
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
-        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button>
+        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides buy vs sell for flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders. Cockpit = each minute's LAST price vs the quote (mid = grey). Convex = Convex's own per-trade buy/sell counts (its guesses at mid included). Older minutes without Convex counts always use Cockpit."><button data-v="cockpit" aria-pressed="true">Side: Cockpit</button><button data-v="convex" aria-pressed="false">Convex</button></div>
         <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128277; off</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
@@ -751,7 +751,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
-    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides are Convex's buy/sell split."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span></div><div class="body"><canvas id="volDayC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side toggle (Cockpit or Convex)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span></div><div class="body"><canvas id="volDayC"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 min</h2><span class="hint">own scale — where the tape is now</span></div><div class="body"><canvas id="vol30C"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><span class="hint">teal / coral = accelerating · dark = fading · ×ratio</span></div><div class="body"><canvas id="volDC"></canvas></div></section>
   </main>
@@ -2381,8 +2381,9 @@ document.getElementById("maxBtn").addEventListener("click",()=>{ st.max=!st.max;
 document.querySelectorAll("#focusSeg button").forEach(b=>b.addEventListener("click",()=>setFocus(b.dataset.v)));
 document.getElementById("backMapBtn").addEventListener("click",()=>setFocus("map"));
 document.getElementById("watchBtn").addEventListener("click",toggleWatch);
-st.fbOn=load("fbOn","1")!=="0";
+st.fbOn=load("fbOn","1")!=="0"; st.sideSrc=load("sideSrc","cockpit");
 document.getElementById("fbBtn").addEventListener("click",()=>{ st.fbOn=!st.fbOn; save("fbOn",st.fbOn?"1":"0"); render(); });
+bindSeg("sideSrcSeg","sideSrc");
 document.getElementById("docBtn").addEventListener("click",()=>{ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); });
 document.querySelectorAll("#convSeg button[data-v]").forEach(b=>b.addEventListener("click",()=>{ st.conv=b.dataset.v; save("conv",st.conv); render(); }));
 // plan chart hover: time, SPX and the nearest Doc levels
@@ -2592,7 +2593,7 @@ function sideOf(l,b,a){
 }
 function signedRows(se){
   if(!se||!se.bC) return null;
-  const key=se.m+"|"+se.n+"|"+se.T[se.m-1]+"|"+(se.spot[se.m-1]||0);
+  const key=se.m+"|"+se.n+"|"+se.T[se.m-1]+"|"+(se.spot[se.m-1]||0)+"|"+st.sideSrc;
   if(_f2.key===key) return _f2.res;
   const rows=[]; let bull=0,bear=0,uns=0,net=0,total=0,n1=0,n2=0,n3=0;
   for(let i=0;i<se.n;i++) for(let j=1;j<se.m;j++) for(const cp of ["C","P"]){  // dC/dP are per-minute DIFFS (clamped >=0), so they self-zero across the 9:30 reset; jReset is only for the CUMULATIVE arrays (cuC/cuP). Using it here discarded the whole session whenever the log contained the 16:15 expiry roll.
@@ -2602,7 +2603,8 @@ function signedRows(se){
     const px=l>0?l:(mid||0);
     // 2026-11-04 (Phase 2): Convex's own per-trade buy/sell split for this minute when the log has it (same rule as the
     // OI + signed map: Convex's side everywhere, its mid guesses included). Older minutes: the LAST-vs-quote estimate.
-    const vb=se.bbC?(c?se.bbC[i][j]:se.bbP[i][j]):null, vs=se.ssC?(c?se.ssC[i][j]:se.ssP[i][j]):null;
+    const useCvx=st.sideSrc==="convex";   // "Side" toggle on the Flow tab (default Cockpit = the pre-2026-11-04 behaviour)
+    const vb=useCvx&&se.bbC?(c?se.bbC[i][j]:se.bbP[i][j]):null, vs=useCvx&&se.ssC?(c?se.ssC[i][j]:se.ssP[i][j]):null;
     const parts = (vb!=null&&vs!=null&&(vb+vs)>0) ? [[vb,1,1],[vs,-1,1]].filter(x=>x[0]>0) : (()=>{ const o=sideOf(l,b,a); return [[n,o.side,o.tier]]; })();
     for(const [nn,side,tier] of parts){
       const prem=nn*px*100; if(!(prem>0)) continue;
