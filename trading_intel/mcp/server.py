@@ -30,6 +30,7 @@ from trading_intel.mcp import index_bigtrades_tool as ibt
 from trading_intel.mcp import telegram_tool as tgt
 from trading_intel.mcp import exposure_tools as ext
 from trading_intel.mcp import vol_tools as vt
+from trading_intel.mcp import phase5_tools as p5t
 from trading_intel.memory.db import make_session_factory
 from trading_intel.synthesis.llm import LLMProvider, OllamaProvider
 
@@ -747,6 +748,7 @@ def build_server(
             return ext.get_net_premium_drift(session, symbol, days=days)
 
     tgt.register(mcp, settings)
+    p5t.register(mcp, settings, session_factory)
 
     return mcp
 

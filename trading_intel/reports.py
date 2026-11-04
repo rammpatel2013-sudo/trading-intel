@@ -229,3 +229,24 @@ def build_fotm_put_iv(*, days: int = 800, settings: object = None, with_summary:
         path, summary = res
         return str(path), summary
     return str(res)
+
+
+# ── Phase 5 (2026-11-04) ───────────────────────────────────────────────
+_EXPIRY_FLOW_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "expiry_flow_report.py"
+_SWING_SCORECARD_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "swing_scorecard.py"
+_SWING_BACKTEST_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "swing_backtest.py"
+
+
+def build_expiry_flow(symbol: str, *, days: int = 5, settings: object = None):
+    """E1 expiry-flow term view -> (html path, summary). DB only."""
+    return _load(_EXPIRY_FLOW_SCRIPT, "_expiry_flow_impl").build(symbol, days=days, settings=settings)
+
+
+def build_swing_scorecard(symbols: list[str] | None = None, *, settings: object = None):
+    """P5 9-gate swing scorecard -> (html path, per-ticker summary). DB only."""
+    return _load(_SWING_SCORECARD_SCRIPT, "_swing_scorecard_impl").build(symbols, settings=settings)
+
+
+def build_swing_backtest(*, years: int = 2, settings: object = None):
+    """P6 price-only gates backtest -> (html path, result dict with PASS/FAIL). DB only."""
+    return _load(_SWING_BACKTEST_SCRIPT, "_swing_backtest_impl").build(years=years, settings=settings)

@@ -1709,3 +1709,85 @@ class PosLedger(Base):
     # OI for reconciliation
     oi_prior: Mapped[int | None] = mapped_column(Integer)  # OI at prior close
     oi_current: Mapped[int | None] = mapped_column(Integer)  # OI at this morning
+
+
+# ── Phase 5 (2026-11-04): Vol EOD tab + beta-reset monitor ─────────────
+
+
+class VixSignalSnapshot(Base):
+    """V1 VIX overshoot: actual VIX vs what the day's SPX move predicts.
+
+    Rolling 126-session OLS of dVIX on 100*ln(SPX/SPX[-1]), fitted on the PRIOR
+    sessions only. ``flag`` = residual > +2 vol points. Written (and backfilled
+    for every missing date) by ``scheduler.jobs.vol_tab``. Descriptor only (rule 4).
+    """
+
+    __tablename__ = "vix_signal_snapshots"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    vix_actual: Mapped[float | None] = mapped_column(Float)
+    vix_prev: Mapped[float | None] = mapped_column(Float)
+    spx_ret_pct: Mapped[float | None] = mapped_column(Float)
+    alpha: Mapped[float | None] = mapped_column(Float)
+    beta: Mapped[float | None] = mapped_column(Float)
+    vix_model: Mapped[float | None] = mapped_column(Float)
+    residual: Mapped[float | None] = mapped_column(Float)
+    flag: Mapped[bool | None] = mapped_column(Boolean)
+    n_fit: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class StraddleSnapshot(Base):
+    """V3 0DTE ATM straddle as % of spot, one row per (symbol, day).
+
+    ``source`` = ``replay`` (the nightly replay's AM straddle at the first two-sided
+    pull >= 09:30, from ``reports/replay/history.csv``) or ``map_iv`` (estimate
+    0.8 * spot * atm_iv * sqrt(6.5h) from ``map_daily`` when no replay row exists).
+    """
+
+    __tablename__ = "straddle_snapshots"
+    __table_args__ = (UniqueConstraint("symbol", "date", name="uq_straddle_snapshots"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16))
+    date: Mapped[date] = mapped_column(Date)
+    spot: Mapped[float | None] = mapped_column(Float)
+    straddle: Mapped[float | None] = mapped_column(Float)
+    pct_of_spot: Mapped[float | None] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
+    on_straddle: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str | None] = mapped_column(String(16))
+    created_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class BetaResetDaily(Base):
+    """B1 beta-reset monitor — low-beta break x high-beta hold, one row per day.
+
+    Spec ``claude/beta-reset-build-plan.md``; maths ``market/beta_reset.py``.
+    Written by ``scheduler.jobs.beta_reset`` (full recompute, idempotent upsert).
+    """
+
+    __tablename__ = "beta_reset_daily"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    spx: Mapped[float | None] = mapped_column(Float)
+    splv: Mapped[float | None] = mapped_column(Float)
+    sphb: Mapped[float | None] = mapped_column(Float)
+    cor3m: Mapped[float | None] = mapped_column(Float)
+    cor10d: Mapped[float | None] = mapped_column(Float)
+    cor90d: Mapped[float | None] = mapped_column(Float)
+    cor_skew_ratio: Mapped[float | None] = mapped_column(Float)
+    splv_off_high: Mapped[float | None] = mapped_column(Float)
+    spx_wk: Mapped[float | None] = mapped_column(Float)
+    abs_break: Mapped[bool | None] = mapped_column(Boolean)
+    rel_break: Mapped[bool | None] = mapped_column(Boolean)
+    splv_beta20: Mapped[float | None] = mapped_column(Float)
+    beta_hi: Mapped[bool | None] = mapped_column(Boolean)
+    cor_jump: Mapped[bool | None] = mapped_column(Boolean)
+    corr_break: Mapped[bool | None] = mapped_column(Boolean)
+    low_beta_state: Mapped[str | None] = mapped_column(String(12))
+    episode_start: Mapped[date | None] = mapped_column(Date)
+    beta_frozen: Mapped[float | None] = mapped_column(Float)
+    sphb_resid: Mapped[float | None] = mapped_column(Float)
+    high_beta_state: Mapped[str | None] = mapped_column(String(12))
+    label: Mapped[str | None] = mapped_column(String(48))

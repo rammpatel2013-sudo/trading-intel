@@ -167,6 +167,26 @@ body.phone #tabVol{grid-template-columns:1fr;grid-template-rows:520px 520px 520p
 .vxhead .big{font-size:24px;font-weight:700;color:#fff}
 .vxhead small{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin-right:4px}
 .vxrow2{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:12px}
+/* --- Vol EOD tab (Phase 5, 2026-11-04): big, high-contrast text --- */
+#tabVolEod{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+.vewrap{font-size:16px}
+.vewrap .vxh h2{font-size:20px}
+.vewrap .vxsub{color:var(--ink);font-size:14px;opacity:.85}
+.veread{font-size:17px;line-height:1.55;color:#fff;margin:6px 0 10px}
+.vegrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.vegrid .vxsec{margin:0}
+.vepills{display:flex;flex-wrap:wrap;gap:8px 12px;margin:4px 0 8px}
+.vepill{background:var(--pane2);border:1px solid var(--rule);border-radius:6px;padding:4px 10px;font-size:15px;color:#fff}
+.vepill b{font-size:18px}
+.vepill.hot{border-color:var(--shortg);color:var(--shortg)}.vepill.ok{border-color:var(--longg);color:var(--longg)}
+.velegend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:#fff;margin:2px 0 4px}
+.velegend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px}
+.vetbl{width:100%;border-collapse:collapse;font-size:15px;margin-top:6px}
+.vetbl th,.vetbl td{padding:5px 8px;border-bottom:1px solid var(--rule);text-align:right;color:#fff}
+.vetbl th{color:var(--ink);font-weight:600}.vetbl td:first-child,.vetbl th:first-child{text-align:left}
+.vesvg{width:100%;height:auto;display:block}
+.vesvg text{fill:#DCE6F2;font-size:15px;font-family:var(--font)}
+body.phone .vegrid{grid-template-columns:1fr}
 .vxrow2 .vxsec{margin:0}
 .vxscroll{overflow-x:auto}
 .vxtbl{width:100%;border-collapse:collapse;font-size:14px}
@@ -587,6 +607,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, VIX chain + Cboe indices (key X)">VIX</button>
       <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
       <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus trading-intel's morning book">Plan</button>
+      <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly from the NAS DB — no live calls.">Vol EOD</button>
       <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
@@ -803,6 +824,12 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <div class="exfoot" id="exFoot"></div>
     </div>
   </main>
+  <main id="tabVolEod" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="veHead"></section>
+      <div id="veBody"></div>
+    </div>
+  </main>
   <main id="tabLedger" class="tab" hidden>
     <div id="ledgerHeader">
       <div class="tabs" role="group" aria-label="Ledger variant" id="ledgerVarSeg">
@@ -970,7 +997,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.volCol=load("volCol","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -2239,7 +2266,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
@@ -2255,6 +2282,7 @@ function render(){
   else if(st.tab==="exposure"){ exRender(); }
   else if(st.tab==="density") renderDensity(se);
   else if(st.tab==="ledger") renderLedger();
+  else if(st.tab==="voleod") renderVolEod();
   else renderSkew(se,d);
 }
 
@@ -4780,6 +4808,101 @@ function vxLink(R,EV,exps){
 }
 
 window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath};
+/* ============================================================ Vol EOD tab (Phase 5, 2026-11-04)
+   Reads voltab.json, written nightly (22:50 ET) by trading_intel.scheduler.jobs.vol_tab from the NAS DB.
+   End-of-day only: this tab makes no live calls and never touches the map. */
+let veData=null, veLoaded=false;
+function loadVolEod(){
+  if(veLoaded) return; veLoaded=true;
+  fetch("voltab.json?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()})
+    .then(d=>{ veData=d; if(st.tab==="voleod") renderVolEod(); })
+    .catch(()=>{ veData={err:"voltab.json not found yet — the nightly vol_tab job (22:50 ET) writes it."}; if(st.tab==="voleod") renderVolEod(); });
+}
+function veEsc(x){ return String(x==null?"":x).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function veNum(x,k){ return x==null||!isFinite(x)?"—":(+x).toFixed(k==null?2:k); }
+function veBig(x){ if(x==null||!isFinite(x)) return "—"; const a=Math.abs(x); const s=a>=1e12?(a/1e12).toFixed(2)+"T":a>=1e9?(a/1e9).toFixed(2)+"B":a>=1e6?(a/1e6).toFixed(1)+"M":a>=1e3?(a/1e3).toFixed(0)+"K":a.toFixed(0); return (x<0?"−":"")+s; }
+/* line chart: lines=[{v:[numbers|null], c:color, w, dash}], dates=[iso], opts {h, fmt, hl:[{y,c,label}], dots:[{i,c}], bars:false} */
+function veChart(dates, lines, o){
+  o=o||{}; const W=o.w||1000, H=o.h||280, L=64, R=14, T=12, B=30, n=dates.length;
+  if(n<2) return '<p class="veread">Not enough history yet.</p>';
+  let lo=Infinity, hi=-Infinity;
+  lines.forEach(l=>l.v.forEach(y=>{ if(y!=null&&isFinite(y)){ lo=Math.min(lo,y); hi=Math.max(hi,y);} }));
+  (o.hl||[]).forEach(h=>{ lo=Math.min(lo,h.y); hi=Math.max(hi,h.y); });
+  if(o.zero){ lo=Math.min(lo,0); hi=Math.max(hi,0); }
+  if(!isFinite(lo)) return '<p class="veread">No data.</p>';
+  if(hi-lo<1e-9){ hi+=1; lo-=1; } const pad=(hi-lo)*0.06; lo-=pad; hi+=pad;
+  const X=i=>L+(W-L-R)*i/(n-1), Y=y=>T+(H-T-B)*(1-(y-lo)/(hi-lo)), f=o.fmt||(v=>veNum(v,1));
+  let g='';
+  for(let k=0;k<=4;k++){ const y=lo+(hi-lo)*k/4; g+=`<line x1="${L}" x2="${W-R}" y1="${Y(y)}" y2="${Y(y)}" stroke="#1B2C4C"/><text x="${L-6}" y="${Y(y)+5}" text-anchor="end">${f(y)}</text>`; }
+  [0,Math.floor((n-1)/2),n-1].forEach(i=>{ g+=`<text x="${X(i)}" y="${H-8}" text-anchor="${i===0?"start":i===n-1?"end":"middle"}">${dates[i]}</text>`; });
+  (o.hl||[]).forEach(h=>{ g+=`<line x1="${L}" x2="${W-R}" y1="${Y(h.y)}" y2="${Y(h.y)}" stroke="${h.c}" stroke-dasharray="6 5" stroke-width="2"/>`+(h.label?`<text x="${W-R-4}" y="${Y(h.y)-6}" text-anchor="end" style="fill:${h.c}">${h.label}</text>`:""); });
+  if(o.zero) g+=`<line x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="#9DB0CA" stroke-width="1.5"/>`;
+  lines.forEach(l=>{
+    if(l.bars){ const bw=Math.max(2,(W-L-R)/n*0.7); l.v.forEach((y,i)=>{ if(y==null) return; const y0=Y(0), y1=Y(y); g+=`<rect x="${X(i)-bw/2}" y="${Math.min(y0,y1)}" width="${bw}" height="${Math.max(1,Math.abs(y1-y0))}" fill="${y>=0?"#3FD0B0":"#FF6B5A"}"/>`; }); return; }
+    let d='', pen=false; l.v.forEach((y,i)=>{ if(y==null||!isFinite(y)){ pen=false; return; } d+=(pen?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1); pen=true; });
+    g+=`<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${l.w||2.5}"${l.dash?` stroke-dasharray="${l.dash}"`:""}/>`;
+  });
+  (o.dots||[]).forEach(p=>{ if(p.y==null) return; g+=`<circle cx="${X(p.i)}" cy="${Y(p.y)}" r="${p.r||5}" fill="${p.c}" stroke="#0A1426" stroke-width="1.5"/>`; });
+  return `<svg class="vesvg" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+}
+function veLegend(items){ return '<div class="velegend">'+items.map(([c,t,dash])=>`<span><i style="background:${dash?"repeating-linear-gradient(90deg,"+c+" 0 5px,transparent 5px 9px)":c}"></i>${t}</span>`).join("")+'</div>'; }
+function veSec(id,title,sub,body){ return `<section class="vxsec" id="${id}"><div class="vxh"><h2>${title}</h2><span class="vxsub">${sub}</span></div>${body}</section>`; }
+function veTail(a,n){ return (a||[]).slice(-(n||260)); }
+function renderVolEod(){
+  const head=document.getElementById("veHead"), body=document.getElementById("veBody");
+  if(!veData){ loadVolEod(); head.innerHTML='<span class="big">Vol EOD</span><span>loading…</span>'; body.innerHTML=""; return; }
+  if(veData.err){ head.innerHTML='<span class="big">Vol EOD</span>'; body.innerHTML=`<p class="veread">${veEsc(veData.err)}</p>`; return; }
+  const D=veData; head.innerHTML=`<span class="big">Vol EOD</span><span><small>built</small>${veEsc(D.generated)}</span><span>End-of-day board from the NAS DB · no live calls · refreshed nightly 22:50 ET</span>`;
+  let h="";
+  /* V1 */
+  const v1=D.v1||{}, p1=veTail(v1.points,260), rc=v1.recovery||{};
+  let rtab="";
+  if(rc.flagged){ rtab='<div class="vxscroll"><table class="vetbl"><tr><th>After a flag</th><th>n</th><th>SPX avg</th><th>SPX up</th><th>VIX change</th><th>All days: SPX avg</th><th>All: VIX change</th></tr>'+
+    ["5","10","20"].map(k=>{ const f=(rc.flagged||{})[k]||{}, a=(rc.all||{})[k]||{}; return `<tr><td>${k} sessions</td><td>${f.n||0}</td><td>${veNum(f.spx_mean,2)}%</td><td>${f.spx_up==null?"—":(f.spx_up*100).toFixed(0)+"%"}</td><td>${veNum(f.vix_mean,2)}</td><td>${veNum(a.spx_mean,2)}%</td><td>${veNum(a.vix_mean,2)}</td></tr>`; }).join("")+'</table></div>'; }
+  const last1=p1[p1.length-1];
+  h+=veSec("veV1","V1 · VIX overshoot","did VIX move more than the day&rsquo;s SPX move explains? · 6-month rolling fit, prior days only · flag = residual &gt; +"+veNum((v1.params||{}).flag_pts,0)+" pts",
+    (last1?`<div class="vepills"><span class="vepill${last1.flag?" hot":""}">residual <b>${last1.res>0?"+":""}${veNum(last1.res)}</b> pts</span><span class="vepill">VIX <b>${veNum(last1.vix)}</b> vs model ${veNum(last1.model)}</span><span class="vepill">flags in history <b>${rc.flagged_n||0}</b></span></div>`:"")+
+    `<p class="veread">${veEsc(v1.read)}</p>`+veLegend([["#F4D03F","VIX actual"],["#9DB0CA","VIX the SPX move predicts",1],["#FF5C5C","flag day"]])+
+    veChart(p1.map(p=>p.d),[{v:p1.map(p=>p.model),c:"#9DB0CA",w:2,dash:"6 5"},{v:p1.map(p=>p.vix),c:"#F4D03F"}],{dots:p1.map((p,i)=>p.flag?{i,y:p.vix,c:"#FF5C5C"}:null).filter(Boolean)})+
+    rtab+'<p class="vxnote" style="font-size:14px;color:var(--ink)">Each day the model asks: given how far SPX moved, how much should VIX have moved? A big positive residual means fear was bid harder than the tape justified — historically that excess tends to come back out. The table is the flag&rsquo;s own track record.</p>');
+  /* V2 */
+  const v2=D.v2||{}, p2=veTail(v2.points,260), n2=v2.now||{};
+  const pc=x=>x==null?"":` · ${(x*100).toFixed(0)}th pct (1y)`;
+  h+=veSec("veV2","V2 · VIX3M, VIX and realized vol","three-month implied · one-month implied · SPX 21-day realized",
+    `<div class="vepills"><span class="vepill${n2.term!=null&&n2.term<0?" hot":""}">VIX3M−VIX <b>${n2.term>0?"+":""}${veNum(n2.term)}</b>${pc(v2.term_pct)}</span><span class="vepill${n2.prem!=null&&n2.prem<0?" hot":""}">VIX−RV21 <b>${n2.prem>0?"+":""}${veNum(n2.prem)}</b>${pc(v2.prem_pct)}</span></div>`+
+    `<p class="veread">${veEsc(v2.read)}</p>`+veLegend([["#5DADE2","VIX3M"],["#F4D03F","VIX"],["#2ECC71","RV21 (realized)"]])+
+    veChart(p2.map(p=>p.d),[{v:p2.map(p=>p.vix3m),c:"#5DADE2"},{v:p2.map(p=>p.vix),c:"#F4D03F"},{v:p2.map(p=>p.rv21),c:"#2ECC71"}]));
+  /* V3 + V4 */
+  const v3=D.v3||{}, p3=veTail(v3.points,180), est=p3.filter(p=>p.src==="map_iv").length;
+  const s3=veSec("veV3","V3 · 0DTE straddle, % of spot","SPX at-the-money straddle at the open · 20-day average · Fed days dotted",
+    `<p class="veread">${veEsc(v3.read)}</p>`+veLegend([["#FF8A3D","straddle % of spot"],["#DCE6F2","20-day average",1],["#4C8DFF","Fed day"]])+
+    veChart(p3.map(p=>p.d),[{v:p3.map(p=>p.avg20),c:"#DCE6F2",w:2,dash:"6 5"},{v:p3.map(p=>p.pct),c:"#FF8A3D"}],{w:620,fmt:v=>veNum(v,2)+"%",dots:p3.map((p,i)=>p.fed?{i,y:p.pct,c:"#4C8DFF",r:7}:null).filter(Boolean)})+
+    (est?`<p class="vxnote" style="font-size:14px;color:var(--ink)">${est} of ${p3.length} days are estimated from the morning ATM IV (no replay that day); the rest are the measured AM straddle.</p>`:""));
+  const v4=D.v4||{}, p4=veTail(v4.points,320), r4=v4.read||{}, pr=v4.params||{};
+  const s4=v4.err?veSec("veV4","V4 · Far-OTM put IV floor","",`<p class="veread">${veEsc(v4.err)}</p>`):veSec("veV4","V4 · Far-OTM put IV floor","SPY 25-delta put IV, 30-day · floor ≤ "+veNum((pr.floor_iv||0)*100,0)+"% · warn ≥ "+veNum((pr.reclaim_iv||0)*100,0)+"% near highs",
+    `<div class="vepills"><span class="vepill${r4.state==="WARN"?" hot":r4.state==="FLOOR"?" ok":""}">state <b>${veEsc(r4.state||"—")}</b></span><span class="vepill">put IV <b>${r4.iv!=null?veNum(r4.iv*100,1)+"%":"—"}</b></span></div>`+
+    '<p class="veread">Protection gets this cheap only when nobody wants it. A floor day marks complacency; when put IV climbs back above the warn line while SPY still sits near its highs, the tracker has tended to lead corrections.</p>'+
+    veLegend([["#E0579E","put IV"],["#3FD0B0","floor",1],["#FF6B5A","warn",1]])+
+    veChart(p4.map(p=>p.d),[{v:p4.map(p=>p.iv*100),c:"#E0579E"}],{w:620,fmt:v=>veNum(v,0)+"%",hl:[{y:(pr.floor_iv||.13)*100,c:"#3FD0B0",label:"floor"},{y:(pr.reclaim_iv||.17)*100,c:"#FF6B5A",label:"warn"}],dots:p4.map((p,i)=>p.st==="WARN"?{i,y:p.iv*100,c:"#FF6B5A"}:null).filter(Boolean)}));
+  h+=`<div class="vegrid">${s3}${s4}</div>`;
+  /* V5 + B1 */
+  const v5=D.v5||{}, c5=v5.now||{}, p5=veTail(v5.series,60);
+  const s5=veSec("veV5","V5 · Color (dealer gamma vs time)","SPX · what one day of time alone does to dealer gamma, spot and IV held fixed",
+    (c5.gamma_now!=null?`<div class="vepills"><span class="vepill">gamma now <b>${veNum(c5.gamma_now)}</b> $bn/1%</span><span class="vepill">tomorrow <b>${veNum(c5.gamma_next)}</b></span><span class="vepill">roll-off <b>${veNum(c5.roll_off)}</b></span><span class="vepill">time on the rest <b>${veNum(c5.color_live)}</b></span></div>`:"")+
+    `<p class="veread">${veEsc(c5.read||"No EOD chain yet.")}</p>`+
+    '<p class="vxnote" style="font-size:14px;color:var(--ink)">Bars below: the total day-over-day change in net GEX as the EOD chain records it — new open interest, the spot move and time all mixed together. The pills above isolate time alone.</p>'+
+    veChart(p5.map(p=>p.d),[{v:p5.map(p=>p.chg),bars:1}],{w:620,zero:1,h:240,fmt:veBig}));
+  const b1=D.b1||{}, pb=veTail(b1.points,260), lb=pb[pb.length-1]||{};
+  const s6=b1.err?veSec("veB1","B1 · Beta reset","",`<p class="veread">Not built yet — the nightly beta_reset job (17:50 ET) fills it.</p>`):veSec("veB1","B1 · Beta reset","low beta (SPLV) breaking × high beta (SPHB) holding vs its own frozen beta · Cboe correlation skew",
+    `<div class="vepills"><span class="vepill${lb.low_beta_state!=="intact"?" hot":""}">low beta <b>${veEsc(lb.low_beta_state||"—")}</b></span><span class="vepill${lb.high_beta_state==="holding"?" ok":""}">high beta <b>${veEsc(lb.high_beta_state||"—")}</b></span><span class="vepill${lb.label==="RESET"?" ok":""}"><b>${veEsc(lb.label||"—")}</b></span></div>`+
+    `<p class="veread">${veEsc(b1.read||"")}</p>`+veLegend([["#FF6B5A","COR90D (downside wing)"],["#3FD0B0","COR10D (upside wing)"]])+
+    veChart(pb.map(p=>p.date),[{v:pb.map(p=>p.cor90d),c:"#FF6B5A"},{v:pb.map(p=>p.cor10d),c:"#3FD0B0"}],{w:620,h:240}));
+  h+=`<div class="vegrid">${s5}${s6}</div>`;
+  const ev=(D.events||[]).map(e=>`<span class="vepill">${veEsc(e.d)} ${veEsc(e.t||"")} · ${veEsc(e.label)}</span>`).join("");
+  if(ev) h+=veSec("veEv","Upcoming events","from events.json",`<div class="vepills">${ev}</div>`);
+  body.innerHTML=h;
+}
+
 })();
 </script>
 </body>
