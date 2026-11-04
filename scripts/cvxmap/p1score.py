@@ -350,6 +350,33 @@ def wm_score(wm, path):
     return out
 
 
+# ------------------------------------------------------------------ Phase 2: how good are Convex's mid guesses?
+def guess_score(prints, quotes):
+    """SPX 0DTE prints at MID / INSIDE their quote carry Convex's guessed side. Judge: where that contract's
+    mid went over the next 2 minutes (up = buyer pressure). Pre-registered 2026-11-04; |move| < 0.025 = flat."""
+    def midq(t, k, cp):
+        v = (quotes or {}).get(t, {}).get(str(int(round(k))))
+        if not v:
+            return None
+        b, a = (v[0], v[1]) if cp == "C" else (v[2], v[3])
+        return (b + a) / 2 if b is not None and a and a >= b else None
+    n = agree = flat = miss = 0
+    for p in prints or []:
+        m = mm(p["t"])
+        m0 = midq(p["t"], p["strike"], p["cp"])
+        m2 = next((v for v in (midq(hh(m + q), p["strike"], p["cp"]) for q in (2, 3, 1)) if v is not None), None)
+        if m0 is None or m2 is None:
+            miss += 1
+            continue
+        d = m2 - m0
+        if abs(d) < 0.025:
+            flat += 1
+            continue
+        n += 1
+        agree += 1 if (d > 0) == (p["side"] == "buy") else 0
+    return {"n": n, "agree": agree, "flat": flat, "no_quote": miss, "pct": (agree / n) if n else None}
+
+
 # ------------------------------------------------------------------ assemble + running + HTML
 def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_flow, oi, greek_col):
     colsf = [c for c in cols or [] if c.get("S")]
@@ -442,6 +469,9 @@ def running(day_dirs):
             a = wm.setdefault(k, [0, 0, []])
             a[0] += 1; a[1] += 1 if e["right"] else 0; a[2].append(e["move30"])
     R["wm"] = {k: {"n": a[0], "right": a[1], "mean": _mean(a[2])} for k, a in wm.items()}
+    gn = sum((p.get("guess") or {}).get("n", 0) for _, p in day_dirs)
+    ga = sum((p.get("guess") or {}).get("agree", 0) for _, p in day_dirs)
+    R["guess"] = {"n": gn, "agree": ga, "pct": (ga / gn) if gn else None}
     return R
 
 
@@ -537,6 +567,13 @@ def html(p, R):
     rows += [[k, "%d of %d right" % (a[1], a[0]), "%d of %d right · mean %s pts" % (R["wm"].get(k, {}).get("right", 0), R["wm"].get(k, {}).get("n", 0), _f(R["wm"].get(k, {}).get("mean")))]
              for k, a in wmt.items()]
     h.append(_tbl(["signal", "today", "running"], rows or [["none today", "–", "–"]]))
+    g2 = p.get("guess")
+    if g2 is not None:
+        h.append("<h2>Convex's guesses on mid trades</h2><div class='sub'>SPX 0DTE prints that traded in the middle of the quote: Convex still calls them buy or sell, "
+                 "and the live cockpit uses that call. Judge: did the contract's mid move the guessed way over the next 2 minutes? 50% = coin flip.</div>")
+        h.append(_tbl(["", "prints judged", "guess right", "flat (no move)", "no quote"],
+                      [["today", g2.get("n", 0), ("%d (%s)" % (g2.get("agree", 0), _f((g2.get("pct") or 0) * 100, 0) + "%")) if g2.get("n") else "–", g2.get("flat", 0), g2.get("no_quote", 0)],
+                       ["running", (R.get("guess") or {}).get("n", 0), _f(((R.get("guess") or {}).get("pct") or 0) * 100, 0) + "%" if (R.get("guess") or {}).get("n") else "–", "", ""]]))
     if p.get("errors"):
         h.append("<div class='sub'>page errors: %s</div>" % "; ".join("%s %s" % kv for kv in p["errors"].items()))
     return "".join(h)

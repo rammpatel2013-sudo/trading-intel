@@ -165,6 +165,7 @@ class Settings(BaseSettings):
     TAS_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"  # high-volume index roots (covered by other jobs)
     TAS_POLL_INTERVAL: int = 30  # seconds between polls (NAS capture daemon)
     TAS_RETENTION_DAYS: int = 30  # prune raw tas_prints older than this
+    TAS_SPX_TAPE_MIN_PREMIUM: float = 5_000.0  # SPX/SPXW/SPY prints kept from this $ (put buy-ratio report); QQQ keeps the index floor
     TAS_INDEX_MIN_PREMIUM: float = 250_000.0  # un-exclude big index prints >= this $ (SPX/SPXW; ETFs use 0.4x)
 
     # ── Daily AM report ───────────────────────────────────────────────

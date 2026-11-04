@@ -49,9 +49,9 @@ CVX = HERE / "cvxmap"
 SYMS = ("SPX", "SPY", "QQQ")
 RTH_OPEN = 570
 T_END = "16:00"
-BASES = ("oi", "oiv", "vol")
+BASES = ("oi", "oiv", "vol", "ois")     # ois = OI + signed volume (Phase 2, 2026-11-04; scored before it is trusted)
 VIEW_BASIS = "oiv"           # Mithil: gamma on 0DTE OI + vol; charm / vanna / change on All DTE
-BASIS_NAME = {"oi": "OI", "oiv": "OI + vol", "vol": "volume"}
+BASIS_NAME = {"oi": "OI", "oiv": "OI + vol", "vol": "volume", "ois": "OI + signed"}
 VIEWS = (("density", "Density cone"),
          ("charm", "Map: Gamma 0DTE | Charm All"),
          ("vanna", "Map: Gamma 0DTE | Vanna All"),
@@ -382,9 +382,13 @@ def build_live(day_iso, T, flow, oi, tmpl, week, gap=None):
 
             def g(f, i=i):
                 return ((last[f][i] if (i is not None and last.get(f)) else 0) or 0)
+
+            def gn(f, i=i):        # buy/sell split: None (not 0) when the log has no split
+                return last[f][i] if (i is not None and last.get(f)) else None
             rows.append({"k": k, "cOI": coi, "pOI": poi, "cV": g("cv"), "pV": g("pv"), "cIV": g("ci"), "pIV": g("pi"),
                          "cM": g("cm"), "pM": g("pm"), "cL": g("cl"), "pL": g("pl"), "cB": g("cb"), "cA": g("ca"),
-                         "cZ": g("cz"), "pB": g("pb"), "pA": g("pa"), "pZ": g("pz"), "cD": g("cd"), "pD": g("pd")})
+                         "cZ": g("cz"), "pB": g("pb"), "pA": g("pa"), "pZ": g("pz"), "cD": g("cd"), "pD": g("pd"),
+                         "cVb": gn("cvb"), "cVs": gn("cvs"), "pVb": gn("pvb"), "pVs": gn("pvs")})
         lk = last["k"]
         q = min(range(len(lk)), key=lambda i: abs(lk[i] - last["x"]))
         b = (tmpl.get(s) or {}) if tmpl else {}
@@ -946,12 +950,12 @@ def tags_html(acc, days):
         if not rows:
             continue
         h.append("<h3>%s</h3><div class='sub'>%s</div><div class='wrap'><table><tr><th>value</th>" % (title, TAG_HELP[key]))
-        for b in ("vol", "oiv", "oi"):
+        for b in ("vol", "oiv", "oi", "ois"):
             h.append("<th>%s n</th><th>%s P/L</th><th>%s win</th>" % (BASIS_NAME[b], BASIS_NAME[b], BASIS_NAME[b]))
         h.append("</tr>")
         for v in sorted(rows):
             h.append("<tr><td>%s</td>" % v)
-            for b in ("vol", "oiv", "oi"):
+            for b in ("vol", "oiv", "oi", "ois"):
                 n, pl, w = rows[v].get(b, [0, 0, 0])
                 cls = "up" if pl > 0 else "dn" if pl < 0 else ""
                 h.append("<td>%d</td><td class='%s'>%s</td><td>%s</td>" % (n, cls, money(pl) if n else "–", ("%d%%" % round(100 * w / n)) if n else "–"))
@@ -994,6 +998,64 @@ def open_html(gs, gap, sod):
         h.append("<tr><td>%s</td><td>%s</td><td style='text-align:left'>%s</td></tr>" % (a, b, c))
     h.append("</table></div>")
     return "".join(h)
+
+
+SIGNED_MIN_NIGHTS = 10
+
+
+def signed_check(out_root, day_iso):
+    """OI + signed vs OI + vol, nights where both were scored. Drives the reminder banner."""
+    n = pl_s = pl_v = 0
+    for p in sorted(out_root.glob("2*/seven_tests.json")):
+        d = p.parent.name
+        if "%s-%s-%s" % (d[:4], d[4:6], d[6:8]) > day_iso:
+            continue
+        try:
+            tj = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        if "ois" in tj and "oiv" in tj:
+            n += 1
+            pl_s += tj["ois"]["total"]["pl"]
+            pl_v += tj["oiv"]["total"]["pl"]
+    return {"nights": n, "pl_signed": pl_s, "pl_oiv": pl_v}
+
+
+def signed_basis_banner(c):
+    """Standing reminder (Mithil 2026-11-04): if OI + signed beats OI + vol, build the full-SPX-tape
+    collector so mid prints get the tick rule (Ellis-Michaely-O'Hara) instead of Convex's guess."""
+    if not c:
+        return ""
+    if c["nights"] < SIGNED_MIN_NIGHTS:
+        return ("<div class='card'>OI + signed basis: %d of %d nights scored (seven tests %s vs OI + vol %s). "
+                "When it has %d nights and beats OI + vol, the next build is the full SPX tape collector (tick rule for mid prints).</div>"
+                % (c["nights"], SIGNED_MIN_NIGHTS, money(c["pl_signed"]), money(c["pl_oiv"]), SIGNED_MIN_NIGHTS))
+    if c["pl_signed"] > c["pl_oiv"]:
+        return ("<div class='card big'><b>ACTION: OI + signed beats OI + vol over %d nights (%s vs %s).</b> Build the full SPX tape "
+                "collector so mid/inside prints are signed by the tick rule (Ellis-Michaely-O'Hara) instead of Convex's guess, "
+                "then re-score. (Reminder set 2026-11-04.)</div>" % (c["nights"], money(c["pl_signed"]), money(c["pl_oiv"])))
+    return ("<div class='card'>OI + signed has not beaten OI + vol over %d nights (%s vs %s): full-tape collector not needed yet.</div>"
+            % (c["nights"], money(c["pl_signed"]), money(c["pl_oiv"])))
+
+
+def mid_guess_score(day_iso, quotes, p1score):
+    """Phase 2: today's SPX 0DTE tape prints at mid / inside (tas_prints, quote_loc) with Convex's side -> p1score.guess_score.
+    None when the DB or the quote_loc column is not there (before migration 0052)."""
+    try:
+        from sqlalchemy import text
+
+        from trading_intel.config import get_settings
+        from trading_intel.memory.db import make_session_factory
+        q = text("select ts, strike, cp, side from tas_prints where root in ('SPX', 'SPXW') and trade_date = :d and expiry = :d "
+                 "and quote_loc in ('mid', 'inside') and side in ('buy', 'sell') and leg_group is null "
+                 "and coalesce(spread_leg, false) = false")
+        with make_session_factory(get_settings())() as s:
+            rows = s.execute(q, {"d": day_iso}).all()
+        prints = [{"t": ts.strftime("%H:%M"), "strike": float(k), "cp": (cp or "")[:1].upper(), "side": side} for ts, k, cp, side in rows if ts and k]
+        return p1score.guess_score(prints, quotes)
+    except Exception as exc:
+        log("mid-guess score skipped: %s" % str(exc)[:160])
+        return None
 
 
 def running_tests(out_root, day_iso):
@@ -1118,19 +1180,20 @@ img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}d
                          fmt(abs(c["es"])), fmt(c["usd_m"]), " / ".join(fmt(f, 1) for f in c["flips"]) or "–"))
         h.append("</table></details>")
     # seven tests, in the layout of Mithil's 10/26-27 table
+    h.append(signed_basis_banner(meta.get("signed_check")))
     h.append("<h2>Seven locked tests</h2><div class='sub'>$50,000 · 1 contract per signal · levels: the page's own 0DTE map per 2-min column · fills: Convex bid/ask, buy at ask / sell at bid.</div>")
     run = meta.get("running") or {}
     if run.get("vol"):
         h.append("<h3>Running total, volume basis · %s</h3>" % run["label"])
         h.append(tests_table(run["vol"]))
-    for b in ("vol", "oiv", "oi"):
+    for b in ("vol", "oiv", "oi", "ois"):
         if b not in tests:
             continue
         rows = {s["test"]: (s["n"], s["risk"], s["pl"]) for s in tests[b]["summary"]}
         tbl = "<h3>Today · %s basis%s</h3>%s" % (BASIS_NAME[b], " (the running basis)" if b == "vol" else "", tests_table(rows))
         h.append(tbl if b == "vol" else "<details><summary>Today · %s basis · total %s on %d trades</summary>%s</details>"
                  % (BASIS_NAME[b], money(tests[b]["total"]["pl"]), tests[b]["total"]["n"], tbl))
-    for b in ("oiv", "oi"):
+    for b in ("oiv", "oi", "ois"):
         if run.get(b):
             h.append("<details><summary>Running total · %s basis · since %s</summary>%s</details>" % (BASIS_NAME[b], run["first_day"], tests_table(run[b])))
     for b in BASES:
@@ -1454,6 +1517,7 @@ def main():
             p1 = p1score.build(day_iso, p1score.path_of(spx), day_info["close"], lvv.get("cols"), den.get("runs"),
                                (dens or {}).get("cone0"), res.get("p1"), doc, gs, ex.get("viv"), spx,
                                ((ex.get("oi") or {}).get("SPX") or {}).get("oi") or {}, window_effect.greek_col)
+            p1["guess"] = mid_guess_score(day_iso, ex.get("q") or {}, p1score)
             with open(out_dir / "p1.json", "w", encoding="utf-8") as fh:
                 json.dump(p1, fh, separators=(",", ":"), default=str)
             gate_t = {r["t"]: r for r in ((res.get("p1") or {}).get("gate") or [])}
@@ -1511,7 +1575,7 @@ def main():
             lines.append("Charm clock: BUY %d of %d minutes · peak %s ES at %s · flip ~%s" % (charm["buy_min"], charm["n"], fmt(charm["peak"]["es"]),
                          charm["peak"]["t"], fmt(charm["flip_med"])))
         if tests:
-            lines.append("Seven tests today: " + " · ".join("%s %s (%d)" % (BASIS_NAME[b], money(tests[b]["total"]["pl"]), tests[b]["total"]["n"]) for b in ("vol", "oiv", "oi") if b in tests))
+            lines.append("Seven tests today: " + " · ".join("%s %s (%d)" % (BASIS_NAME[b], money(tests[b]["total"]["pl"]), tests[b]["total"]["n"]) for b in ("vol", "oiv", "oi", "ois") if b in tests))
             n_, pl_ = running["vol_tot"]
             lines.append("Running since 10/26, volume basis: <b>%d trades %s (%+.2f%%)</b>" % (n_, money(pl_), pl_ / BOOK * 100))
         video, vkind = None, None
@@ -1530,6 +1594,7 @@ def main():
 
         stage = "scorecard"
         meta = {"built": et_now().strftime("%Y-%m-%d %H:%M"), "den_runs": den.get("runs") or [], "running": running,
+                "signed_check": signed_check(out_root, day_iso),
                 "open_html": open_html(gs, gap, sod_v), "tags_html": tags_html(tag_acc, tag_days), "p1_html": p1_html,
                 "inputs": {"raw": "%s (%d idx pulls; OI from the %s pull)" % (raw.name, ex.get("n_idx", 0), (ex.get("oi_ts") or "")[11:19]),
                            "flow": "%s (%d SPX minutes 09:31–16:00; %d missing%s)" % (flow_p.name, len(rth), len(missing), (": " + ", ".join(missing[:30])) if missing else ""),

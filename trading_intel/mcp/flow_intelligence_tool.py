@@ -29,6 +29,8 @@ _PRINT_COLS = (TasPrint.cp, TasPrint.side, TasPrint.notional, TasPrint.size, Tas
 _DAILY_COLS = (
     "dominant_side",
     "pct_buy",
+    "signable_pct",
+    "pct_buy_all",
     "net_dollar_delta",
     "net_premium_call_put",
     "call_notional",

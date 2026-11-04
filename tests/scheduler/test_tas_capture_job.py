@@ -126,12 +126,13 @@ def test_zeroed_tape_is_skipped(session: Session) -> None:
 
 
 def test_excludes_index_roots(session: Session) -> None:
-    # SPX is in the default TAS_EXCLUDE_ROOTS; the single name is kept.
+    # SPX is in the default TAS_EXCLUDE_ROOTS; under the $5k SPX tape floor it is dropped,
+    # the single name is kept.
     df = pd.DataFrame(
         {
             "time": ["2026-06-03T13:30:01", "2026-06-03T13:30:02"],
             "symbol": [".SPX260620C6000", ".NVDA260619C230"],
-            "price": [10.0, 2.50],
+            "price": [0.40, 2.50],
             "size": [100, 600],
             "aggressor_side": ["buy", "buy"],
         }
@@ -146,3 +147,36 @@ def test_off_hours_guard_blocks_write(session: Session, monkeypatch: pytest.Monk
     monkeypatch.setattr(tas_capture_job, "is_market_hours", lambda now: False)
     tas_capture_job.run(session, _StubSource(_raw_tape()), settings=_settings(), force=False)
     assert _rows(session) == []
+
+
+def test_spx_tape_floor_quote_loc_and_vendor_legs(session: Session) -> None:
+    """2026-11-04: SPX prints from $5k are kept (put buy-ratio), each print records where it
+    traded vs its own quote, and vendor-flagged spread legs at the same instant share a group."""
+    df = pd.DataFrame(
+        {
+            "time": ["2026-06-03T13:30:01.100", "2026-06-03T13:30:01.100", "2026-06-03T13:30:05", "2026-06-03T13:30:06"],
+            "symbol": [".SPXW260603P5900", ".SPXW260603P5880", ".SPXW260603P5850", ".QQQ260603P500"],
+            "price": [4.0, 2.05, 1.10, 0.50],
+            "size": [20, 30, 50, 100],
+            "aggressor_side": ["buy", "sell", "sell", "buy"],
+            "bid_price": [3.9, 2.0, 1.10, 0.45],
+            "ask_price": [4.0, 2.1, 1.20, 0.55],
+            "spread_leg": [True, True, False, False],
+        }
+    )
+    tas_capture_job.run(session, _StubSource(df), settings=_settings(), force=True)
+    rows = sorted(_rows(session), key=lambda r: r.strike)
+    assert [r.root for r in rows] == ["SPXW", "SPXW", "SPXW"]          # QQQ $5k print stays under its floor
+    by_k = {r.strike: r for r in rows}
+    assert by_k[5900].quote_loc == "at_ask" and by_k[5850].quote_loc == "at_bid"
+    assert by_k[5880].quote_loc == "mid"
+    assert by_k[5900].leg_group is not None and by_k[5900].leg_group == by_k[5880].leg_group
+    assert by_k[5850].leg_group is None and by_k[5850].spread_leg is False
+
+
+def test_quote_loc_rules() -> None:
+    q = tas_capture_job.quote_loc
+    assert q(1.0, None, 1.1) is None
+    assert q(1.0, 1.0, 1.2) == "at_bid" and q(1.2, 1.0, 1.2) == "at_ask"
+    assert q(1.1, 1.0, 1.2) == "mid" and q(1.05, 1.0, 1.2) == "inside"
+    assert q(1.3, 1.0, 1.2) == "outside" and q(1.0, 1.0, 0) == "no_quote"

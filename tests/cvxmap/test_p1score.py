@@ -27,3 +27,12 @@ def test_flip_split_and_crosses():
     xs = [7600 + (3 if i % 2 else 0) for i in range(30)] + [7590 - (9 if i % 2 else 0) for i in range(30)]
     r = P.flip_tests(_path(xs), lambda m: 7595)
     assert r["split"]["ratio"] > 1 and r["cross_down_n"] >= 1
+
+
+def test_mid_guess_score():
+    q = {"10:00": {"7600": [10.0, 10.2, 9.0, 9.2]}, "10:02": {"7600": [10.4, 10.6, 8.7, 8.9]}}
+    pr = [{"t": "10:00", "strike": 7600.0, "cp": "C", "side": "buy"},     # call mid up -> buy guess right
+          {"t": "10:00", "strike": 7600.0, "cp": "P", "side": "buy"},     # put mid down -> buy guess wrong
+          {"t": "11:00", "strike": 7600.0, "cp": "C", "side": "sell"}]    # no quote
+    r = P.guess_score(pr, q)
+    assert r["n"] == 2 and r["agree"] == 1 and r["no_quote"] == 1

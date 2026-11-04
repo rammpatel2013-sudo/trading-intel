@@ -254,6 +254,10 @@ def tos_rows(sym, spot, book, T, sigma, iv_map):
             "k": k,
             "gex": gex, "dex": dex, "charm": charm, "vanna": vanna, "color": color,
             "cV": cV, "pV": pV,
+            # 2026-11-04 (Phase 2, "OI + signed" basis): Convex's measured buy / sell volume,
+            # session-cumulative like volm. None when the vendor sent nothing.
+            "cVb": c.get("volm_buy"), "cVs": c.get("volm_sell"),
+            "pVb": p.get("volm_buy"), "pVs": p.get("volm_sell"),
             "cPrem": cV * cm * 100.0 / 1e6, "pPrem": pV * pm * 100.0 / 1e6,
             "cIV": civ or 0, "pIV": piv or 0,
             "gexV": gexV,
@@ -428,7 +432,9 @@ def build_symbol(sym, dec, today, state):
             "cd": [r["cD"] for r in rows],
             "pb": [r["pB"] for r in rows], "pa": [r["pA"] for r in rows],
             "pl": [r["pL"] for r in rows], "pz": [r["pZ"] for r in rows],
-            "pd": [r["pD"] for r in rows]}
+            "pd": [r["pD"] for r in rows],
+            "cvb": [r["cVb"] for r in rows], "cvs": [r["cVs"] for r in rows],
+            "pvb": [r["pVb"] for r in rows], "pvs": [r["pVs"] for r in rows]}
     return out, flow
 
 

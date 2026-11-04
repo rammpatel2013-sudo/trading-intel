@@ -220,6 +220,47 @@ def strike_ivs(eod: dict | None) -> tuple[dict, dict]:
     return siv, atm
 
 
+MID_BLOCK_MIN = 100_000.0     # $ premium: big prints that traded at mid / inside their quote
+
+
+def mid_blocks(settings, day: str, rows_all: list[dict], top: int = 12) -> list[dict]:
+    """2026-11-04 (Phase 2): yesterday's big prints at MID / INSIDE the quote can't be signed
+    from the quote. Give them a direction from the overnight OI change + the strike's IV change
+    net of ATM (Mithil's 10/21 rule): OI up + IV up = buyers opened (BTO), OI up + IV down =
+    writers opened (STO), OI down + IV up = shorts covered (BTC), OI down + IV down = longs sold
+    (STC). Spread legs and deep-ITM financing prints are left out. Needs tas_prints.quote_loc
+    (migration 0052); before it exists this returns []."""
+    from sqlalchemy import text
+
+    from trading_intel.memory.db import make_session_factory
+
+    q = text(
+        "select root, expiry, strike, cp, sum(notional) as prem, sum(size) as size, count(*) as n, "
+        "max(quote_loc) as loc from tas_prints where trade_date = :d and quote_loc in ('mid', 'inside') "
+        "and leg_group is null and coalesce(spread_leg, false) = false and coalesce(is_financing, false) = false "
+        "group by root, expiry, strike, cp having sum(notional) >= :m order by prem desc limit 200"
+    )
+    try:
+        with make_session_factory(settings)() as session:
+            rows = session.execute(q, {"d": day, "m": MID_BLOCK_MIN}).mappings().all()
+    except Exception as exc:  # noqa: BLE001 - column missing before 0052, or DB hiccup: report without the section
+        log(f"mid blocks: {type(exc).__name__}: {str(exc)[:120]}")
+        return []
+    by_key = {(r["symbol"], r["expiry"], k_strike(r["strike"]), r["cp"]): r for r in rows_all}
+    out = []
+    for b in rows:
+        key = (str(b["root"]).upper(), b["expiry"].isoformat() if b["expiry"] else None, k_strike(b["strike"]), b["cp"])
+        r = by_key.get(key)
+        d_oi = r["d_oi"] if r else None
+        rel = (r["d_iv_rel"] / 100.0) if (r and r.get("d_iv_rel") is not None) else None
+        read = iv_tag(d_oi, rel) if (d_oi and rel is not None) else None
+        out.append({"contract": f"{key[0]} {key[1]} {key[2]:g}{key[3]}", "prem": round(float(b["prem"])),
+                    "size": int(b["size"]), "prints": int(b["n"]), "loc": b["loc"], "d_oi": d_oi,
+                    "d_iv_rel": r.get("d_iv_rel") if r else None, "read": read or ("no OI change" if r is None else "flat / no IV"),
+                    "vendor_split": r["tag"] if r else None})
+    return out[:top]
+
+
 def iv_tag(d: float, rel: float | None) -> str | None:
     """Side from the strike's IV change net of its expiry's ATM change (10/21 rule)."""
     if rel is None:
@@ -401,6 +442,13 @@ def telegram_text(summary: dict, top_n: int) -> str:
     chk = f" Strike IV change agrees on {100 * ag / (ag + dg):.0f}% of tagged contracts (by size)." if ag + dg else ""
     lines.append("<i>Side = yesterday's Convex buy/sell split; under 10% imbalance not counted."
                  f"{chk}</i>")
+    mb = h.get("mid_blocks") or []
+    if mb:
+        lines.append("")
+        lines.append("<i>Big prints at MID price yesterday (quote can't tell buy from sell): direction from OI change + IV change</i>")
+        for b in mb[:top_n]:
+            oi_txt = "–" if b["d_oi"] is None else kfmt(b["d_oi"])
+            lines.append(f"{b['contract']}  {money(b['prem'])}  OI {oi_txt}  → <b>{b['read']}</b>")
     return "\n".join(lines)
 
 
@@ -529,7 +577,9 @@ def main(argv: list[str] | None = None) -> int:
         for r in sorted(rows_all, key=lambda r: (r["symbol"], -abs(r["d_oi"]))):
             if abs(r["d_oi"]) >= a.csv_min:
                 w.writerow(r)
+    blocks = [] if stale else mid_blocks(settings, session, rows_all, a.top)
     summary = {
+        "mid_blocks": blocks,
         "asof": asof.isoformat(), "asof_time": f"{now:%H:%M}", "session": session,
         "test_from_eod": a.today_oi_from_eod, "attempts": attempts,
         "n_names": len(results), "n_stale": n_stale, "stale": stale, "failed": failed, "notes": notes,

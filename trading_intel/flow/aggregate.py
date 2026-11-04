@@ -60,6 +60,14 @@ def derive(df: pd.DataFrame) -> pd.DataFrame:
     out = out[out["root"].notna()].copy()
     out["cp"] = out.get("cp", "").astype(str).str.upper().str[0]
     out["side"] = out.get("side", "unknown").astype(str).str.lower()
+    # 2026-11-04 (Phase 2): trust the vendor side only where the print traded AT the bid or
+    # the ask of its own quote. Mid / inside / outside prints become unsigned ("mid"). Rows
+    # with no quote recorded (before 0052, or a vendor gap) keep the vendor side as before.
+    out["side_vendor"] = out["side"]          # Convex's side incl. its guesses at mid
+    if "quote_loc" in out.columns:
+        ql = out["quote_loc"]
+        unsigned = ql.notna() & ~ql.isin(["at_ask", "at_bid"])
+        out.loc[unsigned, "side"] = "mid"
     for col in ("notional", "size", "price", "delta", "spot", "strike"):
         out[col] = pd.to_numeric(out.get(col), errors="coerce")
     out["notional"] = out["notional"].fillna(0.0)
@@ -96,6 +104,8 @@ def rollup_by_name(df: pd.DataFrame) -> pd.DataFrame:
         "net_premium_call_put",
         "pct_buy",
         "dominant_side",
+        "signable_pct",
+        "pct_buy_all",
     ]
     if df is None or df.empty:
         return pd.DataFrame(columns=cols)
@@ -121,6 +131,15 @@ def rollup_by_name(df: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
     out["net_premium_call_put"] = out["call_notional"] - out["put_notional"]
     out["pct_buy"] = (out["buy_notional"] / out["total_notional"]).where(
+        out["total_notional"] > 0, 0.0
+    )
+    out["signable_pct"] = ((out["buy_notional"] + out["sell_notional"]) / out["total_notional"]).where(
+        out["total_notional"] > 0, 0.0
+    )
+    # same share with Convex's own guesses on mid prints counted (what the live cockpit shows)
+    sv = df["side_vendor"] if "side_vendor" in df.columns else df["side"]
+    buy_all = df["notional"].where(sv == "buy", 0.0).groupby(df["root"]).sum()
+    out["pct_buy_all"] = (out["root"].map(buy_all).fillna(0.0) / out["total_notional"]).where(
         out["total_notional"] > 0, 0.0
     )
     out["dominant_side"] = [

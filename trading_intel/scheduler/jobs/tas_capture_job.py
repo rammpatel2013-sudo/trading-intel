@@ -55,6 +55,39 @@ _SWEEP_CODES = frozenset({"I"})          # ISO / intermarket sweep
 _BLOCK_CODES = frozenset({"t", "m", "D"})  # negotiated / block prints on the tape
 _BLOCK_MIN_SIZE = 250                     # large single print = block even without a block code
 _INDEX_ETF = frozenset({"SPY", "QQQ"})   # index ETFs get a lower premium floor than SPX/SPXW
+_SPX_TAPE = frozenset({"SPX", "SPXW", "SPY"})  # 2026-11-04: kept from Settings.TAS_SPX_TAPE_MIN_PREMIUM ($5k)
+
+
+def _flag(value: object) -> bool | None:
+    """Vendor booleans arrive as bool / 0-1 / "true"; NaN or missing -> None."""
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):  # type: ignore[arg-type]
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "t", "y", "yes")
+    return bool(value)
+
+
+def quote_loc(price: float | None, bid: float | None, ask: float | None) -> str | None:
+    """Where a print traded vs ITS OWN quote at trade time (verified live 2026-11-04: the tape's
+    bid/ask is the quote at the print, 0 of 189 SPX prints outside it). Only at_ask / at_bid are
+    signable (Ellis-Michaely-O'Hara 2000: ~89% right there, ~60% at mid). None = no quote fields."""
+    if price is None or bid is None or ask is None:
+        return None
+    if ask <= 0 or ask < bid:
+        return "no_quote"
+    eps = max(0.01, 0.02 * (ask - bid))
+    if abs(price - ask) <= eps:
+        return "at_ask"
+    if abs(price - bid) <= eps:
+        return "at_bid"
+    if price > ask or price < bid:
+        return "outside"
+    return "mid" if abs(price - (ask + bid) / 2.0) <= eps else "inside"
 
 
 def _f(value: object) -> float | None:
@@ -114,6 +147,7 @@ def _row_record(
     row: pd.Series, *, captured_at: datetime, trade_date: date, min_premium: float,
     exclude: frozenset[str] = frozenset(),
     index_roots: frozenset[str] = frozenset(), index_base_premium: float = 250_000.0,
+    spx_tape_premium: float | None = None,
 ) -> dict | None:
     """Build one ``tas_prints`` row from a tape row, or None if it's dropped."""
     price = _f(row.get("price"))
@@ -149,7 +183,10 @@ def _row_record(
     is_index = ru is not None and ru in index_roots
     # Excluded roots are dropped UNLESS they are a big index print (un-excluded here).
     if ru is not None and ru in exclude:
-        if not (is_index and notional >= _index_floor(ru, index_base_premium)):
+        floor = _index_floor(ru, index_base_premium)
+        if spx_tape_premium is not None and ru in _SPX_TAPE:
+            floor = min(floor, spx_tape_premium)
+        if not (is_index and notional >= floor):
             return None  # small index / other high-volume root covered by other jobs
     source = _SOURCE_INDEX if (is_index and ru in exclude) else _SOURCE
 
@@ -187,6 +224,8 @@ def _row_record(
         "is_block": bool((cond in _BLOCK_CODES) or (size >= _BLOCK_MIN_SIZE)),
         "is_financing": _is_financing(cp, delta, dte),
         "leg_group": None,  # filled by _assign_leg_groups over the whole poll
+        "quote_loc": quote_loc(price, _f(row.get("bid_price")), _f(row.get("ask_price"))),
+        "spread_leg": _flag(row.get("spread_leg")),
         "source": source,
     }
 
@@ -196,8 +235,23 @@ def _assign_leg_groups(recs: list[dict], window_s: float = _LEG_WINDOW_S) -> Non
 
     A structure (vertical / fly / calendar / roll) prints its legs within the
     same instant; both land in one poll. Singletons keep ``leg_group=None``.
+    2026-11-04: prints the VENDOR flags as ``spread_leg`` are grouped first, by
+    (root, exact print time) - no guessing; the time-window heuristic below only
+    handles the rest.
     """
-    order = sorted(range(len(recs)), key=lambda i: (recs[i]["root"] or "", recs[i]["ts"]))
+    byts: dict = {}
+    for i, r in enumerate(recs):
+        if r.get("spread_leg"):
+            byts.setdefault((r["root"], r["ts"]), []).append(i)
+    taken: set[int] = set()
+    for idx in byts.values():
+        if len(idx) >= 2:
+            gid = uuid.uuid4().hex[:24]
+            for i in idx:
+                recs[i]["leg_group"] = gid
+            taken.update(idx)
+    recs_free = [i for i in range(len(recs)) if i not in taken]
+    order = sorted(recs_free, key=lambda i: (recs[i]["root"] or "", recs[i]["ts"]))
     cluster: list[int] = []
 
     def flush(c: list[int]) -> None:
@@ -221,13 +275,17 @@ def _records(
     df: pd.DataFrame, *, captured_at: datetime, trade_date: date, min_premium: float,
     exclude: frozenset[str] = frozenset(),
     index_roots: frozenset[str] = frozenset(), index_base_premium: float = 250_000.0,
+    spx_tape_premium: float | None = None,
 ) -> list[dict]:
     out: list[dict] = []
     for _, row in df.iterrows():
         rec = _row_record(
-            row, captured_at=captured_at, trade_date=trade_date, min_premium=min_premium,
+            row, captured_at=captured_at, trade_date=trade_date, min_premium=min(min_premium, spx_tape_premium or min_premium),
             exclude=exclude, index_roots=index_roots, index_base_premium=index_base_premium,
+            spx_tape_premium=spx_tape_premium,
         )
+        if rec is not None and rec["notional"] < min_premium and (rec["root"] or "").upper() not in _SPX_TAPE:
+            rec = None      # the lower SPX floor never lets a single-name print under the market-wide floor
         if rec is not None:
             out.append(rec)
     _assign_leg_groups(out)
@@ -258,6 +316,8 @@ def run(
     )
     index_roots = frozenset(settings.index_roots) | {"SPXW"}
     index_base = float(getattr(settings, "TAS_INDEX_MIN_PREMIUM", 250_000.0))
+    spx_tape = getattr(settings, "TAS_SPX_TAPE_MIN_PREMIUM", None)
+    spx_tape = float(spx_tape) if spx_tape else None
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="tas_capture")
 
@@ -289,6 +349,7 @@ def run(
     records = _records(
         df, captured_at=captured_at, trade_date=now.date(), min_premium=min_premium,
         exclude=exclude, index_roots=index_roots, index_base_premium=index_base,
+        spx_tape_premium=spx_tape,
     )
     if not records:
         bound.info("tas_capture.no_qualifying_prints", polled=int(len(df)))

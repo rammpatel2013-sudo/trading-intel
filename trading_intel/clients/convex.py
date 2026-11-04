@@ -87,6 +87,8 @@ _TAS_COLS = (
     "value",
     "aggressor_side",
     "spread_leg",
+    "bid_price",   # 2026-11-04: quote at trade time (verified live: 0 of 189 SPX prints outside it)
+    "ask_price",
     "tas_type",
     "volatility",
     "delta",

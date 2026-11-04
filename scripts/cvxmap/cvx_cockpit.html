@@ -654,7 +654,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <div class="phead"><h2 id="ladTitle">Dealer book now</h2>
         <div class="seg" role="group" aria-label="Ladder mode" id="ladModeSeg"><button data-v="gamma" aria-pressed="true">Gamma</button><button data-v="vol" aria-pressed="false" title="Volume today by strike, split bought (solid) / sold (hatched); top strikes labelled">Day</button><button data-v="vol30" aria-pressed="false" title="Volume in the last 30 minutes only, own scale">30m</button><button data-v="vold" aria-pressed="false" title="Last 30 min minus the prior 30: teal = accelerating, red = fading, with the ratio">Δ</button></div><span class="sp"></span>
         <div class="seg" role="group" aria-label="Positions" id="basisSeg">
-          <button data-v="oi" aria-pressed="true" title="Start-of-day open interest">OI</button><button data-v="vol" aria-pressed="false" title="Today's volume only, as if all of it opened — the book the day built">Vol</button><button data-v="oiv" aria-pressed="false" title="Open interest plus today's volume, as if all of it opened">OI + vol</button>
+          <button data-v="oi" aria-pressed="true" title="Start-of-day open interest">OI</button><button data-v="vol" aria-pressed="false" title="Today's volume only, as if all of it opened — the book the day built">Vol</button><button data-v="oiv" aria-pressed="false" title="Open interest plus today's volume, as if all of it opened">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus Convex&#39;s measured buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button>
         </div>
       </div>
       <div class="body" id="ladBody"><canvas id="ladC"></canvas></div>
@@ -744,14 +744,14 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     </div>
   </main>
   <main id="tabMap" class="tab" hidden>
-    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
+    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus Convex&#39;s measured buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
     <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
-    <section class="pane"><div class="phead"><h2>Today</h2><span class="hint">solid = bought · hatched = sold (LAST vs quote) · %B = bought share · top 5 per side labelled</span></div><div class="body"><canvas id="volDayC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides are Convex's buy/sell split."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span></div><div class="body"><canvas id="volDayC"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 min</h2><span class="hint">own scale — where the tape is now</span></div><div class="body"><canvas id="vol30C"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><span class="hint">teal / coral = accelerating · dark = fading · ×ratio</span></div><div class="body"><canvas id="volDC"></canvas></div></section>
   </main>
@@ -968,7 +968,7 @@ st.bubRidge=load("bubRidge","0")==="1";
 st.bubBg=load("bubBg","off"); if(!["off","gamma","oi"].includes(st.bubBg)) st.bubBg="off";
 st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
-st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0";
+st.volCol=load("volCol","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0";
 if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
@@ -1404,6 +1404,8 @@ function buildSeries(snaps){
   const hasQ=snaps.some(s=>s.cb&&s.cb.length);   // LiveLog v16 quote fields
   const bC=hasQ?mk():null, aC=hasQ?mk():null, lC=hasQ?mk():null, zC=hasQ?mk():null, dlC=hasQ?mk():null, bP=hasQ?mk():null, aP=hasQ?mk():null, lP=hasQ?mk():null, zP=hasQ?mk():null, dlP=hasQ?mk():null;
   const last=new Map(), atm=new Array(m).fill(null);
+  // 2026-11-04 (Phase 2): Convex's measured buy/sell volume per strike-minute (writer fields cvb/cvs/pvb/pvs)
+  const hasS=snaps.some(s=>s.cvb&&s.cvb.length), bbC=hasS?mk():null, ssC=hasS?mk():null, bbP=hasS?mk():null, ssP=hasS?mk():null;
   // TOS keeps yesterday's VOLUME until the 9:30 reset: find the drop and blank cumulative figures before it
   const tot=snaps.map(s=>(s.cv||[]).reduce((a,b)=>a+b,0)+(s.pv||[]).reduce((a,b)=>a+b,0));
   let jReset=0; for(let j=1;j<m;j++){ if(tot[j]<tot[j-1]*0.5&&T[j]>=RTH_OPEN-5) jReset=j; }
@@ -1420,13 +1422,15 @@ function buildSeries(snaps){
       const p=last.get(k);
       // only diff against the previous minute: a strike that left the chain window, or a pause in logging,
       // would otherwise dump several minutes of volume into one fake spike
-      if(p&&p.j===j-1&&T[j]-T[j-1]<=2){ dC[i][j]=Math.max(0,s.cv[q]-p.cv); dP[i][j]=Math.max(0,s.pv[q]-p.pv); }
-      last.set(k,{cv:s.cv[q],pv:s.pv[q],j}); });
+      if(p&&p.j===j-1&&T[j]-T[j-1]<=2){ dC[i][j]=Math.max(0,s.cv[q]-p.cv); dP[i][j]=Math.max(0,s.pv[q]-p.pv);
+        if(hasS&&p.vb&&s.cvb&&s.cvb[q]!=null&&s.cvs[q]!=null&&s.pvb[q]!=null&&s.pvs[q]!=null){
+          bbC[i][j]=Math.max(0,s.cvb[q]-p.vb[0]); ssC[i][j]=Math.max(0,s.cvs[q]-p.vb[1]); bbP[i][j]=Math.max(0,s.pvb[q]-p.vb[2]); ssP[i][j]=Math.max(0,s.pvs[q]-p.vb[3]); } }
+      last.set(k,{cv:s.cv[q],pv:s.pv[q],j,vb:(s.cvb&&s.cvb[q]!=null&&s.cvs[q]!=null&&s.pvb[q]!=null&&s.pvs[q]!=null)?[s.cvb[q],s.cvs[q],s.pvb[q],s.pvs[q]]:null}); });
   });
   // first-sight IV per strike/side (and when), for fixed-strike IV change measured against the ATM drift
   const first=a=>{ const j=a.findIndex(v=>v!=null); return j<0?null:j; };
   const j0C=ivC.map(first), j0P=ivP.map(first);
-  return {ks,idx,T,spot,dC,dP,mC,mP,ivC,ivP,j0C,j0P,atm,cuC,cuP,m,n,bC,aC,lC,zC,dlC,bP,aP,lP,zP,dlP,jReset,mirC,mirP};
+  return {ks,idx,T,spot,dC,dP,mC,mP,ivC,ivP,j0C,j0P,atm,cuC,cuP,m,n,bC,aC,lC,zC,dlC,bP,aP,lP,zP,dlP,jReset,mirC,mirP,bbC,ssC,bbP,ssP};
 }
 function ivRel(se,i,j,useC){ // vol pts: strike IV change since first seen, minus the ATM IV change over the same time
   const arr=useC?se.ivC[i]:se.ivP[i], j0=useC?se.j0C[i]:se.j0P[i];
@@ -1449,7 +1453,8 @@ function gammaMatrix(se){ // dealer $-gamma per 1% at each strike and minute (po
   for(let j=0;j<se.m;j++){ const S=se.spot[j], ty=Math.max(1,960-se.T[j])/525600, sq=Math.sqrt(ty);
     for(let i=0;i<se.n;i++){ const k=se.ks[i], o=oi.get(k); if(!o) continue;
       const sg=otmIV(k,S,se.ivC[i][j]||0,se.ivP[i][j]||0); if(!(sg>0)) continue;
-      const cp=o[0]+(st.basis==="oiv"?(se.cuC[i][j]||0):0), pp=o[1]+(st.basis==="oiv"?(se.cuP[i][j]||0):0);
+      const cpv=st.basis==="oiv"||st.basis==="ois";   // ois: series carries no buy/sell split, same as OI + vol here
+      const cp=o[0]+(cpv?(se.cuC[i][j]||0):0), pp=o[1]+(cpv?(se.cuP[i][j]||0):0);
       const d1=(Math.log(S/k)+0.5*sg*sg*ty)/(sg*sq);
       G[i][j]=Math.exp(-d1*d1/2)*0.398942280401433/(S*sg*sq)*100*S*S*0.01*(cp-pp); } }
   _gm={key,m:G}; return G; }
@@ -1698,11 +1703,14 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend){
       if(topP.includes(r.k)&&Math.abs(r.p)>0) labs.push({side:-1,x:mid-wp-4,y,t:`${r.p>0?"+":""}${fmtK(r.p)}${r.pr!=null?" ×"+(r.pr>=9?"9+":r.pr.toFixed(1)):""}`});
     } else {
       const wc=half*r.c/vmax, wp=half*r.p/vmax;
-      // calls → right: bought solid, sold hatched (from the axis outward)
-      ctx.fillStyle=C("--call")+"30"; ctx.fillRect(mid,y-vh/2,wc,vh);
-      if(r.cb!=null){ ctx.fillStyle=C("--call"); ctx.fillRect(mid,y-vh/2,wc*r.cb,vh); hatch(mid+wc*r.cb,y-vh/2,wc*(1-r.cb),vh,C("--call")); } else { ctx.fillStyle=C("--call")+"80"; ctx.fillRect(mid,y-vh/2,wc,vh); }
-      ctx.fillStyle=C("--put")+"30"; ctx.fillRect(mid-wp,y-vh/2,wp,vh);
-      if(r.pb!=null){ ctx.fillStyle=C("--put"); ctx.fillRect(mid-wp*r.pb,y-vh/2,wp*r.pb,vh); hatch(mid-wp,y-vh/2,wp*(1-r.pb),vh,C("--put")); } else { ctx.fillStyle=C("--put")+"80"; ctx.fillRect(mid-wp,y-vh/2,wp,vh); }
+      // calls → right: bought solid, sold hatched (from the axis outward). Bull|Bear (2026-11-04): call bought / put sold
+      // = green, call sold / put bought = red; unsigned volume stays faint grey.
+      const BB=st.volCol==="bb", GR="#58D68D", RD="#FF7B72";
+      const cB=BB?GR:C("--call"), cS=BB?RD:C("--call"), pB=BB?RD:C("--put"), pS=BB?GR:C("--put");
+      ctx.fillStyle=(BB?"#8a96a8":C("--call"))+"30"; ctx.fillRect(mid,y-vh/2,wc,vh);
+      if(r.cb!=null){ ctx.fillStyle=cB; ctx.fillRect(mid,y-vh/2,wc*r.cb,vh); hatch(mid+wc*r.cb,y-vh/2,wc*(1-r.cb),vh,cS); } else { ctx.fillStyle=(BB?"#8a96a8":C("--call"))+"80"; ctx.fillRect(mid,y-vh/2,wc,vh); }
+      ctx.fillStyle=(BB?"#8a96a8":C("--put"))+"30"; ctx.fillRect(mid-wp,y-vh/2,wp,vh);
+      if(r.pb!=null){ ctx.fillStyle=pB; ctx.fillRect(mid-wp*r.pb,y-vh/2,wp*r.pb,vh); hatch(mid-wp,y-vh/2,wp*(1-r.pb),vh,pS); } else { ctx.fillStyle=(BB?"#8a96a8":C("--put"))+"80"; ctx.fillRect(mid-wp,y-vh/2,wp,vh); }
       if(topC.includes(r.k)&&r.c>0) labs.push({side:1,x:mid+wc+4,y,t:fmtK(r.c)+(r.cb!=null?` · ${Math.round(r.cb*100)}%B`:"")});
       if(topP.includes(r.k)&&r.p>0) labs.push({side:-1,x:mid-wp-4,y,t:fmtK(r.p)+(r.pb!=null?` · ${Math.round(r.pb*100)}%B`:"")});
     }
@@ -1715,7 +1723,7 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend){
   const ys=Y(book.S); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(w-24,ys); ctx.lineTo(w-30,ys-4); ctx.lineTo(w-30,ys+4); ctx.fill();
   ctx.fillStyle=C("--faint"); ctx.fillText("puts ◂",mid-half,h-4); ctx.fillText("▸ calls",mid+half-34,h-4);
   const leg = mode==="vold" ? `last 30 min − prior 30 · teal / coral = accelerating, dark = fading · ×ratio · ${j60<0?"needs 60 min of log":""}`
-            : `${mode==="vol30"?"last 30 min":"today"} · solid = bought, hatched = sold (LAST vs quote), %B = bought share${sr&&sr.rows?"":" · sides need LiveLog v16"}`;
+            : `${mode==="vol30"?"last 30 min":"today"} · solid = bought, hatched = sold (Convex split; LAST vs quote on older minutes), %B = bought share${sr&&sr.rows?"":" · sides need LiveLog v16"}`;
   if(!noLegend) ctx.fillText(leg,4,12);
 }
 
@@ -2109,7 +2117,7 @@ function renderReads(se,book){
   const fl=document.getElementById("rbFlow"), wl=document.getElementById("rbWalls"), vo=document.getElementById("rbVol"), bu=document.getElementById("rbBursts");
   if(!book){ fl.innerHTML=`<h3>Dealer hedging</h3><div class="note">Waiting for a live chain.</div>`; wl.innerHTML=vo.innerHTML=bu.innerHTML=""; return; }
   const by=x=>x>=0?"buy":"sell";
-  fl.innerHTML=`<h3>Dealer hedging (${st.basis==="oi"?"open interest":st.basis==="vol"?"today's volume only":"OI + today's volume"})</h3>
+  fl.innerHTML=`<h3>Dealer hedging (${st.basis==="oi"?"open interest":st.basis==="vol"?"today's volume only":st.basis==="ois"?"OI + signed volume":"OI + today's volume"})</h3>
     <div class="rline"><span>${st.sym} +0.25%</span><b>dealers ${by(book.up)} ${money(book.up)}</b></div>
     <div class="rline"><span>${st.sym} −0.25%</span><b>dealers ${by(book.dn)} ${money(book.dn)}</b></div>
     <div class="rline"><span>Charm into 4:00 (spot holds)</span><b>${by(book.charm)} ${money(book.charm)}</b></div>
@@ -2216,7 +2224,7 @@ function currentBook(se,sym){
   const d=st.live&&st.live[sym||st.sym]; if(!d||!d.rows||!d.rows.length||!(d.spot>0)) return {d,book:null};
   const imp=impliedSpot(sym||st.sym); const S=imp?imp.S:d.spot, c=liveClock(), mins=Math.max(minsToClose(c),1);
   const rows=d.rows.map(r=>{ const sg=otmIV(r.k,S,r.cIV||0,r.pIV||0);
-    const cp=(st.basis==="vol"?0:(r.cOI||0))+(st.basis!=="oi"?(r.cV||0):0), pp=(st.basis==="vol"?0:(r.pOI||0))+(st.basis!=="oi"?(r.pV||0):0);
+    const [cp,pp]=bookCP(r.cOI,r.pOI,r.cV,r.pV,r.cVb,r.cVs,r.pVb,r.pVs);
     let ivrel=null; if(se&&se.idx.has(r.k)) ivrel=ivRel(se,se.idx.get(r.k),se.m-1,r.k>=S);
     return {k:r.k,sg,cp,pp,cm:r.cM!=null?r.cM:null,pm:r.pM!=null?r.pM:null,cv:r.cV,pv:r.pV,ivrel}; });
   const book=readBook(rows,S,mins); book.S=S; book.rows=rows; book.src=imp&&imp.src; book.prevClose=imp&&imp.close;
@@ -2328,6 +2336,7 @@ document.getElementById("coneLiveBtn").addEventListener("click",()=>{ st.coneLiv
 document.getElementById("gapBtn").addEventListener("click",()=>{ st.gapOn=!st.gapOn; save("gapOn",st.gapOn?"1":"0"); render(); });
 document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
+bindSeg("volColSeg","volCol");
 bindSeg("mapBasisSeg","basis",()=>syncSeg("basisSeg",st.basis));
 bindSeg("rowSeg","rows",()=>{ st.rowOff=0; });
 bindSeg("conSide","conSide");
@@ -2590,13 +2599,18 @@ function signedRows(se){
     const c=cp==="C", n=c?se.dC[i][j]:se.dP[i][j]; if(!(n>0)) continue;
     const b=c?se.bC[i][j]:se.bP[i][j], a=c?se.aC[i][j]:se.aP[i][j], l=c?se.lC[i][j]:se.lP[i][j], mid=c?se.mC[i][j]:se.mP[i][j];
     const dl=c?se.dlC[i][j]:se.dlP[i][j];
-    const {side,tier}=sideOf(l,b,a);
-    const px=l>0?l:(mid||0), prem=n*px*100; if(!(prem>0)) continue;
-    const bullish = side===0?0 : ((c&&side>0)||(!c&&side<0)) ? 1 : -1;   // call bought / put sold = bullish
-    rows.push({k:se.ks[i],cp,j,t:se.T[j],n,px,prem,side,tier,bullish,sp:prem*bullish,delta:dl,spot:se.spot[j]});
-    total+=prem; if(bullish>0) bull+=prem; else if(bullish<0) bear+=prem; else uns+=prem;
-    if(tier===1) n1+=prem; else if(tier===2) n2+=prem; else n3+=prem;
-    if(side&&dl!=null) net+=side*n*dl*100;
+    const px=l>0?l:(mid||0);
+    // 2026-11-04 (Phase 2): Convex's own per-trade buy/sell split for this minute when the log has it (same rule as the
+    // OI + signed map: Convex's side everywhere, its mid guesses included). Older minutes: the LAST-vs-quote estimate.
+    const vb=se.bbC?(c?se.bbC[i][j]:se.bbP[i][j]):null, vs=se.ssC?(c?se.ssC[i][j]:se.ssP[i][j]):null;
+    const parts = (vb!=null&&vs!=null&&(vb+vs)>0) ? [[vb,1,1],[vs,-1,1]].filter(x=>x[0]>0) : (()=>{ const o=sideOf(l,b,a); return [[n,o.side,o.tier]]; })();
+    for(const [nn,side,tier] of parts){
+      const prem=nn*px*100; if(!(prem>0)) continue;
+      const bullish = side===0?0 : ((c&&side>0)||(!c&&side<0)) ? 1 : -1;   // call bought / put sold = bullish
+      rows.push({k:se.ks[i],cp,j,t:se.T[j],n:nn,px,prem,side,tier,bullish,sp:prem*bullish,delta:dl,spot:se.spot[j]});
+      total+=prem; if(bullish>0) bull+=prem; else if(bullish<0) bear+=prem; else uns+=prem;
+      if(tier===1) n1+=prem; else if(tier===2) n2+=prem; else n3+=prem;
+      if(side&&dl!=null) net+=side*nn*dl*100; }
   }
   const res={rows,bull,bear,uns,total,net,n1,n2,n3,share:(bull+bear)>0?bull/(bull+bear):null,unsShare:total>0?uns/total:null};
   _f2={key,res}; return res;
@@ -3133,6 +3147,15 @@ function greekCol(kind, rows, S, ty){ // one price point: sum over strikes
   }
   return tot;
 }
+/* Dealer book by basis (2026-11-04, Phase 2): OI · Vol · OI + vol (fixed sign: today's volume counted as
+   customers selling calls / buying puts) · OI + signed = OI plus Convex's MEASURED buy/sell volume:
+   call sells − call buys (dealers long the calls customers sold), put buys − put sells. Falls back to
+   OI + vol for any strike/minute without the split (older logs). The first three are unchanged. */
+function bookCP(cOI,pOI,cV,pV,cb,cs,pb,ps){
+  if(st.basis==="ois"){ if(cb!=null&&cs!=null&&pb!=null&&ps!=null) return [(cOI||0)+(cs-cb),(pOI||0)+(pb-ps)];
+    return [(cOI||0)+(cV||0),(pOI||0)+(pV||0)]; }
+  const o=st.basis==="vol"?0:1, v=st.basis==="oi"?0:1; return [o*(cOI||0)+v*(cV||0), o*(pOI||0)+v*(pV||0)]; }
+const _at=(a,q)=>a?a[q]:undefined;
 function mapRowsAt(snapIdx, se, d){ // dealer book rows for minute j of the log (null = live book)
   const snap=snapIdx==null?null:st.flow[st.sym][snapIdx];
   const live=d&&d.rows?new Map(d.rows.map(r=>[r.k,r])):new Map();
@@ -3140,7 +3163,8 @@ function mapRowsAt(snapIdx, se, d){ // dealer book rows for minute j of the log 
   ks.forEach((k,q)=>{ const lr=live.get(k); const oiC=lr?lr.cOI||0:0, oiP=lr?lr.pOI||0:0;
     const vC=snap?(snap.cv[q]||0):(lr?lr.cV||0:0), vP=snap?(snap.pv[q]||0):(lr?lr.pV||0:0);
     const civ=snap?snap.ci[q]:(lr?lr.cIV:0), piv=snap?snap.pi[q]:(lr?lr.pIV:0), S=snap?snap.x:(d?d.spot:0);
-    const sg=otmIV(k,S,civ||0,piv||0); const cp=(st.basis==="vol"?0:oiC)+(st.basis!=="oi"?vC:0), pp=(st.basis==="vol"?0:oiP)+(st.basis!=="oi"?vP:0);
+    const sg=otmIV(k,S,civ||0,piv||0);
+    const [cp,pp]=bookCP(oiC,oiP,vC,vP, snap?_at(snap.cvb,q):(lr&&lr.cVb), snap?_at(snap.cvs,q):(lr&&lr.cVs), snap?_at(snap.pvb,q):(lr&&lr.pVb), snap?_at(snap.pvs,q):(lr&&lr.pVs));
     out.push({k,sg,cp,pp}); });
   return out;
 }
@@ -3272,7 +3296,7 @@ function drawBreakdown(id,se,d,m){
   const padL=46,padR=10,padT=8,padB=20, W=w-padL-padR, H=h-padT-padB;
   const Y=p=>padT+H*(1-(p-m.prices[0])/(m.prices[m.prices.length-1]-m.prices[0]));
   const book=st.mapBook||"all"; const byK=new Map();
-  if(book!=="week") for(const r of d.rows) byK.set(r.k,{k:r.k, c:(st.basis==="vol"?0:(r.cOI||0))+(st.basis!=="oi"?(r.cV||0):0), p:(st.basis==="vol"?0:(r.pOI||0))+(st.basis!=="oi"?(r.pV||0):0), c0:r.cOI||0, p0:r.pOI||0});
+  if(book!=="week") for(const r of d.rows) byK.set(r.k,{k:r.k, c:bookCP(r.cOI,r.pOI,r.cV,r.pV,r.cVb,r.cVs,r.pVb,r.pVs)[0], p:bookCP(r.cOI,r.pOI,r.cV,r.pV,r.cVb,r.cVs,r.pVb,r.pVs)[1], c0:r.cOI||0, p0:r.pOI||0});
   if(book!=="0dte"){ const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; for(const r of (nb&&nb.rows)||[]){ if(st.basis==="vol") continue; const o=byK.get(r.k)||{k:r.k,c:0,p:0,c0:0,p0:0}; o.c+=r.cOI||0; o.p+=r.pOI||0; o.c0+=r.cOI||0; o.p0+=r.pOI||0; byK.set(r.k,o); } }
   const rows=[...byK.values()].sort((a,b)=>a.k-b.k); if(!rows.length) return;
   const mx=Math.max(1,...rows.map(r=>Math.max(r.c,r.p,r.c0,r.p0))); const mid=padL+W/2, half=W/2-4, bh=Math.max(2,H/rows.length*0.38);

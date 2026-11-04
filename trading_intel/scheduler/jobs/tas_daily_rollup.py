@@ -58,6 +58,8 @@ _FLOW_UPDATE = (
     "net_premium_call_put",
     "pct_buy",
     "dominant_side",
+    "signable_pct",
+    "pct_buy_all",
     "created_at",
 )
 _CONTRACT_UQ = ["trade_date", "root", "expiry", "strike", "cp"]
@@ -112,6 +114,7 @@ def _prints_frame(session: Session, day: date) -> pd.DataFrame:
                 "spot": p.spot,
                 "leg_group": p.leg_group,
                 "is_financing": p.is_financing,
+                "quote_loc": p.quote_loc,
             }
             for p in rows
         ]

@@ -734,6 +734,9 @@ def oi_lean(session, sym: str) -> dict | None:
 # ===================================================================== flow v2: index tape (NAS tas_prints, DB read only) + 8:35 OI verdict
 _ROOT_GROUP = {"SPX": "SPX", "SPXW": "SPX", "SPY": "SPY", "QQQ": "QQQ"}
 _TAPE_MIN_CARD = 1_000_000.0      # yesterday's prints worth an OI verdict
+# 2026-11-04 (Phase 2): tas_capture now stores SPX/SPXW/SPY from $5k (put buy-ratio report). The cockpit
+# keeps showing only the big prints it always showed, and never single spread legs (one spread = a buy + a sell).
+_TAPE_MIN_SHOW = {"SPX": 250_000.0, "SPXW": 250_000.0, "SPY": 100_000.0, "QQQ": 100_000.0}
 
 
 def _t_et(ts) -> str:
@@ -751,13 +754,15 @@ def _print_rows(session, day) -> list[dict]:
     from trading_intel.memory.models import TasPrint
     q = (select(TasPrint.ts, TasPrint.root, TasPrint.expiry, TasPrint.strike, TasPrint.cp, TasPrint.side,
                 TasPrint.price, TasPrint.size, TasPrint.notional, TasPrint.delta, TasPrint.is_sweep,
-                TasPrint.is_block, TasPrint.is_financing, TasPrint.leg_group)
+                TasPrint.is_block, TasPrint.is_financing, TasPrint.leg_group, TasPrint.spread_leg)
          .where(TasPrint.source == "convex_index", TasPrint.trade_date == day,
                 TasPrint.root.in_(list(_ROOT_GROUP)))
          .order_by(TasPrint.notional.desc()).limit(2000))
     out = []
     for r in session.execute(q).all():
-        ts, root, exp, k, cp, side, px, sz, notional, delta, sw, bl, fin, leg = r
+        ts, root, exp, k, cp, side, px, sz, notional, delta, sw, bl, fin, leg, sleg = r
+        if (notional or 0) < _TAPE_MIN_SHOW.get(root, 250_000.0) or leg or sleg:
+            continue
         out.append({"g": _ROOT_GROUP.get(root, root), "root": root, "expiry": exp.isoformat() if exp else None,
                     "strike": k, "cp": (cp or "").upper()[:1], "side": (side or "unknown").lower(),
                     "price": px, "size": sz, "notional": notional, "delta": delta, "t": _t_et(ts),

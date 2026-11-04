@@ -919,6 +919,10 @@ class TasPrint(Base):
     is_block: Mapped[bool | None] = mapped_column(Boolean)  # negotiated / large block
     is_financing: Mapped[bool | None] = mapped_column(Boolean)  # deep-ITM call / LEAP (non-directional)
     leg_group: Mapped[str | None] = mapped_column(String(24))  # same-poll structure cluster id
+    # 2026-11-04 (0052): where the print traded vs its own quote at trade time
+    # (at_ask / at_bid / mid / inside / outside / no_quote) + the vendor's spread-leg flag.
+    quote_loc: Mapped[str | None] = mapped_column(String(8))
+    spread_leg: Mapped[bool | None] = mapped_column(Boolean)
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 
@@ -951,6 +955,8 @@ class TasDailyFlow(Base):
     net_premium_call_put: Mapped[float | None] = mapped_column(Float)
     pct_buy: Mapped[float | None] = mapped_column(Float)
     dominant_side: Mapped[str | None] = mapped_column(String(8))  # buy / sell / mixed
+    signable_pct: Mapped[float | None] = mapped_column(Float)  # 0052: share of premium signed at bid/ask
+    pct_buy_all: Mapped[float | None] = mapped_column(Float)  # 0052: buy share incl. Convex's mid guesses
     created_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
