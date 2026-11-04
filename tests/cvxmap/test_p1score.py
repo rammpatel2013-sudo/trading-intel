@@ -51,3 +51,16 @@ def test_proj_score_per_model_and_running():
     R = P.running([("2026-11-05", {"proj": r}), ("2026-11-06", {"proj": [dict(r[0], smile_gz_err=20.0)]})])
     assert R["proj"]["10:30"]["n"] == 2 and abs(R["proj"]["10:30"]["smile_gz"] - 15.0) < 1e-9
     assert P.proj_score(None, 7700.0) == [] and P.proj_score(proj, None) == []
+
+
+def test_basis_score_and_running():
+    path = _path([7680, 7683, 7686, 7688, 7700, 7701, 7702], t0=630)
+    bs = {"10:30": {"oiv": {"S": 7680, "flips": 0, "cz_now": 7700.0, "cz": 7640.0, "gz": 7676.0},
+                    "ois": {"S": 7680, "flips": 1, "cz_now": None, "cz": None, "gz": 7690.0},
+                    "led": {"na": "no ledger for today"}},
+          "12:00": {"err": "x"}}
+    r = P.basis_score(bs, 7700.0, path)
+    assert len(r) == 1 and r[0]["oiv_flips"] == 0 and r[0]["oiv_cz_err"] == 60.0 and r[0]["oiv_gz_err"] == 24.0
+    assert r[0]["oiv_cz_res"] in ("touched", "held", "broke") and r[0]["ois_cz_err"] is None and "led_flips" not in r[0]
+    R = P.running([("2026-11-05", {"basis": r})])
+    assert R["basis"]["oiv"]["n"] == 1 and R["basis"]["ois"]["flips"] == 1 and "led" not in R["basis"]

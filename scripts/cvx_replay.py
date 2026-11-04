@@ -62,7 +62,7 @@ VIEWS = (("density", "Density cone"),
 HOOK = "window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath}"
 REPLAY_HOOK = ("window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath,"
                "buildSeries,signedRows,buildMap,greekCol,greekColNear,nearRows,mapRowsAt,changeMap,"
-               "currentBook,liveClock,pollLive,pollFlow,pollTI,tmin,seqEvents,flowBars}")
+               "currentBook,liveClock,pollLive,pollFlow,pollTI,tmin,seqEvents,flowBars,ledBook,ledgerInfo}")
 # Docker gives /dev/shm 64 MB; Chromium must not rely on it inside the trading-intel container
 CHROME_ARGS = ["--disable-dev-shm-usage"]
 DEN_HOOK = "window.__density=DEN;"
@@ -179,6 +179,23 @@ JS_PROJ = r"""(vars) => { const c=window.__cockpit, st=c.st, keep=[st.smileOn,st
       out[name]={S,gz,gpk,nz:zs.length}; } }
   catch(e){ out.err=String(e); }
   finally{ st.smileOn=keep[0]; st.clockVar=keep[1]; }
+  return out; }"""
+
+# Charm by basis (2026-11-04): same three times; the 0DTE charm map under OI + vol, OI + signed and the Ledger book.
+# flips = colour changes in the charm column at that minute within ±50 pts of spot (stripes vs two slabs);
+# cz_now = charm flip nearest spot now; cz / gz = charm flip / gamma zero nearest spot on the projected 15:50 column.
+BASIS_VARIANTS = (("oiv", "oiv", 0), ("ois", "ois", 0), ("led", "oiv", 1))
+JS_BASIS = r"""(vars) => { const c=window.__cockpit, st=c.st, keep=[st.basis,st.mapLed], out={};
+  try{ const se=c.series('SPX'), d=st.live.SPX, S=d&&d.spot; out.ledger=c.ledgerInfo?c.ledgerInfo():null;
+    const P=(m,f)=>m.prices[0]+f*m.dp, near=a=>{ let b=null; for(const z of a) if(b==null||Math.abs(z-S)<Math.abs(b-S)) b=z; return b; };
+    for(const [name,basis,led] of vars){ st.basis=basis; st.mapLed=!!led;
+      if(led&&!c.ledBook()){ out[name]={na:'no ledger for today'}; continue; }
+      const ch=c.buildMap('charm',se,d,'0dte'), g=c.buildMap('gamma',se,d,'0dte'); if(!ch||!g){ out[name]=null; continue; }
+      let jn=0, jp=-1; ch.times.forEach((t,k)=>{ if(t<=ch.now) jn=k; if(t<=950) jp=k; });
+      const col=ch.grid[jn]; let flips=0; for(let i=1;i<col.length;i++){ if(Math.abs(ch.prices[i]-S)>50) continue; if(col[i]!==0&&col[i-1]!==0&&Math.sign(col[i])!==Math.sign(col[i-1])) flips++; }
+      out[name]={S,flips,cz_now:near(ch.feats[jn].z.map(f=>P(ch,f))),cz:jp>=0?near(ch.feats[jp].z.map(f=>P(ch,f))):null,gz:jp>=0?near(g.feats[jp].z.map(f=>P(g,f))):null}; } }
+  catch(e){ out.err=String(e); }
+  finally{ st.basis=keep[0]; st.mapLed=keep[1]; }
   return out; }"""
 
 JS_VIEW = r"""(v) => { const c=window.__cockpit, st=c.st;
@@ -440,7 +457,7 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
     frames = {v: [] for v, _ in VIEWS}
     fdir = out_dir / "frames"
     fdir.mkdir(parents=True, exist_ok=True)
-    res = {"times": times, "frames": frames, "console": [], "proj": {}}
+    res = {"times": times, "frames": frames, "console": [], "proj": {}, "basis": {}}
 
     def serve(route):
         url = route.request.url.split("?")[0]
@@ -451,6 +468,11 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
             return route.fulfill(status=200, body=state["live"], headers={"content-type": "application/json"})
         if name == flow_name:
             return route.fulfill(status=200, body=state["flow"], headers={"content-type": "application/x-ndjson"})
+        if name == "ledger.json":       # the ledger as it stood that morning (pos_ledger writes ledger_<as_of>.json)
+            lp = data_dir / ("ledger_%s.json" % day_iso.replace("-", ""))
+            if lp.is_file():
+                return route.fulfill(status=200, body=lp.read_bytes(), headers={"content-type": "application/json"})
+            return route.fulfill(status=404, body=b"")
         if name == "ti.json":
             if ti_bytes:
                 return route.fulfill(status=200, body=ti_bytes, headers={"content-type": "application/json"})
@@ -513,6 +535,10 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
                     res["proj"][T] = page.evaluate(JS_PROJ, [list(v) for v in PROJ_VARIANTS])
                 except Exception as exc:
                     res["proj"][T] = {"err": str(exc)[:200]}
+                try:
+                    res["basis"][T] = page.evaluate(JS_BASIS, [list(v) for v in BASIS_VARIANTS])
+                except Exception as exc:
+                    res["basis"][T] = {"err": str(exc)[:200]}
             if n % 6 == 0 or T == times[-1]:
                 log("frame %s  snaps %s  density %s/%s%s  %.0fs (density waits %.0fs, views %.0fs)" % (T, adv.get("snaps"), stt and stt.get("n"),
                     len(range(0, last + 1, 5)), " TRIPPED" if stt and stt.get("tripped") else "", time.time() - t_start, t_den, t_shot))
@@ -524,6 +550,7 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
         except Exception as exc:
             res["p1"] = {"err": str(exc)[:200]}
         res["p1"]["proj"] = res["proj"]
+        res["p1"]["basis"] = res["basis"]
         # charm clock: a blank page, the functions verbatim, the day's minute rows + 09:31 OI
         p2 = ctx.new_page()
         p2.set_content("<html><body></body></html>")

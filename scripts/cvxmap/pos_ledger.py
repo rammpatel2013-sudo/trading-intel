@@ -643,6 +643,18 @@ def export_ledger_json(engine, as_of_date: datetime.date) -> str:
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(obj, fh, separators=(",", ":"))
     os.replace(tmp, out_path)
+    # 2026-11-04: dated copy so the nightly replay can load the ledger AS IT STOOD that morning (no look-ahead);
+    # keep ~60 days of copies.
+    try:
+        import glob as _glob
+        import shutil as _shutil
+        _shutil.copyfile(out_path, os.path.join(DATA, "ledger_%s.json" % as_of_date.strftime("%Y%m%d")))
+        cutoff = (as_of_date - datetime.timedelta(days=60)).strftime("%Y%m%d")
+        for f in _glob.glob(os.path.join(DATA, "ledger_2*.json")):
+            if os.path.basename(f)[7:15] < cutoff:
+                os.remove(f)
+    except Exception as exc:
+        log(f"  dated ledger copy failed: {exc}")
     log(f"  wrote {out_path} ({len(rows)} ledger rows, {len(day_rows)} day rows)")
     return out_path
 

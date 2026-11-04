@@ -407,6 +407,34 @@ def proj_score(proj, close):
     return out
 
 
+BASIS_VARS = (("oiv", "OI + vol"), ("ois", "OI + signed"), ("led", "Ledger"))
+
+
+def basis_score(bs, close, path):
+    """Charm by basis: per time and basis - colour changes near spot, projected charm flip / gamma zero vs the close,
+    and what price did at the charm flip nearest spot at that minute (held / broke / touched / untouched)."""
+    out = []
+    if not bs or close is None:
+        return out
+    for t in sorted(bs):
+        v = bs[t] or {}
+        if v.get("err"):
+            continue
+        r = {"t": t}
+        for name, _ in BASIS_VARS:
+            x = v.get(name)
+            if not x or x.get("na"):
+                continue
+            r[name + "_flips"] = x.get("flips")
+            r[name + "_cz_err"] = None if x.get("cz") is None else abs(x["cz"] - close)
+            r[name + "_gz_err"] = None if x.get("gz") is None else abs(x["gz"] - close)
+            if x.get("cz_now") is not None and path:
+                r[name + "_cz_now"] = round(x["cz_now"], 1)
+                r[name + "_cz_res"] = score_level([(m_, x_) for (m_, x_) in path if m_ >= mm(t)], x["cz_now"]).get("result")
+        out.append(r)
+    return out
+
+
 def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_flow, oi, greek_col):
     colsf = [c for c in cols or [] if c.get("S")]
 
@@ -427,6 +455,7 @@ def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_f
            "seq": (p1js or {}).get("seq"),
            "wm": wm_score((p1js or {}).get("wm"), path),
            "proj": proj_score((p1js or {}).get("proj"), close),
+           "basis": basis_score((p1js or {}).get("basis"), close, path),
            "errors": {k: v for k, v in (p1js or {}).items() if k.endswith("err")}}
     try:
         res["iv"] = iv_variants(viv, spx_flow, oi, greek_col)
@@ -514,6 +543,22 @@ def running(day_dirs):
                     if e is not None:
                         a.setdefault(name + "_" + k, []).append(e)
     R["proj"] = {t: {k: _mean(v) for k, v in a.items()} | {"n": len(a["naive"])} for t, a in sorted(pj.items())}
+    bz = {}
+    for _, p in day_dirs:
+        for r in p.get("basis") or []:
+            for name, _l in BASIS_VARS:
+                if r.get(name + "_flips") is None:
+                    continue
+                a = bz.setdefault(name, {"n": 0, "flips": [], "cz": [], "gz": [], "held": 0, "broke": 0, "tested": 0})
+                a["n"] += 1
+                a["flips"].append(r[name + "_flips"]); a["cz"].append(r.get(name + "_cz_err")); a["gz"].append(r.get(name + "_gz_err"))
+                res = r.get(name + "_cz_res")
+                if res in ("held", "broke", "touched"):
+                    a["tested"] += 1
+                    a["held"] += 1 if res == "held" else 0
+                    a["broke"] += 1 if res == "broke" else 0
+    R["basis"] = {k: {"n": a["n"], "flips": _mean(a["flips"]), "cz": _mean(a["cz"]), "gz": _mean(a["gz"]),
+                      "held": a["held"], "broke": a["broke"], "tested": a["tested"]} for k, a in bz.items()}
     return R
 
 
@@ -607,6 +652,20 @@ def html(p, R):
             h.append("<details open><summary>Running, mean error (pts)</summary>%s</details>" % _tbl(
                 ["time", "n", "naive"] + ["%s %s" % (n, k) for n in PROJ_VARS for k in ("gz", "pk")],
                 [[t, a["n"], _f(a.get("naive"))] + [_f(a.get("%s_%s" % (n, k))) for n in PROJ_VARS for k in ("gz", "pk")] for t, a in R["proj"].items()]))
+    # charm by basis
+    if p.get("basis"):
+        h.append("<h2>Charm by basis</h2><div class='sub'>The 0DTE charm map built three ways: OI + vol (today's map), OI + signed (Convex's buy/sell on top of OI) "
+                 "and Ledger (positions measured since 10/26 plus today's signed flow). Changes = how many times the charm colour flips within ±50 pts of spot "
+                 "(more = striped, like OptionsDepth; 1–2 = two slabs). Flip / zero error = points between the projected 15:50 charm flip or gamma zero and the close. "
+                 "At flip = what price did at the charm flip nearest spot at that time. A basis graduates only if it beats OI + vol over 10+ nights.</div>")
+        head = ["time"] + ["%s %s" % (lab, k) for _, lab in BASIS_VARS for k in ("changes", "flip err", "zero err", "at flip")]
+        h.append(_tbl(head, [[r["t"]] + sum([[_f(r.get(n + "_flips"), 0), _f(r.get(n + "_cz_err")), _f(r.get(n + "_gz_err")),
+                                             r.get(n + "_cz_res") or "–"] for n, _ in BASIS_VARS], []) for r in p["basis"]]))
+        if R.get("basis"):
+            h.append("<details open><summary>Running</summary>%s</details>" % _tbl(
+                ["basis", "samples", "mean changes", "mean flip err", "mean zero err", "flip held / broke of tested"],
+                [[lab, R["basis"][n]["n"], _f(R["basis"][n]["flips"]), _f(R["basis"][n]["cz"]), _f(R["basis"][n]["gz"]),
+                  "%d / %d of %d" % (R["basis"][n]["held"], R["basis"][n]["broke"], R["basis"][n]["tested"])] for n, lab in BASIS_VARS if n in R["basis"]]))
     # seq / wm
     h.append("<h2>Sequence bubbles and W/M arrows</h2><div class='sub'>Bubbles: the page's own ✓/✗ (its own target and time limit). W/M: right = price moved the arrow's way over the next 30 min.</div>")
     sq = {}
