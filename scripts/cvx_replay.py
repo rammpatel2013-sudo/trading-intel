@@ -164,6 +164,23 @@ JS_PHASE1 = r"""(basis) => { const c=window.__cockpit, st=c.st, keep=st.basis, o
   try{ const F=c.flowBars(se); out.wm=F&&F.wm?F.wm.map(e=>({type:e.type,t:e.t,px:e.px,agree:e.agree})):null; }catch(e){ out.wm_err=String(e); }
   st.basis=keep; return out; }"""
 
+# Phase 3 gate (2026-11-04): at 10:30 / 12:00 / 14:00 the page projects the 0DTE gamma map to the close under
+# each model (plain, smile = shadow greeks, variance clock, both). Read off the projected 15:50 column: the gamma zero
+# nearest spot and the biggest gamma peak. Scored next morning-free against the 16:00 close (p1score.proj_score).
+PROJ_AT = ("10:30", "12:00", "14:00")
+PROJ_VARIANTS = (("plain", 0, 0), ("smile", 1, 0), ("vclock", 0, 1), ("both", 1, 1))
+JS_PROJ = r"""(vars) => { const c=window.__cockpit, st=c.st, keep=[st.smileOn,st.clockVar], out={};
+  try{ const se=c.series('SPX'), d=st.live.SPX; const S=d&&d.spot;
+    for(const [name,sm,vc] of vars){ st.smileOn=!!sm; st.clockVar=!!vc; const g=c.buildMap('gamma',se,d,'0dte'); if(!g){ out[name]=null; continue; }
+      let i=-1; g.times.forEach((t,k)=>{ if(t<=950) i=k; }); if(i<0){ out[name]=null; continue; }
+      const P=f=>g.prices[0]+f*g.dp, zs=g.feats[i].z.map(P);
+      let gz=null; for(const z of zs) if(gz==null||Math.abs(z-S)<Math.abs(gz-S)) gz=z;
+      let gpk=null, gv=-1e99; g.feats[i].pk.forEach(k=>{ if(g.grid[i][k]>gv){ gv=g.grid[i][k]; gpk=g.prices[k]; } });
+      out[name]={S,gz,gpk,nz:zs.length}; } }
+  catch(e){ out.err=String(e); }
+  finally{ st.smileOn=keep[0]; st.clockVar=keep[1]; }
+  return out; }"""
+
 JS_VIEW = r"""(v) => { const c=window.__cockpit, st=c.st;
   if(v==='density'){ st.tab='density'; } else { st.tab='map'; st.mapBook='0dte'; st.mapBookR='all'; st.mapRight=v; }
   c.render(); return {tab:st.tab, right:st.mapRight, book:st.mapBook, bookR:st.mapBookR, basis:st.basis, weekSrc:st.weekSrc}; }"""
@@ -423,7 +440,7 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
     frames = {v: [] for v, _ in VIEWS}
     fdir = out_dir / "frames"
     fdir.mkdir(parents=True, exist_ok=True)
-    res = {"times": times, "frames": frames, "console": []}
+    res = {"times": times, "frames": frames, "console": [], "proj": {}}
 
     def serve(route):
         url = route.request.url.split("?")[0]
@@ -491,6 +508,11 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
                     page.screenshot(path=str(fp), type="jpeg", quality=82)
                     frames[v].append((T, fp))
             t_shot += time.time() - t1
+            if T in PROJ_AT:
+                try:
+                    res["proj"][T] = page.evaluate(JS_PROJ, [list(v) for v in PROJ_VARIANTS])
+                except Exception as exc:
+                    res["proj"][T] = {"err": str(exc)[:200]}
             if n % 6 == 0 or T == times[-1]:
                 log("frame %s  snaps %s  density %s/%s%s  %.0fs (density waits %.0fs, views %.0fs)" % (T, adv.get("snaps"), stt and stt.get("n"),
                     len(range(0, last + 1, 5)), " TRIPPED" if stt and stt.get("tripped") else "", time.time() - t_start, t_den, t_shot))
@@ -501,6 +523,7 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
             res["p1"] = page.evaluate(JS_PHASE1, VIEW_BASIS)
         except Exception as exc:
             res["p1"] = {"err": str(exc)[:200]}
+        res["p1"]["proj"] = res["proj"]
         # charm clock: a blank page, the functions verbatim, the day's minute rows + 09:31 OI
         p2 = ctx.new_page()
         p2.set_content("<html><body></body></html>")

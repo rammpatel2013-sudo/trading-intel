@@ -337,7 +337,9 @@ def build_symbol(sym, dec, today, state):
     head0, book0 = d["exps"][0]
     exp0 = exp_date(head0)
     dte = max((datetime.date.fromisoformat(exp0) - today).days, 0)
-    T = max(dte, MIN_T_DAYS) / 365.0          # Chain!R1 - greek columns only
+    # Phase 3 (2026-11-04): 0DTE greeks use the real minutes left (the old 0.25-day floor made
+    # same-day gamma/charm on the Exposure Board ~3x too flat late in the day). Longer expiries unchanged.
+    T = t_iv() if dte == 0 else max(dte, MIN_T_DAYS) / 365.0   # Chain!R1 - greek columns only
     Tiv = t_iv() if dte == 0 else (dte / 365.0)  # RTD IMPL_VOL - IV inversion
 
     pairs = [(k, c, p) for k, (c, p) in book0.items()]

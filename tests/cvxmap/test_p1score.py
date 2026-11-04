@@ -36,3 +36,18 @@ def test_mid_guess_score():
           {"t": "11:00", "strike": 7600.0, "cp": "C", "side": "sell"}]    # no quote
     r = P.guess_score(pr, q)
     assert r["n"] == 2 and r["agree"] == 1 and r["no_quote"] == 1
+
+
+def test_proj_score_per_model_and_running():
+    proj = {"10:30": {"plain": {"S": 7684.5, "gz": 7607.3, "gpk": 7705, "nz": 1},
+                      "smile": {"S": 7684.5, "gz": 7690.0, "gpk": 7700, "nz": 1},
+                      "vclock": None, "both": {"S": 7684.5, "gz": None, "gpk": 7702.5, "nz": 0}},
+            "12:00": {"err": "boom"}}
+    r = P.proj_score(proj, 7700.0)
+    assert len(r) == 1 and r[0]["t"] == "10:30"
+    assert abs(r[0]["naive"] - 15.5) < 1e-9
+    assert abs(r[0]["plain_gz_err"] - 92.7) < 1e-6 and r[0]["smile_gz_err"] == 10.0
+    assert r[0]["both_gz_err"] is None and "vclock_gz_err" not in r[0]
+    R = P.running([("2026-11-05", {"proj": r}), ("2026-11-06", {"proj": [dict(r[0], smile_gz_err=20.0)]})])
+    assert R["proj"]["10:30"]["n"] == 2 and abs(R["proj"]["10:30"]["smile_gz"] - 15.0) < 1e-9
+    assert P.proj_score(None, 7700.0) == [] and P.proj_score(proj, None) == []

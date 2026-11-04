@@ -744,7 +744,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     </div>
   </main>
   <main id="tabMap" class="tab" hidden>
-    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus Convex&#39;s measured buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
+    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus Convex&#39;s measured buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: the volatility smile moves with spot (shadow greeks). Changes gamma and charm on all maps. Phase 3, being scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
     <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
@@ -968,7 +968,7 @@ st.bubRidge=load("bubRidge","0")==="1";
 st.bubBg=load("bubBg","off"); if(!["off","gamma","oi"].includes(st.bubBg)) st.bubBg="off";
 st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
-st.volCol=load("volCol","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0";
+st.volCol=load("volCol","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
 if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
@@ -2334,6 +2334,7 @@ document.getElementById("seqSndBtn").addEventListener("click",()=>{ st.seqSnd=!s
 document.getElementById("coneAmBtn").addEventListener("click",()=>{ st.coneAm=!st.coneAm; save("coneAm",st.coneAm?"1":"0"); render(); });
 document.getElementById("coneLiveBtn").addEventListener("click",()=>{ st.coneLive=!st.coneLive; save("coneLive",st.coneLive?"1":"0"); render(); });
 document.getElementById("gapBtn").addEventListener("click",()=>{ st.gapOn=!st.gapOn; save("gapOn",st.gapOn?"1":"0"); render(); });
+for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn","clockVar"]]) document.getElementById(id).addEventListener("click",()=>{ st[k]=!st[k]; save(k,st[k]?"1":"0"); render(); });
 document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
 bindSeg("volColSeg","volCol");
@@ -3139,16 +3140,32 @@ syncPulse();
 const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // 2-min columns, 2 price rows per strike step
 let _mapCache = {key:null, cols:new Map()};
 const PHI = x => Math.exp(-x*x/2)*0.398942280401433;
-function greekCol(kind, rows, S, ty){ // one price point: sum over strikes
-  const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0;
+/* Phase 3 (2026-11-04), both OFF by default (Map tab buttons; scored nightly before they are trusted):
+   Smile  = shadow greeks: the smile moves with spot (sticky moneyness), so dσ/dS = −(K/S)·dσ/dK per strike.
+            Δ_shadow = Δ + vega·σ_S → gamma adds 2·vanna·σ_S + volga·σ_S², charm adds −σ_S·d(vega)/dτ.
+   cm     = charm rate multiplier from the variance clock (1 = calendar clock). */
+function smileSlopes(rows){ if(rows._sk) return; const a=rows.filter(r=>r.sg>0).sort((x,y)=>x.k-y.k);
+  for(let i=0;i<a.length;i++){ const lo=a[Math.max(0,i-1)], hi=a[Math.min(a.length-1,i+1)]; a[i].sk=hi.k!==lo.k?(hi.sg-lo.sg)/(hi.k-lo.k):0; }
+  rows._sk=true; }
+function greekCol(kind, rows, S, ty, cm){ // one price point: sum over strikes
+  const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sm=!!st.smileOn; if(sm) smileSlopes(rows);
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue;
     const d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);
-    if(kind==="gamma") tot+=pos*p/(S*r.sg*sq)*2.5;                       // dealer Δ gained per 2.5-pt rise (exposure; blue = long gamma)
-    else if(kind==="charm") tot-=pos*(p*d2/(2*ty))*(5/525600);           // HEDGE FLOW per 5 min = −(dealer Δ drift); + = dealers buy (r=0: call/put charm equal)
+    const sS=sm?-(r.k/S)*(r.sk||0):0;
+    if(kind==="gamma") tot+=pos*(p/(S*r.sg*sq) + (sm? 2*sS*(-p*d2/r.sg) + sS*sS*(S*p*sq*d1*d2/r.sg) : 0))*2.5;  // dealer Δ gained per 2.5-pt rise (exposure; blue = long gamma)
+    else if(kind==="charm") tot-=pos*(p*d2/(2*ty) - (sm? sS*S*p*(d1*d2+1)/(2*sq) : 0))*(5/525600)*(cm||1);   // HEDGE FLOW per 5 min = −(dealer Δ drift); + = dealers buy (r=0: call/put charm equal)
     else tot-=pos*(-p*d2/r.sg)*0.01;                                     // HEDGE FLOW per +1 vol pt = −(dealer Δ change via vanna); + = dealers buy
   }
   return tot;
 }
+/* Variance clock (Phase 3): SPX does not spend its variance evenly - busy open, quiet lunch, busy close.
+   w(t) = 1 + 1.5·e^(−x/30) + e^(−(390−x)/45), x = minutes after 9:30. Future columns of the map use the share of
+   the day's variance still to come instead of the share of clock time; charm is scaled by the rate now vs the
+   average rate left. Off = calendar clock (unchanged). */
+const VCW=(()=>{ const w=[]; for(let m=0;m<=960;m++){ const x=Math.max(0,Math.min(390,m-570)); w.push(m<570?1:1+1.5*Math.exp(-x/30)+Math.exp(-(390-x)/45)); }
+  const R=new Array(962).fill(0); for(let m=959;m>=0;m--) R[m]=R[m+1]+w[m]; return {w,R}; })();
+function vcRem(t){ const m=Math.max(0,Math.min(959,Math.round(t))); return VCW.R[m]; }
+function vcRate(t){ const m=Math.max(0,Math.min(959,Math.round(t))); const left=Math.max(MAP_T1-m,1); return VCW.w[m]*left/Math.max(vcRem(m),1e-9); }
 /* Dealer book by basis (2026-11-04, Phase 2): OI · Vol · OI + vol (fixed sign: today's volume counted as
    customers selling calls / buying puts) · OI + signed = OI plus Convex's MEASURED buy/sell volume:
    call sells − call buys (dealers long the calls customers sold), put buys − put sells. Falls back to
@@ -3215,18 +3232,20 @@ function buildMap(kind,se,d,bookArg){
   const S=d.spot, step=d.step||5, ks=d.rows.map(r=>r.k).sort((a,b)=>a-b); if(ks.length<5) return null;
   const pLo=ks[0], pHi=ks[ks.length-1], dp=step/MAP_SUB, prices=[]; for(let p=pLo;p<=pHi+1e-9;p+=dp) prices.push(p);
   const c=liveClock(), now=c.h*60+c.m; const times=[]; for(let t=MAP_T0;t<=MAP_T1;t+=MAP_STEP) times.push(t);
-  const key=kind+"|"+st.sym+"|"+st.basis+"|"+book+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
+  const key=kind+"|"+st.sym+"|"+st.basis+"|"+(st.smileOn?"S":"")+(st.clockVar?"V":"")+"|"+book+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
   if(_mapCache.key!==key){ _mapCache={key,cols:new Map()}; }
   const liveRows=mapRowsAt(null,se,d); const byT=new Map(snaps.map((s,j)=>[tmin(s.t),j]));
   const grid=[]; let vmax=1e-9;
+  const VC=!!st.clockVar, tyNow=Math.max(MAP_T1-Math.max(now,MAP_OPEN),1)/525600, rNow=vcRem(Math.max(now,MAP_OPEN));
   for(const t of times){ const ty=Math.max(MAP_T1-t,1)/525600; let col;
+    const cm=VC&&kind==="charm"?vcRate(t):1, tyF=VC&&t>now?Math.max(tyNow*vcRem(t)/Math.max(rNow,1e-9),1/525600):ty;
     if(t<MAP_OPEN){ const ck="pre"; if(_mapCache.cols.has(ck)) col=_mapCache.cols.get(ck); else { col=prices.map(p=>greekCol(kind,liveRows,p,Math.max(MAP_T1-MAP_OPEN,1)/525600)); _mapCache.cols.set(ck,col); } }
     else if(t<=now){ // history: nearest logged minute at/after t within 3 min
       let j=null; for(let q=0;q<4;q++){ if(byT.has(t+q)){ j=byT.get(t+q); break; } }
       const ck="h"+t+"|"+(j==null?"x":j);
       if(_mapCache.cols.has(ck)) col=_mapCache.cols.get(ck);
-      else { const rows=j==null?liveRows:mapRowsAt(j,se,d); col=prices.map(p=>greekCol(kind,rows,p,ty)); _mapCache.cols.set(ck,col); }
-    } else col=prices.map(p=>greekCol(kind,liveRows,p,ty));
+      else { const rows=j==null?liveRows:mapRowsAt(j,se,d); col=prices.map(p=>greekCol(kind,rows,p,ty,cm)); _mapCache.cols.set(ck,col); }
+    } else col=prices.map(p=>greekCol(kind,liveRows,p,tyF,cm));
     if(near){ if(!nearCol) nearCol=prices.map(p=>greekColNear(kind,near,p,12*60)); col=use0?col.map((v,i)=>v+nearCol[i]):nearCol.slice(); }
     grid.push(col); }
   // colour field: raw greek for gamma; for charm/vanna with the week book, the baseline (column median) is removed so the 0DTE structure stays visible
@@ -3235,7 +3254,11 @@ function buildMap(kind,se,d,bookArg){
   { const all=[]; for(const col of cgrid) for(const v of col) all.push(Math.abs(v)); all.sort((a,b)=>a-b); vmax=Math.max(1e-9, all[Math.floor(all.length*0.95)]||1e-9); }   // robust scale: 95th pct of |value|
   // contours per column: zero crossings, local max (peak) and min (trough)
   const feats=grid.map(col=>{ const z=[],pk=[],tr=[]; for(let i=1;i<col.length;i++){ if((col[i-1]<0&&col[i]>=0)||(col[i-1]>0&&col[i]<=0)) z.push(i-1+(0-col[i-1])/(col[i]-col[i-1]||1)); }
-    for(let i=1;i<col.length-1;i++){ if(col[i]>col[i-1]&&col[i]>=col[i+1]&&col[i]>0.08*vmax) pk.push(i); if(col[i]<col[i-1]&&col[i]<=col[i+1]&&col[i]<-0.08*vmax) tr.push(i); } return {z,pk,tr}; });
+    for(let i=1;i<col.length-1;i++){ if(col[i]>col[i-1]&&col[i]>=col[i+1]&&col[i]>0.08*vmax) pk.push(i); if(col[i]<col[i-1]&&col[i]<=col[i+1]&&col[i]<-0.08*vmax) tr.push(i); }
+    // speed (Phase 3) = how fast gamma changes with price: its strongest points mark where a pin starts to let go
+    const sp=[]; if(kind==="gamma"){ const dg=col.map((v,i)=>i>0&&i<col.length-1?col[i+1]-col[i-1]:0); const dm=Math.max(1e-12,...dg.map(Math.abs));
+      for(let i=2;i<dg.length-2;i++){ if((dg[i]>dg[i-1]&&dg[i]>=dg[i+1]&&dg[i]>0.25*dm)||(dg[i]<dg[i-1]&&dg[i]<=dg[i+1]&&dg[i]<-0.25*dm)) sp.push(i); } }
+    return {z,pk,tr,sp}; });
   // share of the greek at spot carried by each book (for the read line)
   let share=null; { const i0=Math.max(0,Math.min(prices.length-1,Math.round((S-prices[0])/dp))); const tN=Math.max(MAP_OPEN,now); const ty=Math.max(MAP_T1-tN,1)/525600;
     const g0=greekCol(kind,liveRows,prices[i0],ty); const nr=near||(book==="0dte"?nearRows():null); const gw=nr?greekColNear(kind,nr,prices[i0],tN):0;
@@ -3262,6 +3285,7 @@ function drawHeat(id,m,se,d,legendTxt){
       for(const i of a){ let best=null; for(const k of b){ if(Math.abs(k-i)<=3&&(best==null||Math.abs(k-i)<Math.abs(best-i))) best=k; }
         const y0=Y(m.prices[0]+i*m.dp); if(best!=null){ ctx.moveTo(x0,y0); ctx.lineTo(x1,Y(m.prices[0]+best*m.dp)); } else { ctx.moveTo(x0,y0); ctx.lineTo(x0+2,y0); } } }
     ctx.stroke(); ctx.setLineDash([]); };
+  if(m.kind==="gamma"&&st.speedOn) trace(f=>f.sp||[],"#E879F9",[1,3]);
   trace(f=>f.z,"#dfe6f2",[2,3]); if(m.kind==="gamma"||m.kind==="vanna"||m.kind==="charm"){ trace(f=>f.pk,"#2ecc71"); trace(f=>f.tr,"#f4d03f"); }
   // ±1σ anchored at 9:35 from ATM IV of today's expiry
   const sg=(d&&d.iv>0)?d.iv:null; if(sg&&st.coneLive){ const t0=9*60+35; ctx.strokeStyle="#ffffff66"; ctx.lineWidth=1; for(const s of [1,-1]){ ctx.beginPath(); let on=false;
@@ -3364,6 +3388,7 @@ function renderMapTab(se,d){
   { const pb=document.getElementById("mapPremBtn"); if(pb) pb.setAttribute("aria-pressed",!!st.premOv); }
   { const gb=document.getElementById("gDetBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gDet); }
   document.getElementById("coneAmBtn").setAttribute("aria-pressed",st.coneAm); document.getElementById("coneLiveBtn").setAttribute("aria-pressed",st.coneLive);
+  for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn","clockVar"]]){ const b=document.getElementById(id); if(b) b.setAttribute("aria-pressed",!!st[k]); }
   { const gb=document.getElementById("gapBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gapOn); const gs=document.getElementById("gapStrip"); if(gs){ const html=st.gapOn?gapStripHTML(se):""; gs.hidden=!html; if(html&&gs.innerHTML!==html) gs.innerHTML=html; } }
   const rd=document.getElementById("mapRead"); if(rd) rd.innerHTML=mapRead(g,st.mapRight==="vanna"?null:r,st.mapRight==="vanna"?r:null,se,d);
   const nt=document.getElementById("mapNote"); if(nt) nt.textContent=`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile.`;

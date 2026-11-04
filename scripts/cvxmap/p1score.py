@@ -378,6 +378,35 @@ def guess_score(prints, quotes):
 
 
 # ------------------------------------------------------------------ assemble + running + HTML
+PROJ_VARS = ("plain", "smile", "vclock", "both")
+
+
+def proj_score(proj, close):
+    """Phase 3 gate: projected 15:50 gamma zero / gamma peak vs the 16:00 close, per model, at 10:30/12:00/14:00.
+    Error = |level - close|. Naive = |spot at that time - close|. A model is kept only if its error beats plain."""
+    out = []
+    if not proj or close is None:
+        return out
+    for t in sorted(proj):
+        v = proj[t] or {}
+        if v.get("err"):
+            continue
+        r = {"t": t}
+        for name in PROJ_VARS:
+            x = v.get(name)
+            if not x:
+                continue
+            if r.get("S") is None and x.get("S"):
+                r["S"] = x["S"]
+                r["naive"] = abs(x["S"] - close)
+            r[name + "_gz"] = x.get("gz")
+            r[name + "_gz_err"] = None if x.get("gz") is None else abs(x["gz"] - close)
+            r[name + "_pk"] = x.get("gpk")
+            r[name + "_pk_err"] = None if x.get("gpk") is None else abs(x["gpk"] - close)
+        out.append(r)
+    return out
+
+
 def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_flow, oi, greek_col):
     colsf = [c for c in cols or [] if c.get("S")]
 
@@ -397,6 +426,7 @@ def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_f
            "gate": gate_crossings(path, ours_at, (p1js or {}).get("gate")),
            "seq": (p1js or {}).get("seq"),
            "wm": wm_score((p1js or {}).get("wm"), path),
+           "proj": proj_score((p1js or {}).get("proj"), close),
            "errors": {k: v for k, v in (p1js or {}).items() if k.endswith("err")}}
     try:
         res["iv"] = iv_variants(viv, spx_flow, oi, greek_col)
@@ -472,6 +502,18 @@ def running(day_dirs):
     gn = sum((p.get("guess") or {}).get("n", 0) for _, p in day_dirs)
     ga = sum((p.get("guess") or {}).get("agree", 0) for _, p in day_dirs)
     R["guess"] = {"n": gn, "agree": ga, "pct": (ga / gn) if gn else None}
+    pj = {}
+    for _, p in day_dirs:
+        for r in p.get("proj") or []:
+            a = pj.setdefault(r["t"], {"naive": []})
+            if r.get("naive") is not None:
+                a["naive"].append(r["naive"])
+            for name in PROJ_VARS:
+                for k in ("gz", "pk"):
+                    e = r.get("%s_%s_err" % (name, k))
+                    if e is not None:
+                        a.setdefault(name + "_" + k, []).append(e)
+    R["proj"] = {t: {k: _mean(v) for k, v in a.items()} | {"n": len(a["naive"])} for t, a in sorted(pj.items())}
     return R
 
 
@@ -552,6 +594,19 @@ def html(p, R):
         ["running: high-gate / low-gate follow-through", "%s (n %d) / %s (n %d)" % (_f(R.get("gate", {}).get("hi_ft")), R.get("gate", {}).get("hi_n", 0), _f(R.get("gate", {}).get("lo_ft")), R.get("gate", {}).get("lo_n", 0))],
         ["vendor IV vs our parity IV: ATM gap (vol pts, median)", _f(iv.get("atm_iv_diff_med"), 2)],
         ["gamma zero moved by the IV choice: median / max (pts)", "%s / %s (%s samples)" % (_f(iv.get("gz_diff_med")), _f(iv.get("gz_diff_max")), iv.get("n", 0))]]))
+    # Phase 3 map models
+    if p.get("proj"):
+        h.append("<h2>Map projection by model (Phase 3)</h2><div class='sub'>At 10:30, 12:00 and 14:00 the map is projected to the close four ways: "
+                 "plain (today's live map), Smile (smile moves with spot), Var clock (busy open/close, quiet lunch), and both. "
+                 "Numbers = points between the projected 15:50 level and the 16:00 close (smaller is better). gz = gamma zero nearest spot, pk = biggest gamma peak. "
+                 "A button graduates only if it beats plain over many nights.</div>")
+        cols_ = ["time", "spot", "naive"] + ["%s %s" % (n, k) for n in PROJ_VARS for k in ("gz", "pk")]
+        h.append(_tbl(cols_, [[r["t"], _f(r.get("S")), _f(r.get("naive"))] + [_f(r.get("%s_%s_err" % (n, k))) for n in PROJ_VARS for k in ("gz", "pk")]
+                              for r in p["proj"]]))
+        if R.get("proj"):
+            h.append("<details open><summary>Running, mean error (pts)</summary>%s</details>" % _tbl(
+                ["time", "n", "naive"] + ["%s %s" % (n, k) for n in PROJ_VARS for k in ("gz", "pk")],
+                [[t, a["n"], _f(a.get("naive"))] + [_f(a.get("%s_%s" % (n, k))) for n in PROJ_VARS for k in ("gz", "pk")] for t, a in R["proj"].items()]))
     # seq / wm
     h.append("<h2>Sequence bubbles and W/M arrows</h2><div class='sub'>Bubbles: the page's own ✓/✗ (its own target and time limit). W/M: right = price moved the arrow's way over the next 30 min.</div>")
     sq = {}
