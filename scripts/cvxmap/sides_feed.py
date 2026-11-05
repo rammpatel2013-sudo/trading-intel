@@ -28,8 +28,9 @@ import json
 import os
 import time
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.environ.get("DASH_DIR") or os.path.join(HERE, "data")
@@ -39,6 +40,13 @@ STOP_AT = (16, 25)
 COLS = ["k", "cp", "t", "qb", "qs", "tb", "ts", "u", "buy_prem", "sell_prem"]
 
 Row = dict[str, Any]
+ET = ZoneInfo("America/New_York")
+
+
+def now_et() -> datetime:
+    """Wall clock in New York, naive. The NAS containers run on UTC (11/05: the loop read 19:00
+    as past 16:25 and quit at 14:00 ET)."""
+    return datetime.now(ET).replace(tzinfo=None)
 
 
 # ---------- pure logic (tests/cvxmap/test_sides_feed.py) ----------
@@ -80,6 +88,40 @@ def minute_up(ts: datetime) -> int:
     return ts.hour * 60 + ts.minute + (1 if (ts.second or ts.microsecond) else 0)
 
 
+def tape_clock(rows: list[Row], now: datetime | None = None) -> str:
+    """Which clock the naive tas_prints.ts values are on: 'et' or 'utc'.
+
+    SPX 0DTE prints 09:30-16:15 ET = 13:30-21:15 UTC (14:30-21:15 in summer). Any print after 16:30
+    -> UTC; any before 13:00 -> ET; otherwise (tape only 13:00-16:30) pick the clock whose latest
+    print is closest to now (live loop), else ET."""
+    naive = [r["ts"] for r in rows if r.get("ts") is not None and r["ts"].tzinfo is None]
+    if not naive:
+        return "et"
+    mins = [t.hour * 60 + t.minute for t in naive]
+    if max(mins) > 16 * 60 + 30:
+        return "utc"
+    if min(mins) < 13 * 60:
+        return "et"
+    if now is not None:
+        last = max(naive)
+        n_utc = now.replace(tzinfo=ET).astimezone(timezone.utc).replace(tzinfo=None)
+        return "utc" if abs(last - n_utc) < abs(last - now) else "et"
+    return "et"
+
+
+def to_et(rows: list[Row], clock: str) -> list[Row]:
+    """ts -> naive New York time (aware values converted; naive UTC shifted)."""
+    for r in rows:
+        t = r.get("ts")
+        if t is None:
+            continue
+        if t.tzinfo is not None:
+            r["ts"] = t.astimezone(ET).replace(tzinfo=None)
+        elif clock == "utc":
+            r["ts"] = t.replace(tzinfo=timezone.utc).astimezone(ET).replace(tzinfo=None)
+    return rows
+
+
 Bucket = dict[tuple[float, str, int], list[float]]
 
 
@@ -116,12 +158,12 @@ def aggregate(rows: Iterable[Row]) -> tuple[Bucket, dict[str, int]]:
     return agg, st
 
 
-def payload(day: str, agg: Bucket, st: dict[str, int],
+def payload(day: str, agg: Bucket, st: dict[str, Any],
             floor: float | None = None) -> dict[str, Any]:
     order = sorted(agg.items(), key=lambda x: (x[0][2], x[0][0], x[0][1]))
     rows = [[k, cp, t, *(int(x) for x in v[:5]), round(v[5]), round(v[6])]
             for (k, cp, t), v in order]
-    return {"day": day, "asof": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "floor": floor,
+    return {"day": day, "asof": now_et().strftime("%Y-%m-%dT%H:%M:%S"), "floor": floor,
             "cols": COLS, "stats": st, "rows": rows}
 
 
@@ -170,18 +212,22 @@ def write(day: date, obj: dict[str, Any]) -> str:
 
 
 def log(msg: str) -> None:
-    line = f"{datetime.now():%H:%M:%S} {msg}"
+    line = f"{now_et():%H:%M:%S} {msg}"
     print(line, flush=True)
     try:
-        name = f"sides_{date.today():%Y%m%d}.log"
+        name = f"sides_{now_et():%Y%m%d}.log"
         with open(os.path.join(DATA, name), "a", encoding="utf-8") as fh:
             fh.write(line + "\n")
     except OSError:
         pass
 
 
-def build(engine: Any, day: date) -> tuple[str, dict[str, int]]:  # noqa: ANN401
-    agg, st = aggregate(fetch(engine, day))
+def build(engine: Any, day: date,  # noqa: ANN401
+          now: datetime | None = None) -> tuple[str, dict[str, Any]]:
+    rows = fetch(engine, day)
+    clock = tape_clock(rows, now)
+    agg, st = aggregate(to_et(rows, clock))
+    st["tape_clock"] = clock
     try:
         floor: float | None = float(os.environ.get("TAS_SPX_TAPE_MIN_PREMIUM", "5000"))
     except ValueError:
@@ -194,23 +240,23 @@ def main() -> None:
     ap.add_argument("--date", help="YYYYMMDD (default today)")
     ap.add_argument("--once", action="store_true")
     a = ap.parse_args()
-    day = datetime.strptime(a.date, "%Y%m%d").date() if a.date else date.today()
+    day = datetime.strptime(a.date, "%Y%m%d").date() if a.date else now_et().date()
     engine = get_engine()
     if a.once:
         fp, st = build(engine, day)
         log(f"built {fp}: {json.dumps(st)}")
         return
     while True:
-        now = datetime.now()
+        now = now_et()
         if (now.hour, now.minute) >= STOP_AT:
             log("done for the day")
             return
         if (now.hour, now.minute) >= (9, 30):
             t0 = time.time()
             try:
-                _, st = build(engine, now.date())
+                _, st = build(engine, now.date(), now)
                 log(f"prints {st['prints']} quote {st['quote']} tick {st['tick']} leg {st['leg']} "
-                    f"none {st['none']} ({time.time() - t0:.1f}s)")
+                    f"none {st['none']} clock {st['tape_clock']} ({time.time() - t0:.1f}s)")
             except Exception as exc:  # keep looping; the cockpit falls back to unsigned
                 log(f"build failed: {str(exc)[:200]}")
         time.sleep(max(5.0, 60.0 - (time.time() % 60)))

@@ -1167,6 +1167,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Play / slider / Latest</dt><dd>Replay the day in 5-minute steps, or jump back to now.</dd>
           <dt>Read</dt><dd>Plain summary: bullish vs bearish dollars, the biggest trades, and what today&rsquo;s trades did to dealer gamma.</dd>
           <dt>Click a bubble</dt><dd>Shows its detail and links it to neighbouring strikes and the same strike in the next expiry.</dd>
+          <dt>Last sessions</dt><dd>Press <b>Load last 6 sessions</b> for one row per stored day: how far price moved, bullish vs bearish dollars, the same-day expiry&rsquo;s delta lean, the most one-sided later expiry, and dealer gamma from that day&rsquo;s trades. A lean is only an early warning if it shows up before down days and not before up days.</dd>
           <dt>Lines below</dt><dd>Running dealer gamma and vanna added by today&rsquo;s trades, and running bullish / bearish / net money (all, weeklies, monthlies).</dd>
         </dl>
 
@@ -5481,6 +5482,41 @@ function csRead(D,f,R){
   if(isVix) s+=` <i>VIX: calls bought = betting VIX up (fear), so "bullish" here means bullish VIX.</i>`;
   return s+` Deep in-the-money contracts (|Δ| ≥ 0.90) are faded: they are often financing or spread legs. Positioning read, not a trade signal.`;
 }
+/* 2026-11-05 "Last sessions" (Mithil: summary in the tab, not a night report): one row per stored day, read at that
+   day's last frame — move since 9:30, bullish vs bearish premium, today's-expiry delta lean, the most one-sided later
+   expiry (>= $100m traded), dealer gamma from the day's trades. Loaded on demand (each day file is ~1 MB). */
+const csHist={};
+function csDaySummary(D){
+  const nf=D.frames.length; if(!nf) return null; const f=nf-1, cum=csState(D,f), PU=(D.units||{}).prem||1, DU=(D.units||{}).delta||1;
+  const today=D.date.slice(0,4)+"-"+D.date.slice(4,6)+"-"+D.date.slice(6,8), E=new Map();
+  cum.forEach((u,ci)=>{ const kk=D.ks[ci]; if(!kk) return; const vb=u[2]*PU, vs=u[3]*PU; if(vb+vs<=0) return;
+    const o=E.get(kk[0])||{b:0,r:0,nd:0,ad:0}; o.b+=kk[2]==="C"?vb:vs; o.r+=kk[2]==="C"?vs:vb; o.nd+=u[4]*DU; o.ad+=Math.abs(u[4]*DU); E.set(kk[0],o); });
+  const L=D.lines, i=L.t.length-1, bull=L.bull[i]||0, bear=L.bear[i]||0;
+  let zero=null, side=null;
+  E.forEach((o,ei)=>{ const iso=(D.exps[ei]||[])[0]; if(!iso||iso<today) return; const ln=o.ad?o.nd/o.ad:0;
+    if(iso===today) zero={ln,prem:o.b+o.r};
+    else if(o.b+o.r>=1e8&&(!side||Math.abs(ln)>Math.abs(side.ln))) side={iso,ln,prem:o.b+o.r,m:!!(D.exps[ei]||[])[1]}; });
+  const sp=D.fspot.filter(x=>x>0), mv=sp.length>1?sp[sp.length-1]/sp[0]-1:null;
+  return {date:D.date,t:D.frames[f],mv,bull,bear,lean:(bull+bear)?(bull-bear)/(bull+bear):0,zero,side,g:L.g[i]};
+}
+function csHistLoad(){
+  const sym=st.csSym, dates=((csIdx&&csIdx.syms&&csIdx.syms[sym])||[]).slice(0,6); if(!dates.length) return;
+  csHist[sym]={busy:true,rows:[]}; renderConstel();
+  Promise.all(dates.map(d=>fetch(`const_${sym}_${d}.json?`+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)))
+    .then(arr=>{ csHist[sym]={busy:false,at:Date.now(),rows:arr.filter(Boolean).map(csDaySummary).filter(Boolean)}; if(st.tab==="constel") renderConstel(); });
+}
+function csHistHtml(){
+  const H=csHist[st.csSym], isVix=st.csSym==="VIX";
+  const btn=`<button class="sxbtn" id="csHistBtn">${H&&H.rows&&H.rows.length?"Reload":"Load last 6 sessions"}</button>`;
+  if(!H||(!H.busy&&!H.rows.length)) return veSec("csHist","Last sessions — did the lean come before the move?","one row per stored day, read at that day's close · loads on demand",`<p class="veread">${btn} Compare the lean with what price did, day by day.</p>`);
+  if(H.busy) return veSec("csHist","Last sessions — did the lean come before the move?","loading…",'<p class="veread">loading…</p>');
+  const pc=x=>x==null?"–":`<b class="${x>=0?"up":"dn"}">${x>=0?"+":"−"}${Math.abs(x*100).toFixed(x&&Math.abs(x)<0.01?2:1)}%</b>`;
+  const ln=x=>`<b style="color:${x>0.05?"#3FD0B0":x<-0.05?"#FF6B5A":"#DCE6F2"}">${x>=0?"+":"−"}${Math.abs(x*100).toFixed(0)}%</b>`;
+  const rows=H.rows.map(r=>`<tr><td>${r.date.slice(4,6)}/${r.date.slice(6)}${r.t&&r.t<"16:00"?` <span class="vxsub">to ${r.t}</span>`:""}</td><td>${pc(r.mv)}</td><td>${csMoney(r.bull)} vs ${csMoney(r.bear)} (${ln(r.lean)})</td><td>${r.zero?ln(r.zero.ln):"–"}</td><td>${r.side?`${r.side.iso.slice(5)}${r.side.m?" M":""} ${ln(r.side.ln)} <span class="vxsub">${csMoney(r.side.prem)}</span>`:"–"}</td><td>${r.g>=0?"+":"−"}$${veBig(Math.abs(r.g))}</td></tr>`).join("");
+  return veSec("csHist","Last sessions — did the lean come before the move?","one row per stored day, read at that day's close · lean = bullish minus bearish, as a share",
+    `<p class="veread">${btn}</p><table class="vetbl"><thead><tr><th>Day</th><th>${isVix?"VIX":st.csSym} since 9:30</th><th>Bullish vs bearish premium</th><th>Same-day expiry, delta lean</th><th>Most one-sided later expiry (≥ $100m)</th><th>Dealer gamma from the day's trades</th></tr></thead><tbody>${rows}</tbody></table>`
+    +`<p class="vxnote" style="font-size:14px;color:var(--ink)">How to read it: a lean is only an early warning if it shows up <b>before down days and not before up days</b>. If the same lean appears on days that rose, it is the normal shape of the tape, not a signal. <b>Delta lean</b> weighs each trade by the market exposure it adds, so it shows direction better than dollars. Sides come from the measured buy/sell split, so treat small leans with care.</p>`);
+}
 function renderConstel(){
   const head=document.getElementById("csHead"), body=document.getElementById("csBody");
   const syms=["SPX","SPY","QQQ","VIX"], dates=(csIdx&&csIdx.syms&&csIdx.syms[st.csSym])||[];
@@ -5509,7 +5545,8 @@ function renderConstel(){
     +veSec("csF","Cumulative bullish, bearish and net premium","bullish = calls bought + puts sold · bearish = puts bought + calls sold · all expiries in the feed",
       '<div class="vegrid"><div>'+veLegend([["#3FD0B0","bullish $"],["#FF6B5A","bearish $"],["#fff","net $"]])+veChart(L.t,[{v:L.bull,c:"#3FD0B0"},{v:L.bear,c:"#FF6B5A"},{v:net,c:"#fff",w:2}],{w:620,h:240,zero:1,fmt:veBig,dots:dot(net,"#F4D03F")})+'</div><div>'+veLegend([["#5DADE2","weeklies net $"],["#FF8A3D","monthlies net $"]])+veChart(L.t,[{v:wn,c:"#5DADE2"},{v:mn,c:"#FF8A3D"}],{w:620,h:240,zero:1,fmt:veBig})+'</div></div>');
   const ext=(D.ext_exps||[]).length?`<p class="vxnote" style="font-size:14px;color:var(--ink)">Expiries ${D.ext_exps.map(x=>x.slice(5)).join(", ")} come from the 5-minute far-expiry pull (near the money only); the rest update every minute.</p>`:"";
-  body.innerHTML=ctl+`<p class="veread">${csRead(D,f,R)}</p>`+det+R.svg+lg+'<div class="vxh"><h2>By expiry</h2><span class="vxsub">red = bearish $, green = bullish $ · click to show one expiry, click again for all</span></div>'+csExpBars(D,R)+ext+lines;
+  body.innerHTML=ctl+`<p class="veread">${csRead(D,f,R)}</p>`+det+R.svg+lg+'<div class="vxh"><h2>By expiry</h2><span class="vxsub">red = bearish $, green = bullish $ · click to show one expiry, click again for all</span></div>'+csExpBars(D,R)+ext+csHistHtml()+lines;
+  { const hb=document.getElementById("csHistBtn"); if(hb) hb.onclick=csHistLoad; }
   const sl=document.getElementById("csSlider"); sl.oninput=()=>{ st.csFrame=+sl.value; renderConstel(); };
   document.getElementById("csLive").onclick=()=>{ st.csFrame=-1; renderConstel(); };
   document.getElementById("csPlay").onclick=()=>{ if(csTimer){ clearInterval(csTimer); csTimer=null; renderConstel(); return; }
