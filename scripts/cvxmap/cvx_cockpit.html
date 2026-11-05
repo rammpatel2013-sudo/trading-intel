@@ -115,9 +115,11 @@ body.phone .helpbody dt{margin-top:8px}
 .ledger-stat .lbl{color:var(--mute);font-size:12px}
 .ledger-nodata{padding:40px;text-align:center;color:var(--mute);font-size:15px}
 body.phone #tabLedger{grid-template-rows:auto 1fr}
-#tabPremium{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;min-height:0}
+#tabPremium{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto minmax(320px,1fr) auto auto;min-height:0;overflow:auto}
 #premReadPane{grid-column:1/-1;display:block;height:auto;max-height:32vh;overflow:auto}
 #premBigPane{grid-column:1/-1;display:block;height:auto}
+#premDayPane{grid-column:1/-1;display:block;height:auto;overflow:visible;min-height:420px}.premday{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px 12px 0}.pdbox{min-width:0}.pdbox canvas{width:100%;height:320px;display:block}.pdt{font-size:14px;color:#fff;font-weight:600;margin:2px 0 4px}.pdt span{color:#9DB0CA;font-weight:400}.pdread{padding:6px 12px 10px;font-size:14px;line-height:1.5;color:#E6EDF5}.pdread b{color:#fff}
+body.phone .premday{grid-template-columns:1fr}
 #premLinesPane{overflow:auto}
 #premMinPane .body{position:relative;min-height:0}#premMinPane canvas{width:100%;height:100%;display:block}
 .premread{padding:6px 12px 8px;font-size:14px;line-height:1.5}
@@ -152,8 +154,8 @@ body.phone #tabPremium{grid-template-columns:1fr;grid-template-rows:auto auto 36
 .prow .brk.x{color:var(--warn)}
 #volReadPane{grid-column:1/-1;display:block;height:auto;max-height:38vh;overflow:auto}
 .volread{padding:6px 12px 8px;font-size:14px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}.volread .now{color:var(--ink);margin-bottom:4px}.volread .now b{color:#fff}
-.volread .log{color:#B9C6D8;font-size:13px}.volread .log div{margin:2px 0}.volread .log span.t{color:#fff;font-weight:600;margin-right:6px}
-.volhow{padding:2px 12px 8px;font-size:14.5px;line-height:1.5;color:#E6EDF5;border-bottom:1px solid var(--rule)}.volhow b{color:#fff}.volhow .pu{color:#ff8fc7;font-weight:600}.volhow .ca{color:#5fd4f0;font-weight:600}body.vhoff .volhow{display:none}
+.volread details.vlog summary{cursor:pointer;color:#9DB0CA;font-size:13px;margin-top:2px}.volread details.vlog summary:hover{color:#fff}.volread .log{color:#B9C6D8;font-size:13px;max-height:22vh;overflow:auto}.volread .log div{margin:2px 0}.volread .log span.t{color:#fff;font-weight:600;margin-right:6px}
+.volhow{padding:2px 12px 8px;font-size:14.5px;line-height:1.5;color:#E6EDF5;border-bottom:1px solid var(--rule)}.volhow b{color:#fff}.volhow .gr{color:#58D68D;font-weight:600}.volhow .rd{color:#FF7B72;font-weight:600}.volhow .pu{color:#ff8fc7;font-weight:600}.volhow .ca{color:#5fd4f0;font-weight:600}body.vhoff .volhow{display:none}
 #tabVol .body{position:relative;min-height:0}#tabVol canvas{width:100%;height:100%;display:block}
 body.phone #tabVol{grid-template-columns:1fr;grid-template-rows:520px 520px 520px}
 #tabVix{display:block;overflow:auto;min-height:0}
@@ -797,14 +799,16 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
-    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side setting (Quote or Trade tag)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> part = bought · <b>striped</b> part = sold · <b>%B</b> = share bought (40–60% = no signal, ignore). <b>Dotted line</b> = where price is now. Calls|Puts: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span>. Bull|Bear: green = bullish (calls bought / puts sold), red = bearish. <b>CW / PW</b> = call wall / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip. <b>This panel = where the money went today.</b></div><div class="body"><canvas id="volDayC"></canvas></div></section>
-    <section class="pane"><div class="phead"><h2>Last 30 min</h2><span class="hint">own scale — where the tape is now</span></div><div class="volhow">Same bars, but <b>only the last 30 minutes</b>. Own scale: compare strikes <b>inside this panel only</b>, not with Today. <b>This panel = where trading is happening now.</b></div><div class="body"><canvas id="vol30C"></canvas></div></section>
-    <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><span class="hint">teal / coral = accelerating · dark = fading · ×ratio</span></div><div class="volhow">Last 30 min <b>compared with the 30 before</b>. <b>Bright</b> bar (<span class="pu">coral = puts</span>, <span class="ca">teal = calls</span>) = heating up · <b>dark</b> bar = cooling off. <b>+13K</b> = 13,000 more contracts than before · <b>×9+</b> = 9× the earlier volume (strike just woke up) · <b>×0.3</b> = only 30% of before (dying). <b>This panel = where the tape is heading.</b></div><div class="body"><canvas id="volDC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side setting (Quote or Trade tag)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> = bought · <b>striped</b> = sold. <b>Calls|Puts</b>: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span> · %B = share bought (40–60% = no signal). <b>Bull|Bear</b>: <span class="gr">right = bullish</span> (calls bought + puts sold) · <span class="rd">left = bearish</span> (puts bought + calls sold). <b>Net</b>: one bar = bullish minus bearish. Dotted vertical lines = size guides. <b>CW / PW</b> = call / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip · white dotted = price now. <b>This panel = where the money went today.</b></div><div class="body"><canvas id="volDayC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Last 30 min</h2><div class="seg" role="group" id="volCol30Seg"><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">own scale</span></div><div class="volhow">Same bars, but <b>only the last 30 minutes</b>. Own scale: compare strikes <b>inside this panel only</b>, not with Today. <b>This panel = where trading is happening now.</b></div><div class="body"><canvas id="vol30C"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><div class="seg" role="group" id="volColDSeg"><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">bright = heating up · dark = cooling off</span></div><div class="volhow">Last 30 min <b>compared with the 30 before</b>. <b>Bright</b> bar = heating up · <b>dark</b> bar = cooling off (Calls|Puts: <span class="pu">coral = puts</span>, <span class="ca">teal = calls</span>; Bull|Bear: <span class="gr">green = bullish</span>, <span class="rd">red = bearish</span>; Net: change in bullish minus bearish). <b>+13K</b> = 13,000 more contracts than before · <b>×9+</b> = 9× the earlier volume (strike just woke up) · <b>×0.3</b> = only 30% of before (dying). <b>This panel = where the tape is heading.</b></div><div class="body"><canvas id="volDC"></canvas></div></section>
   </main>
   <main id="tabPremium" class="tab" hidden>
     <section class="pane" id="premReadPane"><div class="phead"><h2>Premium read</h2><span class="hint">signed premium only &middot; regular hours &middot; where today&rsquo;s money actually went (key $)</span></div><div class="premread" id="premRead"></div><div class="premtot" id="premTotals"></div></section>
     <section class="pane" id="premLinesPane"><div class="phead"><h2>Premium lines</h2><span class="hint">top 4 strikes a side by total $ &middot; solid = mostly bought &middot; dashed = mostly sold &middot; click to open the strike</span></div><div id="premLines"></div></section>
     <section class="pane" id="premMinPane"><div class="phead"><h2>By the minute</h2><span class="hint">calls up &middot; puts down &middot; shared scale &middot; dashed guide = big-minute cutoff (top 5%, $0.85m floor)</span></div><div class="body"><canvas id="premMinC"></canvas></div></section>
+    <section class="pane" id="premDayPane"><div class="phead"><h2>Through the day</h2><div class="seg" role="group" id="premDaySeg" title="Count dollars of premium or number of contracts"><button data-v="usd" aria-pressed="true">$ premium</button><button data-v="n" aria-pressed="false">Contracts</button></div><div class="seg" role="group" id="premSideSeg" title="Who decides buy vs sell — the same setting as the Flow tab. Quote = last price vs the minute's bid/ask (stale or at-mid trades left unsigned). Trade tag = each trade's own buy/sell tag."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button></div><span class="hint">running totals from 9:30 &middot; unsigned trades left out</span></div>
+      <div class="premday"><div class="pdbox"><div class="pdt">Who did what <span>&mdash; calls bought / sold, puts bought / sold</span></div><canvas id="premDayA"></canvas></div><div class="pdbox"><div class="pdt">The tilt <span>&mdash; bullish minus bearish, net delta, and SPX</span></div><canvas id="premDayB"></canvas></div></div><div class="pdread" id="premDayRead"></div></section>
     <section class="pane" id="premBigPane"><div class="phead"><h2>Big minutes</h2><span class="hint">minutes in the top 5% for their own side</span></div><div class="prembig" id="premBig"></div></section>
   </main>
   <main id="tabDensity" class="tab" hidden>
@@ -973,7 +977,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Strikes: 21 / 31 / 51 / &#xFF0B; / &minus;</dt><dd>How many strikes the map shows.</dd>
           <dt>Back to live</dt><dd>Return to the latest minute, centred on price (or double-click the map).</dd>
           <dt>Flow bars</dt><dd>Colours each minute of the price line by that minute&rsquo;s near-the-money flow: green = bullish, red = bearish, grey = mixed. <b>W / M arrows</b> mark a double bottom / double top that broke out <i>and</i> where the flow flipped the same way.</dd>
-          <dt>Side: Quote / Trade tag</dt><dd>How each trade is called a buy or a sell. <b>Quote</b> = the minute&rsquo;s last price compared with the bid and ask. <b>Trade tag</b> = each trade&rsquo;s own buy/sell tag. Quote can mislabel in very fast markets (the quote moves before the trade prints). Changes the bubbles, flow bars, sliders and volume ladders.</dd>
+          <dt>Side: Quote / Trade tag</dt><dd>How each trade is called a buy or a sell. <b>Quote</b> = the minute&rsquo;s last price compared with the bid and ask. <b>Trade tag</b> = each trade&rsquo;s own buy/sell tag. In Quote, a trade that printed outside that minute&rsquo;s bid/ask (the quote moved after it, common in fast markets) is left <b>unsigned</b> rather than guessed. Changes the bubbles, flow bars, sliders, volume ladders and the Premium tab&rsquo;s Through the day charts. Also switchable on the Premium tab (same setting).</dd>
           <dt>Seq</dt><dd>Sequence bubbles. <b>Small grey</b> = after a big move, calls sold then puts bought at a top (or the reverse at a bottom). <b>Big coloured &ldquo;Reversal&rdquo;</b> = the same at a key level, with dealers short gamma and the flow flipping. Each is scored 30 minutes later: &#10003; worked, &#10007; failed.</dd>
           <dt>&#128277; / &#128276;</dt><dd>Beep and flash the tab when a new sequence bubble appears. Off by default.</dd>
           <dt>AM levels</dt><dd>Draw the morning plan&rsquo;s levels on the map (key D).</dd>
@@ -1050,11 +1054,12 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <h3 class="pg" id="h-vol">Volume</h3>
         <p class="what">Contracts traded at each strike. Pink = puts (left), blue = calls (right). Solid = bought, striped = sold. Dotted line = price now.</p>
         <dl>
-          <dt>Tape read</dt><dd>A plain summary of the three ladders, refreshed live, plus one saved entry every 30 minutes.</dd>
+          <dt>Tape read</dt><dd>A plain summary of the three ladders, refreshed live. Earlier entries (one every 30 minutes) fold under <b>Earlier &#9656;</b>; click to open.</dd>
           <dt>Today</dt><dd>Everything traded today. <b>%B</b> = share bought; 40&ndash;60% is no signal. <b>Where the money went today.</b></dd>
           <dt>Last 30 min</dt><dd>Only the last 30 minutes, with its own scale. <b>Where trading is happening now.</b></dd>
           <dt>Last 30 vs prior 30</dt><dd>Bright bar = heating up, dark bar = cooling off. <b>+13K</b> = 13,000 more contracts than the 30 minutes before. <b>&times;9+</b> = 9 times as many (the strike just woke up). <b>&times;0.3</b> = 30% of before (dying). <b>Where the tape is heading.</b></dd>
-          <dt>Calls|Puts / Bull|Bear</dt><dd>Colour by option type, or by direction (green = bullish, red = bearish).</dd>
+          <dt>Calls|Puts / Bull|Bear / Net</dt><dd>Each ladder has its own switch. <b>Calls|Puts</b> = puts left, calls right. <b>Bull|Bear</b> = <b class="dn">bearish left</b> (puts bought solid, calls sold striped), <b class="up">bullish right</b> (calls bought solid, puts sold striped); the label shows how much came from calls (C %) or puts (P %). <b>Net</b> = one bar per strike, bullish minus bearish. On the last-30-vs-prior-30 ladder these show the change.</dd>
+          <dt>Dotted vertical lines</dt><dd>Size guides at round steps (for example every 10K), labelled at the bottom. Each ladder picks its own step.</dd>
           <dt>How to read</dt><dd>Show or hide the plain-English line under each ladder.</dd>
         </dl>
 
@@ -1066,6 +1071,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Premium lines</dt><dd>The four strikes per side with the most dollars. <b>Solid</b> = mostly bought, <b>dashed</b> = mostly sold. &ldquo;From&rdquo; = when the line formed. &ldquo;Held all session&rdquo; or &ldquo;crossed&rdquo; = what price did. Click a row to open that strike. <b>These lines act like magnets, not walls</b>: a break is reported, but no next level is implied.</dd>
           <dt>By the minute</dt><dd>Call dollars up, put dollars down, minute by minute. Dashed guide = the big-minute cut-off.</dd>
           <dt>Big minutes</dt><dd>Minutes in the top 5% for their own side.</dd>
+          <dt>Through the day</dt><dd><b>Who did what</b>: running totals since 9:30 of calls bought, calls sold, puts bought and puts sold (solid = bought, dashed = sold). <b>The tilt</b>: bullish minus bearish (white, green above zero, red below) and customers&rsquo; net delta (yellow dashed), both on their own scale with zero lined up, plus SPX in grey. <b>$ premium / Contracts</b> switches the unit. When price moves a lot but the tilt stays near zero, the move is not coming from option buying.</dd>
         </dl>
 
         <h3 class="pg" id="h-exp">Exposure</h3>
@@ -1074,7 +1080,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Header</dt><dd>Call wall, put wall, net gamma (GEX) and net delta (DEX), and whether dealers are long or short gamma.</dd>
           <dt>Total (call | put)</dt><dd>Each strike&rsquo;s put side (left) and call side (right) drawn separately: how big each side is.</dd>
           <dt>Net</dt><dd>One bar per strike with calls and puts combined.</dd>
-          <dt>Delta exposure / Gamma exposure</dt><dd>The two ladders. PW / CW mark the walls, &ldquo;Spot&rdquo; marks price.</dd>
+          <dt>Delta / Gamma / Open interest / Vanna</dt><dd>Four ladders. PW / CW mark the walls, &ldquo;Spot&rdquo; marks price. <b>Vanna</b> is in $ millions per one vol point: how much dealers must buy or sell if implied volatility rises one point.</dd>
           <dt>Note</dt><dd>Uses the standard assumption (customers own the puts and have sold the calls), not measured positions. The Week book is on the Map page, not here.</dd>
         </dl>
 
@@ -1167,7 +1173,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <h3 class="pg" id="h-trust">What to trust, and when</h3>
         <ol class="caveats">
           <li><b>Delta beats premium for direction.</b> On a falling day, puts sold to close (people cashing in protection) count as &ldquo;bullish&rdquo; dollars and can tilt the Premium slider. The Delta slider weights each trade by its market exposure, so it is less affected. If both read balanced on a big move, the options tape was two-sided and the move is coming from elsewhere.</li>
-          <li><b>Side: Quote can mislabel in fast markets.</b> When option prices jump within a minute, the last trade can sit outside the new quote and get the wrong side. Compare with Trade tag on wild days.</li>
+          <li><b>Side: Quote in fast markets.</b> When option prices jump within a minute, a trade can print outside the new quote. Those trades are left unsigned, so on wild days more of the volume is grey. Compare with Trade tag.</li>
           <li><b>A wall on the edge of the ladder is not a wall.</b> The 0DTE chain covers about &plusmn;100 points. A wall on the very first or last row is where the data stops. A wall with rows on both sides is real.</li>
           <li><b>0DTE alone can be a small part of the picture.</b> Check the Map read-out: when most gamma at price sits in the Week book, read the All book.</li>
           <li><b>Gamma above the Week book&rsquo;s top strike can show the wrong sign.</b> The Week book is built once in the morning over a fixed range. On a big trend day price can run past it.</li>
@@ -1268,7 +1274,7 @@ st.bubRidge=load("bubRidge","0")==="1";
 st.bubBg=load("bubBg","off"); if(!["off","gamma","oi"].includes(st.bubBg)) st.bubBg="off";
 st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
-st.volCol=load("volCol","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
+st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
 if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
@@ -1985,29 +1991,69 @@ function renderLadder(se,book){
 
 }
 let ladY=null;
-function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend){
+function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend,colArg){
   const mode=modeArg||st.ladMode||"vol"; // vol = day · vol30 = last 30 min · vold = last 30 vs prior 30
   const NT=topN||3;
   const jAt=(mins)=>{ if(!se||se.m<2) return -1; const tNow=se.T[se.m-1]; for(let j=se.m-1;j>=0;j--){ if(tNow-se.T[j]>=mins) return j; } return -1; };
   const j30=jAt(30), j60=jAt(60);
   const cum=(k,c,j)=>{ if(j<0||!se.idx.has(k)) return 0; const v=(c?se.cuC:se.cuP)[se.idx.get(k)][j]; return v==null?0:v; };
-  // bought / sold contracts per strike & side over the window (LiveLog v16 sides; unsigned prints excluded from the %)
-  const sr=signedRows(se); const tFrom=mode==="vol30"&&se&&se.m>0&&j30>=0?se.T[j30]:-1; const bs=new Map();
-  if(sr&&sr.rows) for(const r of sr.rows){ if(r.t<=tFrom||!r.side) continue; const o=bs.get(r.k)||{cB:0,cS:0,pB:0,pS:0}; if(r.cp==="C"){ if(r.side>0) o.cB+=r.n; else o.cS+=r.n; } else { if(r.side>0) o.pB+=r.n; else o.pS+=r.n; } bs.set(r.k,o); }
+  // 2026-11-05: colour mode per ladder — cp = calls right / puts left · bb = bullish right (calls bought solid, puts sold striped) /
+  // bearish left (puts bought solid, calls sold striped) · net = bullish minus bearish. Sides follow the Flow tab's Side setting; unsigned prints excluded.
+  const CM=["cp","bb","net"].includes(colArg)?colArg:(["bb","net"].includes(st.volCol)?st.volCol:"cp");
+  const GR="#58D68D", RD="#FF7B72";
+  const sr=signedRows(se); const T0=se&&se.m>0&&j30>=0?se.T[j30]:-1, Tp=se&&se.m>0&&j60>=0?se.T[j60]:-1; const tFrom=mode==="vol30"?T0:-1;
+  const acc=(m,k)=>{ let o=m.get(k); if(!o){ o={cB:0,cS:0,pB:0,pS:0}; m.set(k,o); } return o; };
+  const bs=new Map(), bsL=new Map(), bsP=new Map();
+  if(sr&&sr.rows) for(const r of sr.rows){ if(!r.side) continue; const key=(r.cp==="C"?"c":"p")+(r.side>0?"B":"S");
+    if(r.t>tFrom) acc(bs,r.k)[key]+=r.n;
+    if(mode==="vold"&&T0>=0){ if(r.t>T0) acc(bsL,r.k)[key]+=r.n; else if(Tp>=0&&r.t>Tp) acc(bsP,r.k)[key]+=r.n; } }
+  const Z={cB:0,cS:0,pB:0,pS:0}, bull=o=>o.cB+o.pS, bear=o=>o.pB+o.cS;
   const rows=vis.map(r=>{ const cv=r.cv||0, pv=r.pv||0; const c30=Math.max(0,cv-cum(r.k,true,j30)), p30=Math.max(0,pv-cum(r.k,false,j30));
     const cPrev=Math.max(0,cum(r.k,true,j30)-cum(r.k,true,j60)), pPrev=Math.max(0,cum(r.k,false,j30)-cum(r.k,false,j60));
-    const o=bs.get(r.k)||{cB:0,cS:0,pB:0,pS:0};
+    const o=bs.get(r.k)||Z;
     const fb=(B,S)=>(B+S)>0?B/(B+S):null;
+    if(CM!=="cp"){
+      if(mode==="vold"){ const L=bsL.get(r.k)||Z, P=bsP.get(r.k)||Z, bL=bull(L), bP=bull(P), eL=bear(L), eP=bear(P);
+        return {k:r.k,bu:bL-bP,be:eL-eP,br:bP>0?bL/bP:(bL>0?9:null),er:eP>0?eL/eP:(eL>0?9:null),nt:(bL-eL)-(bP-eP)}; }
+      return {k:r.k,o,bu:bull(o),be:bear(o),nt:bull(o)-bear(o)}; }
     if(mode==="vold") return {k:r.k,c:c30-cPrev,p:p30-pPrev,cr:cPrev>0?c30/cPrev:(c30>0?9:null),pr:pPrev>0?p30/pPrev:(p30>0?9:null)};
     const c=mode==="vol30"?c30:cv, p=mode==="vol30"?p30:pv; return {k:r.k,c,p,cb:fb(o.cB,o.cS),pb:fb(o.pB,o.pS)}; });
-  const vmax=Math.max(1,...rows.map(r=>Math.max(Math.abs(r.c),Math.abs(r.p)))); const vh=Math.max(2,Math.min(bh,9));
+  const mag=r=>CM==="net"?Math.abs(r.nt):CM==="bb"?Math.max(Math.abs(r.bu),Math.abs(r.be)):Math.max(Math.abs(r.c),Math.abs(r.p));
+  const vmax=Math.max(1,...rows.map(mag)); const vh=Math.max(2,Math.min(bh,9));
   const fmtK=v=>v>=1e4?(v/1e3).toFixed(0)+"K":v>=1e3?(v/1e3).toFixed(1)+"K":String(Math.round(v));
-  const hatch=(x,y,ww,hh,col)=>{ ctx.save(); ctx.beginPath(); ctx.rect(x,y,ww,hh); ctx.clip(); ctx.strokeStyle=col; ctx.lineWidth=1; for(let q=x-hh;q<x+ww+hh;q+=4){ ctx.beginPath(); ctx.moveTo(q,y+hh); ctx.lineTo(q+hh,y); ctx.stroke(); } ctx.restore(); };
-  const topC=rows.slice().sort((a,b)=>Math.abs(b.c)-Math.abs(a.c)).slice(0,NT).map(r=>r.k), topP=rows.slice().sort((a,b)=>Math.abs(b.p)-Math.abs(a.p)).slice(0,NT).map(r=>r.k);
+  const sgnK=v=>(v>0?"+":v<0?"−":"")+fmtK(Math.abs(v));
+  const hatch=(x,y,ww,hh,col)=>{ if(!(ww>0)) return; ctx.save(); ctx.beginPath(); ctx.rect(x,y,ww,hh); ctx.clip(); ctx.strokeStyle=col; ctx.lineWidth=1; for(let q=x-hh;q<x+ww+hh;q+=4){ ctx.beginPath(); ctx.moveTo(q,y+hh); ctx.lineTo(q+hh,y); ctx.stroke(); } ctx.restore(); };
+  const topBy=f=>rows.slice().sort((a,b)=>Math.abs(f(b))-Math.abs(f(a))).slice(0,NT).map(r=>r.k);
+  const topC=CM==="cp"?topBy(r=>r.c):[], topP=CM==="cp"?topBy(r=>r.p):[], topBu=CM==="bb"?topBy(r=>r.bu):[], topBe=CM==="bb"?topBy(r=>r.be):[], topNt=CM==="net"?topBy(r=>r.nt):[];
   ctx.font="10px "+C("--font"); const labs=[];
   const rowH=(typeof geo!=="undefined"&&geo&&geo.rowH)?geo.rowH:Math.max(6,bh+4);
+  // dotted size guides (2026-11-05): round steps from 1/2/5 x 10^n, 4-6 lines per panel, labelled at the bottom
+  { const maxL=half<140?3:6, e=Math.pow(10,Math.floor(Math.log10(vmax))); let step=e; for(const mm of [0.1,0.2,0.5,1,2,5,10]){ if(vmax/(mm*e)<=maxL){ step=mm*e; break; } }
+    ctx.save(); ctx.strokeStyle="#ffffff30"; ctx.lineWidth=1; ctx.setLineDash([2,4]); ctx.fillStyle="#9DB0CA"; const used=[];
+    for(let q=step;q<=vmax*1.0001;q+=step){ const dx=half*q/vmax; for(const sx of [1,-1]){ const x=mid+sx*dx; ctx.beginPath(); ctx.moveTo(x,16); ctx.lineTo(x,h-16); ctx.stroke();
+      const t=fmtK(q), tw=ctx.measureText(t).width, x0=x-tw/2; if(!used.some(u=>x0<u[1]+6&&x0+tw>u[0]-6)){ used.push([x0,x0+tw]); ctx.fillText(t,x0,h-4); } } }
+    ctx.restore(); }
   for(const r of rows){ const y=Y(r.k);
     if(r.k===st.sel){ ctx.fillStyle="#ffffff0d"; ctx.fillRect(0,y-rowH/2,w,rowH); }
+    if(CM==="net"){
+      const v=r.nt, wv=half*Math.abs(v)/vmax;
+      ctx.fillStyle=v>=0?GR:RD; if(v>=0) ctx.fillRect(mid,y-vh/2,wv,vh); else ctx.fillRect(mid-wv,y-vh/2,wv,vh);
+      if(topNt.includes(r.k)&&v!==0) labs.push({side:v>0?1:-1,x:v>0?mid+wv+4:mid-wv-4,y,t:sgnK(v)});
+    } else if(CM==="bb"){
+      if(mode==="vold"){
+        const wb=half*Math.abs(r.bu)/vmax, we=half*Math.abs(r.be)/vmax;
+        ctx.fillStyle=r.bu>=0?GR:"#2E6B47"; ctx.fillRect(mid,y-vh/2,wb,vh);
+        ctx.fillStyle=r.be>=0?RD:"#7a3a3a"; ctx.fillRect(mid-we,y-vh/2,we,vh);
+        if(topBu.includes(r.k)&&r.bu!==0) labs.push({side:1,x:mid+wb+4,y,t:sgnK(r.bu)+(r.br!=null?" ×"+(r.br>=9?"9+":r.br.toFixed(1)):"")});
+        if(topBe.includes(r.k)&&r.be!==0) labs.push({side:-1,x:mid-we-4,y,t:sgnK(r.be)+(r.er!=null?" ×"+(r.er>=9?"9+":r.er.toFixed(1)):"")});
+      } else {
+        const o=r.o, s=half/vmax, w1=o.cB*s, w2=o.pS*s, w3=o.pB*s, w4=o.cS*s;
+        ctx.fillStyle=GR; ctx.fillRect(mid,y-vh/2,w1,vh); hatch(mid+w1,y-vh/2,w2,vh,GR);
+        ctx.fillStyle=RD; ctx.fillRect(mid-w3,y-vh/2,w3,vh); hatch(mid-w3-w4,y-vh/2,w4,vh,RD);
+        if(topBu.includes(r.k)&&r.bu>0) labs.push({side:1,x:mid+w1+w2+4,y,t:fmtK(r.bu)+` · C ${Math.round(100*o.cB/r.bu)}%`});
+        if(topBe.includes(r.k)&&r.be>0) labs.push({side:-1,x:mid-w3-w4-4,y,t:fmtK(r.be)+` · P ${Math.round(100*o.pB/r.be)}%`});
+      }
+    } else {
     if(mode==="vold"){
       const wc=half*Math.abs(r.c)/vmax, wp=half*Math.abs(r.p)/vmax;
       ctx.fillStyle=r.c>=0?C("--call"):"#c0392b"; ctx.fillRect(mid,y-vh/2,wc,vh);
@@ -2018,7 +2064,7 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend){
       const wc=half*r.c/vmax, wp=half*r.p/vmax;
       // calls → right: bought solid, sold hatched (from the axis outward). Bull|Bear (2026-11-04): call bought / put sold
       // = green, call sold / put bought = red; unsigned volume stays faint grey.
-      const BB=st.volCol==="bb", GR="#58D68D", RD="#FF7B72";
+      const BB=false;
       const cB=BB?GR:C("--call"), cS=BB?RD:C("--call"), pB=BB?RD:C("--put"), pS=BB?GR:C("--put");
       ctx.fillStyle=(BB?"#8a96a8":C("--call"))+"30"; ctx.fillRect(mid,y-vh/2,wc,vh);
       if(r.cb!=null){ ctx.fillStyle=cB; ctx.fillRect(mid,y-vh/2,wc*r.cb,vh); hatch(mid+wc*r.cb,y-vh/2,wc*(1-r.cb),vh,cS); } else { ctx.fillStyle=(BB?"#8a96a8":C("--call"))+"80"; ctx.fillRect(mid,y-vh/2,wc,vh); }
@@ -2027,6 +2073,7 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend){
       if(topC.includes(r.k)&&r.c>0) labs.push({side:1,x:mid+wc+4,y,t:fmtK(r.c)+(r.cb!=null?` · ${Math.round(r.cb*100)}%B`:"")});
       if(topP.includes(r.k)&&r.p>0) labs.push({side:-1,x:mid-wp-4,y,t:fmtK(r.p)+(r.pb!=null?` · ${Math.round(r.pb*100)}%B`:"")});
     }
+    }
     const tag = r.k===book.cw?"CW":r.k===book.pw?"PW":r.k===book.pin?"PIN":""; if(tag){ ctx.fillStyle=tag==="CW"?C("--call"):tag==="PW"?C("--put"):"#fff"; ctx.fillText(tag,4,y+4); }
   }
   // labels: push apart vertically per side, keep inside the pane (a label that would run off the left edge sits inside the bar)
@@ -2034,8 +2081,9 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend){
     for(const l of L){ let y=l.y+4; if(y-prev<11) y=prev+11; prev=y; const tw=ctx.measureText(l.t).width; let x=side>0?l.x:l.x-tw; if(x<22) x=22; if(x+tw>w-30) x=w-30-tw;
       ctx.fillStyle="#000000aa"; ctx.fillRect(x-2,y-9,tw+4,12); ctx.fillStyle="#fff"; ctx.fillText(l.t,x,y); } }
   const ys=Y(book.S); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(w-24,ys); ctx.lineTo(w-30,ys-4); ctx.lineTo(w-30,ys+4); ctx.fill();
-  ctx.fillStyle=C("--faint"); ctx.fillText("puts ◂",mid-half,h-4); ctx.fillText("▸ calls",mid+half-34,h-4);
-  const leg = mode==="vold" ? `last 30 min − prior 30 · teal / coral = accelerating, dark = fading · ×ratio · ${j60<0?"needs 60 min of log":""}`
+  { ctx.fillStyle=C("--faint"); const lt=CM==="cp"?"puts ◂":"bearish ◂", rt=CM==="cp"?"▸ calls":"▸ bullish"; if(half>=140){ ctx.fillText(lt,Math.max(2,mid-half-ctx.measureText(lt).width-8),h-4); ctx.fillText(rt,Math.min(w-ctx.measureText(rt).width-2,mid+half+8),h-4); } }
+  const leg = CM!=="cp" ? `${mode==="vold"?"last 30 min − prior 30":mode==="vol30"?"last 30 min":"today"} · ${CM==="net"?"net = bullish − bearish contracts":"right = bullish (calls bought solid, puts sold striped) · left = bearish (puts bought solid, calls sold striped)"}${mode==="vold"&&j60<0?" · needs 60 min of log":""}`
+            : mode==="vold" ? `last 30 min − prior 30 · teal / coral = accelerating, dark = fading · ×ratio · ${j60<0?"needs 60 min of log":""}`
             : `${mode==="vol30"?"last 30 min":"today"} · solid = bought, hatched = sold (per the Flow tab's Side setting), %B = bought share${sr&&sr.rows?"":" · no buy/sell sides in this log"}`;
   if(!noLegend) ctx.fillText(leg,4,12);
 }
@@ -2083,8 +2131,9 @@ function volLogUpdate(line){ // one entry per 30-min slot, kept for the day
 function renderVolTab(se,book){
   const rd=document.getElementById("volRead"); if(rd){ const line=volReadLine(se,book); const log=volLogUpdate(line);
     rd.innerHTML=(line?`<div class="now">${line}</div>`:`<div class="now">Needs a live chain and the minute log.</div>`)+
-      (log.length?`<div class="log">${log.slice().reverse().map(e=>`<div><span class="t">${e.t}</span>${esc(e.text)}</div>`).join("")}</div>`:""); }
-  for(const [id,mode] of [["volDayC","vol"],["vol30C","vol30"],["volDC","vold"]]){
+      (log.length?`<details class="vlog"${st.volLogOpen?" open":""}><summary>Earlier (${log.length}) — one entry every 30 min</summary><div class="log">${log.slice().reverse().map(e=>`<div><span class="t">${e.t}</span>${esc(e.text)}</div>`).join("")}</div></details>`:"");
+    if(!rd.__vlogBound){ rd.__vlogBound=true; rd.addEventListener("toggle",e=>{ if(e.target&&e.target.classList&&e.target.classList.contains("vlog")) st.volLogOpen=e.target.open; },true); } }
+  for(const [id,mode,ck] of [["volDayC","vol","volCol"],["vol30C","vol30","volCol30"],["volDC","vold","volColD"]]){
     const cv=document.getElementById(id); if(!cv) continue; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
     if(!book||!book.rows||!book.rows.length){ ctx.fillStyle=C("--faint"); ctx.font="12px system-ui"; ctx.fillText("Needs a live chain",12,20); continue; }
     const rows=book.rows.slice().sort((a,b)=>b.k-a.k); const n=rows.length; const padT=22, padB=18; const rowH=(h-padT-padB)/n;
@@ -2096,7 +2145,7 @@ function renderVolTab(se,book){
     rows.forEach((r,i)=>{ if(i%every===0){ ctx.fillText(fmtN(r.k),22,Y(r.k)+4); } ctx.fillStyle=C("--rule"); ctx.fillRect(60,Y(r.k)+rowH/2,w-80,0.5); ctx.fillStyle=C("--mute"); });
     const ys=Y(book.S); ctx.strokeStyle="#ffffff80"; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(60,ys); ctx.lineTo(w-32,ys); ctx.stroke(); ctx.setLineDash([]);
     if(book.flip){ const yf=Y(book.flip); if(yf>padT&&yf<h-padB){ ctx.strokeStyle=C("--warn"); ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(60,yf); ctx.lineTo(w-32,yf); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=C("--warn"); ctx.fillText("flip",w-30,yf+4); } }
-    drawVolLadder(ctx,w,h,rows,Y,mid,half,bh,se,book,mode,5,true);
+    drawVolLadder(ctx,w,h,rows,Y,mid,half,bh,se,book,mode,5,true,st[ck]);
   }
 }
 
@@ -2682,7 +2731,7 @@ for(const [id,k,num] of [["zoomWSeg","zoomW",1],["zoomTSeg","zoomT",0],["mapColS
 for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn","clockVar"]]) document.getElementById(id).addEventListener("click",()=>{ st[k]=!st[k]; save(k,st[k]?"1":"0"); render(); });
 document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
-bindSeg("volColSeg","volCol");
+bindSeg("premDaySeg","premDayU"); bindSeg("volColSeg","volCol"); bindSeg("volCol30Seg","volCol30"); bindSeg("volColDSeg","volColD");
 (()=>{ const b=document.getElementById("volHowBtn"); if(!b) return; // 2026-11-05: plain-English read lines on the Volume tab, hideable
   const set=on=>{ document.body.classList.toggle("vhoff",!on); b.setAttribute("aria-pressed",on?"true":"false"); save("volHow",on?"1":"0"); window.dispatchEvent(new Event("resize")); };
   set(load("volHow","1")==="1"); b.addEventListener("click",()=>set(b.getAttribute("aria-pressed")!=="true")); })();
@@ -2732,7 +2781,7 @@ document.getElementById("backMapBtn").addEventListener("click",()=>setFocus("map
 document.getElementById("watchBtn").addEventListener("click",toggleWatch);
 st.fbOn=load("fbOn","1")!=="0"; st.sideSrc=load("sideSrc","cockpit");
 document.getElementById("fbBtn").addEventListener("click",()=>{ st.fbOn=!st.fbOn; save("fbOn",st.fbOn?"1":"0"); render(); });
-bindSeg("sideSrcSeg","sideSrc");
+bindSeg("sideSrcSeg","sideSrc",()=>syncSeg("premSideSeg",st.sideSrc)); bindSeg("premSideSeg","sideSrc",()=>syncSeg("sideSrcSeg",st.sideSrc));
 document.getElementById("amSrcBtn").addEventListener("click",()=>{ st.amSrc={doc:"ours",ours:"both",both:"doc"}[st.amSrc]||"doc"; save("amSrc",st.amSrc); render(); });
 document.getElementById("docBtn").addEventListener("click",()=>{ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); });
 document.querySelectorAll("#convSeg button[data-v]").forEach(b=>b.addEventListener("click",()=>{ st.conv=b.dataset.v; save("conv",st.conv); render(); }));
@@ -2936,6 +2985,10 @@ let _f2 = {key:null, res:null};
 function sideOf(l,b,a){
   if(!(l>0)||!(a>0)||!(b>=0)||a<b) return {side:0,tier:3};
   const sp=a-b, eps=0.001;
+  // 2026-11-05: a LAST outside this minute's quote is stale (the quote moved after the trade printed, e.g. puts jumping in a
+  // fast drop) — its side is unknowable from the quote, so it is unsigned instead of forced to buy/sell (removed ~75% of a
+  // false bullish read on 11/05). At the quote = firm, inside = soft, at mid = unsigned (unchanged).
+  if(l>a+eps||l<b-eps) return {side:0,tier:3,stale:true};
   if(l>=a-eps) return {side:1,tier:1};
   if(l<=b+eps) return {side:-1,tier:1};
   const mid=(a+b)/2; if(Math.abs(l-mid)<=Math.max(0.0025,F2_MID_FRAC*sp/2)) return {side:0,tier:3};
@@ -3387,7 +3440,7 @@ function renderFlow2(se,d,book){
     <div class="f2meta">Order-flow lean, signed premium ${money(sr.bull+sr.bear)} · net delta <b class="${sr.net>=0?"up":"dn"}">${sr.net>=0?"+":""}${fmtN(Math.round(sr.net))}</b> share-equiv${prev!=null?` · last logged session (${st.prevDate||'earlier'}) ${Math.round(prev*100)}%`:""}</div>`;
   const boxes=moodBoxes(sr,d);
   ex.innerHTML=boxes.length?`<div class="f2exh">Mood by expiration · share of directional premium that was bullish</div><div class="f2boxes">`+boxes.map(b=>`<div class="f2box ${b.src}"><small>${esc(b.lbl)}</small><b>${b.share==null?"–":Math.round(b.share*100)+"%"}</b><div class="mini"><i style="width:${b.share==null?0:(b.share*100).toFixed(0)}%"></i><s style="width:${(b.grey*100).toFixed(0)}%"></s></div><span>${b.src==="tape"?money(b.notional||0):fmtN(b.n)+" rows"}</span></div>`).join("")+`</div>`:"";
-  ft.innerHTML=st.sideSrc==="convex"?`Sides from each trade's own buy/sell tag (Side: Trade tag). Volume between polls is missed. Descriptive positioning, not a signal.`:`Sides from the last price vs the quote at each 1-minute poll: at/through the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry each trade's own tag. Descriptive positioning, not a signal.`;
+  ft.innerHTML=st.sideSrc==="convex"?`Sides from each trade's own buy/sell tag (Side: Trade tag). Volume between polls is missed. Descriptive positioning, not a signal.`:`Sides from the last price vs the quote at each 1-minute poll: at the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid or outside the quote (stale) = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry each trade's own tag. Descriptive positioning, not a signal.`;
   drawHump("humpC",se,book,false);
   renderRobust(sr);
 }
@@ -3824,6 +3877,62 @@ const PREM_SESSION_END = 16*60+15;   // SPX/SPY/QQQ options close 16:15 ET
    now includes pre-open GTH prints (~0.5% of premium) and the 16:15 expiry roll
    (~2%). Both are real trades but neither is session conviction, and the roll
    lands as one huge print that would top the big-minute ranking. Keep RTH only. */
+/* 2026-11-05 "Through the day": running calls bought / sold, puts bought / sold (chart A) and the tilt — bullish minus bearish,
+   running customer net delta, SPX — on its own scale (chart B). Same signed rows as the rest of the tab (regular hours, Side setting). */
+function premDayData(se){
+  const sr=(typeof signedRows==="function")?signedRows(se):null; if(!sr||!sr.rows.length) return null;
+  const rows=premSessionRows(sr); if(!rows.length) return null;
+  const U=st.premDayU==="n"?"n":"usd", val=r=>U==="n"?r.n:r.prem;
+  const js=[]; for(let j=0;j<se.m;j++){ if(se.T[j]>=RTH_OPEN&&se.T[j]<PREM_SESSION_END) js.push(j); } if(js.length<2) return null;
+  const byJ=new Map(); for(const r of rows){ if(!r.side) continue; let o=byJ.get(r.j); if(!o){ o={cb:0,cs:0,pb:0,ps:0,d:0}; byJ.set(r.j,o); }
+    const v=val(r); if(r.cp==="C"){ if(r.side>0) o.cb+=v; else o.cs+=v; } else { if(r.side>0) o.pb+=v; else o.ps+=v; }
+    if(r.delta!=null) o.d+=r.side*r.n*r.delta*100; }
+  const P={t:[],cb:[],cs:[],pb:[],ps:[],net:[],nd:[],px:[]}; let a={cb:0,cs:0,pb:0,ps:0,d:0};
+  for(const j of js){ const o=byJ.get(j); if(o){ a.cb+=o.cb; a.cs+=o.cs; a.pb+=o.pb; a.ps+=o.ps; a.d+=o.d; }
+    P.t.push(se.T[j]); P.cb.push(a.cb); P.cs.push(a.cs); P.pb.push(a.pb); P.ps.push(a.ps); P.net.push((a.cb+a.ps)-(a.pb+a.cs)); P.nd.push(a.d); P.px.push(se.spot[j]>0?se.spot[j]:null); }
+  return {U,P};
+}
+function drawPremDay(se){
+  const ca=document.getElementById("premDayA"), cb=document.getElementById("premDayB"), rd=document.getElementById("premDayRead"); if(!ca||!cb) return;
+  const D=se?premDayData(se):null;
+  const A=fitCanvas(ca), B=fitCanvas(cb); A.ctx.clearRect(0,0,A.w,A.h); B.ctx.clearRect(0,0,B.w,B.h);
+  if(!D){ if(rd) rd.innerHTML="No signed trades yet this session."; return; }
+  const {U,P}=D, fmt=v=>U==="n"?(Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":Math.abs(v)>=1e3?(v/1e3).toFixed(0)+"K":String(Math.round(v))):money(v), sg=v=>(v>=0?"+":"−")+fmt(Math.abs(v));
+  const t0=RTH_OPEN, t1=Math.max(P.t[P.t.length-1],t0+30), padL=56, padR=64, padT=12, padB=22;
+  const frame=(g,lo,hi,axisFmt)=>{ const {ctx,w,h}=g, W=w-padL-padR, H=h-padT-padB; const X=t=>padL+W*(t-t0)/(t1-t0), Y=v=>padT+H*(1-(v-lo)/((hi-lo)||1));
+    ctx.font="11px "+C("--font"); ctx.fillStyle="#9DB0CA"; ctx.strokeStyle="#ffffff14";
+    for(let q=0;q<=4;q++){ const v=lo+(hi-lo)*q/4, y=Y(v); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillText(axisFmt(v),4,y+4); }
+    for(let hh=10;hh<=16;hh++){ const t=hh*60; if(t>t1) break; const x=X(t); ctx.fillText(String(hh>12?hh-12:hh),x-4,padT+H+15); }
+    return {X,Y,W,H}; };
+  const line=(g,F,arr,col,dash,lw)=>{ const c=g.ctx; c.save(); c.strokeStyle=col; c.lineWidth=lw||2; c.setLineDash(dash||[]); c.beginPath(); let on=false; arr.forEach((v,i)=>{ if(v==null){ on=false; return; } const x=F.X(P.t[i]), y=F.Y(v); if(!on){ c.moveTo(x,y); on=true; } else c.lineTo(x,y); }); c.stroke(); c.restore(); };
+  const endLab=(g,F,v,col,txt,dy)=>{ const c=g.ctx; c.fillStyle=col; c.font="bold 11px "+C("--font"); c.fillText(txt,F.X(P.t[P.t.length-1])+4,F.Y(v)+4+(dy||0)); };
+  // chart A
+  const hiA=Math.max(1,...P.cb,...P.cs,...P.pb,...P.ps); const FA=frame(A,0,hiA*1.05,v=>fmt(v));
+  const CC=C("--call")||"#3FC1E8", PC=C("--put")||"#FF5FA2";
+  line(A,FA,P.cb,CC,[],2.4); line(A,FA,P.cs,CC,[6,4],2); line(A,FA,P.pb,PC,[],2.4); line(A,FA,P.ps,PC,[6,4],2);
+  const L=P.t.length-1, ends=[[P.cb[L],CC,"calls bought"],[P.cs[L],CC,"calls sold"],[P.pb[L],PC,"puts bought"],[P.ps[L],PC,"puts sold"]].sort((x,y)=>y[0]-x[0]);
+  let prevY=-1e9; for(const [v,col,nm] of ends){ let y=FA.Y(v)+4; if(y-prevY<13) y=prevY+13; prevY=y; A.ctx.fillStyle=col; A.ctx.font="bold 11px "+C("--font"); A.ctx.fillText(nm,FA.X(P.t[L])+4,y); }
+  A.ctx.font="11px "+C("--font"); A.ctx.fillStyle="#9DB0CA"; A.ctx.fillText("solid = bought · dashed = sold",padL+4,padT+12);
+  // chart B: net (left axis), net delta (right axis, yellow), SPX (faint, no axis)
+  // both series scaled by their own largest swing so their zero lines sit on the same y (left axis = net, right axis = net delta)
+  const mN=Math.max(1,...P.net.map(Math.abs)), mD=Math.max(1,...P.nd.map(Math.abs));
+  const nlo=Math.min(0,...P.net.map(v=>v/mN),...P.nd.map(v=>v/mD)), nhi=Math.max(0,...P.net.map(v=>v/mN),...P.nd.map(v=>v/mD)), span=Math.max(nhi-nlo,0.2);
+  const FB0=frame(B,nlo-span*0.08,nhi+span*0.08,v=>sg(v*mN)), FB={X:FB0.X,W:FB0.W,H:FB0.H,Y:v=>FB0.Y(v/mN)};
+  { const c=B.ctx, y0=FB.Y(0); c.strokeStyle="#ffffff60"; c.setLineDash([3,3]); c.beginPath(); c.moveTo(padL,y0); c.lineTo(padL+FB.W,y0); c.stroke(); c.setLineDash([]);
+    for(let i=1;i<P.t.length;i++){ const x0=FB.X(P.t[i-1]), x1=FB.X(P.t[i]), v=P.net[i]; c.fillStyle=v>=0?"#58D68D33":"#FF7B7233"; const y=FB.Y(v); c.fillRect(x0,Math.min(y,y0),x1-x0+0.5,Math.abs(y-y0)); } }
+  const px=P.px.filter(v=>v!=null); if(px.length>1){ const plo=Math.min(...px), phi=Math.max(...px), pp=Math.max(phi-plo,1); const Fp={X:FB.X,Y:v=>FB0.Y(nlo-span*0.08+(nhi-nlo+span*0.16)*(v-plo)/pp)}; line(B,Fp,P.px,"#ffffff55",[],1.4); }
+  line(B,FB,P.net,"#E6EDF5",[],2.4);
+  const Fd={X:FB.X,Y:v=>FB0.Y(v/mD)};
+  line(B,Fd,P.nd,"#FFD23F",[4,3],2);
+  { const c=B.ctx; c.font="11px "+C("--font"); c.fillStyle="#FFD23F"; for(let q=0;q<=4;q++){ const v=((nlo-span*0.08)+(nhi-nlo+span*0.16)*q/4)*mD; const y=Fd.Y(v); const t=(v>=0?"+":"−")+(Math.abs(v)>=1e6?(Math.abs(v)/1e6).toFixed(1)+"M":(Math.abs(v)/1e3).toFixed(0)+"K"); c.fillText(t,B.w-padR+8,y+4); } }
+  B.ctx.font="11px "+C("--font"); B.ctx.fillStyle="#9DB0CA"; B.ctx.fillText("white = bullish − bearish (left scale) · yellow dashed = net delta (right scale) · grey = SPX",padL+4,padT+12);
+  // read
+  if(rd){ const tot=P.cb[L]+P.cs[L]+P.pb[L]+P.ps[L], net=P.net[L], nd=P.nd[L], pct=tot>0?Math.abs(net)/tot:0, px0=px[0], px1=px[px.length-1];
+    const tilt=pct<0.05?"<b>Balanced</b>":net>0?"<b class=\"up\">Bullish tilt</b>":"<b class=\"dn\">Bearish tilt</b>";
+    rd.innerHTML=`${tilt}: bullish minus bearish = <b>${sg(net)}</b> (${(pct*100).toFixed(1)}% of ${fmt(tot)} traded). Puts bought ${fmt(P.pb[L])} vs sold ${fmt(P.ps[L])}; calls bought ${fmt(P.cb[L])} vs sold ${fmt(P.cs[L])}. Net delta <b class="${nd>=0?"up":"dn"}">${nd>=0?"+":"−"}${(Math.abs(nd)/1e6).toFixed(2)}M</b> share-equivalents${px0&&px1?`; SPX ${px1>=px0?"+":"−"}${(Math.abs(px1/px0-1)*100).toFixed(2)}% since 9:30`:""}.`
+      +(pct<0.05&&px0&&px1&&Math.abs(px1/px0-1)>0.01?` <b>Price moved more than 1% while option flow stayed two-sided</b> &mdash; the move is coming from somewhere other than option buying (futures, stocks).`:"")
+      +` Descriptive, not a signal.`; }
+}
 function premSessionRows(sr){
   return sr.rows.filter(r => r.t >= RTH_OPEN && r.t < PREM_SESSION_END);
 }
@@ -4082,6 +4191,7 @@ function renderPremium(se){
   linesEl.innerHTML = premiumLinesHtml(pd, se, brk);
   bigEl.innerHTML   = premiumBigHtml(pd, se);
   if(cv) drawPremiumMinutes(cv, pd, se);
+  try{ drawPremDay(se); }catch(e){ console.error("premDay",e); }
   linesEl.querySelectorAll(".prow").forEach(r => r.addEventListener("click", () => {
     const k = +r.dataset.k; if(typeof pickStrike === "function" && !isNaN(k)) pickStrike(k);
   }));
@@ -4405,6 +4515,7 @@ const EX_UP="#5FE0C0", EX_DN="#FF6B6B", EX_MUTE="#888";
 
 function exSet(id,html){ const el=document.getElementById(id); if(el) el.innerHTML=html; }
 function exN(v,dp){ return v==null?"–":(+v).toFixed(dp||0); }
+function exM(v){ const m=(+v||0)*1000, a=Math.abs(m); return a<0.005?"0":(m<0?"−":"")+"$"+(a>=100?a.toFixed(0):a>=10?a.toFixed(1):a.toFixed(2))+"M"; }   // $bn -> $M (vanna is small: 0.02bn = $20M per vol pt)
 function exK(v){ return Math.abs(v)>=1e6?(v/1e6).toFixed(1)+"M":Math.abs(v)>=1e3?(v/1e3).toFixed(0)+"K":Math.abs(v)<10&&v!==0?(+v).toFixed(2):exN(v,0); }
 
 /* ── Exposure tab state ── */
@@ -4474,25 +4585,25 @@ function exRender(){
         {title:"Delta Exposure", leftKey:"pDEX", rightKey:"cDEX", leftLabel:"Put", rightLabel:"Call"},
         {title:"Gamma Exposure", leftKey:"pGEX", rightKey:"cGEX", leftLabel:"Put", rightLabel:"Call"},
         {title:"Open Interest",  leftKey:"pOI",  rightKey:"cOI",  leftLabel:"Put", rightLabel:"Call"},
-        {title:"Vanna Exposure", leftKey:"pVanna",rightKey:"cVanna",leftLabel:"Put",rightLabel:"Call"},
+        {title:"Vanna Exposure ($M per vol pt)", leftKey:"pVanna",rightKey:"cVanna",leftLabel:"Put",rightLabel:"Call",fmt:exM},
       ]
     : [
         {title:"Net Delta (DEX)", valKey:"dex"},
         {title:"Net Gamma (GEX)", valKey:"gex"},
         {title:"Net OI (C−P)",    calc:r=>(r.cOI||0)-(r.pOI||0)},
-        {title:"Net Vanna",       valKey:"vanna"},
+        {title:"Net Vanna ($M per vol pt)", valKey:"vanna",fmt:exM},
       ];
 
   let bfHTML="";
   for(const col of cols){
     let maxV=1;
     if(col.valKey){
-      maxV=Math.max(1,...rows.map(r=>Math.abs(r[col.valKey]||0)));
+      maxV=Math.max(1e-12,...rows.map(r=>Math.abs(r[col.valKey]||0)));
     } else if(col.calc){
-      maxV=Math.max(1,...rows.map(r=>Math.abs(col.calc(r))));
+      maxV=Math.max(1e-12,...rows.map(r=>Math.abs(col.calc(r))));
     } else {
       // total mode: max of either side
-      maxV=Math.max(1,...rows.map(r=>Math.max(Math.abs(r[col.leftKey]||0),Math.abs(r[col.rightKey]||0))));
+      maxV=Math.max(1e-12,...rows.map(r=>Math.max(Math.abs(r[col.leftKey]||0),Math.abs(r[col.rightKey]||0))));
     }
 
     let rowsHTML="";
@@ -4507,8 +4618,8 @@ function exRender(){
         const rv=Math.abs(r[col.rightKey]||0);
         leftPct=lv/maxV*100;
         rightPct=rv/maxV*100;
-        leftVal=exK(r[col.leftKey]||0);
-        rightVal=exK(r[col.rightKey]||0);
+        leftVal=(col.fmt||exK)(r[col.leftKey]||0);
+        rightVal=(col.fmt||exK)(r[col.rightKey]||0);
         leftCol=EX_DN; rightCol=EX_UP;
       } else {
         // Net: negative extends left (red), positive extends right (green)
@@ -4519,8 +4630,8 @@ function exRender(){
           rightPct=v/maxV*100; leftPct=0;
         }
         leftCol=EX_DN; rightCol=EX_UP;
-        leftVal=v<0?exK(v):"";
-        rightVal=v>=0?exK(v):"";
+        leftVal=v<0?(col.fmt||exK)(v):"";
+        rightVal=v>=0?(col.fmt||exK)(v):"";
       }
 
       const mk=markers.filter(m=>Math.abs(r.k-m.k)<step/2);
