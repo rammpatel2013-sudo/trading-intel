@@ -48,3 +48,15 @@ def test_aggregate_buckets_and_vendor_agreement():
     assert st["tick_vendor_n"] == 1 and st["tick_vendor_agree"] == 0
     js = sf.payload("2026-11-05", agg, st, 5000)
     assert js["rows"][0][:3] == [7400.0, "P", 601]
+
+
+def test_tape_clock_and_shift_to_new_york():
+    utc = [{"ts": datetime(2026, 11, 5, 19, 10, 0)}, {"ts": datetime(2026, 11, 5, 14, 31, 0)}]
+    assert sf.tape_clock(utc) == "utc"
+    et = [{"ts": datetime(2026, 11, 5, 9, 31, 0)}]
+    assert sf.tape_clock(et) == "et"
+    # tape only 13:40-14:15: decide by which clock the latest print sits near "now" (14:16 ET)
+    mid = [{"ts": datetime(2026, 11, 5, 13, 40)}, {"ts": datetime(2026, 11, 5, 14, 15)}]
+    assert sf.tape_clock(mid, datetime(2026, 11, 5, 14, 16)) == "et"
+    rows = sf.to_et([{"ts": datetime(2026, 11, 5, 19, 10, 0)}], "utc")
+    assert rows[0]["ts"] == datetime(2026, 11, 5, 14, 10, 0)   # Nov 5 = EST, UTC-5
