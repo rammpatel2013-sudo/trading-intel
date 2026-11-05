@@ -215,8 +215,8 @@ def parse_doc(text: str, subject: str = "") -> dict:
     out: dict = {"title": None, "levels": {}, "scalper": {}, "weekly": {}, "premium": {}, "rails": [],
                  "pivot": None, "chop": None, "working": None, "em": None, "scenarios": [], "context": [],
                  "up_path": [], "down_path": [], "one_thing": None, "conv_rule": "5m", "warnings": []}
-    title = subject or next((l for l in lines if re.search(r"MARKET REPORT|DAILY PLAN", l, re.I) and re.search(r"\d{1,2}/\d{1,2}", l)), "") \
-        or next((l for l in lines if re.search(r"MARKET REPORT|DAILY PLAN", l, re.I)), "")
+    title = subject or next((l for l in lines if re.search(r"MARKET REPORT|DAILY PLAN|SPX 0DTE", l, re.I) and re.search(r"\d{1,2}/\d{1,2}", l)), "") \
+        or next((l for l in lines if re.search(r"MARKET REPORT|DAILY PLAN|SPX 0DTE", l, re.I)), "")
     out["title"] = re.sub(r"^[^\w$]+", "", title).strip() or None
     md = re.search(r"\b(\d{1,2})/(\d{1,2})\b", out["title"] or "")
     out["md"] = [int(md.group(1)), int(md.group(2))] if md else None
@@ -401,7 +401,7 @@ def doc_from_gmail(settings) -> tuple[dict | None, str | None]:
             msg = svc.users().messages().get(userId="me", id=ref["id"], format="full").execute()
             payload = msg.get("payload", {})
             subj = _header(payload, "Subject")
-            if not re.search(r"MARKET REPORT|DAILY PLAN", subj, re.I):
+            if not re.search(r"MARKET REPORT|DAILY PLAN|SPX 0DTE", subj, re.I):
                 continue
             body, _ = _walk_body_and_attachments(payload)
             best = (int(msg.get("internalDate") or 0), subj, body)
