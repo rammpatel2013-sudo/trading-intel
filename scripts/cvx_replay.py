@@ -161,6 +161,9 @@ JS_PHASE1 = r"""(basis) => { const c=window.__cockpit, st=c.st, keep=st.basis, o
     out.gate=gate; }catch(e){ out.gate_err=String(e); }
   try{ const G=c.docGrades(); out.doc=G?G.map(x=>({id:x.s.id,kind:x.s.kind,dir:x.s.dir,level:x.s.level,text:x.s.text,state:x.g.state,
       played:!!x.g.played,t0:x.g.last?x.g.last.t0:null,hit:x.g.last?x.g.last.hit:null})):null; }catch(e){ out.doc_err=String(e); }
+  try{ const ks=st.amSrc; out.own=null; if(st.ti&&st.ti.own){ st.amSrc="ours"; const G=c.docGrades(); st.amSrc=ks;   // 2026-11-05: OUR AM levels, graded the same way
+      out.own=G&&G.length&&G[0].s.id[0]==="o"?G.map(x=>({id:x.s.id,kind:x.s.kind,dir:x.s.dir,level:x.s.level,text:x.s.text,state:x.g.state,
+      played:!!x.g.played,t0:x.g.last?x.g.last.t0:null,hit:x.g.last?x.g.last.hit:null})):null; } }catch(e){ out.own_err=String(e); }
   try{ const R=c.seqEvents(se); out.seq=R?R.ev.map(e=>({t:e.t,type:e.type,dir:e.dir,loc:e.loc,px:e.px,res:e.res})):null; }catch(e){ out.seq_err=String(e); }
   try{ const F=c.flowBars(se); out.wm=F&&F.wm?F.wm.map(e=>({type:e.type,t:e.t,px:e.px,agree:e.agree})):null; }catch(e){ out.wm_err=String(e); }
   st.basis=keep; return out; }"""
@@ -1575,15 +1578,18 @@ def main():
         try:
             import p1score
             import window_effect
-            doc = None
+            doc = own = None
             if ti_bytes:
-                dd = (json.loads(ti_bytes) or {}).get("doc")
-                if dd and dd.get("date") == day_iso:
+                tj = json.loads(ti_bytes) or {}
+                dd, oo = tj.get("doc"), tj.get("own")
+                if dd and dd.get("date") == day_iso and dd.get("source") != "ours":
                     doc = dd
+                if oo and oo.get("date") == day_iso:
+                    own = oo
             lvv = (res["levels"] or {}).get(VIEW_BASIS) or {}
             p1 = p1score.build(day_iso, p1score.path_of(spx), day_info["close"], lvv.get("cols"), den.get("runs"),
                                (dens or {}).get("cone0"), res.get("p1"), doc, gs, ex.get("viv"), spx,
-                               ((ex.get("oi") or {}).get("SPX") or {}).get("oi") or {}, window_effect.greek_col)
+                               ((ex.get("oi") or {}).get("SPX") or {}).get("oi") or {}, window_effect.greek_col, own=own)
             p1["guess"] = mid_guess_score(day_iso, ex.get("q") or {}, p1score)
             with open(out_dir / "p1.json", "w", encoding="utf-8") as fh:
                 json.dump(p1, fh, separators=(",", ":"), default=str)

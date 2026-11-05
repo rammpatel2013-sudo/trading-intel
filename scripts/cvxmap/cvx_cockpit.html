@@ -151,6 +151,7 @@ body.phone #tabPremium{grid-template-columns:1fr;grid-template-rows:auto auto 36
 #volReadPane{grid-column:1/-1;display:block;height:auto;max-height:38vh;overflow:auto}
 .volread{padding:6px 12px 8px;font-size:14px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}.volread .now{color:var(--ink);margin-bottom:4px}.volread .now b{color:#fff}
 .volread .log{color:#B9C6D8;font-size:13px}.volread .log div{margin:2px 0}.volread .log span.t{color:#fff;font-weight:600;margin-right:6px}
+.volhow{padding:2px 12px 8px;font-size:14.5px;line-height:1.5;color:#E6EDF5;border-bottom:1px solid var(--rule)}.volhow b{color:#fff}.volhow .pu{color:#ff8fc7;font-weight:600}.volhow .ca{color:#5fd4f0;font-weight:600}body.vhoff .volhow{display:none}
 #tabVol .body{position:relative;min-height:0}#tabVol canvas{width:100%;height:100%;display:block}
 body.phone #tabVol{grid-template-columns:1fr;grid-template-rows:520px 520px 520px}
 #tabVix{display:block;overflow:auto;min-height:0}
@@ -680,6 +681,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides buy vs sell for flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders. Cockpit = each minute's LAST price vs the quote (mid = grey). Convex = Convex's own per-trade buy/sell counts (its guesses at mid included). Older minutes without Convex counts always use Cockpit."><button data-v="cockpit" aria-pressed="true">Side: Cockpit</button><button data-v="convex" aria-pressed="false">Convex</button></div>
         <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128277; off</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
+        <button class="btn" id="amSrcBtn" title="Which AM levels to draw: Doc → Ours → Both. If Doc's report is missing today, Ours step in on their own.">Src: Doc</button>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
         <button class="btn" id="maxBtn" title="Hide every panel, map only">Expand</button>
         <span class="hint" style="flex-basis:100%;margin-top:-2px">Drag a box over the map to zoom into it · scroll = zoom time · Shift+scroll = zoom strikes · Shift+drag = pan · + / − keys · double-click or F = back to live · Ctrl+scroll or Ctrl +/− = zoom the whole page</span>
@@ -791,9 +793,9 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
-    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side toggle (Cockpit or Convex)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span></div><div class="body"><canvas id="volDayC"></canvas></div></section>
-    <section class="pane"><div class="phead"><h2>Last 30 min</h2><span class="hint">own scale — where the tape is now</span></div><div class="body"><canvas id="vol30C"></canvas></div></section>
-    <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><span class="hint">teal / coral = accelerating · dark = fading · ×ratio</span></div><div class="body"><canvas id="volDC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side toggle (Cockpit or Convex)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> part = bought · <b>striped</b> part = sold · <b>%B</b> = share bought (40–60% = no signal, ignore). <b>Dotted line</b> = where price is now. Calls|Puts: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span>. Bull|Bear: green = bullish (calls bought / puts sold), red = bearish. <b>CW / PW</b> = call wall / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip. <b>This panel = where the money went today.</b></div><div class="body"><canvas id="volDayC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Last 30 min</h2><span class="hint">own scale — where the tape is now</span></div><div class="volhow">Same bars, but <b>only the last 30 minutes</b>. Own scale: compare strikes <b>inside this panel only</b>, not with Today. <b>This panel = where trading is happening now.</b></div><div class="body"><canvas id="vol30C"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><span class="hint">teal / coral = accelerating · dark = fading · ×ratio</span></div><div class="volhow">Last 30 min <b>compared with the 30 before</b>. <b>Bright</b> bar (<span class="pu">coral = puts</span>, <span class="ca">teal = calls</span>) = heating up · <b>dark</b> bar = cooling off. <b>+13K</b> = 13,000 more contracts than before · <b>×9+</b> = 9× the earlier volume (strike just woke up) · <b>×0.3</b> = only 30% of before (dying). <b>This panel = where the tape is heading.</b></div><div class="body"><canvas id="volDC"></canvas></div></section>
   </main>
   <main id="tabPremium" class="tab" hidden>
     <section class="pane" id="premReadPane"><div class="phead"><h2>Premium read</h2><span class="hint">signed premium only &middot; regular hours &middot; where today&rsquo;s money actually went (key $)</span></div><div class="premread" id="premRead"></div><div class="premtot" id="premTotals"></div></section>
@@ -1015,7 +1017,7 @@ const st = {
   slots: (()=>{ try{ return JSON.parse(localStorage.getItem((new URLSearchParams(location.search).has("demo")?"cockpit.demo.":"cockpit.")+"slots")||"{}"); }catch(e){ return {}; } })(),
   watch: (()=>{ try{ return JSON.parse(localStorage.getItem(NS+"watch")||"{}"); }catch(e){ return {}; } })(),
   live: null, liveAt: 0, flow: {SPX:[],SPY:[],QQQ:[]}, flowFile: "", flowFromFile: false,
-  ti: null, tiAt: 0, docOn: load("docOn","1")==="1", conv: load("conv","5m"),
+  ti: null, tiAt: 0, docOn: load("docOn","1")==="1", amSrc: load("amSrc","doc"), conv: load("conv","5m"),
   rob: load("rob","0")==="1", f2full: load("f2full","0")==="1", prevShare: {}, focus: load("focus","map"), ladMode: load("ladMode","gamma"), premOv: load("premOv","0")==="1"
 };
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
@@ -1140,7 +1142,17 @@ async function pollTI(){
     st.ti=JSON.parse(await r.text()); st.tiAt=Date.now(); render(); }
   catch(e){ if(!st.ti) setTimeout(pollTI,2000); }   // feed not running: the cockpit works without it; a half-written file on the first read → retry in 2 s
 }
-const docObj = () => st.ti&&st.ti.doc || null;
+const realDoc = () => st.ti&&st.ti.doc || null, ownDoc = () => st.ti&&st.ti.own || null;
+const isToday = d => !!(d&&d.date&&d.date===liveClock().date);
+// AM levels source (2026-11-05): Doc by default; if Doc's report is not in for today, OUR levels (am_feed build_own) step in automatically
+const docObj = () => { const r=realDoc(), o=ownDoc(); if(st.amSrc==="ours") return o||r; if(isToday(r)) return r; return isToday(o)?o:r; };
+const amFallback = () => { const d=docObj(); return !!(d&&d.source==="ours"&&st.amSrc!=="ours"); };
+const srcName = () => { const d=docObj(); return d&&d.source==="ours"?"Ours":"Doc"; };
+const OWN_COL = "#c77dff";
+function amLevels(sym){ const d=docObj(), mine=!!(d&&d.source==="ours");
+  const L=docLevels(sym).map(x=>Object.assign({},x,{own:mine}));
+  if(st.amSrc==="both"&&!mine&&isToday(ownDoc())) for(const x of (ownDoc().levels||{})[sym]||[]) L.push(Object.assign({},x,{own:true,label:"ours · "+x.label}));
+  return L; }
 function docFresh(){ const d=docObj(); return !!(d&&d.date&&d.date===liveClock().date); }
 function docLevels(sym){ const d=docObj(); return d&&d.levels&&d.levels[sym] || []; }
 const ROLE_COL = r => r==="piv"?C("--r4"):r==="pos"?C("--longg"):r==="trig"?C("--shortg"):r==="rail"?C("--faint"):"#8197B3";
@@ -1224,7 +1236,7 @@ function docSentence(){ // one line for the read strip: the live lean + the late
   let ev=null; for(const x of G){ const e=x.g.last; if(!e) continue; const tt=Math.max(e.t0,e.hit||0,e.t1||0); if(!ev||tt>ev.tt) ev={x,tt}; }
   if(ev){ const {s,g}=ev.x; const e=g.last;
     parts.push((e.gap?`${s.dir==="up"?"above":"below"} ${fmtN(s.level)} since ${e.t0<=575?"the open":"the first log"}`:`${fmtN(s.level)} ${scVerb(s)} ${tlabel(e.t0)}`)+(g.state==="hit"?`, ${zoneTxt(s.targets[0])} hit`:g.state==="reversed"?`, closed back ${tlabel(g.last.t1)}`:"")); }
-  return parts.length?`<span class="docl">Doc: ${parts.join("; ")}</span>`:""; }
+  return parts.length?`<span class="docl">${srcName()}: ${parts.join("; ")}</span>`:""; }
 function nearestArmed(G,S){ let up=null,dn=null;
   for(const x of G){ if(x.s.kind!=="cross"||x.g.state!=="armed"&&x.g.state!=="touched") continue;
     if(x.s.dir==="up"&&x.s.level>=S&&(!up||x.s.level<up.s.level)) up=x;
@@ -1243,8 +1255,8 @@ const evT = x => x.g.last ? Math.max(x.g.last.t0, x.g.last.hit||0, x.g.last.t1||
 function docMapLines(ctx,Yk,x0,x1,yMin,yMax){
   if(!st.docOn||!docFresh()) return [];
   const out=[];
-  for(const L of docLevels(st.sym)){ const y=Yk(L.v); if(y<yMin||y>yMax) continue;
-    ctx.strokeStyle=ROLE_COL(L.role); ctx.globalAlpha=L.role==="rail"||L.role==="chart"?0.55:0.8;
+  for(const L of amLevels(st.sym)){ const y=Yk(L.v); if(y<yMin||y>yMax) continue;
+    ctx.strokeStyle=L.own?OWN_COL:ROLE_COL(L.role); ctx.globalAlpha=L.role==="rail"||L.role==="chart"?0.55:0.8;
     ctx.lineWidth=L.role==="piv"?1.6:1; ctx.setLineDash(L.role==="trig"?[7,4]:L.role==="rail"?[2,4]:L.role==="chart"?[1,3]:[]);
     ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); out.push({y,L}); }
   ctx.setLineDash([]); ctx.globalAlpha=1; return out; }
@@ -1259,7 +1271,7 @@ function docMapLabels(ctx,list,x,yMin,yMax,alignRight){
   if(!list.length) return; ctx.font="10px "+C("--font"); const used=[];
   for(const {y,L} of list.sort((a,b)=>a.y-b.y)){ let yy=y-3; while(used.some(u=>Math.abs(u-yy)<11)) yy+=11; if(yy>yMax) continue; used.push(yy);
     const txt=`${fmtN(L.v)} ${L.label}`; const tw=ctx.measureText(txt).width; const xx=alignRight?x-tw:x;
-    ctx.fillStyle="#0A1426cc"; ctx.fillRect(xx-2,yy-9,tw+4,12); ctx.fillStyle=ROLE_COL(L.role); ctx.fillText(txt,xx,yy); } }
+    ctx.fillStyle="#0A1426cc"; ctx.fillRect(xx-2,yy-9,tw+4,12); ctx.fillStyle=L.own?OWN_COL:ROLE_COL(L.role); ctx.fillText(txt,xx,yy); } }
 
 /* ---- Flow reads: Doc block */
 function renderDocRead(){
@@ -1272,7 +1284,7 @@ function renderDocRead(){
   add(G.find(x=>x.s.kind==="lean"&&x.g.state==="active"));
   G.filter(x=>["live","hit","reversed","touched"].includes(x.g.state)).sort((a,b)=>evT(b)-evT(a)).slice(0,3).forEach(add);
   if(S) nearestArmed(G,S).forEach(add);
-  el.innerHTML=`<h3>Morning road map · ${esc(d.date.slice(5).replace("-","/"))} <button class="btn openbtn" id="openPlan" style="float:right">Open plan</button></h3>`+
+  el.innerHTML=`<h3>Morning road map · ${esc(d.date.slice(5).replace("-","/"))}${d.source==="ours"?` · <span style="color:${OWN_COL}">OURS${amFallback()?" (Doc missing)":""}</span>`:""} <button class="btn openbtn" id="openPlan" style="float:right">Open plan</button></h3>`+
     (rows.length?rows.map(({s,g})=>{ const [lab,cls]=scBadge(s,g); return `<div class="rline"><span>${scShort(s)}</span><span class="verdict bd ${cls}">${lab}</span></div><div class="note" style="margin:0 0 5px">${scStatus(s,g)}</div>`; }).join("")
       :`<div class="note">${docPath().length?"Nothing near price yet.":"Waiting for SPX after 9:30."}</div>`)+
     `<div class="note">Conversion = ${ruleWord()} through the level (touch is information, conversion is permission).</div>`;
@@ -1292,6 +1304,7 @@ function renderPlan(){
   if(!fresh) notes.push(`This is the ${esc(d.date||"last")} report. Today's hasn't arrived yet (usually 8:00–8:30 ET; the feed checks every 3 minutes). Nothing is drawn or graded until it lands.`);
   else { (d.warnings||[]).forEach(w=>notes.push(esc(w)));
     if(path.length&&path[0].t>575) notes.push(`The minute log starts at ${tlabel(path[0].t)}, so anything before that is not graded.`); }
+  if(amFallback()) notes.unshift("Doc's report is not in for today, so these are OUR levels, built at 08:35 from our dealer book: pivot = gamma flip, walls = biggest dealer gamma strikes, edges = today's straddle range. Graded the same way as Doc's.");
   ban.innerHTML=notes.length?`<div class="banner">${notes.join("<br>")}</div>`:"";
   one.innerHTML=d.one_thing?`<small>THE ONE THING&nbsp;</small>${esc(d.one_thing)}`:"";
   paths.innerHTML=[d.pivot!=null?`Pivot <b>${fmtN(d.pivot)}</b>`:"", d.chop?`Chop zone <b>${zoneTxt(d.chop)}</b>`:d.working?`Working area <b>${zoneTxt(d.working)}</b>`:"",
@@ -1817,7 +1830,7 @@ function volReadLine(se,book){
   const putB=bld.filter(r=>r.p>=r.c&&r.k<S), callB=bld.filter(r=>r.c>r.p&&r.k>S); const pbAvg=a=>{ const v=a.map(r=>{ const o=m30.find(x=>x.k===r.k); return o&&o.pb; }).filter(x=>x!=null); return v.length?v.reduce((q,x)=>q+x,0)/v.length:null; };
   if(putB.length){ const b=pbAvg(putB); L.push(`Puts building below spot${b!=null?" ("+Math.round(b*100)+"% bought)":""}: ${b!=null&&b>=0.6?"downside is being PAID for — ":b!=null&&b<=0.4?"puts are being SOLD into the dip — supply, not fear; ":"mixed paper; "}${g<0?"with dealers short gamma the hedge sells into the dip.":"dealers long gamma absorb it."}`); }
   else if(callB.length) L.push(`Calls building above spot: ${g<0?"chasers — dealers buy the rally with them.":"into a long-gamma book, sold by dealers at the wall."}`);
-  if(st.sym==="SPX"&&docFresh()){ const lv=docLevels("SPX"); const near=k=>lv.map(l=>({d:Math.abs(l.v-k),l})).sort((a,b)=>a.d-b.d)[0]; const hits=bld.map(r=>{ const n=near(r.k); return n&&n.d<=5?`${f(r.k)} = Doc ${n.l.label}`:null; }).filter(Boolean); if(hits.length) L.push(`Doc: ${[...new Set(hits)].join(" · ")}.`); }
+  if(st.sym==="SPX"&&docFresh()){ const lv=docLevels("SPX"); const near=k=>lv.map(l=>({d:Math.abs(l.v-k),l})).sort((a,b)=>a.d-b.d)[0]; const hits=bld.map(r=>{ const n=near(r.k); return n&&n.d<=5?`${f(r.k)} = ${srcName()} ${n.l.label}`:null; }).filter(Boolean); if(hits.length) L.push(`${srcName()}: ${[...new Set(hits)].join(" · ")}.`); }
   return L.join(" ");
 }
 function volLogKey(){ const c=liveClock(); return "volLog_"+c.date+"_"+st.sym; }
@@ -2266,7 +2279,7 @@ function renderRead(se,book){
   const chip=(cls,lab,k,extra)=>k==null?"":`<div class="lvl ${cls}"><small>${lab}</small><b>${fmtN(k)}</b>${extra?`<small>${extra}</small>`:""}</div>`;
   lv.innerHTML=chip("pw","Put wall",book.pw,pct((book.pw-S)/S))+chip("fl","Gamma flip",book.flip?Math.round(book.flip):null,book.flip?pct((book.flip-S)/S):"")
     +chip("pin","Pin magnet",book.pin,"")+chip("cw","Call wall",book.cw,pct((book.cw-S)/S))
-    +(st.sym==="SPX"&&docFresh()&&docObj().pivot!=null?chip("dp","Doc pivot",docObj().pivot,pct((docObj().pivot-S)/S)):"")
+    +(st.sym==="SPX"&&docFresh()&&docObj().pivot!=null?chip("dp",srcName()+" pivot",docObj().pivot,pct((docObj().pivot-S)/S)):"")
     +(book.em>0?`<div class="lvl em"><small>Move left</small><b>±${book.em.toFixed(book.em<10?2:1)}</b><small>${(book.em/S*100).toFixed(2)}%</small></div>`:"");
 }
 
@@ -2301,6 +2314,8 @@ function render(){
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
     document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
+  const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Doc",ours:"Ours",both:"Both"}[st.amSrc]||"Doc")+(amFallback()?" → Ours":"");
+  sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
   renderHeader(d,book,se); renderRead(se,book);
@@ -2429,6 +2444,9 @@ for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn",
 document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
 bindSeg("volColSeg","volCol");
+(()=>{ const b=document.getElementById("volHowBtn"); if(!b) return; // 2026-11-05: plain-English read lines on the Volume tab, hideable
+  const set=on=>{ document.body.classList.toggle("vhoff",!on); b.setAttribute("aria-pressed",on?"true":"false"); save("volHow",on?"1":"0"); window.dispatchEvent(new Event("resize")); };
+  set(load("volHow","1")==="1"); b.addEventListener("click",()=>set(b.getAttribute("aria-pressed")!=="true")); })();
 bindSeg("mapBasisSeg","basis",()=>syncSeg("basisSeg",st.basis));
 bindSeg("rowSeg","rows",()=>{ st.rowOff=0; });
 bindSeg("conSide","conSide");
@@ -2476,6 +2494,7 @@ document.getElementById("watchBtn").addEventListener("click",toggleWatch);
 st.fbOn=load("fbOn","1")!=="0"; st.sideSrc=load("sideSrc","cockpit");
 document.getElementById("fbBtn").addEventListener("click",()=>{ st.fbOn=!st.fbOn; save("fbOn",st.fbOn?"1":"0"); render(); });
 bindSeg("sideSrcSeg","sideSrc");
+document.getElementById("amSrcBtn").addEventListener("click",()=>{ st.amSrc={doc:"ours",ours:"both",both:"doc"}[st.amSrc]||"doc"; save("amSrc",st.amSrc); render(); });
 document.getElementById("docBtn").addEventListener("click",()=>{ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); });
 document.querySelectorAll("#convSeg button[data-v]").forEach(b=>b.addEventListener("click",()=>{ st.conv=b.dataset.v; save("conv",st.conv); render(); }));
 // plan chart hover: time, SPX and the nearest Doc levels
@@ -3413,11 +3432,11 @@ function drawHeat(id,m,se,d,legendTxt){
   const xn=X(Math.max(T0,Math.min(MAP_T1,m.now))); ctx.strokeStyle="#000"; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(xn,padT); ctx.lineTo(xn,padT+H); ctx.stroke(); ctx.setLineDash([]);
   // Doc levels: high-contrast on the heat field (white line, dark label box)
   if(st.sym==="SPX"&&st.docOn&&docFresh()){ ctx.font="11px "+C("--font"); let used=[];
-    for(const L of docLevels(st.sym)){ const y=Y(L.v); if(y<padT||y>padT+H) continue;
-      ctx.strokeStyle=L.role==="piv"?"#ffffff":"#ffffffd0"; ctx.lineWidth=L.role==="piv"?1.8:1.1; ctx.setLineDash(L.role==="trig"?[8,4]:L.role==="rail"?[2,4]:[]);
+    for(const L of amLevels(st.sym)){ const y=Y(L.v); if(y<padT||y>padT+H) continue;
+      ctx.strokeStyle=L.own?OWN_COL:L.role==="piv"?"#ffffff":"#ffffffd0"; ctx.lineWidth=L.role==="piv"?1.8:1.1; ctx.setLineDash(L.role==="trig"?[8,4]:L.role==="rail"?[2,4]:[]);
       ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.setLineDash([]);
       let yy=y-4; while(used.some(u=>Math.abs(u-yy)<12)) yy+=12; used.push(yy);
-      const txt=`${fmtN(L.v)} ${L.label}`, tw=ctx.measureText(txt).width; ctx.fillStyle="#000000cc"; ctx.fillRect(padL+2,yy-10,tw+8,14); ctx.fillStyle=L.role==="piv"?"#ffd166":"#ffffff"; ctx.fillText(txt,padL+6,yy+1); } }
+      const txt=`${fmtN(L.v)} ${L.label}`, tw=ctx.measureText(txt).width; ctx.fillStyle="#000000cc"; ctx.fillRect(padL+2,yy-10,tw+8,14); ctx.fillStyle=L.own?OWN_COL:L.role==="piv"?"#ffd166":"#ffffff"; ctx.fillText(txt,padL+6,yy+1); } }
   ctx.strokeStyle="#e74c3c"; ctx.setLineDash([3,3]); const ys=Y(m.S); ctx.beginPath(); ctx.moveTo(padL,ys); ctx.lineTo(padL+W,ys); ctx.stroke(); ctx.setLineDash([]);
   ctx.restore();
   // axes

@@ -897,6 +897,115 @@ def oi_verdicts(session, sym, yday) -> dict | None:
     return {"as_of": asof[0], "prev_as_of": asof[1], "trade_date": yday.isoformat(), "cards": cards}
 
 
+# ===================================================================== Our own AM levels (2026-11-05)
+# Doc-shaped plan built from OUR 08:35 book, so the cockpit draws it and the replay grades it the same way.
+# Built ONCE per day (frozen like a published plan, so the nightly score is fair) and cached in
+# data/own_levels_YYYYMMDD.json. Descriptive only (rule 4). No vendor calls.
+def _spx_dma(session, upto) -> dict:
+    from sqlalchemy import text
+    rows = session.execute(text("select spx_close from breadth_snapshots where source = 'fmp_sp500' and spx_close is not null "
+                                "and ts < :d order by ts desc limit 50"), {"d": upto}).fetchall()
+    c = [float(r[0]) for r in rows]
+    return {"dma20": sum(c[:20]) / 20 if len(c) >= 20 else None, "dma50": sum(c[:50]) / 50 if len(c) >= 50 else None,
+            "prev_close": c[0] if c else None}
+
+
+def build_own(ti: dict, dma: dict, today: str) -> dict | None:
+    w, w0 = ti.get("walls") or {}, ti.get("walls_0dte") or {}
+    mech = (ti.get("market_read") or {}).get("mechanics") or {}
+    sd = ti.get("straddle") or {}
+    if str(w.get("as_of") or "")[:10] != today:
+        return None                                   # wait for today's 08:35 book
+    S = float(w.get("spot") or mech.get("spot") or 0)
+    if S <= 0:
+        return None
+    near = lambda v: v is not None and abs(float(v) - S) <= 0.03 * S
+    pivot = mech.get("gex_flip") if near(mech.get("gex_flip")) else (ti.get("profile") or {}).get("flip")
+    pivot = round(float(pivot)) if near(pivot) else None
+    cand = []                                         # (priority, v, label, role)
+    if pivot:
+        cand.append((0, pivot, "gamma flip (pivot)", "piv"))
+    for key, lab in (("call_wall", "call wall"), ("put_wall", "put wall")):
+        if near(w.get(key)):
+            cand.append((1, float(w[key]), lab + " (0-7 day)", "pos"))
+        if near(w0.get(key)):
+            cand.append((1, float(w0[key]), "0DTE " + lab, "pos"))
+    lo, hi = sd.get("lower"), sd.get("upper")
+    if near(lo) and near(hi):
+        cand += [(2, float(lo), "straddle low edge", "trig"), (2, float(hi), "straddle high edge", "trig")]
+    for key, lab in (("dma20", "20 DMA"), ("dma50", "50 DMA")):
+        if near(dma.get(key)):
+            cand.append((3, float(dma[key]), lab, "chart"))
+    for r in (w.get("call_top_strikes") or [])[:3]:
+        if near(r.get("strike")) and float(r["strike"]) > S:
+            cand.append((4, float(r["strike"]), "call OI", "pos"))
+    for r in (w.get("put_top_strikes") or [])[:3]:
+        if near(r.get("strike")) and float(r["strike"]) < S:
+            cand.append((4, float(r["strike"]), "put OI", "pos"))
+    lv = []
+    for p, v, lab, role in sorted(cand):
+        dup = next((x for x in lv if abs(v - x["v"]) < 3), None)
+        if dup:
+            if p <= 1 and lab not in dup["label"]:
+                dup["label"] += " + " + lab
+            continue
+        lv.append({"v": round(v, 2), "label": lab, "role": role})
+    lv.sort(key=lambda x: x["v"])
+    if not lv:
+        return None
+    rails = []
+    if near(lo) and near(hi):
+        rails.append({"name": "STR", "lo": round(float(lo), 2), "hi": round(float(hi), 2)})
+    em = mech.get("expected_move") or {}
+    if near(em.get("lower")) and near(em.get("upper")) and not (rails and abs(rails[0]["lo"] - float(em["lower"])) < 3):
+        rails.append({"name": "1σ", "lo": round(float(em["lower"]), 2), "hi": round(float(em["upper"]), 2)})
+    P = pivot or min(lv, key=lambda x: abs(x["v"] - S))["v"]
+    up = [x["v"] for x in lv if x["v"] > P and x["role"] != "chart"]
+    dn = [x["v"] for x in sorted(lv, key=lambda x: -x["v"]) if x["v"] < P and x["role"] != "chart"]
+    f = lambda v: f"{v:,.0f}"
+    sc = []
+    def add(kind, d, L, T, cond, then, sect=None):
+        sc.append({"kind": kind, "dir": d, "level": L, "targets": [[t, t] for t in T], "rule": None, "cond": cond, "then": then,
+                   "text": f"{cond} → {then}", "sect": sect, "id": f"o{len(sc) + 1}"})
+    if up:
+        add("lean", "up", P, up[:2], f"Holding above {f(P)}", " then ".join(f(x) for x in up[:2]))
+    if dn:
+        add("lean", "down", P, dn[:2], f"Losing {f(P)}", " then ".join(f(x) for x in dn[:2]))
+    for a, b in zip(up[:3], up[1:4]):
+        add("cross", "up", a, [b], f"IF {f(a)} converts", f(b), "up")
+    for a, b in zip(dn[:3], dn[1:4]):
+        add("cross", "down", a, [b], f"IF {f(a)} is lost", f(b), "down")
+    if up:
+        add("fail", "down", up[0], [P], f"A failure back under {f(up[0])}", f"the {f(P)} pivot", "up")
+    if dn:
+        add("reclaim", "up", dn[0], [P], f"A reclaim of {f(dn[0])}", f"the {f(P)} pivot", "down")
+    regime = "above" if S > P else "below"
+    ctx = [f"Pivot {f(P)} = where dealer gamma flips sign. Above it dealers sell rallies and buy dips (moves get damped); below it they chase (moves get bigger).",
+           f"The 08:35 spot {f(S)} is {regime} the pivot.",
+           "Walls = strikes with the most dealer gamma; price tends to slow or stall there. Straddle edges = today's priced range; a 5-min close past one says the day is running bigger than priced."]
+    return {"title": f"Ours — AM levels {today[5:].replace('-', '/')}", "levels": {"SPX": lv}, "scalper": {}, "weekly": {}, "premium": {},
+            "rails": rails, "pivot": P, "chop": None, "working": [dn[0], up[0]] if up and dn else None,
+            "em": [rails[0]["lo"], rails[0]["hi"]] if rails else None, "scenarios": sc, "context": ctx,
+            "up_path": [[x, x] for x in up[:3]], "down_path": [[x, x] for x in dn[:3]],
+            "one_thing": f"Hold {f(P)} and the map leans to {f(up[0]) if up else '…'}; lose it and it leans to {f(dn[0]) if dn else '…'}.",
+            "conv_rule": "5m", "warnings": [], "md": None, "date": today, "source": "ours", "received": None, "built_spot": round(S, 2)}
+
+
+def own_levels(factory, ti: dict, today: str) -> tuple[dict | None, str | None]:
+    fp = DASH / f"own_levels_{today.replace('-', '')}.json"
+    try:
+        if fp.is_file():
+            return json.loads(fp.read_text(encoding="utf-8")), None
+        with factory() as s:
+            dma = _spx_dma(s, today)
+        o = build_own(ti, dma, today)
+        if o:
+            fp.write_text(json.dumps(_clean(o), separators=(",", ":")), encoding="utf-8")
+        return o, None
+    except Exception as exc:
+        return None, f"own levels: {type(exc).__name__}"
+
+
 def write_json(payload: dict) -> None:
     data = json.dumps(_clean(payload), ensure_ascii=False, separators=(",", ":"))
     tmp = OUT.with_suffix(".tmp")
@@ -936,6 +1045,7 @@ def main(argv: list[str]) -> int:
     tape, tape_errs, tape_at = {}, [], 0.0
     oiv, oiv_errs, oiv_at = {}, [], 0.0
     near = {}
+    own, own_err = None, None
     last_line = ""
     print("am_feed: Doc plan + trading-intel AM context -> " + str(OUT))
     while True:
@@ -953,6 +1063,8 @@ def main(argv: list[str]) -> int:
             if t:
                 ti.update(t)
             ti_at = time.time()
+        if not own or own.get("date") != today:
+            own, own_err = own_levels(factory, ti, today) if ti else (None, None)
         rth = (9, 25) <= (now.hour, now.minute) <= (16, 10) and now.weekday() < 5
         tape_every = 120 if rth else 1800
         if time.time() - tape_at >= tape_every:
@@ -975,8 +1087,8 @@ def main(argv: list[str]) -> int:
             except Exception as exc:
                 oiv_errs = [f"oi_verdict: {type(exc).__name__}"]
             oiv_at = time.time()
-        payload = {"asof": now.isoformat(timespec="seconds"), "today": today, "doc": doc, "ti": ti,
-                   "tape": tape, "oi_verdict": oiv, "near_book": near, "errors": doc_errs + ti_errs + tape_errs + oiv_errs}
+        payload = {"asof": now.isoformat(timespec="seconds"), "today": today, "doc": doc, "own": own, "ti": ti,
+                   "tape": tape, "oi_verdict": oiv, "near_book": near, "errors": doc_errs + ti_errs + tape_errs + oiv_errs + ([own_err] if own_err else [])}
         try:
             write_json(payload)
         except Exception as exc:

@@ -180,16 +180,18 @@ def score_level(path, L):
     return {"touch": hh(path[touch][0]), "result": "touched"}
 
 
-def outside_levels(path, doc, gs, cone0):
+def outside_levels(path, doc, gs, cone0, own=None):
     lv = []
-    if doc:
-        for l in (doc.get("levels") or {}).get("SPX") or []:
+    for src, plan in (("Doc", doc), ("Ours", own)):     # 2026-11-05: our AM levels scored next to Doc's
+        if not plan:
+            continue
+        for l in (plan.get("levels") or {}).get("SPX") or []:
             if l.get("v"):
-                lv.append(("Doc", "%s (%s)" % (l.get("label", ""), l.get("role", "")), float(l["v"])))
-        for r in doc.get("rails") or []:
+                lv.append((src, "%s (%s)" % (l.get("label", ""), l.get("role", "")), float(l["v"])))
+        for r in plan.get("rails") or []:
             for k in ("lo", "hi"):
                 if r.get(k):
-                    lv.append(("Doc rail", "%s %s" % (r.get("name", ""), k), float(r[k])))
+                    lv.append((src + " rail", "%s %s" % (r.get("name", ""), k), float(r[k])))
     if gs.get("open") and gs.get("am_straddle"):
         lv += [("Straddle", "open + AM straddle", gs["open"] + gs["am_straddle"]), ("Straddle", "open − AM straddle", gs["open"] - gs["am_straddle"])]
     if gs.get("prev_close") and gs.get("on_straddle"):
@@ -435,7 +437,7 @@ def basis_score(bs, close, path):
     return out
 
 
-def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_flow, oi, greek_col):
+def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_flow, oi, greek_col, own=None):
     colsf = [c for c in cols or [] if c.get("S")]
 
     def ours_at(m):
@@ -447,8 +449,9 @@ def build(day_iso, path, close, cols, den_runs, cone0, p1js, doc, gs, viv, spx_f
     res = {"day": day_iso,
            "pred": predictions(den_runs, colsf, path, close),
            "boundary": boundary(colsf, path),
-           "levels": outside_levels(path, doc, gs, cone0),
-           "doc_grades": (p1js or {}).get("doc"),
+           "levels": outside_levels(path, doc, gs, cone0, own),
+           "doc_grades": (p1js or {}).get("doc") if doc else None,
+           "own_grades": (p1js or {}).get("own"),
            "flip": {"ours": flip_tests(path, ours_at),
                     "doc": flip_tests(path, lambda m: dflip) if dflip else None, "doc_level": dflip},
            "gate": gate_crossings(path, ours_at, (p1js or {}).get("gate")),
@@ -493,6 +496,17 @@ def running(day_dirs):
             a = lv.setdefault(r["src"], {})
             a[r["result"]] = a.get(r["result"], 0) + 1
     R["levels"] = lv
+    rm = {}
+    for _, p in day_dirs:
+        for lab, key in (("Doc", "doc_grades"), ("Ours", "own_grades")):
+            G = [g for g in (p.get(key) or []) if g.get("kind") != "lean"]
+            if not G:
+                continue
+            a = rm.setdefault(lab, {"days": 0, "trig": 0, "hit": 0})
+            a["days"] += 1
+            a["trig"] += sum(1 for g in G if g.get("t0") is not None)
+            a["hit"] += sum(1 for g in G if g.get("hit") is not None)
+    R["roadmap"] = rm
     fl = {"ours": [], "doc": [], "placebo": []}
     for _, p in day_dirs:
         f = p.get("flip") or {}
@@ -611,6 +625,14 @@ def html(p, R):
         h.append("<h3>Doc's road map (the page's own grading)</h3>")
         h.append(_tbl(["IF / THEN", "state", "triggered", "target hit"],
                       [[g["text"], g["state"], hh(g["t0"]) if g.get("t0") else "–", hh(g["hit"]) if g.get("hit") else "–"] for g in p["doc_grades"]]))
+    if p.get("own_grades"):
+        h.append("<h3>Our road map (built 08:35 from our dealer book, graded the same way)</h3>")
+        h.append(_tbl(["IF / THEN", "state", "triggered", "target hit"],
+                      [[g["text"], g["state"], hh(g["t0"]) if g.get("t0") else "–", hh(g["hit"]) if g.get("hit") else "–"] for g in p["own_grades"]]))
+    if R.get("roadmap"):
+        h.append("<div class='sub'>Road map, running: a line 'triggered' when its level converted; 'hit' when the target followed. Higher hit-of-triggered = the better map.</div>")
+        h.append(_tbl(["map", "days", "lines triggered", "targets hit", "hit / triggered"],
+                      [[k, v["days"], v["trig"], v["hit"], ("%.0f%%" % (100.0 * v["hit"] / v["trig"])) if v["trig"] else "–"] for k, v in R["roadmap"].items()]))
     # flip
     f = p["flip"]
     h.append("<h2>Flip scorecard (#85)</h2><div class='sub'>Vol split = average 1-min move below the line ÷ above it. Over 1 = the line separates calm (above) from fast (below), as a real flip should. "
