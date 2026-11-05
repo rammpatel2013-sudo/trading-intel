@@ -1288,22 +1288,30 @@ img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}d
 
 
 # ------------------------------------------------------------------ video
-def _encoders(ff):
+_ENC_TRY = (("libx264", "mp4"), ("libvpx", "webm"), ("vp8", "webm"), ("libvpx-vp9", "webm"), ("mpeg4", "mp4"))
+
+
+def _enc_args(name):
+    if name == "libx264":
+        return ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+    if name == "mpeg4":
+        return ["-c:v", "mpeg4", "-q:v", "4", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+    return ["-c:v", name, "-qmin", "0", "-qmax", "50", "-crf", "8", "-b:v", "2M", "-deadline", "good", "-cpu-used", "4",
+            "-threads", "2", "-pix_fmt", "yuv420p"]
+
+
+def _encode(ff, name, kind, frames, fps, out):
+    cmd = [ff, "-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", str(fps), "-c:v", "mjpeg", "-i", "pipe:0", "-an"] + _enc_args(name) + [str(out)]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
-        return subprocess.run([ff, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=20).stdout
-    except Exception:
-        return ""
-
-
-def _pick(ff):
-    """(kind, encoder) this ffmpeg can actually do, best first, or None.
-    2026-11-05: probe EVERY binary - the NAS ffmpeg had no 'vp8' (rc 8) and no libx264/libvpx.
-    mpeg4 is ffmpeg's own built-in encoder, so it is the last-resort mp4."""
-    enc = _encoders(ff)
-    for name, kind in (("libx264", "mp4"), ("libvpx", "webm"), ("vp8", "webm"), ("mpeg4", "mp4")):
-        if re.search(r"\s%s\s" % name, enc):
-            return kind, name
-    return None
+        for fp in frames:
+            p.stdin.write(Path(fp).read_bytes())
+        p.stdin.close()
+    except BrokenPipeError:
+        pass
+    err = p.stderr.read().decode(errors="replace")
+    rc = p.wait(timeout=900)
+    return rc == 0 and Path(out).is_file() and Path(out).stat().st_size > 0, "rc %s %s" % (rc, err[:300])
 
 
 def _candidates(out_root):
@@ -1312,61 +1320,61 @@ def _candidates(out_root):
     if sysff:
         c.append(sysff)
     c.append(str(out_root / ".bin" / "ffmpeg-linux"))
+    iio = sorted((out_root / ".bin" / "iio").glob("imageio_ffmpeg/binaries/ffmpeg-*"))
+    c += [str(x) for x in iio]
     for base in (os.environ.get("PLAYWRIGHT_BROWSERS_PATH"), str(Path.home() / ".cache" / "ms-playwright"), "/ms-playwright", "/opt/pw-browsers"):
         if base and Path(base).is_dir():
             c += [str(x) for x in sorted(Path(base).glob("ffmpeg-*/ffmpeg-linux"))]
-    return [x for x in c if Path(x).is_file() and os.access(x, os.X_OK)]
+    out = []
+    for x in c:
+        if Path(x).is_file() and x not in out:
+            try:
+                os.chmod(x, 0o755)
+            except OSError:
+                pass
+            if os.access(x, os.X_OK):
+                out.append(x)
+    return out
 
 
-def find_ffmpeg(out_root):
-    """(path, kind, encoder) for the first ffmpeg that has a usable encoder."""
-    for ff in _candidates(out_root):
-        got = _pick(ff)
-        if got:
-            return ff, got[0], got[1]
-    # none usable: fetch Playwright's own build (~2 MB) once, keep a copy under reports/replay/.bin
-    cache = out_root / ".bin" / "ffmpeg-linux"
+def find_ffmpeg(out_root, probe=None, fps=10):
+    """(path, kind, encoder) that ACTUALLY encodes - 2026-11-05: listing an encoder is not proof (the Playwright
+    ffmpeg lists libvpx/vp8 and still says 'Unknown encoder'), so each candidate test-encodes the first frames.
+    If none works, a static ffmpeg with libx264 is fetched once (pip imageio-ffmpeg) into reports/replay/.bin/iio."""
+    probe = list(probe or [])[:3]
+    tmp = out_root / ".bin" / "_probe"
+    tmp.mkdir(parents=True, exist_ok=True)
+    def first_working(cands):
+        for ff in cands:
+            for name, kind in _ENC_TRY:
+                if not probe:
+                    return ff, kind, name
+                ok, _ = _encode(ff, name, kind, probe, fps, tmp / ("p." + kind))
+                if ok:
+                    return ff, kind, name
+        return None
+    got = first_working(_candidates(out_root))
+    if got:
+        return got
     try:
-        log("ffmpeg: python -m playwright install ffmpeg")
-        subprocess.run([sys.executable, "-m", "playwright", "install", "ffmpeg"], capture_output=True, timeout=300)
-        for base in (str(Path.home() / ".cache" / "ms-playwright"), os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or ""):
-            for c in sorted(Path(base).glob("ffmpeg-*/ffmpeg-linux")) if base and Path(base).is_dir() else []:
-                got = _pick(str(c))
-                if got:
-                    cache.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(c, cache)
-                    os.chmod(cache, 0o755)
-                    return str(cache), got[0], got[1]
+        log("ffmpeg: no working encoder - fetching imageio-ffmpeg (static, libx264)")
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--no-deps", "--target", str(out_root / ".bin" / "iio"), "imageio-ffmpeg"],
+                       capture_output=True, timeout=300)
     except Exception as exc:
-        log("ffmpeg install failed: %s" % exc)
-    return None, None, None
+        log("ffmpeg fetch failed: %s" % exc)
+    return first_working(_candidates(out_root)) or (None, None, None)
 
 
 def make_video(seq, fps, out_path_noext, out_root):
-    ff, kind, name = find_ffmpeg(out_root)
+    seq = list(seq)
+    ff, kind, name = find_ffmpeg(out_root, seq, fps)
     if not ff:
-        return None, "no ffmpeg with a usable encoder"
+        return None, "no ffmpeg that can encode"
     log("video: %s -> %s (%s)" % (ff, kind, name))
     out = Path(str(out_path_noext) + "." + kind)
-    if name == "libx264":
-        enc = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-    elif name == "mpeg4":
-        enc = ["-c:v", "mpeg4", "-q:v", "4", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-    else:
-        enc = ["-c:v", name, "-qmin", "0", "-qmax", "50", "-crf", "8", "-b:v", "2M", "-deadline", "good", "-cpu-used", "4",
-               "-threads", "2", "-pix_fmt", "yuv420p"]
-    cmd = [ff, "-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", str(fps), "-c:v", "mjpeg", "-i", "pipe:0", "-an"] + enc + [str(out)]
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    try:
-        for fp in seq:
-            p.stdin.write(Path(fp).read_bytes())
-        p.stdin.close()
-    except BrokenPipeError:
-        pass
-    err = p.stderr.read().decode(errors="replace")
-    rc = p.wait(timeout=900)
-    if rc != 0 or not out.is_file():
-        return None, "ffmpeg rc %s %s" % (rc, err[:300])
+    ok, err = _encode(ff, name, kind, seq, fps, out)
+    if not ok:
+        return None, "ffmpeg %s" % err
     return out, kind
 
 
