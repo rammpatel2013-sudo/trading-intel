@@ -77,7 +77,9 @@ body.demo .demo-flag{display:inline-block}
 body.phone #tabDensity{grid-template-columns:1fr;grid-template-rows:520px auto}
 #tabHelp{display:block;overflow:auto;min-height:0}
 #helpPane{border-right:0}
-.helpbody{padding:10px 26px 40px;max-width:1180px;font-size:15px;line-height:1.62;color:var(--ink)}
+.helpbody{padding:10px 26px 40px;max-width:1180px;font-size:16px;line-height:1.62;color:var(--ink)}
+.helpbody .hintro{font-size:17px;margin:6px 0 10px;color:#E6EDF5}.helpbody .hjump{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 6px}.helpbody .hjump a{color:#fff;text-decoration:none;border:1px solid var(--rule);border-radius:5px;padding:3px 10px;font-size:14px;background:var(--pane2)}.helpbody .hjump a:hover{border-color:var(--r4)}
+.helpbody h3.pg{font-size:20px;text-transform:none;letter-spacing:0;color:#fff;border-bottom:1px solid var(--rule);padding-bottom:5px;margin-top:34px;scroll-margin-top:8px}.helpbody h4{margin:16px 0 6px;font-size:16px;color:var(--r4)}.helpbody p.what{margin:4px 0 10px;color:#E6EDF5}.helpbody dd b.up,.helpbody dd b.dn{font-weight:700}
 .helpbody h3{margin:26px 0 8px;font-size:15px;font-weight:700;color:var(--r4);text-transform:uppercase;letter-spacing:.06em}
 .helpbody h3:first-child{margin-top:6px}
 .helpbody dl{margin:0;display:grid;grid-template-columns:190px minmax(0,1fr);gap:7px 18px}
@@ -429,6 +431,8 @@ body:not(.f2full) #f2Pane>div:nth-of-type(3){flex:0 0 220px}body:not(.f2full) .f
 .f2hump{grid-row:2/4;grid-column:2;position:relative;min-height:190px;border:1px solid var(--rule);border-radius:6px}
 .f2hump canvas{display:block}.f2hump small{position:absolute;left:8px;top:4px;color:var(--mute);font-size:11px}
 .f2nd{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mute)}
+.f2nd .nk{color:var(--ink);font-weight:600;min-width:52px}.f2nd+.f2nd{margin-top:4px}
+.f2warn{display:block;font-style:normal;color:#FFD23F;font-size:12.5px;line-height:1.35;margin-top:2px}.f2warn.s{display:none}body:not(.f2full) .f2warn.l{display:none}body:not(.f2full) .f2warn.s{display:inline;font-size:11px;margin:0}
 .f2nd .bar{position:relative;flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--put),#333 48%,#333 52%,var(--call))}
 .f2nd .bar i{position:absolute;top:-4px;width:3px;height:16px;margin-left:-1px;background:#fff;border-radius:2px}
 .f2nd .bar u{position:absolute;top:9px;width:0;height:0;margin-left:-4px;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:6px solid var(--mute)}
@@ -622,10 +626,10 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="premium" aria-pressed="false" title="Where today&rsquo;s option premium actually went: top call and put strikes by dollars, bought vs sold, and the biggest minutes (key $)">Premium</button>
       <button data-tab="exposure" aria-pressed="false" title="Per-strike dealer gamma and delta exposure from the live chain">Exposure</button>
       <button data-tab="density" aria-pressed="false" title="Where the close is likely to land: a cone re-run every 5 minutes from live spot and the live 0DTE straddle, with the Map&rsquo;s gamma zero and vanna rails (key N)">Density</button>
-      <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, VIX chain + Cboe indices (key X)">VIX</button>
+      <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, VIX chain + the VIX index family (key X)">VIX</button>
       <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
-      <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus trading-intel's morning book">Plan</button>
-      <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly from the NAS DB — no live calls.">Vol EOD</button>
+      <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus our own morning book">Plan</button>
+      <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly after the close.">Vol EOD</button>
       <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
       <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
       <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
@@ -638,7 +642,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
 
   <section class="read" aria-live="polite">
     <div class="regime na" id="regime">No read yet</div>
-    <div class="readtxt" id="readtxt">Start the workbook (Alt+F8 → StartLive). The read fills in once live.json is fresh.</div>
+    <div class="readtxt" id="readtxt">Waiting for the live feed.</div>
     <div class="levels" id="levels"></div>
     <span style="display:flex;gap:6px"><button class="btn" id="pulseBtn" aria-pressed="false" title="Expand the signed-flow strip: cards, implied close, mood by expiry">Pulse</button><button class="btn" id="robBtn" aria-pressed="false" title="Lean after removing the biggest prints: one program or broad?">Robustness</button></span>
   </section>
@@ -678,16 +682,16 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <button class="btn live" id="liveBtn" hidden title="Return to the latest minute, centred on spot (or double-click the map)">Back to live</button>
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
-        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides buy vs sell for flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders. Cockpit = each minute's LAST price vs the quote (mid = grey). Convex = Convex's own per-trade buy/sell counts (its guesses at mid included). Older minutes without Convex counts always use Cockpit."><button data-v="cockpit" aria-pressed="true">Side: Cockpit</button><button data-v="convex" aria-pressed="false">Convex</button></div>
+        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides whether each trade was a buy or a sell (used by flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders). Quote = each minute's last price compared with the bid and ask (at the middle = grey; can mislabel in very fast markets). Trade tag = each trade's own buy/sell tag. Older minutes without tags always use Quote."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button></div>
         <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128277; off</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
-        <button class="btn" id="amSrcBtn" title="Which AM levels to draw: Doc → Ours → Both. If Doc's report is missing today, Ours step in on their own.">Src: Doc</button>
+        <button class="btn" id="amSrcBtn" title="Which morning levels to draw: Report → Ours → Both. If the morning report is missing today, our own levels step in on their own.">Src: Report</button>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
         <button class="btn" id="maxBtn" title="Hide every panel, map only">Expand</button>
         <span class="hint" style="flex-basis:100%;margin-top:-2px">Drag a box over the map to zoom into it · scroll = zoom time · Shift+scroll = zoom strikes · Shift+drag = pan · + / − keys · double-click or F = back to live · Ctrl+scroll or Ctrl +/− = zoom the whole page</span>
       </div>
       <div class="body" id="mapBody"><canvas id="mapC"></canvas><canvas id="mapO"></canvas>
-        <div class="empty" id="mapEmpty"><b>No minute log yet</b><span>The map fills from flow_YYYYMMDD.ndjson, which LiveLog v15 writes once a minute.<br>Leave this page open and it also builds from live.json.</span></div>
+        <div class="empty" id="mapEmpty"><b>No minute log yet</b><span>The map fills from the minute log, written once a minute.<br>Leave this page open and it also builds from the live feed.</span></div>
       </div>
       <div class="tip" id="mapTip"></div>
     </section>
@@ -696,7 +700,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <div class="phead"><h2 id="ladTitle">Dealer book now</h2>
         <div class="seg" role="group" aria-label="Ladder mode" id="ladModeSeg"><button data-v="gamma" aria-pressed="true">Gamma</button><button data-v="vol" aria-pressed="false" title="Volume today by strike, split bought (solid) / sold (hatched); top strikes labelled">Day</button><button data-v="vol30" aria-pressed="false" title="Volume in the last 30 minutes only, own scale">30m</button><button data-v="vold" aria-pressed="false" title="Last 30 min minus the prior 30: teal = accelerating, red = fading, with the ratio">Δ</button></div><span class="sp"></span>
         <div class="seg" role="group" aria-label="Positions" id="basisSeg">
-          <button data-v="oi" aria-pressed="true" title="Start-of-day open interest">OI</button><button data-v="vol" aria-pressed="false" title="Today's volume only, as if all of it opened — the book the day built">Vol</button><button data-v="oiv" aria-pressed="false" title="Open interest plus today's volume, as if all of it opened">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus Convex&#39;s measured buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button>
+          <button data-v="oi" aria-pressed="true" title="Start-of-day open interest">OI</button><button data-v="vol" aria-pressed="false" title="Today's volume only, as if all of it opened — the book the day built">Vol</button><button data-v="oiv" aria-pressed="false" title="Open interest plus today's volume, as if all of it opened">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus today's tagged buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button>
         </div>
       </div>
       <div class="body" id="ladBody"><canvas id="ladC"></canvas></div>
@@ -786,14 +790,14 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     </div>
   </main>
   <main id="tabMap" class="tab" hidden>
-    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus Convex&#39;s measured buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><button class="btn" id="ledBtn" aria-pressed="false" title="Ledger book (Map only): start the 0DTE book from the signed-position ledger at yesterday's close (customers' running buys minus sells; dealers hold the other side), then add today's Convex buy/sell volume minute by minute. Closest we get to measured market-maker positions. Week book and other tabs unchanged. Scored nightly against OI + vol.">Ledger</button><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: the volatility smile moves with spot (shadow greeks). Changes gamma and charm on all maps. Phase 3, being scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
+    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus today's tagged buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><button class="btn" id="ledBtn" aria-pressed="false" title="Ledger book (Map only): start the 0DTE book from the signed-position ledger at yesterday's close (customers' running buys minus sells; dealers hold the other side), then add today's tagged buy/sell volume minute by minute. Closest we get to measured market-maker positions. Week book and other tabs unchanged. Scored nightly against OI + vol.">Ledger</button><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: the volatility smile moves with spot (shadow greeks). Changes gamma and charm on all maps. Phase 3, being scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
     <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div><button class="btn" id="zoomBtn" aria-pressed="false" title="Zoom all three map panes: a price window around spot, finer rows and 1-minute columns inside it. Mouse wheel = wider/narrower · drag = move up/down · double-click = back to spot.">Zoom</button><div class="seg" role="group" id="zoomWSeg" title="Zoom price window around spot"><button data-v="25">±25</button><button data-v="50">±50</button><button data-v="100">±100</button></div><div class="seg" role="group" id="zoomTSeg" title="Zoom time window"><button data-v="rth">9:30 →</button><button data-v="2h">Last 2h →</button></div><div class="seg" role="group" id="mapColSeg" title="Colour: Classic = one colour per side, brighter = bigger. Gradient = a ramp of colours (dark at zero, then blue/cyan or amber/gold to near-white) so each size has its own colour, with a faint line where the value is half the column's strongest."><button data-v="classic">Classic</button><button data-v="grad">Gradient</button></div><div class="seg" role="group" id="mapScaleSeg" title="Colour scale: Day = one scale for the whole map (afternoon charm is far bigger, so mornings look dim). Column = each minute scaled to its own strongest value, so the shape shows all day; sizes are still in the read-out."><button data-v="day">Day</button><button data-v="col">Column</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
-    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side toggle (Cockpit or Convex)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> part = bought · <b>striped</b> part = sold · <b>%B</b> = share bought (40–60% = no signal, ignore). <b>Dotted line</b> = where price is now. Calls|Puts: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span>. Bull|Bear: green = bullish (calls bought / puts sold), red = bearish. <b>CW / PW</b> = call wall / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip. <b>This panel = where the money went today.</b></div><div class="body"><canvas id="volDayC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side setting (Quote or Trade tag)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button></div><span class="hint">solid = bought · hatched = sold · %B = bought share · top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> part = bought · <b>striped</b> part = sold · <b>%B</b> = share bought (40–60% = no signal, ignore). <b>Dotted line</b> = where price is now. Calls|Puts: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span>. Bull|Bear: green = bullish (calls bought / puts sold), red = bearish. <b>CW / PW</b> = call wall / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip. <b>This panel = where the money went today.</b></div><div class="body"><canvas id="volDayC"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 min</h2><span class="hint">own scale — where the tape is now</span></div><div class="volhow">Same bars, but <b>only the last 30 minutes</b>. Own scale: compare strikes <b>inside this panel only</b>, not with Today. <b>This panel = where trading is happening now.</b></div><div class="body"><canvas id="vol30C"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><span class="hint">teal / coral = accelerating · dark = fading · ×ratio</span></div><div class="volhow">Last 30 min <b>compared with the 30 before</b>. <b>Bright</b> bar (<span class="pu">coral = puts</span>, <span class="ca">teal = calls</span>) = heating up · <b>dark</b> bar = cooling off. <b>+13K</b> = 13,000 more contracts than before · <b>×9+</b> = 9× the earlier volume (strike just woke up) · <b>×0.3</b> = only 30% of before (dying). <b>This panel = where the tape is heading.</b></div><div class="body"><canvas id="volDC"></canvas></div></section>
   </main>
@@ -893,72 +897,306 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     <section class="pane" id="helpPane"><div class="phead"><h2>Help</h2><span class="hint">what each tab shows, how to read the map, and where the numbers stop being reliable (key H)</span></div>
       <div class="helpbody">
 
-        <h3>The tabs</h3>
+        <p class="hintro">This cockpit shows how options traders, and the dealers who take the other side of their trades, are positioned in SPX (and SPY, QQQ) through the day. Every page is explained below: what it shows, how to read it, and what each button does. <b>Nothing here is a trade signal</b> &mdash; it describes positioning so you can make your own call.</p>
+        <nav class="hjump">
+          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
+        </nav>
+
+        <h3 class="pg" id="h-words">Words used on this page</h3>
         <dl>
-          <dt>Flow</dt><dd>The order-flow lean. Signed premium split bought vs sold, the bullish/bearish needle, the biggest protection and upside trades, and a marker for the last logged session.</dd>
-          <dt>Bubbles: Pie, Behind, Opacity</dt><dd><b>Pie</b> shows each strike-minute as one bubble split green (bullish $) / red (bearish $), like Bookmap&rsquo;s pie dots. <b>Behind</b> draws the Flow map&rsquo;s own dealer gamma (same basis setting as the Gamma view) or today&rsquo;s open interest (calls cyan upper half, puts pink lower half) faintly under the bubbles &mdash; the Bookmap &ldquo;liquidity heatmap&rdquo; idea. <b>Opacity</b> fades the bubbles only, so the price bars and the heat stay readable. All remembered.</dd>
-          <dt>Sequence bubbles</dt><dd>Button <b>Seq</b> on the Flow map (on by default). <b>Small grey</b>: after a ~25-pt move (0.33% of spot) inside an hour, calls sold then puts bought within 15 min at a top (&darr;) &mdash; or puts sold then calls bought at a bottom (&uarr;). <b>Big coloured &ldquo;Reversal&rdquo;</b>: price at a top-4 premium line built from premium traded <i>so far</i> (calls at a top, puts at a bottom) or an expected-move edge (9:30 open &plusmn; the 9:31 ATM straddle &ldquo;EM&rdquo;, or &plusmn; spot&times;VIX/15.87 &ldquo;VIX&rdquo;), <i>and</i> dealers short gamma at spot, <i>and</i> the 5-minute signed flow flipped the reversal way within 10&ndash;15 min. Each bubble is scored 30 min later: &check; if price moved ~10 SPX pts (0.135%) the expected way first, &cross; if against first, &middot; if neither. The legend shows today&rsquo;s count and the running hit rate over every day logged in this browser. Hover a bubble for the detail. <b>&#128276;</b> adds a beep and a flashing tab title for a new live bubble (off by default). Built only from data up to that minute; descriptive, not a signal.</dd>
-          <dt>AM cone / Live cone</dt><dd>On the Map tab. <b>AM cone</b> (amber): width = the 0DTE at-the-money IV from the 08:35 book (falls back to the first logged minute), starting at the open (first real print, 9:31), &plusmn;1&sigma; dashed and &plusmn;2&sigma; dotted, frozen for the day. <b>Live cone</b> (thin white): the original moving curve &mdash; it re-centres on live spot and resizes with live ATM IV every update. Each has its own toggle.</dd>
-          <dt>Screenshot</dt><dd>&#128247; copies the Flow map (or the tab you are on) to the clipboard, ready to paste. Browsers only allow that on an https address (the Tailscale one) or localhost; on plain http it saves a PNG instead.</dd>
-          <dt>Straddle</dt><dd>Three panels for the symbol picked at the top (SPX, SPY or QQQ): <b>Daily</b> (today&rsquo;s 0DTE), <b>Weekly</b> (this week&rsquo;s last expiry) and <b>Monthly</b> (next third-Friday expiry). Each takes the at-the-money straddle (call + put) at the <i>start of its own period</i> &mdash; today&rsquo;s open, the week&rsquo;s first session, the first session after the last monthly expiry &mdash; and draws price since then inside that &plusmn;1&times; band (shaded) and &plusmn;1.5&times; (dashed orange). <b>Used %</b> = how much of the priced move price has travelled. Orange / red dots = first break of 1&times; / 1.5&times;. The green bracket at the right = what options price from <i>now</i> to expiry. When the true anchor day is older than the minute files, the anchor is estimated from that day&rsquo;s first stored book (labelled) or taken from the first day collected (labelled). Off by default; press ON.</dd>
-          <dt>Constellation</dt><dd>Where today&rsquo;s option money went, contract by contract, for SPX, SPY, QQQ and VIX. Columns = expiries (M = monthly), left half = bearish, right half = bullish, height = strike, bubble area = premium. Bullish = calls bought + puts sold; bearish = puts bought + calls sold (the vendor&rsquo;s own buy/sell split). Header = net customer delta-$ lean per expiry. <b>Near</b> (default) shows the weeklies inside 10 days plus the next monthly; Weeklies / Monthlies / All switch the set; click an expiry bar to isolate it. Slider / Play replay the session in 5-minute steps; the date list opens past sessions (latest = today, live). Lines below: cumulative dealer gamma $ and vanna $ added by today&rsquo;s trades, and cumulative bullish / bearish / net premium (all, weeklies, monthlies). A positioning read, not a trade signal. Off by default; press ON.</dd>
-          <dt>Bubbles</dt><dd>The default Flow-map view (Ridges, Heat, IV and Gamma are still one click away). Each strike is a straight line; each bubble is one minute of <i>signed</i> option flow at that strike &mdash; size = premium (or contracts on Contracts), <b class="up">green</b> = calls bought / puts sold, <b class="dn">red</b> = calls sold / puts bought, grey = mixed. Solid = traded at or through the bid/ask (firm), hollow = inside the spread (soft); at-mid prints are not drawn. <b>Calls | Puts</b> puts calls just above the line and puts just below; <b>Total</b> merges them into one bubble coloured by the net side; <b>Net</b> sizes the bubble by bullish minus bearish only. <b>Size</b> hides the small stuff by ranking against the whole day (default Top 20%; the legend prints the cut-off). <b>Unusual only</b> keeps a bubble only when it is at least 3&times; that strike&rsquo;s typical minute &mdash; this strips the constant drizzle at the money (on by default). <b>+ Ridges</b> draws the ridge lines underneath the bubbles (off by default). Every choice is remembered by the browser. Dashed rings are real vendor prints (&ge;$100k, NAS tape) on this expiry. Top right of the map: contracts, premium and bullish % for the time window on screen. These are 1-minute bubbles, not individual trades, and the side is estimated from last vs quote at each poll &mdash; descriptive, not a signal.</dd>
-          <dt>Flow bars</dt><dd>On the Flow map, button <b>Flow bars</b> (on by default). Each minute of the spot path becomes a bar from the previous close to this close, coloured by that minute&rsquo;s signed premium on near-the-money strikes (|&Delta;| 0.3&ndash;0.7): <b class="up">green</b> = calls bought / puts sold outweighed the reverse, <b class="dn">red</b> = the opposite, grey = mixed (net under 20% of gross) or nothing signed. Brighter = bigger. <b>W / M arrows</b> mark a double bottom / double top that closed through its neckline <i>and</i> where the 5-minute flow flipped the same way (bearish into the lows, bullish at the break &mdash; or the mirror). Pattern-only breaks are counted in the legend but not drawn. Sides are estimated from last vs quote at each 1-minute poll, so this is descriptive, not a signal.</dd>
-          <dt>Strikes</dt><dd>Per-strike detail for whichever strike you have selected. Use the up and down arrows to walk through them.</dd>
-          <dt>Skew</dt><dd>The shape of implied volatility across strikes, and how it has moved since the open.</dd>
-          <dt>Map</dt><dd>Gamma, charm and vanna as heat maps. Left of the dashed vertical is the book as it actually stood each minute. Right of it is today&rsquo;s book carried forward to the close as time decays.</dd>
-          <dt>Volume</dt><dd>Three ladders side by side: everything so far today, just the last 30 minutes, and the last 30 compared with the 30 before it.</dd>
-          <dt>Density</dt><dd>Where the close is likely to land, re-estimated every 5 minutes. The bright band is a 20,000-path simulation started from live spot, sized by the live 0DTE at-the-money straddle, spread over the day by a historical time-of-day profile, and widened where the Map says dealers are short gamma (narrowed where long). Left of the cursor is the 09:30 cone for comparison. The cyan line is the Map&rsquo;s gamma zero and the green and lavender lines are its vanna top and bottom, each as it stood that minute (0DTE book, your basis setting). It is centred on spot, so it does not call the close by itself &mdash; read the lines for that. <b>Engine ON/OFF</b> is the kill switch: OFF stops all of its calculation; <code>?nodensity</code> in the address bar turns it off hard. Key N.</dd>
-          <dt>VIX</dt><dd>Every section folds with the arrow (&#9662;/&#9656;) next to its title; the browser remembers which are folded. <b>Read</b>: one verdict (Calm, sellable &middot; Mixed &middot; Bullish-vol trap &middot; Risk-off) and six lines written from <i>docs/guides/reading-the-vix.md</i>: the VIX zone (under 22 carry, 22&ndash;32 fragility, over 32 stress), the curve shape plus VVIX&nbsp;&divide;&nbsp;VIX, <i>why VIX moved</i> (the Cboe 6-factor split of the SPX 30-day smile between the last two 08:35 books: sticky strike = mechanical, parallel shift = real repricing, put/call skew and wings = who is paying), the NAS vol-regime label with its own bias line, VIX options positioning across the picked expiries, and what that means for 0DTE trades. It is a descriptive read, never a trade signal. <b>Expiries</b>: tap chips to pick any set (nearest two on every load; Front 2 / Monthlies / All presets). <b>Regime board</b>: eight rows coloured by their 1-year percentile in the risky direction &mdash; green safest third, yellow middle, orange riskiest third (slow flash), red top 10% or any curve ratio above 1.00 (fast flash). <b>Term structure</b>: Cboe VIX1D &rarr; VIX1Y today vs yesterday, 1 week and 1 month ago, with each VIX expiry&rsquo;s forward in amber. <b>Events</b> through the next VIX monthly. <b>Implied variance</b>: a term curve of whole-curve vol vs ATM vol for every expiry (the gap is the price of the wings), cards for the picked expiries, and the strike breakdown for one of them. <b>Positions by strike</b>: with two or more picks, an <i>All picked</i> panel sums open interest and today&rsquo;s contracts bought and sold by strike; <i>From forward</i> lines each month up on its own forward instead (strike 20 is near the money in November but below it in March). Bought/sold is the vendor&rsquo;s measured split, today only, not dealer inventory. Cboe indices are about 15 minutes delayed. Nothing on this tab feeds the map.</dd>
-          <dt>Exposure</dt><dd>Per-strike dealer gamma (GEX) and delta (DEX) exposure from the live chain. Call wall, put wall, GEX flip, and open-interest distribution. Descriptor only (FlashAlpha rule 4). Key B.</dd>
-          <dt>Premium</dt><dd>Where today&rsquo;s option money actually went &mdash; the heaviest strikes a side, how much of each was bought rather than sold, and which minutes carried outsized premium.</dd>
-          <dt>Plan</dt><dd>Morning plan graded against what price has since done, plus the morning book.</dd>
+          <dt>Call / put</dt><dd>A <b>call</b> gains when price goes up. A <b>put</b> gains when price goes down.</dd>
+          <dt>Strike</dt><dd>The price level an option is tied to. The ladders list strikes from high (top) to low (bottom).</dd>
+          <dt>0DTE / Week</dt><dd><b>0DTE</b> = options that expire today. <b>Week</b> (1&ndash;7 DTE) = options that expire in the next week.</dd>
+          <dt>Premium</dt><dd>The dollars paid for options.</dd>
+          <dt>Bought / sold</dt><dd>Whether a trade was a buy (paid the asking price) or a sell (took the bid).</dd>
+          <dt>Bullish / bearish flow</dt><dd><b class="up">Bullish</b> = calls bought or puts sold. <b class="dn">Bearish</b> = puts bought or calls sold.</dd>
+          <dt>Open interest (OI) / volume</dt><dd><b>OI</b> = contracts still open from earlier days (counted once each morning). <b>Volume</b> = contracts traded today.</dd>
+          <dt>Dealers</dt><dd>Market makers who take the other side of customers&rsquo; trades and hedge by buying or selling the index.</dd>
+          <dt>Gamma</dt><dd>How fast a dealer&rsquo;s hedge must change when price moves. <b class="hb">Long gamma</b> (blue): dealers buy dips and sell rallies, which <b>calms</b> price. <b class="hr">Short gamma</b> (red): dealers sell into drops and buy into rallies, which <b>speeds moves up</b>.</dd>
+          <dt>Gamma flip / zero</dt><dd>The price where dealers switch from long to short gamma.</dd>
+          <dt>Call wall / put wall (CW / PW)</dt><dd>The strikes with the most call or put positioning. Price often slows or stalls near them.</dd>
+          <dt>Pin / pin magnet</dt><dd>A strike price tends to be pulled toward as the close gets near.</dd>
+          <dt>Delta</dt><dd>How much an option moves with price. Used here as the size of a directional bet.</dd>
+          <dt>Charm</dt><dd>How dealer hedges change just from time passing. Strongest late in the day.</dd>
+          <dt>Vanna</dt><dd>How dealer hedges change when implied volatility rises or falls.</dd>
+          <dt>Implied volatility (IV) / ATM</dt><dd><b>IV</b> = how big a move options are priced for. <b>ATM</b> (at the money) = the strike nearest to price.</dd>
+          <dt>Straddle</dt><dd>One call plus one put at the money. Its price is the move the market expects.</dd>
+          <dt>&sigma; (sigma)</dt><dd>One standard deviation. Price stays inside &plusmn;1&sigma; about two times out of three.</dd>
         </dl>
 
-        <h3>Reading the map</h3>
+        <h3 class="pg" id="h-top">Top bar (every page)</h3>
         <dl>
-          <dt><b class="hb">Blue</b> / <b class="hr">red</b> field</dt><dd>Blue means dealers are long gamma there and absorb moves. Red means they are short and chase them.</dd>
-          <dt><b class="hg">Green line</b></dt><dd>The gamma peak &mdash; where dealer gamma is most positive. Reliable even when the book is clipped.</dd>
-          <dt><b class="hy">Yellow line</b></dt><dd>The gamma trough &mdash; most negative. Where chasing is strongest.</dd>
-          <dt>Pale dotted line</dt><dd>The gamma flip, where it crosses zero. This is the one a missing strike range can move, so treat it with care near the top and bottom of the map.</dd>
-          <dt>Thin white curves</dt><dd>Plus and minus one standard deviation, anchored at 9:35.</dd>
-          <dt>Solid white line</dt><dd>The spot path. Before the open it is dashed, because SPX does not print then and the level is implied from SPY.</dd>
-          <dt>Black dashed vertical</dt><dd>Now. History to the left, projection to the right.</dd>
-          <dt>Red dashed horizontal</dt><dd>Current spot.</dd>
-          <dt>Green and yellow lines</dt><dd>Peak and trough. They now appear on vanna and charm as well as gamma, so the dotted zero line is no longer the only feature on those maps.</dd>
-          <dt>De-trend button</dt><dd>Takes the middle value of each column and subtracts it from every cell in that column, so the column re-centres on zero. Small structure that was buried under a big constant becomes visible &mdash; but <b>the sign stops meaning what it meant</b>: blue and red become &ldquo;above and below the middle of this minute&rdquo; rather than long and short. Like measuring waves against the water level instead of the sea floor. The caption says so while it is on. Off by default, and with it off every map draws exactly as it always has.</dd>
-          <dt>Why vanna already looks de-trended on All</dt><dd>Because it is. On the All book the week book adds a large constant that would bury everything, so vanna and charm have that removed automatically. On 0DTE and Week there is no such constant, so they are left raw and the sign is real.</dd>
-          <dt>Change view</dt><dd>On the right-hand map, next to Charm and Vanna. Shows how gamma has moved over the last 30 minutes &mdash; orange where it was added, cyan where it was removed. Needs the Vol or OI + vol basis, and says so if you are on OI.</dd>
+          <dt>SPX / SPY / QQQ</dt><dd>Picks the symbol for every page.</dd>
+          <dt>Tabs</dt><dd>Each tab opens one page, explained below.</dd>
+          <dt>Price and time</dt><dd>Live price, change since the open, time, and time left to the close.</dd>
+          <dt>&#128247; (camera)</dt><dd>Takes a picture of the page you are on. It copies to the clipboard where the browser allows it, otherwise it downloads a PNG.</dd>
+          <dt>Status dot</dt><dd>Green = live. The text says when the feed last updated. &ldquo;Not updating&rdquo; means the numbers are frozen.</dd>
+          <dt>Gamma box</dt><dd><b>Long gamma</b> or <b>Short gamma</b> at the current price, with one sentence on what dealers are likely doing, and the morning-report line underneath.</dd>
+          <dt>Level strip</dt><dd><b>Put wall</b>, <b>Gamma flip</b>, <b>Pin magnet</b>, <b>Call wall</b>, <b>Report pivot</b> and <b>Move left</b> (how many points options still price for the rest of today). The small % under each = distance from price.</dd>
+          <dt>Pulse</dt><dd>Opens the full flow strip on the Flow page: the cards, both sliders and the mood by expiry.</dd>
+          <dt>Robustness</dt><dd>Re-checks the lean after removing the biggest trades. <b>Broad</b> = many traders agree. <b>One program</b> = a few big trades are driving it.</dd>
         </dl>
 
-        <h3>What to trust, and when</h3>
+        <h3 class="pg" id="h-flow">Flow</h3>
+        <p class="what">The main page: which way today&rsquo;s option money is leaning, strike by strike and minute by minute.</p>
+        <dl>
+          <dt>Read line</dt><dd>One sentence: today&rsquo;s lean, and whether price is above or below the gamma switch (above = hedging calms moves, below = hedging speeds them up).</dd>
+          <dt>Protection card</dt><dd>The biggest put <b>bought</b> below price today.</dd>
+          <dt>Upside bet card</dt><dd>The biggest call <b>bought</b> above price today.</dd>
+          <dt>Crash insurance card</dt><dd>Net buying or selling of far-out puts (under 15 delta). <b>Tail bought</b> = people paying for crash protection. <b>Tail sold</b> = protection being sold. On a falling day a yellow note warns that selling far puts is often <b>cashing in old hedges</b>, not a bullish bet.</dd>
+          <dt>Premium slider</dt><dd>Share of today&rsquo;s bought-or-sold option dollars that were bullish. The small tick = the last logged session.</dd>
+          <dt>Delta slider</dt><dd>The same trades weighted by how much market exposure each one adds. Closer to the real directional bet. <b>If the two sliders disagree, trust Delta for direction</b> &mdash; expensive puts sold to close can tilt Premium. <b>If both read balanced on a big move</b>, the options tape was two-sided and the move is coming from somewhere else (futures, stocks).</dd>
+          <dt>Net delta line</dt><dd>The sum of all customers&rsquo; directional exposure from today&rsquo;s trades, in index-share units. Negative = customers net short the market.</dd>
+          <dt>Mood by expiration</dt><dd>(Pulse open) Share of directional premium that was bullish, for each expiry.</dd>
+        </dl>
+        <h4>Flow by strike map</h4>
+        <dl>
+          <dt>How to read it</dt><dd>Up and down = strike. Left to right = time. White line = price. Each bubble = one minute of trading at that strike: <b class="up">green</b> = bullish, <b class="dn">red</b> = bearish, grey = mixed. Solid = traded at the bid or ask (clear side), hollow = inside the spread (less sure). Bigger = more money.</dd>
+          <dt>Calls + puts / Calls / Puts</dt><dd>Show both, only calls, or only puts.</dd>
+          <dt>Contracts / Premium $</dt><dd>Size bubbles by number of contracts or by dollars.</dd>
+          <dt>Bubbles</dt><dd>The default view described above.</dd>
+          <dt>Ridges</dt><dd>Each strike becomes a line that rises with its volume.</dd>
+          <dt>Heat</dt><dd>Volume as a colour field: brighter = busier.</dd>
+          <dt>IV vs ATM</dt><dd>Each strike&rsquo;s implied volatility compared with the at-the-money strike: where options are being bid up or sold down.</dd>
+          <dt>Gamma</dt><dd>Dealer gamma at each strike, minute by minute (blue = long, red = short).</dd>
+          <dt>Charm &#8599; / Vanna &#8599;</dt><dd>Jump to the Map page with charm or vanna showing.</dd>
+          <dt>Calls | Puts</dt><dd>Calls drawn just above the strike line, puts just below.</dd>
+          <dt>Total</dt><dd>Calls and puts merged into one bubble, coloured by whichever side won.</dd>
+          <dt>Net</dt><dd>Bubble size = bullish minus bearish only.</dd>
+          <dt>Pie</dt><dd>One bubble split into a green slice (bullish $) and a red slice (bearish $).</dd>
+          <dt>Size: All / Top 50% / 20% / 5%</dt><dd>Hide small bubbles. Top 20% = only the biggest fifth of today&rsquo;s minutes. The legend prints the cut-off.</dd>
+          <dt>Unusual only</dt><dd>Keep a bubble only if it is at least 3&times; that strike&rsquo;s normal minute. Removes the constant small trading at the money.</dd>
+          <dt>+ Ridges</dt><dd>Draw the ridge lines underneath the bubbles.</dd>
+          <dt>Behind: Off / Gamma / OI</dt><dd>A faint background under the bubbles: dealer gamma, or open interest (calls upper half, puts lower half).</dd>
+          <dt>Opacity</dt><dd>Fades the bubbles so the background shows through.</dd>
+          <dt>Time: Fit / 2h / 1h / 30m / 15m / &#xFF0B; / &minus;</dt><dd>How much time the map shows. Fit = the whole day.</dd>
+          <dt>Strikes: 21 / 31 / 51 / &#xFF0B; / &minus;</dt><dd>How many strikes the map shows.</dd>
+          <dt>Back to live</dt><dd>Return to the latest minute, centred on price (or double-click the map).</dd>
+          <dt>Flow bars</dt><dd>Colours each minute of the price line by that minute&rsquo;s near-the-money flow: green = bullish, red = bearish, grey = mixed. <b>W / M arrows</b> mark a double bottom / double top that broke out <i>and</i> where the flow flipped the same way.</dd>
+          <dt>Side: Quote / Trade tag</dt><dd>How each trade is called a buy or a sell. <b>Quote</b> = the minute&rsquo;s last price compared with the bid and ask. <b>Trade tag</b> = each trade&rsquo;s own buy/sell tag. Quote can mislabel in very fast markets (the quote moves before the trade prints). Changes the bubbles, flow bars, sliders and volume ladders.</dd>
+          <dt>Seq</dt><dd>Sequence bubbles. <b>Small grey</b> = after a big move, calls sold then puts bought at a top (or the reverse at a bottom). <b>Big coloured &ldquo;Reversal&rdquo;</b> = the same at a key level, with dealers short gamma and the flow flipping. Each is scored 30 minutes later: &#10003; worked, &#10007; failed.</dd>
+          <dt>&#128277; / &#128276;</dt><dd>Beep and flash the tab when a new sequence bubble appears. Off by default.</dd>
+          <dt>AM levels</dt><dd>Draw the morning plan&rsquo;s levels on the map (key D).</dd>
+          <dt>Src: Report / Ours / Both</dt><dd>Which morning levels to draw: the morning report&rsquo;s, our own (built at 8:35 from the dealer book), or both. If the report is missing, ours step in on their own.</dd>
+          <dt>Map / Both / Strike</dt><dd>Layout: map only, map plus the strike panel, or the strike panel large.</dd>
+          <dt>Expand</dt><dd>Hide everything except the map.</dd>
+          <dt>Mouse</dt><dd>Drag a box to zoom in. Scroll = zoom time. Shift+scroll = zoom strikes. Shift+drag = move. Double-click = back to live.</dd>
+        </dl>
+        <h4>Dealer book now (right panel)</h4>
+        <dl>
+          <dt>Gamma / Day / 30m / &Delta;</dt><dd><b>Gamma</b> = dealer gamma by strike right now. <b>Day</b>, <b>30m</b> and <b>&Delta;</b> = the three volume ladders from the Volume page.</dd>
+          <dt>OI / Vol / OI + vol / OI + signed</dt><dd>What the dealer book is built from. <b>OI</b> = this morning&rsquo;s open contracts (the standard). <b>Vol</b> = only today&rsquo;s trades. <b>OI + vol</b> = both. <b>OI + signed</b> = OI plus today&rsquo;s trades with their buy/sell sides &mdash; <b>still being tested</b>. The same setting drives the Map page.</dd>
+        </dl>
+        <h4>Strike panel</h4>
+        <dl>
+          <dt>Strike menu / &uarr; &darr;</dt><dd>Pick a strike, or step through them with the arrow keys.</dd>
+          <dt>Call + put / Call / Put</dt><dd>Which side of that strike to chart.</dd>
+          <dt>Watch</dt><dd>Pin this contract to your watch list (key W).</dd>
+          <dt>Back to map</dt><dd>Hide the panel.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-strikes">Strikes</h3>
+        <p class="what">Four strikes side by side, each with its own price chart.</p>
+        <dl>
+          <dt>Around spot</dt><dd>Fill the four charts with strikes near the current price.</dd>
+          <dt>From watch list</dt><dd>Fill them from your watch list.</dd>
+          <dt>Call + put / Call / Put</dt><dd>Which side to chart.</dd>
+          <dt>Time buttons</dt><dd>Same as the Flow map.</dd>
+          <dt>Strike menu (each chart)</dt><dd>Change that chart&rsquo;s strike. The % = distance from price.</dd>
+          <dt>Open in Flow</dt><dd>Open that strike in the Flow page&rsquo;s strike panel.</dd>
+          <dt>Card under each chart</dt><dd>Option price, delta, contracts traded today, IV, and <b>IV offered/bid vs ATM</b>: negative = that strike&rsquo;s volatility is cheaper than at the money (being sold), positive = richer (being bought).</dd>
+        </dl>
+
+        <h3 class="pg" id="h-skew">Skew</h3>
+        <p class="what">How implied volatility is shaped across strikes, and how that shape has changed today. Rising put skew = traders paying up for downside protection.</p>
+        <dl>
+          <dt>Compare with</dt><dd>First log / 60m / 30m / 15m ago: what &ldquo;then&rdquo; means in the charts.</dd>
+          <dt>Smile by: Strike / Moneyness</dt><dd>Plot by strike price, or by distance from price in %.</dd>
+          <dt>Smile now vs then</dt><dd>IV at each strike now (solid) and then (dotted). Puts on the left, calls on the right.</dd>
+          <dt>Skew through the day</dt><dd>A one-line read (for example &ldquo;Fear: put skew bid into the drop&rdquo;), then ATM IV, <b>put skew</b> (25-delta put IV minus ATM), <b>call skew</b> (25-delta call IV minus ATM) and <b>normalized skew</b> (put minus call, divided by ATM). Numbers in brackets = change.</dd>
+          <dt>Term structure now</dt><dd>ATM IV for each expiry. The label = that expiry&rsquo;s straddle as a % of price.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-map">Map</h3>
+        <p class="what">Three heat maps of dealer hedging. Up and down = price. Left to right = time. <b>Left of the black dashed line</b> = how the book stood each minute. <b>Right of it</b> = today&rsquo;s book carried to the close as time passes.</p>
+        <dl>
+          <dt><b class="hb">Blue</b> / <b class="hr">red</b></dt><dd>Gamma map: blue = dealers long gamma (they calm moves), red = short gamma (they speed moves up). Brighter = stronger.</dd>
+          <dt><b class="hg">Green line</b></dt><dd>The peak: strongest positive value. On gamma, where price is most likely to stick.</dd>
+          <dt><b class="hy">Yellow line</b></dt><dd>The trough: strongest negative value. On gamma, where moves speed up most.</dd>
+          <dt>White dotted line</dt><dd>The zero line: where the colour switches sides. Treat it with care near the top and bottom edges of the map.</dd>
+          <dt>Solid white line</dt><dd>Price. Dashed before the open (SPX does not trade then, so it is estimated from SPY).</dd>
+          <dt>Red dashed horizontal</dt><dd>Current price.</dd>
+          <dt>Thin grey curves</dt><dd>The expected-move cone (&plusmn;1&sigma;).</dd>
+          <dt>0DTE / Week / All</dt><dd>Which options the map uses: today&rsquo;s, the next week&rsquo;s, or both (key E). <b>Check the read-out: often most of the gamma at price is in the Week book, so 0DTE alone can mislead.</b></dd>
+          <dt>OI / Vol / OI + vol / OI + signed</dt><dd>What the book is built from (see the Flow page). Same setting as Flow.</dd>
+          <dt>Ledger</dt><dd><b>Test view.</b> Starts today&rsquo;s book from a running count of customers&rsquo; buys minus sells from earlier days, then adds today&rsquo;s trades. The closest estimate of real dealer positions, but scored nightly before it is trusted.</dd>
+          <dt>De-trend</dt><dd>Removes each minute&rsquo;s background level so small structure shows. <b>Warning:</b> blue and red then mean &ldquo;above or below this minute&rsquo;s average&rdquo;, not long or short.</dd>
+          <dt>AM cone</dt><dd>Amber cone from the open, sized by this morning&rsquo;s 0DTE IV: &plusmn;1&sigma; dashed, &plusmn;2&sigma; dotted. Frozen for the day.</dd>
+          <dt>Live cone</dt><dd>Thin white cone that follows price and live IV.</dd>
+          <dt>Speed</dt><dd>Pink dotted lines where gamma changes fastest with price: the edges where a pin starts to let go. Test view.</dd>
+          <dt>Smile</dt><dd>Lets the volatility smile move with price when computing gamma and charm. Test view.</dd>
+          <dt>Var clock</dt><dd>Lets the projection spend time like the market does (busy open and close, quiet lunch). Test view.</dd>
+          <dt>Gap</dt><dd>Strip above the map comparing the opening gap with the overnight straddle, plus violet lines at prior close &plusmn; the overnight straddle. Says how much of the priced move the day has used.</dd>
+          <dt>Breakdown by strike</dt><dd>Middle panel: dealer position at each strike (puts left, calls right). The dot = start of the day, so dot-to-bar = what today changed. The text below reads the map in plain words.</dd>
+          <dt>Premium / AM</dt><dd>Draw the Premium page&rsquo;s lines, or the morning levels, on the maps.</dd>
+          <dt>Charm / Vanna / Change</dt><dd>Right panel. <b>Charm</b> = dealer buying or selling from time passing. <b>Vanna</b> = what dealers do if volatility rises one point. <b>Change</b> = where gamma was added (orange) or removed (cyan) in the last 30 minutes; needs the Vol or OI + vol basis.</dd>
+          <dt>0DTE / Week / All (right)</dt><dd>The right map has its own book choice, so you can read gamma on one book and vanna on another.</dd>
+          <dt>Zoom, &plusmn;25 / 50 / 100, 9:30 &rarr; / Last 2h &rarr;</dt><dd>Zoom all three maps to a price window around spot and a time window.</dd>
+          <dt>Classic / Gradient</dt><dd>Colour style. Gradient gives each size its own colour.</dd>
+          <dt>Day / Column</dt><dd>Colour scale. <b>Day</b> = one scale for the whole map (mornings can look dim). <b>Column</b> = each minute scaled on its own, so the shape shows all day.</dd>
+          <dt>Why vanna can look flat on All</dt><dd>On the All book a large constant from the Week book is removed from vanna and charm automatically. On 0DTE and Week they are left as they are.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-vol">Volume</h3>
+        <p class="what">Contracts traded at each strike. Pink = puts (left), blue = calls (right). Solid = bought, striped = sold. Dotted line = price now.</p>
+        <dl>
+          <dt>Tape read</dt><dd>A plain summary of the three ladders, refreshed live, plus one saved entry every 30 minutes.</dd>
+          <dt>Today</dt><dd>Everything traded today. <b>%B</b> = share bought; 40&ndash;60% is no signal. <b>Where the money went today.</b></dd>
+          <dt>Last 30 min</dt><dd>Only the last 30 minutes, with its own scale. <b>Where trading is happening now.</b></dd>
+          <dt>Last 30 vs prior 30</dt><dd>Bright bar = heating up, dark bar = cooling off. <b>+13K</b> = 13,000 more contracts than the 30 minutes before. <b>&times;9+</b> = 9 times as many (the strike just woke up). <b>&times;0.3</b> = 30% of before (dying). <b>Where the tape is heading.</b></dd>
+          <dt>Calls|Puts / Bull|Bear</dt><dd>Colour by option type, or by direction (green = bullish, red = bearish).</dd>
+          <dt>How to read</dt><dd>Show or hide the plain-English line under each ladder.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-prem">Premium</h3>
+        <p class="what">Where today&rsquo;s option dollars actually went (regular hours only). Key $ or R.</p>
+        <dl>
+          <dt>Premium read</dt><dd>Plain sentences: which side is carrying the tape, the put/call dollar ratio, and the overall lean.</dd>
+          <dt>Totals</dt><dd>Call $, put $, put/call ratio, total, and the lean.</dd>
+          <dt>Premium lines</dt><dd>The four strikes per side with the most dollars. <b>Solid</b> = mostly bought, <b>dashed</b> = mostly sold. &ldquo;From&rdquo; = when the line formed. &ldquo;Held all session&rdquo; or &ldquo;crossed&rdquo; = what price did. Click a row to open that strike. <b>These lines act like magnets, not walls</b>: a break is reported, but no next level is implied.</dd>
+          <dt>By the minute</dt><dd>Call dollars up, put dollars down, minute by minute. Dashed guide = the big-minute cut-off.</dd>
+          <dt>Big minutes</dt><dd>Minutes in the top 5% for their own side.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-exp">Exposure</h3>
+        <p class="what">Dealer exposure at each strike for today&rsquo;s expiry, about &plusmn;100 points around price.</p>
+        <dl>
+          <dt>Header</dt><dd>Call wall, put wall, net gamma (GEX) and net delta (DEX), and whether dealers are long or short gamma.</dd>
+          <dt>Total (call | put)</dt><dd>Each strike&rsquo;s put side (left) and call side (right) drawn separately: how big each side is.</dd>
+          <dt>Net</dt><dd>One bar per strike with calls and puts combined.</dd>
+          <dt>Delta exposure / Gamma exposure</dt><dd>The two ladders. PW / CW mark the walls, &ldquo;Spot&rdquo; marks price.</dd>
+          <dt>Note</dt><dd>Uses the standard assumption (customers own the puts and have sold the calls), not measured positions. The Week book is on the Map page, not here.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-den">Density</h3>
+        <p class="what">Where the close is likely to land, re-estimated every 5 minutes from price and today&rsquo;s straddle. A model, not a forecast. Key N.</p>
+        <dl>
+          <dt>Bright band</dt><dd>The range of likely closes from thousands of simulated paths: wider where dealers are short gamma, narrower where long. Left of the cursor = the 9:30 version for comparison.</dd>
+          <dt>Lines</dt><dd>Cyan = the Map&rsquo;s gamma zero. Green and lavender = the vanna top and bottom, as they stood each minute.</dd>
+          <dt>Read</dt><dd><b>Median</b> = the middle close. <b>P10&ndash;P90</b> = 8 in 10 paths close inside this range. <b>Most likely 5-pt zone</b> = the busiest 5-point bucket. &ldquo;09:30 cone said&rdquo; = this morning&rsquo;s version.</dd>
+          <dt>Centred on price</dt><dd>The cone gives width and odds, not direction. Read the lines for direction.</dd>
+          <dt>Engine ON / OFF</dt><dd>Switches the whole calculation on or off. Remembered.</dd>
+          <dt>Export log</dt><dd>Download today&rsquo;s cone log (one row per 5-minute run).</dd>
+          <dt>Charm strip and cone log</dt><dd>Charm at the price path (+ = dealers buy from time passing), and a table of every 5-minute run.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-vix">VIX</h3>
+        <p class="what">The volatility picture: fear level, curve shape, VIX options positioning. Key X. Nothing on this page feeds the map.</p>
+        <dl>
+          <dt>Top numbers</dt><dd>VIX (30-day expected volatility), VIX9D (9-day). <b>9D &divide; VIX above 1</b> = near-term stress is being paid for (backwardation). Front forward = where the nearest VIX expiry is priced. The colour count summarises the board.</dd>
+          <dt>&#9662; / &#9656;</dt><dd>Fold or open a section. Remembered.</dd>
+          <dt>Read</dt><dd>One verdict (<b>Calm, sellable</b> &middot; <b>Mixed</b> &middot; <b>Bullish-vol trap</b> &middot; <b>Risk-off</b>) and six lines: <b>Zone</b> (VIX under 22 calm, 22&ndash;32 fragile, over 32 stress), <b>Curve shape</b>, <b>Why VIX moved</b> (whole curve shifted = real repricing; sticky strike = mechanical), <b>Vol regime</b>, <b>VIX options</b> (calls bought or sold), and <b>For 0DTE trades</b>.</dd>
+          <dt>Expiries</dt><dd>Tap chips to pick which VIX expiries the cards and ladders use. Front 2 / Monthlies / All = quick picks.</dd>
+          <dt>Regime board</dt><dd>Eight rows coloured by their one-year percentile toward risk: green safest third, yellow middle, orange riskiest third, red top 10% (or any curve ratio above 1).</dd>
+          <dt>Term structure</dt><dd>VIX1D through VIX1Y today vs yesterday, a week and a month ago. Amber = each VIX expiry&rsquo;s forward.</dd>
+          <dt>Events</dt><dd>Fed, jobs, inflation and other dates through the next VIX monthly.</dd>
+          <dt>Implied variance</dt><dd>Whole-curve vol vs ATM vol for each expiry. The gap = the price of the wings (far strikes).</dd>
+          <dt>Positions by strike</dt><dd>Open interest plus today&rsquo;s contracts bought and sold at each VIX strike. <b>Strike</b> / <b>From forward</b> = line months up by strike or by distance from their own forward. Not dealer inventory.</dd>
+          <dt>Implied correlation, spot-vol beta, realized vs implied</dt><dd>Whether stocks are moving together, how much VIX moves per 1% SPX move, and whether options price more or less movement than SPX has delivered.</dd>
+          <dt>Note</dt><dd>Index data runs about 15 minutes late: fine for the regime, not for timing.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-plan">Plan</h3>
+        <p class="what">The morning plan, graded live against what SPX has done since.</p>
+        <dl>
+          <dt>Conversion: 5-min close / 1-min close / Touch</dt><dd>What counts as a level breaking. Default = a 5-minute close through it (a wick is noise).</dd>
+          <dt>Road map</dt><dd>The one thing to watch, the pivot, the working range, and the up and down paths.</dd>
+          <dt>IF / THEN lines</dt><dd>Each scenario with its live status: <b>ABOVE / BELOW</b> = which side price is on, <b>TOUCHED</b> = reached but not broken, <b>LIVE &#9650;/&#9660;</b> = broken, target not reached yet, <b>HIT &#10003;</b> = target reached (with how long it took).</dd>
+          <dt>SPX against AM levels</dt><dd>Price drawn over the morning levels. Colours: pivot, positive/sticky, trigger, expected-move rail, chart level.</dd>
+          <dt>Cross-check</dt><dd>The report&rsquo;s levels compared with our 0DTE live book and our 8:35 book. &#10003; = within 5 points.</dd>
+          <dt>Our morning book</dt><dd>Our own read at 8:35: regime, dealer gamma, weather (VIX), triggers to watch, and a chart of dealer gamma by price.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-eod">Vol EOD</h3>
+        <p class="what">An end-of-day volatility board, built each night after the close.</p>
+        <dl>
+          <dt>V1 &middot; VIX overshoot</dt><dd>Did VIX move more than the day&rsquo;s SPX move explains? A big positive gap = fear bid too hard; historically that tends to come back out. The table = the flag&rsquo;s own track record.</dd>
+          <dt>V2 &middot; VIX3M, VIX, realized</dt><dd>Curve slope (VIX3M minus VIX: positive = calm) and whether options price more movement than SPX has delivered (VIX minus 21-day realized).</dd>
+          <dt>V3 &middot; 0DTE straddle %</dt><dd>Today&rsquo;s opening 0DTE straddle as a % of price vs its 20-day average. Fed days dotted.</dd>
+          <dt>V4 &middot; Far-OTM put IV floor</dt><dd>SPY far-put volatility. At or under 13% = protection very cheap (complacency). 17% or more = warning.</dd>
+          <dt>V5 &middot; Color</dt><dd>What one day of time alone does to dealer gamma.</dd>
+          <dt>B1 &middot; Beta reset</dt><dd>Watches for low-volatility stocks breaking while high-beta stocks hold up against their own beta &mdash; the setup for a high-beta reset. Analyst estimate revisions decide whether it becomes a trend or just a bounce.</dd>
+          <dt>Upcoming events</dt><dd>Hand-kept list of market-moving dates.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-led">Ledger</h3>
+        <p class="what"><b>Test view.</b> A running count, contract by contract, of what customers have bought minus sold since each contract started trading (0&ndash;11 days to expiry). Dealers hold the other side.</p>
+        <dl>
+          <dt>pos_raw</dt><dd>Customers&rsquo; buys minus sells, added up day by day. Positive = customers net long that contract.</dd>
+          <dt>pos_oi</dt><dd>The same count corrected each morning with the official open-interest change.</dd>
+          <dt>Both / Calls / Puts</dt><dd>Which columns and which side to show.</dd>
+          <dt>Today net / Today vol</dt><dd>Today&rsquo;s bought-minus-sold, and today&rsquo;s volume.</dd>
+          <dt>Cov</dt><dd>How many days of data stand behind the number. More = more trustworthy.</dd>
+          <dt>Gate / Label</dt><dd>How one-sided the 100-point neighbourhood is (net &divide; total). Above 0.15 = <b>directional</b>; below = <b>balanced</b> (likely spreads, which cancel out).</dd>
+        </dl>
+
+        <h3 class="pg" id="h-str">Straddle</h3>
+        <p class="what">How far price has travelled inside the move options priced. Off by default; press <b>ON</b>.</p>
+        <dl>
+          <dt>Daily / Weekly / Monthly</dt><dd>Each panel starts at the beginning of its own period (today&rsquo;s open, the week&rsquo;s first session, the first session after the last monthly expiry) and draws price inside that period&rsquo;s straddle band.</dd>
+          <dt>Bands</dt><dd>Shaded = &plusmn;1&times; the straddle. Dashed orange = &plusmn;1.5&times;.</dd>
+          <dt>Used %</dt><dd>How much of the priced move price has used.</dd>
+          <dt>Dots</dt><dd>Orange / red = first break of 1&times; / 1.5&times;.</dd>
+          <dt>Green bracket</dt><dd>What options price from now to expiry.</dd>
+          <dt>Symbol</dt><dd>Follows the SPX / SPY / QQQ buttons at the top.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-con">Constellation</h3>
+        <p class="what">Where today&rsquo;s option money went, contract by contract. Off by default; press <b>ON</b>.</p>
+        <dl>
+          <dt>How to read it</dt><dd>Columns = expiries (M = monthly). Inside a column: left = bearish, right = bullish. Height = strike. Bubble size = money traded. Solid outline = call, dashed pink = put. Faded = deep in the money (often financing or spread legs, not bets). Column header = net delta lean and total money.</dd>
+          <dt>SPX / SPY / QQQ / VIX</dt><dd>Which symbol.</dd>
+          <dt>Near / Weeklies / Monthlies / All</dt><dd>Which expiries. Near = weeklies inside 10 days plus the next monthly. Click an expiry bar to show only it.</dd>
+          <dt>Date list</dt><dd>Open a past session. Latest = today, live.</dd>
+          <dt>Play / slider / Latest</dt><dd>Replay the day in 5-minute steps, or jump back to now.</dd>
+          <dt>Read</dt><dd>Plain summary: bullish vs bearish dollars, the biggest trades, and what today&rsquo;s trades did to dealer gamma.</dd>
+          <dt>Click a bubble</dt><dd>Shows its detail and links it to neighbouring strikes and the same strike in the next expiry.</dd>
+          <dt>Lines below</dt><dd>Running dealer gamma and vanna added by today&rsquo;s trades, and running bullish / bearish / net money (all, weeklies, monthlies).</dd>
+        </dl>
+
+        <h3 class="pg" id="h-trust">What to trust, and when</h3>
         <ol class="caveats">
-          <li><b>A wall sitting on the edge of the ladder is not a wall.</b> The 0DTE chain only covers about &plusmn;100 points around spot. If the put wall or call wall lands on the very first or last row, that is where your data stops, not where the wall is. A wall with rows either side of it is real.</li>
-          <li><b>Gamma above the week book&rsquo;s top strike can show the wrong sign.</b> The 1&ndash;7 DTE book is built once in the morning across a fixed strike range and does not follow price. On a trending day price can run up near the top of it, and above the last strike there is nothing left but a fading tail. On 26 Oct that tail read dealers as short gamma above spot when the full book had them clearly long. Check how far the week book reaches before trusting gamma near the top.</li>
-          <li><b>For gamma, the 08:35 OI is the safer week source.</b> Open interest settles overnight and does not move during the day, so the morning snapshot costs little &mdash; and it covers far more strikes.</li>
-          <li><b>Vanna hides disagreements that gamma shows.</b> The vanna map has its background level removed so structure stands out. That also means two very different week books can look almost the same on vanna while the numbers underneath differ by a third. Gamma is not treated that way, so it shows the disagreement honestly.</li>
-          <li><b>Basis is set on the Flow tab and governs the maps.</b> OI, today&rsquo;s volume, or both. It is also shown and switchable in the Gamma pane header. If two browser tabs disagree, one of them loaded before you last changed it &mdash; refresh.</li>
-          <li><b>Premium and Flow count regular hours only.</b> Pre-open trading and anything after the 16:15 close are left out, so the lean reflects the session rather than the roll.</li>
-          <li><b>The change view cannot work on the OI basis.</b> Open interest is a once-a-day figure &mdash; it settles overnight and the same number is used for every minute of the session. Differencing it would show gamma drifting from price, volatility and time decay, not positioning being built. On the Vol and OI + vol bases today&rsquo;s volume is in the book and the difference is real, so those are the only two it will draw.</li>
-          <li><b>A quiet minute is not always a quiet minute.</b> If the workbook ever falls behind, a strike&rsquo;s volume can arrive late and land in the wrong minute. Large isolated spikes after a flat stretch are worth a second look.</li>
+          <li><b>Delta beats premium for direction.</b> On a falling day, puts sold to close (people cashing in protection) count as &ldquo;bullish&rdquo; dollars and can tilt the Premium slider. The Delta slider weights each trade by its market exposure, so it is less affected. If both read balanced on a big move, the options tape was two-sided and the move is coming from elsewhere.</li>
+          <li><b>Side: Quote can mislabel in fast markets.</b> When option prices jump within a minute, the last trade can sit outside the new quote and get the wrong side. Compare with Trade tag on wild days.</li>
+          <li><b>A wall on the edge of the ladder is not a wall.</b> The 0DTE chain covers about &plusmn;100 points. A wall on the very first or last row is where the data stops. A wall with rows on both sides is real.</li>
+          <li><b>0DTE alone can be a small part of the picture.</b> Check the Map read-out: when most gamma at price sits in the Week book, read the All book.</li>
+          <li><b>Gamma above the Week book&rsquo;s top strike can show the wrong sign.</b> The Week book is built once in the morning over a fixed range. On a big trend day price can run past it.</li>
+          <li><b>Vanna can hide disagreements that gamma shows.</b> Vanna has its background removed, so two different books can look alike on vanna. Gamma shows the difference.</li>
+          <li><b>Test views are not trusted yet.</b> OI + signed, Ledger, Speed, Smile and Var clock are scored every night against the standard view before they are relied on.</li>
+          <li><b>Basis is shared.</b> The OI / Vol setting on Flow and Map is the same switch. If two browser tabs disagree, refresh the older one.</li>
+          <li><b>Regular hours only.</b> Premium and Flow leave out pre-open trading and anything after the close.</li>
+          <li><b>The Change view cannot work on OI.</b> OI is one number for the whole day, so it needs the Vol or OI + vol basis.</li>
+          <li><b>A sudden lone spike after a flat stretch</b> can be late-arriving volume landing in the wrong minute. Worth a second look.</li>
         </ol>
 
-        <h3>Keys</h3>
+        <h3 class="pg" id="h-keys">Keys</h3>
         <div class="keys">
-          <span><kbd>C</kbd><kbd>P</kbd><kbd>B</kbd> calls / puts / both</span>
-          <span><kbd>M</kbd> focus the map</span>
-          <span><kbd>S</kbd> focus the strike panel</span>
+          <span><kbd>C</kbd><kbd>P</kbd><kbd>B</kbd> calls / puts / both in the strike panel</span>
+          <span><kbd>M</kbd> map only</span>
+          <span><kbd>S</kbd> strike panel large</span>
           <span><kbd>Esc</kbd> back to the map</span>
-          <span><kbd>D</kbd> AM levels on or off</span>
+          <span><kbd>D</kbd> morning levels on or off</span>
           <span><kbd>W</kbd> add to watch</span>
-          <span><kbd>V</kbd> Volume tab</span>
-          <span><kbd>$</kbd> or <kbd>R</kbd> Premium tab</span>
+          <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move the selected strike</span>
+          <span><kbd>V</kbd> Volume</span>
+          <span><kbd>$</kbd> or <kbd>R</kbd> Premium</span>
+          <span><kbd>N</kbd> Density</span>
+          <span><kbd>X</kbd> VIX</span>
           <span><kbd>H</kbd> this page</span>
-          <span><kbd>E</kbd> cycle the book, on the Map tab</span>
+          <span><kbd>E</kbd> cycle the book on the Map page</span>
           <span><kbd>F</kbd> reset the view</span>
           <span><kbd>+</kbd><kbd>&minus;</kbd> zoom time</span>
           <span><kbd>[</kbd><kbd>]</kbd> zoom strikes</span>
-          <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move the selected strike</span>
         </div>
 
       </div></section>
@@ -992,7 +1230,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   </main>
 </div>
 
-<script type="application/json" id="demoTI">{"asof":"2026-10-21T08:40:00","today":"2026-10-21","doc":{"title":"SPX MARKET REPORT: WEDNESDAY 10/21  —  The 7,750 Ceiling Held Again. Now Meta and Tesla Get Their Turn.","levels":{"SPX":[{"v":7640,"label":"major neg trigger","role":"trig"},{"v":7650,"label":"positive gamma catch","role":"pos"},{"v":7670,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":7690,"label":"STR bot gate","role":"trig"},{"v":7705,"label":"50 DMA","role":"chart"},{"v":7725,"label":"control","role":"piv"},{"v":7740,"label":"20 DMA","role":"chart"},{"v":7750,"label":"ceiling Tue high","role":"pos"},{"v":7765,"label":"positive gamma stall","role":"pos"},{"v":7775,"label":"negative gamma call trigger","role":"trig"},{"v":7805,"label":"upper brake","role":"pos"}],"ES":[{"v":7685,"label":"major neg trigger","role":"trig"},{"v":7695,"label":"positive gamma catch","role":"pos"},{"v":7715,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":7735,"label":"STR bot gate","role":"trig"},{"v":7750,"label":"50 DMA","role":"chart"},{"v":7770,"label":"control","role":"piv"},{"v":7785,"label":"20 DMA","role":"chart"},{"v":7795,"label":"ceiling Tue high","role":"pos"},{"v":7810,"label":"positive gamma stall","role":"pos"},{"v":7820,"label":"negative gamma call trigger","role":"trig"},{"v":7850,"label":"upper brake","role":"pos"}],"SPY":[{"v":761,"label":"major neg trigger","role":"trig"},{"v":762,"label":"positive gamma catch","role":"pos"},{"v":764,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":766,"label":"STR bot gate","role":"trig"},{"v":768,"label":"50 DMA","role":"chart"},{"v":770,"label":"control","role":"piv"},{"v":771,"label":"20 DMA","role":"chart"},{"v":772,"label":"ceiling Tue high","role":"pos"},{"v":774,"label":"positive gamma stall","role":"pos"},{"v":775,"label":"negative gamma call trigger","role":"trig"},{"v":778,"label":"upper brake","role":"pos"}]},"scalper":{"SPX":[{"v":7640,"label":"trigger","action":"lose"},{"v":7650,"label":"catch","action":"hold"},{"v":7690,"label":"gate","action":"lose"},{"v":7725,"label":"pivot","action":"hold"},{"v":7740,"label":"MA","action":"clear"},{"v":7750,"label":"ceiling","action":"reject"},{"v":7765,"label":"stall","action":"fade"},{"v":7775,"label":"trigger","action":"clear"}],"ES":[{"v":7685,"label":"trigger","action":"lose"},{"v":7695,"label":"catch","action":"hold"},{"v":7735,"label":"gate","action":"lose"},{"v":7770,"label":"pivot","action":"hold"},{"v":7785,"label":"MA","action":"clear"},{"v":7795,"label":"ceiling","action":"reject"},{"v":7810,"label":"stall","action":"fade"},{"v":7820,"label":"trigger","action":"clear"}],"SPY":[{"v":761,"label":"trigger","action":"lose"},{"v":762,"label":"catch","action":"hold"},{"v":766,"label":"gate","action":"lose"},{"v":770,"label":"pivot","action":"hold"},{"v":771,"label":"MA","action":"clear"},{"v":772,"label":"ceiling","action":"reject"},{"v":774,"label":"stall","action":"fade"},{"v":775,"label":"trigger","action":"clear"}]},"weekly":{"SPX":[{"v":7510,"label":"Wkly EM bot"},{"v":7810,"label":"Wkly EM top"}]},"premium":{"SPX":[{"v":7620,"label":"IC PS wish"},{"v":7640,"label":"IC PS cons"},{"v":7660,"label":"IC PS agg"},{"v":7790,"label":"IC CS agg"},{"v":7805,"label":"IC CS wish"}]},"rails":[{"name":"STR","lo":7690,"hi":7760},{"name":"1σ","lo":7680,"hi":7770},{"name":"STR 1.5","lo":7670,"hi":7780},{"name":"OVN EM","lo":7695,"hi":7795},{"name":"Weekly EM","lo":7510,"hi":7810},{"name":"½σ","lo":7700,"hi":7750}],"pivot":7725,"chop":null,"working":[7690,7765],"em":[7690,7760],"scenarios":[{"kind":"lean","dir":"up","level":7725,"targets":[[7750,7750],[7765,7770]],"rule":null,"cond":"Holding above 7,725","then":"the 7,750 ceiling and the 7,765–7,770 stall.","text":"Holding above 7,725 leans toward the 7,750 ceiling and the 7,765–7,770 stall.","sect":null,"id":"s1"},{"kind":"lean","dir":"down","level":7725,"targets":[[7690,7690]],"rule":null,"cond":"Losing 7,725","then":"7,690.","text":"Losing 7,725 leans toward 7,690.","sect":null,"id":"s2"},{"kind":"cross","dir":"up","level":7750,"targets":[[7765,7770]],"rule":null,"cond":"7,750 converts","then":"7,765–7,770, where price tends to stall.","text":"IF 7,750 converts, THEN 7,765–7,770, where price tends to stall.","sect":"up","id":"s3"},{"kind":"cross","dir":"up","level":7775,"targets":[[7800,7805]],"rule":null,"cond":"7,775 converts","then":"faster travel toward 7,800–7,805, with the call hedging adding fuel.","text":"IF 7,775 converts, THEN faster travel toward 7,800–7,805, with the call hedging adding fuel.","sect":"up","id":"s4"},{"kind":"fail","dir":"down","level":7750,"targets":[[7725,7725]],"rule":null,"cond":"A failure back under 7,750","then":"the 7,725 pivot.","text":"A failure back under 7,750 sends price toward the 7,725 pivot.","sect":"up","id":"s5"},{"kind":"cross","dir":"down","level":7690,"targets":[[7660,7675]],"rule":null,"cond":"7,690 is lost","then":"7,660–7,675, Tuesday's low.","text":"IF 7,690 is lost, THEN 7,660–7,675, Tuesday's low.","sect":"down","id":"s6"},{"kind":"cross","dir":"down","level":7660,"targets":[[7650,7650]],"rule":null,"cond":"7,660 is lost","then":"7,650, the main catch.","text":"IF 7,660 is lost, THEN 7,650, the main catch.","sect":"down","id":"s7"},{"kind":"cross","dir":"down","level":7640,"targets":[[7620,7620]],"rule":null,"cond":"7,640 is lost","then":"moves can run toward 7,620.","text":"IF 7,640 is lost, THEN moves can run toward 7,620.","sect":"down","id":"s8"},{"kind":"reclaim","dir":"up","level":7690,"targets":[[7725,7725]],"rule":null,"cond":"A reclaim of 7,690","then":"the pivot.","text":"A reclaim of 7,690 sends price back toward the pivot.","sect":"down","id":"s9"},{"kind":"reclaim","dir":"up","level":7650,"targets":[[7670,7670]],"rule":null,"cond":"A reclaim of 7,650","then":"7,670.","text":"A reclaim of 7,650 sends it back toward 7,670.","sect":"down","id":"s10"}],"context":["Futures sit near 7,735, just above the pivot and at the 20-day, inside the morning's expected-move framework.","With little positioning between the major clusters, local trading sets the direction until price reaches a stronger level.","The question: can SPX hold 7,725 and work through the 20-day toward 7,765–7,775, or does a failure send it back toward 7,690?"],"up_path":[[7750,7750],[7770,7770],[7775,7775],[7805,7805]],"down_path":[[7690,7690],[7670,7670],[7650,7650]],"one_thing":"Hold 7,725 and work through the 20-day toward 7,765–7,775, or fail and slide back toward 7,690. Through 7,775, the call block adds fuel.","conv_rule":"5m","warnings":[],"md":[10,21],"date":"2026-10-21","source":"gmail","received":"2026-10-21T08:03"},"ti":{"market_read":{"regime":{"state":"bull-intact","bull_bear_line":7060.07,"breadth_health":"breadth building","clock_session":141,"clock_open":true},"mechanics":{"state":"short-gamma (amplify)","amplifying":true,"gex_flip":7735.96,"dist_to_flip":-0.00116,"spot":7727.03,"dex_lean":"net short delta","expected_move":{"pct":0.00626,"dollar":48.33,"lower":7678.7,"upper":7775.36,"atm_iv":0.1497,"atm_strike":7725,"dte":1}},"weather":{"state":"calm-contango","vix":18.44,"vvix":97.15,"term_9d_3m":-2.72,"vvix_elevated":false},"path":"twitchy / amplified — respect momentum, thin liquidity","triggers":[{"source":"ours","trigger":"close below the gamma flip 7736","consequence":"flips to short gamma → moves amplify","direction":"bearish"},{"source":"ours","trigger":"VIX term flips to backwardation (9d > 3m)","consequence":"weather turns to stress","direction":"bearish"},{"source":"ours · Norseman method","trigger":"weekly close below the Bull/Bear Line 7060","consequence":"Norseman bear-prepare (a 10% close = a test)","direction":"bearish"}],"confluence":{"score":"mixed","aligned":false,"tension":"regime still bullish but dealer gamma is amplifying — respect both sides"},"narrative":"short-gamma (amplify) → twitchy / amplified — respect momentum, thin liquidity. Regime bull-intact, breadth building, NMT clock S141 (open); weather calm-contango.","as_of":"2026-10-21T09:45:00+00:00"},"profile":{"as_of":"2026-10-21","spot":7727.03,"grid":[7649.76,7653.62,7657.49,7661.35,7665.21,7669.08,7672.94,7676.8,7680.67,7684.53,7688.39,7692.26,7696.12,7699.99,7703.85,7707.71,7711.58,7715.44,7719.3,7723.17,7727.03,7730.89,7734.76,7738.62,7742.48,7746.35,7750.21,7754.07,7757.94,7761.8,7765.67,7769.53,7773.39,7777.26,7781.12,7784.98,7788.85,7792.71,7796.57,7800.44,7804.3],"all":[-52.6797,-50.7035,-48.7274,-46.7512,-44.7751,-42.7989,-40.529,-38.2591,-35.9892,-33.7193,-31.4493,-28.8586,-26.2678,-23.677,-21.0863,-18.4955,-15.596,-12.6965,-9.797,-6.8975,-3.998,-0.8598,2.2784,5.4165,8.5547,11.6929,14.9522,18.2115,21.4709,24.7302,27.9895,31.2381,34.4867,37.7353,40.984,44.2326,47.354,50.4754,53.5968,56.7182,59.8396],"near":{"2026-10-22":[-5.6351,-5.5055,-5.376,-5.2464,-5.1169,-4.9873,-4.7721,-4.5568,-4.3415,-4.1262,-3.9109,-3.5831,-3.2553,-2.9275,-2.5996,-2.2718,-1.8322,-1.3927,-0.9531,-0.5135,-0.074,0.4348,0.9436,1.4524,1.9612,2.47,2.9768,3.4835,3.9903,4.497,5.0038,5.4416,5.8794,6.3172,6.755,7.1928,7.5255,7.8583,8.1911,8.5239,8.8567],"2026-10-23":[-13.6894,-13.3318,-12.9741,-12.6165,-12.2588,-11.9012,-11.4521,-11.003,-10.5539,-10.1048,-9.6556,-9.112,-8.5683,-8.0246,-7.4809,-6.9373,-6.3028,-5.6683,-5.0339,-4.3994,-3.765,-3.0531,-2.3412,-1.6293,-0.9174,-0.2055,0.559,1.3236,2.0881,2.8526,3.6172,4.3978,5.1785,5.9591,6.7398,7.5204,8.2706,9.0209,9.7711,10.5213,11.2716]},"flip":7731.95,"found":true},"walls":{"as_of":"2026-10-21","spot":7727.03,"call_wall":7800,"put_wall":7700,"call_top_strikes":[{"strike":7800,"oi":3823},{"strike":7750,"oi":2746}],"put_top_strikes":[{"strike":7700,"oi":2361},{"strike":7725,"oi":2111}],"found":true}},"errors":[]}</script>
+<script type="application/json" id="demoTI">{"asof":"2026-10-21T08:40:00","today":"2026-10-21","doc":{"title":"SPX morning report 10/21","levels":{"SPX":[{"v":7640,"label":"major neg trigger","role":"trig"},{"v":7650,"label":"positive gamma catch","role":"pos"},{"v":7670,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":7690,"label":"STR bot gate","role":"trig"},{"v":7705,"label":"50 DMA","role":"chart"},{"v":7725,"label":"control","role":"piv"},{"v":7740,"label":"20 DMA","role":"chart"},{"v":7750,"label":"ceiling Tue high","role":"pos"},{"v":7765,"label":"positive gamma stall","role":"pos"},{"v":7775,"label":"negative gamma call trigger","role":"trig"},{"v":7805,"label":"upper brake","role":"pos"}],"ES":[{"v":7685,"label":"major neg trigger","role":"trig"},{"v":7695,"label":"positive gamma catch","role":"pos"},{"v":7715,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":7735,"label":"STR bot gate","role":"trig"},{"v":7750,"label":"50 DMA","role":"chart"},{"v":7770,"label":"control","role":"piv"},{"v":7785,"label":"20 DMA","role":"chart"},{"v":7795,"label":"ceiling Tue high","role":"pos"},{"v":7810,"label":"positive gamma stall","role":"pos"},{"v":7820,"label":"negative gamma call trigger","role":"trig"},{"v":7850,"label":"upper brake","role":"pos"}],"SPY":[{"v":761,"label":"major neg trigger","role":"trig"},{"v":762,"label":"positive gamma catch","role":"pos"},{"v":764,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":766,"label":"STR bot gate","role":"trig"},{"v":768,"label":"50 DMA","role":"chart"},{"v":770,"label":"control","role":"piv"},{"v":771,"label":"20 DMA","role":"chart"},{"v":772,"label":"ceiling Tue high","role":"pos"},{"v":774,"label":"positive gamma stall","role":"pos"},{"v":775,"label":"negative gamma call trigger","role":"trig"},{"v":778,"label":"upper brake","role":"pos"}]},"scalper":{"SPX":[{"v":7640,"label":"trigger","action":"lose"},{"v":7650,"label":"catch","action":"hold"},{"v":7690,"label":"gate","action":"lose"},{"v":7725,"label":"pivot","action":"hold"},{"v":7740,"label":"MA","action":"clear"},{"v":7750,"label":"ceiling","action":"reject"},{"v":7765,"label":"stall","action":"fade"},{"v":7775,"label":"trigger","action":"clear"}],"ES":[{"v":7685,"label":"trigger","action":"lose"},{"v":7695,"label":"catch","action":"hold"},{"v":7735,"label":"gate","action":"lose"},{"v":7770,"label":"pivot","action":"hold"},{"v":7785,"label":"MA","action":"clear"},{"v":7795,"label":"ceiling","action":"reject"},{"v":7810,"label":"stall","action":"fade"},{"v":7820,"label":"trigger","action":"clear"}],"SPY":[{"v":761,"label":"trigger","action":"lose"},{"v":762,"label":"catch","action":"hold"},{"v":766,"label":"gate","action":"lose"},{"v":770,"label":"pivot","action":"hold"},{"v":771,"label":"MA","action":"clear"},{"v":772,"label":"ceiling","action":"reject"},{"v":774,"label":"stall","action":"fade"},{"v":775,"label":"trigger","action":"clear"}]},"weekly":{"SPX":[{"v":7510,"label":"Wkly EM bot"},{"v":7810,"label":"Wkly EM top"}]},"premium":{"SPX":[{"v":7620,"label":"IC PS wish"},{"v":7640,"label":"IC PS cons"},{"v":7660,"label":"IC PS agg"},{"v":7790,"label":"IC CS agg"},{"v":7805,"label":"IC CS wish"}]},"rails":[{"name":"STR","lo":7690,"hi":7760},{"name":"1σ","lo":7680,"hi":7770},{"name":"STR 1.5","lo":7670,"hi":7780},{"name":"OVN EM","lo":7695,"hi":7795},{"name":"Weekly EM","lo":7510,"hi":7810},{"name":"½σ","lo":7700,"hi":7750}],"pivot":7725,"chop":null,"working":[7690,7765],"em":[7690,7760],"scenarios":[{"kind":"lean","dir":"up","level":7725,"targets":[[7750,7750],[7765,7770]],"rule":null,"cond":"Holding above 7,725","then":"the 7,750 ceiling and the 7,765–7,770 stall.","text":"Holding above 7,725 leans toward the 7,750 ceiling and the 7,765–7,770 stall.","sect":null,"id":"s1"},{"kind":"lean","dir":"down","level":7725,"targets":[[7690,7690]],"rule":null,"cond":"Losing 7,725","then":"7,690.","text":"Losing 7,725 leans toward 7,690.","sect":null,"id":"s2"},{"kind":"cross","dir":"up","level":7750,"targets":[[7765,7770]],"rule":null,"cond":"7,750 converts","then":"7,765–7,770, where price tends to stall.","text":"IF 7,750 converts, THEN 7,765–7,770, where price tends to stall.","sect":"up","id":"s3"},{"kind":"cross","dir":"up","level":7775,"targets":[[7800,7805]],"rule":null,"cond":"7,775 converts","then":"faster travel toward 7,800–7,805, with the call hedging adding fuel.","text":"IF 7,775 converts, THEN faster travel toward 7,800–7,805, with the call hedging adding fuel.","sect":"up","id":"s4"},{"kind":"fail","dir":"down","level":7750,"targets":[[7725,7725]],"rule":null,"cond":"A failure back under 7,750","then":"the 7,725 pivot.","text":"A failure back under 7,750 sends price toward the 7,725 pivot.","sect":"up","id":"s5"},{"kind":"cross","dir":"down","level":7690,"targets":[[7660,7675]],"rule":null,"cond":"7,690 is lost","then":"7,660–7,675, Tuesday's low.","text":"IF 7,690 is lost, THEN 7,660–7,675, Tuesday's low.","sect":"down","id":"s6"},{"kind":"cross","dir":"down","level":7660,"targets":[[7650,7650]],"rule":null,"cond":"7,660 is lost","then":"7,650, the main catch.","text":"IF 7,660 is lost, THEN 7,650, the main catch.","sect":"down","id":"s7"},{"kind":"cross","dir":"down","level":7640,"targets":[[7620,7620]],"rule":null,"cond":"7,640 is lost","then":"moves can run toward 7,620.","text":"IF 7,640 is lost, THEN moves can run toward 7,620.","sect":"down","id":"s8"},{"kind":"reclaim","dir":"up","level":7690,"targets":[[7725,7725]],"rule":null,"cond":"A reclaim of 7,690","then":"the pivot.","text":"A reclaim of 7,690 sends price back toward the pivot.","sect":"down","id":"s9"},{"kind":"reclaim","dir":"up","level":7650,"targets":[[7670,7670]],"rule":null,"cond":"A reclaim of 7,650","then":"7,670.","text":"A reclaim of 7,650 sends it back toward 7,670.","sect":"down","id":"s10"}],"context":["Futures sit near 7,735, just above the pivot and at the 20-day, inside the morning's expected-move framework.","With little positioning between the major clusters, local trading sets the direction until price reaches a stronger level.","The question: can SPX hold 7,725 and work through the 20-day toward 7,765–7,775, or does a failure send it back toward 7,690?"],"up_path":[[7750,7750],[7770,7770],[7775,7775],[7805,7805]],"down_path":[[7690,7690],[7670,7670],[7650,7650]],"one_thing":"Hold 7,725 and work through the 20-day toward 7,765–7,775, or fail and slide back toward 7,690. Through 7,775, the call block adds fuel.","conv_rule":"5m","warnings":[],"md":[10,21],"date":"2026-10-21","source":"email","received":"2026-10-21T08:03"},"ti":{"market_read":{"regime":{"state":"bull-intact","bull_bear_line":7060.07,"breadth_health":"breadth building","clock_session":141,"clock_open":true},"mechanics":{"state":"short-gamma (amplify)","amplifying":true,"gex_flip":7735.96,"dist_to_flip":-0.00116,"spot":7727.03,"dex_lean":"net short delta","expected_move":{"pct":0.00626,"dollar":48.33,"lower":7678.7,"upper":7775.36,"atm_iv":0.1497,"atm_strike":7725,"dte":1}},"weather":{"state":"calm-contango","vix":18.44,"vvix":97.15,"term_9d_3m":-2.72,"vvix_elevated":false},"path":"twitchy / amplified — respect momentum, thin liquidity","triggers":[{"source":"ours","trigger":"close below the gamma flip 7736","consequence":"flips to short gamma → moves amplify","direction":"bearish"},{"source":"ours","trigger":"VIX term flips to backwardation (9d > 3m)","consequence":"weather turns to stress","direction":"bearish"},{"source":"ours · trend model","trigger":"weekly close below the Bull/Bear Line 7060","consequence":"trend model bear-prepare (a 10% close = a test)","direction":"bearish"}],"confluence":{"score":"mixed","aligned":false,"tension":"regime still bullish but dealer gamma is amplifying — respect both sides"},"narrative":"short-gamma (amplify) → twitchy / amplified — respect momentum, thin liquidity. Regime bull-intact, breadth building, NMT clock S141 (open); weather calm-contango.","as_of":"2026-10-21T09:45:00+00:00"},"profile":{"as_of":"2026-10-21","spot":7727.03,"grid":[7649.76,7653.62,7657.49,7661.35,7665.21,7669.08,7672.94,7676.8,7680.67,7684.53,7688.39,7692.26,7696.12,7699.99,7703.85,7707.71,7711.58,7715.44,7719.3,7723.17,7727.03,7730.89,7734.76,7738.62,7742.48,7746.35,7750.21,7754.07,7757.94,7761.8,7765.67,7769.53,7773.39,7777.26,7781.12,7784.98,7788.85,7792.71,7796.57,7800.44,7804.3],"all":[-52.6797,-50.7035,-48.7274,-46.7512,-44.7751,-42.7989,-40.529,-38.2591,-35.9892,-33.7193,-31.4493,-28.8586,-26.2678,-23.677,-21.0863,-18.4955,-15.596,-12.6965,-9.797,-6.8975,-3.998,-0.8598,2.2784,5.4165,8.5547,11.6929,14.9522,18.2115,21.4709,24.7302,27.9895,31.2381,34.4867,37.7353,40.984,44.2326,47.354,50.4754,53.5968,56.7182,59.8396],"near":{"2026-10-22":[-5.6351,-5.5055,-5.376,-5.2464,-5.1169,-4.9873,-4.7721,-4.5568,-4.3415,-4.1262,-3.9109,-3.5831,-3.2553,-2.9275,-2.5996,-2.2718,-1.8322,-1.3927,-0.9531,-0.5135,-0.074,0.4348,0.9436,1.4524,1.9612,2.47,2.9768,3.4835,3.9903,4.497,5.0038,5.4416,5.8794,6.3172,6.755,7.1928,7.5255,7.8583,8.1911,8.5239,8.8567],"2026-10-23":[-13.6894,-13.3318,-12.9741,-12.6165,-12.2588,-11.9012,-11.4521,-11.003,-10.5539,-10.1048,-9.6556,-9.112,-8.5683,-8.0246,-7.4809,-6.9373,-6.3028,-5.6683,-5.0339,-4.3994,-3.765,-3.0531,-2.3412,-1.6293,-0.9174,-0.2055,0.559,1.3236,2.0881,2.8526,3.6172,4.3978,5.1785,5.9591,6.7398,7.5204,8.2706,9.0209,9.7711,10.5213,11.2716]},"flip":7731.95,"found":true},"walls":{"as_of":"2026-10-21","spot":7727.03,"call_wall":7800,"put_wall":7700,"call_top_strikes":[{"strike":7800,"oi":3823},{"strike":7750,"oi":2746}],"put_top_strikes":[{"strike":7700,"oi":2361},{"strike":7725,"oi":2111}],"found":true}},"errors":[]}</script>
 <script>
 (()=>{
 "use strict";
@@ -1142,12 +1380,13 @@ async function pollTI(){
     st.ti=JSON.parse(await r.text()); st.tiAt=Date.now(); render(); }
   catch(e){ if(!st.ti) setTimeout(pollTI,2000); }   // feed not running: the cockpit works without it; a half-written file on the first read → retry in 2 s
 }
+const pubTxt = t => String(t==null?"":t).replace(/Norseman(\s+method)?/gi,"trend model").replace(/\b(gmail|convex|cvforge|livelog|vendor)\b/gi,"feed").replace(/\bNAS\b/g,"server");
 const realDoc = () => st.ti&&st.ti.doc || null, ownDoc = () => st.ti&&st.ti.own || null;
 const isToday = d => !!(d&&d.date&&d.date===liveClock().date);
 // AM levels source (2026-11-05): Doc by default; if Doc's report is not in for today, OUR levels (am_feed build_own) step in automatically
 const docObj = () => { const r=realDoc(), o=ownDoc(); if(st.amSrc==="ours") return o||r; if(isToday(r)) return r; return isToday(o)?o:r; };
 const amFallback = () => { const d=docObj(); return !!(d&&d.source==="ours"&&st.amSrc!=="ours"); };
-const srcName = () => { const d=docObj(); return d&&d.source==="ours"?"Ours":"Doc"; };
+const srcName = () => { const d=docObj(); return d&&d.source==="ours"?"Ours":"Report"; };
 const OWN_COL = "#c77dff";
 function amLevels(sym){ const d=docObj(), mine=!!(d&&d.source==="ours");
   const L=docLevels(sym).map(x=>Object.assign({},x,{own:mine}));
@@ -1276,7 +1515,7 @@ function docMapLabels(ctx,list,x,yMin,yMax,alignRight){
 /* ---- Flow reads: Doc block */
 function renderDocRead(){
   const el=document.getElementById("rbDoc"); const d=docObj();
-  if(!d){ el.innerHTML=`<h3>Morning road map</h3><div class="note">${DEMO?"":"No plan loaded. am_feed.py reads the morning report; start_dashboard.bat starts the feed."}</div>`; return; }
+  if(!d){ el.innerHTML=`<h3>Morning road map</h3><div class="note">${DEMO?"":"No morning plan loaded yet."}</div>`; return; }
   if(!docFresh()){ el.innerHTML=`<h3>Morning road map</h3><div class="note">Waiting for today\'s report (the last one is ${esc(d.date)}). It usually lands 8:00–8:30 ET.</div>`; bindOpenPlan(); return; }
   const G=docGrades()||[], S=(docPath().slice(-1)[0]||{}).x;
   const seen=new Set(), rows=[];
@@ -1284,7 +1523,7 @@ function renderDocRead(){
   add(G.find(x=>x.s.kind==="lean"&&x.g.state==="active"));
   G.filter(x=>["live","hit","reversed","touched"].includes(x.g.state)).sort((a,b)=>evT(b)-evT(a)).slice(0,3).forEach(add);
   if(S) nearestArmed(G,S).forEach(add);
-  el.innerHTML=`<h3>Morning road map · ${esc(d.date.slice(5).replace("-","/"))}${d.source==="ours"?` · <span style="color:${OWN_COL}">OURS${amFallback()?" (Doc missing)":""}</span>`:""} <button class="btn openbtn" id="openPlan" style="float:right">Open plan</button></h3>`+
+  el.innerHTML=`<h3>Morning road map · ${esc(d.date.slice(5).replace("-","/"))}${d.source==="ours"?` · <span style="color:${OWN_COL}">OURS${amFallback()?" (report missing)":""}</span>`:""} <button class="btn openbtn" id="openPlan" style="float:right">Open plan</button></h3>`+
     (rows.length?rows.map(({s,g})=>{ const [lab,cls]=scBadge(s,g); return `<div class="rline"><span>${scShort(s)}</span><span class="verdict bd ${cls}">${lab}</span></div><div class="note" style="margin:0 0 5px">${scStatus(s,g)}</div>`; }).join("")
       :`<div class="note">${docPath().length?"Nothing near price yet.":"Waiting for SPX after 9:30."}</div>`)+
     `<div class="note">Conversion = ${ruleWord()} through the level (touch is information, conversion is permission).</div>`;
@@ -1296,15 +1535,15 @@ function renderPlan(){
   const d=docObj(), meta=document.getElementById("docMeta"), ban=document.getElementById("docBanner"), one=document.getElementById("docOne"),
         paths=document.getElementById("docPaths"), list=document.getElementById("scList");
   syncSeg("convSeg",st.conv);
-  if(!d){ meta.textContent=""; ban.innerHTML=`<div class="banner">No plan yet. am_feed.py reads the morning report (start_dashboard.bat starts the feed); the report usually lands 8:00–8:30 ET.</div>`;
+  if(!d){ meta.textContent=""; ban.innerHTML=`<div class="banner">No plan yet. The morning plan usually lands 8:00–8:30 ET.</div>`;
     one.innerHTML=paths.innerHTML=list.innerHTML=""; renderPlanChart(); renderPlanSide(); return; }
   const fresh=docFresh(), path=docPath();
-  meta.textContent=`${(d.title||"Morning Report").replace(/\s+—.*$/,"")} · via ${d.source||"?"}${d.received?" at "+d.received.slice(11,16):""}`;
+  meta.textContent=`${d.source==="ours"?"Our morning levels":"Morning report"}${d.received?" · received "+d.received.slice(11,16)+" ET":""}`;
   const notes=[];
   if(!fresh) notes.push(`This is the ${esc(d.date||"last")} report. Today's hasn't arrived yet (usually 8:00–8:30 ET; the feed checks every 3 minutes). Nothing is drawn or graded until it lands.`);
   else { (d.warnings||[]).forEach(w=>notes.push(esc(w)));
     if(path.length&&path[0].t>575) notes.push(`The minute log starts at ${tlabel(path[0].t)}, so anything before that is not graded.`); }
-  if(amFallback()) notes.unshift("Doc's report is not in for today, so these are OUR levels, built at 08:35 from our dealer book: pivot = gamma flip, walls = biggest dealer gamma strikes, edges = today's straddle range. Graded the same way as Doc's.");
+  if(amFallback()) notes.unshift("The morning report is not in for today, so these are OUR levels, built at 08:35 from our dealer book: pivot = gamma flip, walls = biggest dealer gamma strikes, edges = today's straddle range. Graded the same way as the report's.");
   ban.innerHTML=notes.length?`<div class="banner">${notes.join("<br>")}</div>`:"";
   one.innerHTML=d.one_thing?`<small>THE ONE THING&nbsp;</small>${esc(d.one_thing)}`:"";
   paths.innerHTML=[d.pivot!=null?`Pivot <b>${fmtN(d.pivot)}</b>`:"", d.chop?`Chop zone <b>${zoneTxt(d.chop)}</b>`:d.working?`Working area <b>${zoneTxt(d.working)}</b>`:"",
@@ -1402,13 +1641,13 @@ function renderPlanSide(){
     ["Expected range", strR?"STR "+zoneTxt([strR.lo,strR.hi]):"–", book&&book.em>0?`${fmtN(book.S-book.em)}–${fmtN(book.S+book.em)} <small style="color:var(--faint)">straddle left</small>`:"–",
       sd&&sd.lower!=null?`${fmtN(sd.lower)}–${fmtN(sd.upper)} <small style="color:var(--faint)">AM straddle</small>`+ag(sd.lower,strR&&strR.lo):"–"],
     ["Dealer gamma", "–", book?(book.long?"long (absorb)":"short (chase)"):"–", mech.state?esc(mech.state):"–"]];
-  crEl.innerHTML=`<h3>Cross-check: AM report vs our books</h3><table class="tbl"><thead><tr><th></th><th>AM report</th><th>0DTE live</th><th>trading-intel AM</th></tr></thead><tbody>`+
+  crEl.innerHTML=`<h3>Cross-check: AM report vs our books</h3><table class="tbl"><thead><tr><th></th><th>AM report</th><th>0DTE live</th><th>Our AM book</th></tr></thead><tbody>`+
     rowsX.map(r=>`<tr><td style="color:var(--mute)">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")+`</tbody></table>
-    <div class="note">✓ = within 5 points. 0DTE live = today's 0DTE chain. trading-intel = the 8:35 chain: 0DTE rows use the morning OI, "0–7 DTE" and the flip cover the whole near-dated book.${w0?"":" (No same-day expiry in today's snapshot: the NAS fix lands the morning after it ships.)"}</div>`;
+    <div class="note">✓ = within 5 points. 0DTE live = today's 0DTE chain. Our AM book = the 8:35 chain: 0DTE rows use the morning OI, "0–7 DTE" and the flip cover the whole near-dated book.${w0?"":" (No same-day expiry in today's snapshot.)"}</div>`;
   // trading-intel morning book
-  if(!st.ti||!st.ti.ti||!Object.keys(T).length){ bkEl.innerHTML=`<h3>trading-intel morning book</h3><div class="note">${DEMO?"":"No data from am_feed.py yet."}</div>`; }
+  if(!st.ti||!st.ti.ti||!Object.keys(T).length){ bkEl.innerHTML=`<h3>Our morning book</h3><div class="note">${DEMO?"":"No morning book yet."}</div>`; }
   else { const rg=mr.regime||{}, wx=mr.weather||{};
-    bkEl.innerHTML=`<h3>trading-intel morning book · SPX all expiries${prof.as_of?" · "+esc(prof.as_of):""}</h3>`+
+    bkEl.innerHTML=`<h3>Our morning book · SPX all expiries${prof.as_of?" · "+esc(prof.as_of):""}</h3>`+
       (rg.state?`<div class="rline"><span>Regime</span><b>${esc(rg.state)}${rg.breadth_health?" · "+esc(rg.breadth_health):""}</b></div>`:"")+
       (mech.state?`<div class="rline"><span>Dealer gamma</span><b>${esc(mech.state)}${mech.gex_flip?" · flip "+fmtN(Math.round(mech.gex_flip)):""}</b></div>`:"")+
       (wx.state?`<div class="rline"><span>Weather</span><b>${esc(wx.state)}${wx.vix?" · VIX "+(+wx.vix).toFixed(1):""}${wx.vvix?" · VVIX "+(+wx.vvix).toFixed(0):""}</b></div>`:"")+
@@ -1417,17 +1656,17 @@ function renderPlanSide(){
       (sd?`<div class="rline"><span>Session straddle (AM)</span><b>±${(+sd.straddle).toFixed(1)} · ${fmtN(sd.lower)}–${fmtN(sd.upper)}</b></div>`:"")+
 
       (mr.path?`<div class="note" style="font-size:12px">Path: ${esc(mr.path)}</div>`:"")+
-      ((mr.triggers||[]).length?`<ul class="trigs">${mr.triggers.slice(0,4).map(t=>`<li>${esc(t.trigger)} → ${esc(t.consequence)}</li>`).join("")}</ul>`:"")+
-      `<canvas id="profC"></canvas><div class="note">Dealer gamma by SPX level, each line scaled to itself: white = all expiries (trading-intel), blue dashed = ${(()=>{ const k=Object.keys(prof.near||{}).sort()[0]; return k===today?"today's expiry on the 8:35 OI":"next expiry"; })()}, yellow = today's 0DTE live chain (live OI + IV). Where a line crosses zero is its flip.</div>`;
+      ((mr.triggers||[]).length?`<ul class="trigs">${mr.triggers.slice(0,4).map(t=>`<li>${esc(pubTxt(t.trigger))} → ${esc(pubTxt(t.consequence))}</li>`).join("")}</ul>`:"")+
+      `<canvas id="profC"></canvas><div class="note">Dealer gamma by SPX level, each line scaled to itself: white = all expiries (our book), blue dashed = ${(()=>{ const k=Object.keys(prof.near||{}).sort()[0]; return k===today?"today's expiry on the 8:35 OI":"next expiry"; })()}, yellow = today's 0DTE live chain (live OI + IV). Where a line crosses zero is its flip.</div>`;
     drawProfile(book); }
   renderLean(T.oi_lean, isToday);
   // sources
   const errs=(st.ti&&st.ti.errors)||[];
-  srEl.innerHTML=st.ti?`Feed ${esc((st.ti.asof||"").slice(11,16))} ET · Report via ${esc(d?d.source:"–")} · ${errs.length?`<span class="errs">${errs.map(esc).join(" · ")}</span>`:"no feed errors"}`:(DEMO?"Demo plan (10/21 report)":"ti.json not found: start am_feed.py");
+  srEl.innerHTML=st.ti?`Morning feed ${esc((st.ti.asof||"").slice(11,16))} ET · ${errs.length?`<span class="errs">${errs.map(esc).join(" · ")}</span>`:"no feed errors"}`:(DEMO?"Demo plan (10/21 report)":"Morning feed not loaded.");
 }
 function renderLean(L, isToday){ // overnight OI change x IV vs ATM, from the two newest 8:35 books
   const el=document.getElementById("psLean"); if(!el) return;
-  if(!L||!Object.values(L).some(Boolean)){ el.innerHTML=`<h3>Overnight positioning</h3><div class="note">${DEMO?"Not in the demo.":"Waiting for two 8:35 books (am_feed + trading-intel)."}</div>`; return; }
+  if(!L||!Object.values(L).some(Boolean)){ el.innerHTML=`<h3>Overnight positioning</h3><div class="note">${DEMO?"Not in the demo.":"Waiting for two 8:35 books."}</div>`; return; }
   const k=x=>x>=1000?(x/1000).toFixed(1)+"k":fmtN(x);
   const usd=x=>x==null?"":(x>=0?"+":"−")+money(Math.abs(x));
   const cell=r=>{ if(!r) return "–"; const a=r.agg, cls=a.lean.startsWith("bull")?"live-up":a.lean.startsWith("bear")?"live-down":a.lean.startsWith("mixed")?"touched":"armed";
@@ -1797,7 +2036,7 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend){
   const ys=Y(book.S); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(w-24,ys); ctx.lineTo(w-30,ys-4); ctx.lineTo(w-30,ys+4); ctx.fill();
   ctx.fillStyle=C("--faint"); ctx.fillText("puts ◂",mid-half,h-4); ctx.fillText("▸ calls",mid+half-34,h-4);
   const leg = mode==="vold" ? `last 30 min − prior 30 · teal / coral = accelerating, dark = fading · ×ratio · ${j60<0?"needs 60 min of log":""}`
-            : `${mode==="vol30"?"last 30 min":"today"} · solid = bought, hatched = sold (Convex split; LAST vs quote on older minutes), %B = bought share${sr&&sr.rows?"":" · sides need LiveLog v16"}`;
+            : `${mode==="vol30"?"last 30 min":"today"} · solid = bought, hatched = sold (per the Flow tab's Side setting), %B = bought share${sr&&sr.rows?"":" · no buy/sell sides in this log"}`;
   if(!noLegend) ctx.fillText(leg,4,12);
 }
 
@@ -2141,7 +2380,7 @@ function renderSkew(se,d){
   // ---- term structure (from the workbook's Term sheet)
   const tc=document.getElementById("termC"); const tf=fitCanvas(tc); tf.ctx.clearRect(0,0,tf.w,tf.h);
   const term=(d&&d.term||[]).filter(t=>t.dte>=0&&t.iv>0).slice(0,12);
-  document.getElementById("termNote").textContent= term.length?"bars = ATM IV per expiry · label = straddle as % of spot":"the workbook's Term sheet covers SPY and SPX only";
+  document.getElementById("termNote").textContent= term.length?"bars = ATM IV per expiry · label = straddle as % of spot":"term structure covers SPY and SPX only";
   if(term.length){ const c2=tf.ctx, padL=44,padB=22,padT=16, n=term.length, bw=(tf.w-padL-10)/n, vmax=Math.max(...term.map(t=>t.iv));
     c2.font="11px "+C("--font");
     term.forEach((t,q)=>{ const x=padL+q*bw+bw*0.15, bh=(tf.h-padT-padB)*t.iv/vmax, y=tf.h-padB-bh;
@@ -2240,13 +2479,13 @@ function drawMiniQ(se){
 /* ============================================================ header + read strip */
 function freshness(){
   const dot=document.getElementById("fdot"), t=document.getElementById("ftxt");
-  if(DEMO){ dot.className="dot warn"; t.textContent="demo session (no workbook)"; return; }
-  if(!st.live){ dot.className="dot bad"; t.textContent="no live.json: start the web server and LiveLog"; return; }
+  if(DEMO){ dot.className="dot warn"; t.textContent="demo session"; return; }
+  if(!st.live){ dot.className="dot bad"; t.textContent="no live feed yet"; return; }
   const age=(Date.now()-st.liveAt)/1000; let tsAge=null;
   const m=(st.live.ts||"").match(/T(\d\d):(\d\d):(\d\d)/); if(m){ const c=etNow(); tsAge=(c.h*3600+c.m*60+c.s)-(+m[1]*3600+ +m[2]*60+ +m[3]); }
   const stale = tsAge!=null ? tsAge>90 : false;
   dot.className="dot "+(age>15?"bad":stale?"warn":"ok");
-  t.textContent = age>15?"live.json not updating" : stale?`workbook last wrote ${Math.round(tsAge/60)} min ago (is StartLive running?)` : `live · flow log ${st.flowFromFile?"from file":"building in this tab"}`;
+  t.textContent = age>15?"live feed not updating" : stale?`live feed last updated ${Math.round(tsAge/60)} min ago` : `live · flow log ${st.flowFromFile?"from file":"building in this tab"}`;
 }
 function renderHeader(d,book,se){
   document.querySelectorAll("#symTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sym===st.sym));
@@ -2314,7 +2553,7 @@ function render(){
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
     document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
-  const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Doc",ours:"Ours",both:"Both"}[st.amSrc]||"Doc")+(amFallback()?" → Ours":"");
+  const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
@@ -2348,7 +2587,7 @@ function loadLedger(){
     .then(d=>{ ledgerData=d; _ledB=null; if(st.tab==="ledger") renderLedger(); else if(st.mapLed&&st.tab==="map") render(); })
     .catch(()=>{
       const nd=document.getElementById("ledgerNoData");
-      if(nd){nd.textContent="ledger.json not found — run pos_ledger.py first"; nd.hidden=false;}
+      if(nd){nd.textContent="Ledger not available yet."; nd.hidden=false;}
       document.getElementById("ledgerTbl").hidden=true;
     });
 }
@@ -3064,7 +3303,7 @@ function gapInfo(se){ const G=st.live&&st.live.GAP; if(st.sym!=="SPX"||!G||G.day
   let open=null, hi=null, lo=null, now=null;
   if(se&&se.m){ for(let j=0;j<se.m;j++){ if(se.T[j]<RTH_OPEN+1||!(se.spot[j]>0)) continue; const x=se.spot[j]; if(open==null) open=x; hi=hi==null?x:Math.max(hi,x); lo=lo==null?x:Math.min(lo,x); now=x; } }
   return {G,open,hi,lo,now}; }
-function gapStripHTML(se){ const g=gapInfo(se); if(!g) return st.sym==="SPX"?"<i>Gap: waiting for the writer's overnight read (needs yesterday's raw file on the NAS).</i>":"";
+function gapStripHTML(se){ const g=gapInfo(se); if(!g) return st.sym==="SPX"?"<i>Gap: waiting for the overnight read.</i>":"";
   const G=g.G, on=G.on, am=G.am, pc=G.prev_close, f1=x=>fmtN(x,1), f2=x=>fmtN(x,2), out=[];
   if(pc) out.push(`Prior close <b>${f2(pc)}</b> <i>(${String(G.prev_day||"").slice(5).replace("-","/")} ${G.prev_t||""})</i>`);
   if(on) out.push(`Overnight straddle <b>${f1(on.straddle)}</b>${on.iv?` <i>IV ${(on.iv*100).toFixed(1)}%</i>`:""}`);
@@ -3098,7 +3337,7 @@ function f2Cards(sr,se,d,book){
 function cardHtml(title,r,tp,sub){
   if(!r) return `<div class="f2card"><small>${title}</small><b>–</b><span>${sub||"nothing signed yet"}</span></div>`;
   const tierTxt=["","firm","soft","unsigned"][r.tier];
-  if(tp) return `<div class="f2card tape"><small>${title} · tape</small><b>${fmtN(tp.size)} × ${fmtN(r.k)}${r.cp}</b><span>${money(tp.notional)} · ${esc(tp.t)} ET · vendor side: ${esc(tp.side)}${tp.sweep?" · sweep":""}${tp.block?" · block":""}</span></div>`;
+  if(tp) return `<div class="f2card tape"><small>${title} · tape</small><b>${fmtN(tp.size)} × ${fmtN(r.k)}${r.cp}</b><span>${money(tp.notional)} · ${esc(tp.t)} ET · side: ${esc(tp.side)}${tp.sweep?" · sweep":""}${tp.block?" · block":""}</span></div>`;
   return `<div class="f2card"><small>${title}</small><b>${fmtN(r.n)} × ${fmtN(r.k)}${r.cp}</b><span>${money(r.prem)} · ${tlabel(r.t)} ET · ${tierTxt} ${r.side>0?"buy":"sell"} at ${r.px.toFixed(2)}</span></div>`;
 }
 function expiryLabel(e){ if(!e) return ""; const d=new Date(e+"T12:00:00"); return d.toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
@@ -3133,19 +3372,22 @@ function f2Line(sr,book){
 function renderFlow2(se,d,book){
   const pane=document.getElementById("f2Pane"); if(!pane) return;
   const sr=signedRows(se); const lineEl=document.getElementById("f2Line"), cardsEl=document.getElementById("f2Cards"), ndl=document.getElementById("f2Needle"), ex=document.getElementById("f2Exp"), ft=document.getElementById("f2Foot");
-  if(!sr){ lineEl.innerHTML=se?"<b>Flow log has no quotes yet</b> — LiveLog v16 adds bid/ask/last per strike; import the new LiveLog.bas and restart StartLive.":"<b>Waiting for the minute log.</b>";
+  if(!sr){ lineEl.innerHTML=se?"<b>Flow log has no quotes yet.</b>":"<b>Waiting for the minute log.</b>";
     cardsEl.innerHTML=""; ndl.innerHTML=""; ex.innerHTML=""; ft.innerHTML=""; drawHump("humpC",se,book,false); return; }
   lineEl.innerHTML=f2Line(sr,book);
   const c=f2Cards(sr,se,d,book);
   const tailTxt=c.tailRows?`<b>${c.tail>0?"Tail bought":c.tail<0?"Tail sold":"Flat"}</b><span>${money(Math.abs(c.tail))} net · ${fmtN(c.tailN)} far-OTM puts (<${Math.round(F2_TAIL*100)}Δ)</span>`:`<b>–</b><span>no far-OTM put flow</span>`;
-  cardsEl.innerHTML=cardHtml("Protection · biggest put buy",c.prot,c.protTape)+cardHtml("Upside bet · biggest call buy",c.up,c.upTape)+`<div class="f2card"><small>Crash insurance</small>${tailTxt}</div>`;
+  cardsEl.innerHTML=cardHtml("Protection · biggest put buy",c.prot,c.protTape)+cardHtml("Upside bet · biggest call buy",c.up,c.upTape)+`<div class="f2card"><small>Crash insurance</small>${tailTxt}${(c.tail<0&&d&&d.open>0&&d.spot>0&&d.spot<d.open*0.997)?`<em class="f2warn l">Selling far puts while price falls is often cashing in old hedges, not a bullish bet.</em><em class="f2warn s">likely hedges cashed in</em>`:""}</div>`;
   const prev=st.prevShare&&st.prevShare[st.sym];
   const sh=sr.share==null?0.5:sr.share;
-  ndl.innerHTML=`<div class="f2nd"><span class="nl">${Math.round((1-sh)*100)}% bearish</span><div class="bar"><i style="left:${(sh*100).toFixed(1)}%"></i>${prev!=null?`<u style="left:${(prev*100).toFixed(1)}%" title="last logged session: ${st.prevDate||'earlier'}"></u>`:""}</div><span class="nr">${Math.round(sh*100)}% bullish</span></div>
+  let dPos=0,dNeg=0; for(const r of sr.rows){ if(!r.side||r.delta==null) continue; const cd=r.side*r.n*r.delta*100; if(cd>0) dPos+=cd; else dNeg-=cd; }   // 2026-11-05: delta-weighted lean beside the premium lean
+  const dsh=(dPos+dNeg)>0?dPos/(dPos+dNeg):0.5;
+  ndl.innerHTML=`<div class="f2nd" title="By premium: share of bought-or-sold option dollars that were bullish (calls bought, puts sold)."><span class="nk">Premium</span><span class="nl">${Math.round((1-sh)*100)}% bearish</span><div class="bar"><i style="left:${(sh*100).toFixed(1)}%"></i>${prev!=null?`<u style="left:${(prev*100).toFixed(1)}%" title="last logged session: ${st.prevDate||'earlier'}"></u>`:""}</div><span class="nr">${Math.round(sh*100)}% bullish</span></div>
+    <div class="f2nd" title="By delta: the same trades weighted by how much market exposure each one adds (contracts × delta). Closer to the real directional bet than premium."><span class="nk">Delta</span><span class="nl">${Math.round((1-dsh)*100)}% bearish</span><div class="bar"><i style="left:${(dsh*100).toFixed(1)}%"></i></div><span class="nr">${Math.round(dsh*100)}% bullish</span></div>
     <div class="f2meta">Order-flow lean, signed premium ${money(sr.bull+sr.bear)} · net delta <b class="${sr.net>=0?"up":"dn"}">${sr.net>=0?"+":""}${fmtN(Math.round(sr.net))}</b> share-equiv${prev!=null?` · last logged session (${st.prevDate||'earlier'}) ${Math.round(prev*100)}%`:""}</div>`;
   const boxes=moodBoxes(sr,d);
   ex.innerHTML=boxes.length?`<div class="f2exh">Mood by expiration · share of directional premium that was bullish</div><div class="f2boxes">`+boxes.map(b=>`<div class="f2box ${b.src}"><small>${esc(b.lbl)}</small><b>${b.share==null?"–":Math.round(b.share*100)+"%"}</b><div class="mini"><i style="width:${b.share==null?0:(b.share*100).toFixed(0)}%"></i><s style="width:${(b.grey*100).toFixed(0)}%"></s></div><span>${b.src==="tape"?money(b.notional||0):fmtN(b.n)+" rows"}</span></div>`).join("")+`</div>`:"";
-  ft.innerHTML=`Sides from LAST vs the quote at each 1-minute poll: at/through the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry the vendor's own side. Descriptive positioning, not a signal.`;
+  ft.innerHTML=st.sideSrc==="convex"?`Sides from each trade's own buy/sell tag (Side: Trade tag). Volume between polls is missed. Descriptive positioning, not a signal.`:`Sides from the last price vs the quote at each 1-minute poll: at/through the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry each trade's own tag. Descriptive positioning, not a signal.`;
   drawHump("humpC",se,book,false);
   renderRobust(sr);
 }
@@ -3489,7 +3731,7 @@ function mapRead(g,ch,va,se,d){
   // Doc confluence
   if(st.sym==="SPX"&&docFresh()){ const lv=docLevels("SPX"); const hits=[];
     for(const d0 of lv){ const near=(arr,nm)=>{ for(const v of arr) if(Math.abs(v-d0.v)/S<=0.0012) hits.push(`${f(d0.v)} ${d0.label} = ${nm}`); }; near(gN.pk,"gamma peak"); near(gN.tr,"gamma trough"); near(gN.z,"gamma zero"); if(ch) near(featLevels(ch,jN).z,"charm flip"); }
-    if(hits.length) L.push(`<div class="l">Doc ∩ book: ${[...new Set(hits)].slice(0,4).join(" · ")}.</div>`); }
+    if(hits.length) L.push(`<div class="l">Report ∩ book: ${[...new Set(hits)].slice(0,4).join(" · ")}.</div>`); }
   // spiking strikes (last 30 vs prior 30 from the minute log)
   if(se&&se.m>3){ const jAt=(mins)=>{ const tNow=se.T[se.m-1]; for(let j=se.m-1;j>=0;j--){ if(tNow-se.T[j]>=mins) return j; } return -1; }; const j30=jAt(30), j60=jAt(60);
     if(j60>=0){ const sp=[]; for(let i=0;i<se.n;i++){ const c=se.cuC[i], p=se.cuP[i]; const v=x=>x==null?0:x; const last=v(c[se.m-1])-v(c[j30])+v(p[se.m-1])-v(p[j30]), prev=v(c[j30])-v(c[j60])+v(p[j30])-v(p[j60]); if(last>=300&&prev>0&&last/prev>=2) sp.push({k:se.ks[i],r:last/prev,last}); }
@@ -3527,7 +3769,7 @@ function renderMapTab(se,d){
   { const zb=document.getElementById("zoomBtn"); if(zb) zb.setAttribute("aria-pressed",!!st.zoomOn); for(const id of ["zoomWSeg","zoomTSeg"]){ const e=document.getElementById(id); if(e) e.style.display=st.zoomOn?"":"none"; }
     syncSeg("zoomWSeg",String(st.zoomW)); syncSeg("zoomTSeg",st.zoomT); syncSeg("mapColSeg",st.mapCol); syncSeg("mapScaleSeg",st.mapScale);
     const lb=document.getElementById("ledBtn"); if(lb) lb.setAttribute("aria-pressed",!!st.mapLed); }
-  const ledTxt=st.mapLed?(()=>{ const L=ledBook(), I=ledgerInfo(); return L?` LEDGER book: as of ${L.asof}, ${L.n} 0DTE strikes, median ${L.cov??"?"} days of measured flow (the ledger starts 10/26; older flow is missing). `:` LEDGER on but not usable (${st.sym!=="SPX"?"SPX only":I&&I.asof?"file is as of "+I.asof+", not today":"ledger.json not loaded"}) — showing ${st.basis.toUpperCase()}. `; })():"";
+  const ledTxt=st.mapLed?(()=>{ const L=ledBook(), I=ledgerInfo(); return L?` LEDGER book: as of ${L.asof}, ${L.n} 0DTE strikes, median ${L.cov??"?"} days of measured flow (the ledger starts 10/26; older flow is missing). `:` LEDGER on but not usable (${st.sym!=="SPX"?"SPX only":I&&I.asof?"file is as of "+I.asof+", not today":"ledger not loaded"}) — showing ${st.basis.toUpperCase()}. `; })():"";
   const nt=document.getElementById("mapNote"); if(nt) nt.textContent=ledTxt+`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile.`;
 }
 document.querySelectorAll("#viewSeg button[data-go]").forEach(b=>b.addEventListener("click",()=>{ st.mapRight=b.dataset.go; save("mapRight",st.mapRight); syncSeg("mapRightSeg",st.mapRight); st.tab="map"; save("tab","map"); render(); }));
@@ -4062,7 +4304,7 @@ function renderDensity(se){
         (DEN.err?`<div class="l note">Last error: ${esc(DEN.err)}</div>`:"")+(DEN.hard?`<div class="l note">Turned off by <code>?nodensity</code> in the address bar.</div>`:`<div class="l note">Press <b>Engine</b> to turn it back on.</div>`);
       if(stEl) stEl.textContent=""; return; }
     denReset(); const d=st.live&&st.live[st.sym]; const now=denNowMin();
-    if(!d||!d.rows||now<RTH_OPEN){ rd.innerHTML=`<div class="l">Waiting for the 09:30 snapshot (needs the minute log and live.json).</div>`; return; }
+    if(!d||!d.rows||now<RTH_OPEN){ rd.innerHTML=`<div class="l">Waiting for the 09:30 snapshot (needs the minute log).</div>`; return; }
     const L=denLines(se,d); const ks=Object.keys(DEN.runs).filter(x=>!x.startsWith("x")).map(Number).sort((a,b)=>a-b);
     const cur=ks.length?DEN.runs[ks[ks.length-1]]:null, g0=DEN.runs[0];
     const pend=Math.max(0,Math.floor((Math.min(now,MAP_T1-5)-RTH_OPEN)/5)+1-ks.length-Object.keys(DEN.runs).filter(x=>x.startsWith("x")).length);
@@ -4325,7 +4567,7 @@ function exRender(){
   }
   exSet("exButterfly",bfHTML);
 
-  exSet("exFoot",`Updated ${((st.live&&st.live.ts||"").match(/T(\d\d:\d\d)/)||[])[1]||"–"} ET · data from live chain · descriptor only (FlashAlpha rule 4)`);
+  exSet("exFoot",`Updated ${((st.live&&st.live.ts||"").match(/T(\d\d:\d\d)/)||[])[1]||"–"} ET · data from live chain · a description, not a signal`);
 }
 
 /* ============================================================ VIX tab v2 (2026-10-28)
@@ -4422,7 +4664,7 @@ function renderVix(){
 }
 
 function vxRender(){
-  if(!st.live) return vixClear("No live.json","Start the feed. On the NAS that is cvx_live.py.");
+  if(!st.live) return vixClear("No live feed","Waiting for the live feed.");
   const V=st.live.VIX||{}, R=st.live.VIXR||null, EV=Array.isArray(st.live.EVT)?st.live.EVT:null;
   const exps=(Array.isArray(V.exps)?V.exps:[]).filter(x=>x&&Array.isArray(x.rows)&&x.rows.length);
   if(!exps.length&&!R) return vixClear("No VIX data in live.json","This feed carries no VIX chain. cvx_live.py fills VIX, VIXR and EVT.");
@@ -4451,7 +4693,7 @@ function vxRender(){
   vxStrikes(pk,EV,S,today);
   vxLink(R,EV,exps);
   vxCollapsible();
-  vxSet("vxFoot",`VIX chain: live.json ${esc((st.live.ts||"").slice(11,16))} ET &middot; Cboe indices ${esc(R&&R.asof?String(R.asof).slice(11,16)||R.asof:"–")} (about 15 min delayed) &middot; history = Cboe daily closes through ${esc(R&&R.hist_through||"–")} &middot; zero extra calls for regime and events.`);
+  vxSet("vxFoot",`VIX chain ${esc((st.live.ts||"").slice(11,16))} ET &middot; index data ${esc(R&&R.asof?String(R.asof).slice(11,16)||R.asof:"–")} (about 15 min delayed) &middot; history = daily closes through ${esc(R&&R.hist_through||"–")}.`);
 }
 
 /* ---------------- header: spot, VIX9D, the 9D-vs-VIX shape (label FIXED 10/28: 9D under VIX = contango) */
@@ -4509,7 +4751,7 @@ function vxReadBox(S,R,pk,XR,EV){
   L.push(["Curve shape", shape]);
   // 3 why VIX moved (08:35 book to 08:35 book)
   const D=XR&&XR.decomp;
-  let why="No 6-factor split yet: needs two 08:35 SPX books (am_feed.py writes it into ti.json).", dom=null, fx=null;
+  let why="No 6-factor split yet: needs two 08:35 SPX books.", dom=null, fx=null;
   if(D&&D.factors){
     fx=D.factors; const ord=Object.entries(fx).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
     dom=ord[0]; const two=ord.slice(0,2).filter(e=>Math.abs(e[1])>=0.05);
@@ -4521,8 +4763,8 @@ function vxReadBox(S,R,pk,XR,EV){
   // 4 NAS regime label
   const G=XR&&XR.regime, gl=G&&G.label, gm=gl&&VX_REG[gl];
   const skBad=G&&/z\(SKEW\)=-0\.06/.test(G.rationale||"");   // #80: the stuck skew z (bad 9/14 SDEX print)
-  L.push(["NAS regime", gl?`<span class="vxtag" style="background:${gm?gm[0]:"#9DB0CA"}">${esc(gl.replace(/_/g," "))}</span>${gm?esc(gm[1]):""}.${(G.overlays||[]).length?` <b>${esc(G.overlays.join(", ").replace(/_/g," "))}</b>.`:""} <span style="color:var(--mute)">${esc(G.rationale||"")}${G.vsi!=null?` · stress index ${Math.round(G.vsi)}/100`:""} · ${esc(String(G.as_of||"").slice(0,10))} · experimental${skBad?" · its skew z is stuck by a bad 9/14 SDEX print (fixed from the next 17:30 run)":""}</span>`
-                          :"No regime label in ti.json yet (the NAS 17:30 vol_regime job writes it)."]);
+  L.push(["Vol regime", gl?`<span class="vxtag" style="background:${gm?gm[0]:"#9DB0CA"}">${esc(gl.replace(/_/g," "))}</span>${gm?esc(gm[1]):""}.${(G.overlays||[]).length?` <b>${esc(G.overlays.join(", ").replace(/_/g," "))}</b>.`:""} <span style="color:var(--mute)">${esc(G.rationale||"")}${G.vsi!=null?` · stress index ${Math.round(G.vsi)}/100`:""} · ${esc(String(G.as_of||"").slice(0,10))} · experimental${skBad?" · its skew z is stuck by a bad 9/14 SDEX print (fixed from the next 17:30 run)":""}</span>`
+                          :"No regime label yet (written each evening)."]);
   // 5 VIX options positioning across the picks
   let pos="Pick at least one expiry.";
   if(pk.length){
@@ -4551,7 +4793,7 @@ function vxReadBox(S,R,pk,XR,EV){
   const sqP=pk.map(x=>x.sq).filter(Boolean), sqNet=sqP.reduce((a,s)=>a+(+s.bought||0)-(+s.sold||0),0);
   const sqNote=sqNet>0?` <b style="color:#FF9A6B">Caveat: VIX call squeeze set-up in the picked expiries</b> (customers net-bought calls above the forward): VIX can gap up, and SPX put walls are less reliable while it lasts.`:"";
   L.push(["For 0DTE trades", `${esc(V[2])}${sqNote}${vrp?` <span style="color:var(--mute)">VRP ${Math.round(vrp.pct)}th percentile.</span>`:""}`]);
-  vxSet("vxRead",`<div class="vxh"><h2>Read</h2><span class="vxsub">descriptive regime read from the VIX knowledge guide (docs/guides/reading-the-vix.md) and the NAS vol-regime classifier · not a trade signal · nothing here feeds the map</span></div>`
+  vxSet("vxRead",`<div class="vxh"><h2>Read</h2><span class="vxsub">descriptive regime read from a VIX reading guide and a vol-regime classifier · not a trade signal · nothing here feeds the map</span></div>`
     +`<div><span class="vxverdict ${V[0]}">${V[1]}</span></div>`
     +`<div class="vxvsub">${esc(why2)}</div>`
     +`<div class="vxlines">${L.map(l=>`<div class="k">${l[0]}</div><div class="v">${l[1]}</div>`).join("")}</div>`);
@@ -4560,7 +4802,7 @@ function vxReadBox(S,R,pk,XR,EV){
 /* ---------------- regime board */
 function vxRegime(R){
   if(!R||!Array.isArray(R.rows)||!R.rows.length){
-    vxSet("vxRegime",`<div class="vxh"><h2>VIX regime board</h2></div><div class="vxnote">Waiting for the Cboe feed (the writer's vixdash thread loads 1-year history once a day and quotes once a minute). Zero extra calls.</div>`); return; }
+    vxSet("vxRegime",`<div class="vxh"><h2>VIX regime board</h2></div><div class="vxnote">Waiting for the index feed.</div>`); return; }
   const c=R.counts||{}, rows=R.rows;
   const named=st=>rows.filter(r=>r.state===st).map(r=>r.name).join(", ");
   const lvl=(c.red>0)?["HIGH risk","#FF4D4D"]:(c.orange>=4?["Elevated risk","#FF7A3D"]:((c.orange>=1||c.yellow>=4)?["Middle risk","#FFD23F"]:["Low risk","#3FD0B0"]));
@@ -4583,7 +4825,7 @@ function vxRegime(R){
     `<div class="vxh"><h2>VIX regime board</h2><span class="vxsub">colour = 1-year percentile read in the risky direction: green safest third · yellow middle · orange riskiest third (slow flash) · red top 10% or a curve ratio above 1.00 (fast flash)</span></div>`
     +`<div class="vxread"><b style="color:${lvl[1]}">${lvl[0]}</b> &middot; ${c.red||0} red · ${c.orange||0} orange · ${c.yellow||0} yellow · ${c.green||0} green${why?` &middot; <span style="color:var(--mute)">${esc(why)}</span>`:""}</div>`
     +`<div class="vxscroll"><table class="vxtbl"><thead><tr><th>Metric</th><th>Now</th><th class="l">1-year percentile</th><th>State</th><th>1 day</th><th>1 week</th><th>1 month</th><th>Last 20 days</th><th class="l">Risk when</th></tr></thead><tbody>${body}</tbody></table></div>`
-    +`<div class="vxnote">History: Cboe daily closes, 1 year to ${esc(R.hist_through||"–")}. VRP = VIX minus SPX 20-day realized vol${R.rv20?` (${vxN(R.rv20,2)} today)`:""}. Changes are coloured orange when they move toward risk, teal when away.</div>`);
+    +`<div class="vxnote">History: daily closes, 1 year to ${esc(R.hist_through||"–")}. VRP = VIX minus SPX 20-day realized vol${R.rv20?` (${vxN(R.rv20,2)} today)`:""}. Changes are coloured orange when they move toward risk, teal when away.</div>`);
 }
 
 
@@ -4591,8 +4833,8 @@ function vxRegime(R){
 
 /* ---------------- #95 Implied correlation panel */
 function vxICorrPanel(R){
-  const head=`<div class="vxh"><h2>Implied correlation</h2><span class="vxsub">Cboe COR1M &amp; COR3M &middot; dispersion = DSPX &middot; term spread = COR1M &minus; COR3M</span></div>`;
-  if(!R||!R.icorr||R.icorr.cor1m==null){ vxSet("vxICorr",head+`<div class="vxnote">Waiting for data &mdash; needs COR1M, COR3M, and DSPX index quotes from the Cboe feed. These are written by vixdash.py into the VIXR block. Panel populates once quotes arrive.</div>`); return; }
+  const head=`<div class="vxh"><h2>Implied correlation</h2><span class="vxsub">COR1M &amp; COR3M &middot; dispersion = DSPX &middot; term spread = COR1M &minus; COR3M</span></div>`;
+  if(!R||!R.icorr||R.icorr.cor1m==null){ vxSet("vxICorr",head+`<div class="vxnote">Waiting for data &mdash; needs COR1M, COR3M and DSPX index quotes. The panel fills once they arrive.</div>`); return; }
   const ic=R.icorr;
   const spreadCol=ic.spread!=null?(ic.spread>5?"#FF9A6B":ic.spread<-5?"#5FE0C0":"#999"):"#999";
   const corrLevel=ic.cor1m>70?["High","#FF6B6B"]:ic.cor1m>50?["Normal","#FFD23F"]:["Low","#5FE0C0"];
@@ -4607,7 +4849,7 @@ function vxICorrPanel(R){
 /* ---------------- #90 Spot-vol beta gauge */
 function vxSvbGauge(R){
   const head=`<div class="vxh"><h2>Spot-vol beta</h2><span class="vxsub">VIX % change per 1% SPX move &middot; 20-day regression slope</span></div>`;
-  if(!R||R.svb==null){ vxSet("vxSvb",head+`<div class="vxnote">Waiting for history &mdash; needs 20 trading days of VIX + SPX data from the Cboe feed to regress spot-vol beta. This panel populates once vixdash.py has enough history.</div>`); return; }
+  if(!R||R.svb==null){ vxSet("vxSvb",head+`<div class="vxnote">Waiting for history &mdash; needs 20 trading days of VIX + SPX data to measure spot-vol beta. The panel fills once there is enough history.</div>`); return; }
   const b=R.svb;
   /* typical range: -2 to -8; more negative = more reactive */
   const abs=Math.abs(b);
@@ -4628,7 +4870,7 @@ function vxSvbGauge(R){
 function vxRvIvBox(R){
   const head=`<div class="vxh"><h2>Realized vs implied</h2><span class="vxsub">SPX 20-day RV vs VIX &middot; VRP = VIX &minus; RV &middot; quadrant per Carroll</span></div>`;
   if(!R||R.rv20==null||!R.idx||R.idx.VIX==null){
-    vxSet("vxRvIv",head+`<div class="vxnote">Waiting for history &mdash; needs 20+ trading days of SPX closes from the Cboe feed to compute realized vol. This panel populates once vixdash.py has enough history in the VIXR block.</div>`); return; }
+    vxSet("vxRvIv",head+`<div class="vxnote">Waiting for history &mdash; needs 20+ trading days of SPX closes to measure realized vol. The panel fills once there is enough history.</div>`); return; }
   const rv=R.rv20, vix=R.idx.VIX, v3m=R.idx.VIX3M;
   const vrp=vix-rv;
   /* quadrant: median splits — RV median ~15, VRP median ~4 (approximate long-run) */
@@ -4660,7 +4902,7 @@ function vxRvIvBox(R){
 /* ---------------- term structure, then and now (+ each VIX expiry's forward in amber) */
 function vxTerm(R,exps,today,S){
   const head=`<div class="vxh"><h2>VIX term structure, then and now</h2><span class="vxsub">1 day to 1 year · amber = each VIX expiry's forward</span></div>`;
-  if(!R||!R.curves||!Array.isArray(R.tenors)){ vxSet("vxTerm",head+`<div class="vxnote">Waiting for the Cboe index quotes.</div>`); return; }
+  if(!R||!R.curves||!Array.isArray(R.tenors)){ vxSet("vxTerm",head+`<div class="vxnote">Waiting for the index quotes.</div>`); return; }
   const T=R.tenors, cv=R.curves, W=640, H=250, L=44, Rr=W-14, Tp=14, B=H-34;
   const days=T.map(t=>+t[1]), xd=d=>L+(Rr-L)*Math.sqrt(Math.max(d,0.5))/Math.sqrt(365);
   const fw=exps.filter(x=>x.F>0).map(x=>({d:vxDays(x.e,today),f:+x.F,e:x.e})).filter(p=>p.d!=null&&p.d>=0);
@@ -4697,13 +4939,13 @@ function vxTerm(R,exps,today,S){
 /* ---------------- events */
 function vxEvents(EV){
   const head=`<div class="vxh"><h2>Major events</h2><span class="vxsub">days away · VIX expiries settle at the Wednesday open</span></div>`;
-  if(!EV){ vxSet("vxEvents",head+`<div class="vxnote">No event list in live.json (scripts/cvxmap/events.json on the NAS).</div>`); return; }
+  if(!EV){ vxSet("vxEvents",head+`<div class="vxnote">No event list loaded.</div>`); return; }
   if(!EV.length){ vxSet("vxEvents",head+`<div class="vxnote">Nothing in the next 60 days. Extend scripts/cvxmap/events.json.</div>`); return; }
   vxSet("vxEvents",head+EV.slice(0,18).map(e=>{ const t=e.away===0;
     return `<div class="vxev${t?" today":(e.away<=7?" soon":"")}"><span class="d">${esc(vxDate(e.d))}</span>`
       +(t?`<span class="vxkind vxst red" style="min-width:66px">TODAY</span>`:`<span class="vxkind" style="background:${VX_KIND[e.kind]||"#9DB0CA"}">${esc(e.kind)}</span>`)
       +`<span>${esc(e.label)}${e.t&&!String(e.label).includes(e.t)?` · ${esc(e.t)}`:""}</span><span class="a">${t?"now":e.away+"d"}</span></div>`; }).join("")
-    +`<div class="vxnote">Hand-kept list (Fed, BLS/BEA, Cboe calendars). Extend it before the last date.</div>`);
+    +`<div class="vxnote">Hand-kept list (Fed, BLS/BEA, exchange calendars). Extend it before the last date.</div>`);
 }
 
 /* ---------------- expiry selector (rebuilt only when the list changes, so a tick never steals a click) */
@@ -4743,7 +4985,7 @@ function vxTermChart(allIV,pk,today){   // whole-curve vol vs ATM vol by days to
 function vxIV(exps,pk,EV,R,today){
   const allIV=exps.filter(x=>x.iv&&x.iv.vol>0);
   const withIV=allIV.filter(x=>pk.some(p=>p.e===x.e));
-  if(!allIV.length){ vxSet("vxIVBody",`<div class="vxnote">No implied variance in live.json yet: the writer adds it per expiry (F, iv, contrib). If this stays empty, the writer is the old version.</div>`); return; }
+  if(!allIV.length){ vxSet("vxIVBody",`<div class="vxnote">No implied variance yet for these expiries.</div>`); return; }
   const chart=vxTermChart(allIV,pk.map(x=>x.e),today);
   if(!withIV.length){ vxSet("vxIVBody",chart+`<div class="vxnote">None of the picked expiries has implied variance (the writer could not price them). Pick another expiry above.</div>`); return; }
   const mx=Math.max(...withIV.map(x=>Math.max(x.iv.vol, x.atmIV||0)))*1.12;
@@ -4817,9 +5059,9 @@ function vxPanel(o){   // o: {title, cls, sub:[html], rows:[{k,cOI,pOI,cV,pV,ct,
 }
 function vxStrikes(pk,EV,S,today){
   const basis=st.vxAllBasis==="kf"?"kf":"k";
-  const head=`<div class="vxh"><h2>Positions by strike</h2><span class="vxsub">open interest (◂ puts · calls ▸) plus TODAY's contracts bought ▸ / ◂ sold, from the vendor's measured split · amber row = forward · white row = VIX spot · not dealer inventory</span><span class="sp"></span>`
+  const head=`<div class="vxh"><h2>Positions by strike</h2><span class="vxsub">open interest (◂ puts · calls ▸) plus TODAY's contracts bought ▸ / ◂ sold, from the measured buy/sell split · amber row = forward · white row = VIX spot · not dealer inventory</span><span class="sp"></span>`
     +`<span class="vxbasis" role="group" aria-label="How the All panel lines up strikes"><button data-b="k" aria-pressed="${basis==="k"}">Strike</button><button data-b="kf" aria-pressed="${basis==="kf"}">From forward</button></span></div>`;
-  if(!pk.length){ vxSet("vxStrikes",head+`<div class="vxnote">No VIX chain in live.json, or no expiry picked.</div>`); vxBasisBind(); return; }
+  if(!pk.length){ vxSet("vxStrikes",head+`<div class="vxnote">No VIX chain yet, or no expiry picked.</div>`); vxBasisBind(); return; }
   const one=x=>{ const F=+x.F||S;
     return vxPanel({title:`${esc(vxDate(x.e))} · ${vxMonthly(x.e,EV)?"monthly":"weekly"}`, F, S, kf:false, sq:x.sq||null,
       sub:[`forward ${vxN(F,2)}${x.atmK!=null?` · ATM ${esc(vxK(x.atmK))} at ${x.atmIV>0?(x.atmIV*100).toFixed(1)+"%":"–"}`:" · ATM at spot (old writer: no forward)"} · ${fmtN(x.rows.reduce((a,r)=>a+(+r.cV||0)+(+r.pV||0),0))} traded today`],
@@ -4858,7 +5100,7 @@ function vxLink(R,EV,exps){
   ];
   vxSet("vxLink",`<div class="vxh"><h2>How this feeds the SPX map trades</h2><span class="vxsub">fields the scorecard logs at entry, so the seven tests can show whether they matter · none of them changes the map</span></div>`
     +`<div class="vxlink">${items.map(i=>`<div><b class="h">${i[0]}</b><span class="v">${i[1]}</span>${i[2]}</div>`).join("")}</div>`
-    +`<div class="vxnote"><b style="color:var(--ink)">What to trust.</b> Percentiles are against the last year only. "Bought / sold today" is the vendor's measured split, today only, not dealer inventory. Implied variance uses bid/ask mids from the this feed. Cboe indices run about 15 minutes delayed: fine for regime, not for timing.</div>`);
+    +`<div class="vxnote"><b style="color:var(--ink)">What to trust.</b> Percentiles are against the last year only. "Bought / sold today" is the measured buy/sell split, today only, not dealer inventory. Implied variance uses bid/ask mids from the live chain. Index data runs about 15 minutes delayed: fine for regime, not for timing.</div>`);
 }
 
 window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPath};
@@ -4906,7 +5148,7 @@ function renderVolEod(){
   const head=document.getElementById("veHead"), body=document.getElementById("veBody");
   if(!veData){ loadVolEod(); head.innerHTML='<span class="big">Vol EOD</span><span>loading…</span>'; body.innerHTML=""; return; }
   if(veData.err){ head.innerHTML='<span class="big">Vol EOD</span>'; body.innerHTML=`<p class="veread">${veEsc(veData.err)}</p>`; return; }
-  const D=veData; head.innerHTML=`<span class="big">Vol EOD</span><span><small>built</small>${veEsc(D.generated)}</span><span>End-of-day board from the NAS DB · no live calls · refreshed nightly 22:50 ET</span>`;
+  const D=veData; head.innerHTML=`<span class="big">Vol EOD</span><span><small>built</small>${veEsc(D.generated)}</span><span>End-of-day board · refreshed nightly 22:50 ET</span>`;
   let h="";
   /* V1 */
   const v1=D.v1||{}, p1=veTail(v1.points,260), rc=v1.recovery||{};
@@ -4947,13 +5189,13 @@ function renderVolEod(){
     '<p class="vxnote" style="font-size:14px;color:var(--ink)">Bars below: the total day-over-day change in net GEX as the EOD chain records it — new open interest, the spot move and time all mixed together. The pills above isolate time alone.</p>'+
     veChart(p5.map(p=>p.d),[{v:p5.map(p=>p.chg),bars:1}],{w:620,zero:1,h:240,fmt:veBig}));
   const b1=D.b1||{}, pb=veTail(b1.points,260), lb=pb[pb.length-1]||{};
-  const s6=b1.err?veSec("veB1","B1 · Beta reset","",`<p class="veread">Not built yet — the nightly beta_reset job (17:50 ET) fills it.</p>`):veSec("veB1","B1 · Beta reset","low beta (SPLV) breaking × high beta (SPHB) holding vs its own frozen beta · Cboe correlation skew",
+  const s6=b1.err?veSec("veB1","B1 · Beta reset","",`<p class="veread">Not built yet — the nightly beta_reset job (17:50 ET) fills it.</p>`):veSec("veB1","B1 · Beta reset","low beta (SPLV) breaking × high beta (SPHB) holding vs its own frozen beta · correlation skew",
     `<div class="vepills"><span class="vepill${lb.low_beta_state!=="intact"?" hot":""}">low beta <b>${veEsc(lb.low_beta_state||"—")}</b></span><span class="vepill${lb.high_beta_state==="holding"?" ok":""}">high beta <b>${veEsc(lb.high_beta_state||"—")}</b></span><span class="vepill${lb.label==="RESET"?" ok":""}"><b>${veEsc(lb.label||"—")}</b></span></div>`+
     `<p class="veread">${veEsc(b1.read||"")}</p>`+veLegend([["#FF6B5A","COR90D (downside wing)"],["#3FD0B0","COR10D (upside wing)"]])+
     veChart(pb.map(p=>p.date),[{v:pb.map(p=>p.cor90d),c:"#FF6B5A"},{v:pb.map(p=>p.cor10d),c:"#3FD0B0"}],{w:620,h:240}));
   h+=`<div class="vegrid">${s5}${s6}</div>`;
   const ev=(D.events||[]).map(e=>`<span class="vepill">${veEsc(e.d)} ${veEsc(e.t||"")} · ${veEsc(e.label)}</span>`).join("");
-  if(ev) h+=veSec("veEv","Upcoming events","from events.json",`<div class="vepills">${ev}</div>`);
+  if(ev) h+=veSec("veEv","Upcoming events","hand-kept list",`<div class="vepills">${ev}</div>`);
   body.innerHTML=h;
 }
 
@@ -4967,7 +5209,7 @@ function sxFetch(){
   if(sxBusy) return; sxBusy=true; sxAt=Date.now();
   fetch("straddle.json?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()})
     .then(d=>{ sxData=d; sxBusy=false; if(st.tab==="straddle") renderStraddle(); })
-    .catch(()=>{ sxData={err:"straddle.json not found yet — the NAS writer creates it once the 09:25 collector is running."}; sxBusy=false; if(st.tab==="straddle") renderStraddle(); });
+    .catch(()=>{ sxData={err:"No straddle data yet — it starts once the 09:25 collection is running."}; sxBusy=false; if(st.tab==="straddle") renderStraddle(); });
 }
 function sxPct(x,k){ return x==null||!isFinite(x)?"—":(x*100).toFixed(k==null?0:k)+"%"; }
 function sxChart(p){
@@ -5013,7 +5255,7 @@ function renderStraddle(){
   const btn=`<button class="sxbtn" id="sxOnBtn" aria-pressed="${st.sxOn}">${st.sxOn?"ON":"OFF"}</button>`;
   head.innerHTML=`<span class="big">Straddle · ${veEsc(st.sym)}</span>${btn}<span>daily · weekly · monthly at-the-money straddle, each from the start of its own period · symbol = the SPX/SPY/QQQ buttons above</span>`;
   document.getElementById("sxOnBtn").onclick=()=>{ st.sxOn=!st.sxOn; save("sxOn",st.sxOn?"1":"0"); if(st.sxOn) sxFetch(); renderStraddle(); };
-  if(!st.sxOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load the straddle bands. The page reads straddle.json, which the NAS writes each minute from data it already collects — no extra live calls.</p>'; return; }
+  if(!st.sxOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load the straddle bands.</p>'; return; }
   if(!sxData||Date.now()-sxAt>55000) sxFetch();
   if(!sxData){ body.innerHTML='<p class="veread">loading…</p>'; return; }
   if(sxData.err){ body.innerHTML=`<p class="veread">${veEsc(sxData.err)}</p>`; return; }
@@ -5041,7 +5283,7 @@ function csFetch(force){
   if(csBusy) return; csBusy=true;
   fetch("const_index.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null).then(ix=>{
     if(ix) csIdx=ix; const f=csFile();
-    if(!f){ csData={err:"No constellation file yet — the NAS writer creates const_*.json once the collector runs (or run constellation.py --all for past days)."}; csBusy=false; if(st.tab==="constel") renderConstel(); return; }
+    if(!f){ csData={err:"No constellation data yet for this day."}; csBusy=false; if(st.tab==="constel") renderConstel(); return; }
     if(!force&&f===csKey&&st.csDate&&csData&&!csData.err){ csBusy=false; return; }
     return fetch(f+"?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()}).then(d=>{ csData=d; csKey=f; csAt=Date.now(); })
       .catch(()=>{ csData={err:"Could not read "+f+"."}; }).then(()=>{ csBusy=false; if(st.tab==="constel") renderConstel(); });
@@ -5119,7 +5361,7 @@ function renderConstel(){
   head.querySelectorAll("#csSymSeg button").forEach(b=>b.onclick=()=>{ st.csSym=b.dataset.v; save("csSym",st.csSym); st.csDate=""; st.csFrame=-1; st.csExp=null; st.csSel=null; csData=null; csFetch(true); renderConstel(); });
   head.querySelectorAll("#csGrpSeg button").forEach(b=>b.onclick=()=>{ st.csGroup=b.dataset.v; save("csGroup",st.csGroup); st.csExp=null; renderConstel(); });
   document.getElementById("csDate").onchange=e=>{ st.csDate=e.target.value; st.csFrame=-1; st.csSel=null; csData=null; csFetch(true); renderConstel(); };
-  if(!st.csOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load where today&rsquo;s option money went, contract by contract, for SPX, SPY, QQQ and VIX. The page reads files the NAS writes each minute from data it already collects — no extra live calls.</p>'; return; }
+  if(!st.csOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load where today&rsquo;s option money went, contract by contract, for SPX, SPY, QQQ and VIX.</p>'; return; }
   if(!csData||(!st.csDate&&Date.now()-csAt>55000)) csFetch(!csData);
   if(!csData){ body.innerHTML='<p class="veread">loading…</p>'; return; }
   if(csData.err){ body.innerHTML=`<p class="veread">${veEsc(csData.err)}</p>`; return; }
@@ -5131,7 +5373,7 @@ function renderConstel(){
   const lg=veLegend([["#3FD0B0","bullish lean (calls bought / puts sold)"],["#FF6B5A","bearish lean (puts bought / calls sold)"],["#9DB0CA","two-way"],["#F4D03F","last price",1]])+'<p class="vxnote" style="font-size:14px;color:var(--ink)">Columns = expiries (M = monthly). Inside a column: left = bearish, right = bullish. Height = strike. Bubble area = premium traded. Solid outline = call, dashed pink = put. Faded = deep in the money (|Δ| ≥ 0.90) or outside the price window (pinned to the edge). Header = net customer delta-$ lean and total premium.</p>';
   const L=D.lines, ti=Math.max(0,L.t.indexOf(D.frames[f])), dot=(arr,c)=>[{i:ti,y:arr[ti],c}];
   const net=L.bull.map((b,i)=>b-L.bear[i]), wn=L.wb.map((b,i)=>b-L.wr[i]), mn=L.mb.map((b,i)=>b-L.mr[i]);
-  const lines=veSec("csG","Cumulative dealer gamma $ and vanna $ from today's trades","gamma: $ per 1% move (at trade time) · vanna: $ per 1 vol pt · dealer side = the other side of the vendor's buy/sell split",
+  const lines=veSec("csG","Cumulative dealer gamma $ and vanna $ from today's trades","gamma: $ per 1% move (at trade time) · vanna: $ per 1 vol pt · dealer side = the other side of the measured buy/sell split",
       '<div class="vegrid"><div>'+veLegend([["#4C8DFF","dealer gamma $ / 1%"]])+veChart(L.t,[{v:L.g,c:"#4C8DFF"}],{w:620,h:240,zero:1,fmt:veBig,dots:dot(L.g,"#fff")})+'</div><div>'+veLegend([["#E0579E","dealer vanna $ / vol pt"]])+veChart(L.t,[{v:L.v,c:"#E0579E"}],{w:620,h:240,zero:1,fmt:veBig,dots:dot(L.v,"#fff")})+'</div></div><p class="vxnote" style="font-size:14px;color:var(--ink)">Above zero = customers sold options to dealers today (dealers longer gamma — they buy dips and sell rips, damping moves). Below zero = customers bought (dealers shorter gamma — their hedging adds to moves). Gamma is measured when each trade printed, so late-day 0DTE trades weigh a lot. Vanna: how dealer delta shifts if implied vol moves 1 point.</p>')
     +veSec("csF","Cumulative bullish, bearish and net premium","bullish = calls bought + puts sold · bearish = puts bought + calls sold · all expiries in the feed",
       '<div class="vegrid"><div>'+veLegend([["#3FD0B0","bullish $"],["#FF6B5A","bearish $"],["#fff","net $"]])+veChart(L.t,[{v:L.bull,c:"#3FD0B0"},{v:L.bear,c:"#FF6B5A"},{v:net,c:"#fff",w:2}],{w:620,h:240,zero:1,fmt:veBig,dots:dot(net,"#F4D03F")})+'</div><div>'+veLegend([["#5DADE2","weeklies net $"],["#FF8A3D","monthlies net $"]])+veChart(L.t,[{v:wn,c:"#5DADE2"},{v:mn,c:"#FF8A3D"}],{w:620,h:240,zero:1,fmt:veBig})+'</div></div>');
