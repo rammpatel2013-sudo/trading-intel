@@ -37,6 +37,7 @@ import io
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1284,56 +1285,72 @@ img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}d
 
 
 # ------------------------------------------------------------------ video
-def find_ffmpeg(out_root):
-    """(path, kind): system ffmpeg with libx264 -> mp4; system ffmpeg with libvpx -> webm ("webm-libvpx");
-    else Playwright's ffmpeg (encoder named "vp8") -> webm."""
+def _encoders(ff):
+    try:
+        return subprocess.run([ff, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=20).stdout
+    except Exception:
+        return ""
+
+
+def _pick(ff):
+    """(kind, encoder) this ffmpeg can actually do, best first, or None.
+    2026-11-05: probe EVERY binary - the NAS ffmpeg had no 'vp8' (rc 8) and no libx264/libvpx.
+    mpeg4 is ffmpeg's own built-in encoder, so it is the last-resort mp4."""
+    enc = _encoders(ff)
+    for name, kind in (("libx264", "mp4"), ("libvpx", "webm"), ("vp8", "webm"), ("mpeg4", "mp4")):
+        if re.search(r"\s%s\s" % name, enc):
+            return kind, name
+    return None
+
+
+def _candidates(out_root):
+    c = []
     sysff = shutil.which("ffmpeg")
     if sysff:
-        try:
-            enc = subprocess.run([sysff, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=20).stdout
-            if "libx264" in enc:
-                return sysff, "mp4"
-            if "libvpx" in enc:
-                return sysff, "webm-libvpx"     # 2026-11-04: system ffmpeg calls the encoder libvpx, not vp8 (rc 8 on the NAS)
-        except Exception:
-            pass
-    cands = []
-    cache = out_root / ".bin" / "ffmpeg-linux"
-    cands.append(cache)
+        c.append(sysff)
+    c.append(str(out_root / ".bin" / "ffmpeg-linux"))
     for base in (os.environ.get("PLAYWRIGHT_BROWSERS_PATH"), str(Path.home() / ".cache" / "ms-playwright"), "/ms-playwright", "/opt/pw-browsers"):
         if base and Path(base).is_dir():
-            cands += sorted(Path(base).glob("ffmpeg-*/ffmpeg-linux"))
-    for c in cands:
-        if Path(c).is_file() and os.access(c, os.X_OK):
-            return str(c), "webm"
-    # not in the image: fetch Playwright's own build (~2 MB) once, keep a copy under reports/replay/.bin
+            c += [str(x) for x in sorted(Path(base).glob("ffmpeg-*/ffmpeg-linux"))]
+    return [x for x in c if Path(x).is_file() and os.access(x, os.X_OK)]
+
+
+def find_ffmpeg(out_root):
+    """(path, kind, encoder) for the first ffmpeg that has a usable encoder."""
+    for ff in _candidates(out_root):
+        got = _pick(ff)
+        if got:
+            return ff, got[0], got[1]
+    # none usable: fetch Playwright's own build (~2 MB) once, keep a copy under reports/replay/.bin
+    cache = out_root / ".bin" / "ffmpeg-linux"
     try:
         log("ffmpeg: python -m playwright install ffmpeg")
         subprocess.run([sys.executable, "-m", "playwright", "install", "ffmpeg"], capture_output=True, timeout=300)
         for base in (str(Path.home() / ".cache" / "ms-playwright"), os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or ""):
             for c in sorted(Path(base).glob("ffmpeg-*/ffmpeg-linux")) if base and Path(base).is_dir() else []:
-                cache.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(c, cache)
-                os.chmod(cache, 0o755)
-                return str(cache), "webm"
+                got = _pick(str(c))
+                if got:
+                    cache.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(c, cache)
+                    os.chmod(cache, 0o755)
+                    return str(cache), got[0], got[1]
     except Exception as exc:
         log("ffmpeg install failed: %s" % exc)
-    return None, None
+    return None, None, None
 
 
 def make_video(seq, fps, out_path_noext, out_root):
-    ff, kind = find_ffmpeg(out_root)
+    ff, kind, name = find_ffmpeg(out_root)
     if not ff:
-        return None, "no ffmpeg"
-    vp8 = "vp8"
-    if kind == "webm-libvpx":
-        kind, vp8 = "webm", "libvpx"
+        return None, "no ffmpeg with a usable encoder"
+    log("video: %s -> %s (%s)" % (ff, kind, name))
     out = Path(str(out_path_noext) + "." + kind)
-    if kind == "mp4":
+    if name == "libx264":
         enc = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+    elif name == "mpeg4":
+        enc = ["-c:v", "mpeg4", "-q:v", "4", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
     else:
-        # Playwright's ffmpeg build: pipe/file protocols only, VP8 encoder, WebM muxer (tested 2026-10-28)
-        enc = ["-c:v", vp8, "-qmin", "0", "-qmax", "50", "-crf", "8", "-b:v", "2M", "-deadline", "good", "-cpu-used", "4",
+        enc = ["-c:v", name, "-qmin", "0", "-qmax", "50", "-crf", "8", "-b:v", "2M", "-deadline", "good", "-cpu-used", "4",
                "-threads", "2", "-pix_fmt", "yuv420p"]
     cmd = [ff, "-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", str(fps), "-c:v", "mjpeg", "-i", "pipe:0", "-an"] + enc + [str(out)]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
