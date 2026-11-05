@@ -64,6 +64,8 @@ case "${1:-}" in
       run_one cvxmap-write   ""                 "python scripts/cvxmap/cvx_live.py"
       run_one cvxmap-doc     "-e TI_DIR=/app -e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/am_feed.py"
       run_one cvxmap-blocks  "-e TI_DIR=/app -e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/blocks_feed.py"
+      # 2026-11-05: per-trade sides (quote rule at bid/ask, tick rule between) from tas_prints -> sides_YYYYMMDD.json
+      run_one cvxmap-sides   "-e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/sides_feed.py"
       run_one cvxmap-serve   "-p ${PORT}:${PORT}" "python scripts/cvxmap/serve_cvx.py ${PORT}"
       echo "  cockpit: http://192.168.1.211:${PORT}/cvx_cockpit.html"
     } >> "$LOG" 2>&1
@@ -71,7 +73,7 @@ case "${1:-}" in
   stop)
     {
       echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap STOP ==="
-      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-ledger; do
+      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-ledger; do
           "$DOCKER" rm -f "$n" >/dev/null 2>&1 && echo "  stopped $n" || echo "  $n not running"
       done
       echo "  (serve left up so the cockpit stays readable)"
@@ -106,8 +108,30 @@ case "${1:-}" in
       echo "  backfill launched (docker logs -f cvxmap-s12bf)"
     } >> "$LOG" 2>&1
     ;;
+  sidesup)
+    # Start ONLY the live per-trade sides loop (mid-session, without restarting the collector):
+    #     sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_cvxmap.sh sidesup
+    {
+      echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap SIDES UP ==="
+      "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+      "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
+      run_one cvxmap-sides   "-e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/sides_feed.py"
+    } >> "$LOG" 2>&1
+    ;;
+  sides)
+    # One-shot rebuild of a day's per-trade sides file (default today):
+    #     sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_cvxmap.sh sides 20261105
+    {
+      echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap SIDES ==="
+      "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+      "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
+      CMD="python scripts/cvxmap/sides_feed.py --once"
+      [ -n "${2:-}" ] && CMD="$CMD --date $2"
+      run_one cvxmap-sidesbf "-e DASH_DIR=/app/scripts/cvxmap/data" "$CMD"
+    } >> "$LOG" 2>&1
+    ;;
   stopall)
-    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-serve cvxmap-ledger cvxmap-s12bf >/dev/null 2>&1
+    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-serve cvxmap-ledger cvxmap-s12bf cvxmap-sidesbf >/dev/null 2>&1
     echo "all cvxmap containers removed"
     ;;
   status)

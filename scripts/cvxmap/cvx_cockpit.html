@@ -684,7 +684,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         <button class="btn live" id="liveBtn" hidden title="Return to the latest minute, centred on spot (or double-click the map)">Back to live</button>
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
-        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides whether each trade was a buy or a sell (used by flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders). Quote = each minute's last price compared with the bid and ask (at the middle = grey; can mislabel in very fast markets). Trade tag = each trade's own buy/sell tag. Older minutes without tags always use Quote."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button></div>
+        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides whether each trade was a buy or a sell (used by flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders). Quote = each minute's last price compared with the bid and ask (at the middle = grey; can mislabel in very fast markets). Trade tag = each trade's own buy/sell tag. Older minutes without tags always use Quote. Per trade = each trade on its own: at the ask = buy, at the bid = sell (its own quote at that moment); anything in between decided by the tick rule (direction of that contract's last price change)."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button><button data-v="trade" aria-pressed="false">Per trade</button></div>
         <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128277; off</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <button class="btn" id="amSrcBtn" title="Which morning levels to draw: Report → Ours → Both. If the morning report is missing today, our own levels step in on their own.">Src: Report</button>
@@ -807,7 +807,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     <section class="pane" id="premReadPane"><div class="phead"><h2>Premium read</h2><span class="hint">signed premium only &middot; regular hours &middot; where today&rsquo;s money actually went (key $)</span></div><div class="premread" id="premRead"></div><div class="premtot" id="premTotals"></div></section>
     <section class="pane" id="premLinesPane"><div class="phead"><h2>Premium lines</h2><span class="hint">top 4 strikes a side by total $ &middot; solid = mostly bought &middot; dashed = mostly sold &middot; click to open the strike</span></div><div id="premLines"></div></section>
     <section class="pane" id="premMinPane"><div class="phead"><h2>By the minute</h2><span class="hint">calls up &middot; puts down &middot; shared scale &middot; dashed guide = big-minute cutoff (top 5%, $0.85m floor)</span></div><div class="body"><canvas id="premMinC"></canvas></div></section>
-    <section class="pane" id="premDayPane"><div class="phead"><h2>Through the day</h2><div class="seg" role="group" id="premDaySeg" title="Count dollars of premium or number of contracts"><button data-v="usd" aria-pressed="true">$ premium</button><button data-v="n" aria-pressed="false">Contracts</button></div><div class="seg" role="group" id="premSideSeg" title="Who decides buy vs sell — the same setting as the Flow tab. Quote = last price vs the minute's bid/ask (stale or at-mid trades left unsigned). Trade tag = each trade's own buy/sell tag."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button></div><span class="hint">running totals from 9:30 &middot; unsigned trades left out</span></div>
+    <section class="pane" id="premDayPane"><div class="phead"><h2>Through the day</h2><div class="seg" role="group" id="premDaySeg" title="Count dollars of premium or number of contracts"><button data-v="usd" aria-pressed="true">$ premium</button><button data-v="n" aria-pressed="false">Contracts</button></div><div class="seg" role="group" id="premSideSeg" title="Who decides buy vs sell — the same setting as the Flow tab. Quote = last price vs the minute's bid/ask (stale or at-mid trades left unsigned). Trade tag = each trade's own buy/sell tag. Per trade = at the ask buy, at the bid sell, in between by the tick rule."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button><button data-v="trade" aria-pressed="false">Per trade</button></div><span class="hint">running totals from 9:30 &middot; unsigned trades left out</span></div>
       <div class="premday"><div class="pdbox"><div class="pdt">Who did what <span>&mdash; calls bought / sold, puts bought / sold</span></div><canvas id="premDayA"></canvas></div><div class="pdbox"><div class="pdt">The tilt <span>&mdash; bullish minus bearish, net delta, and SPX</span></div><canvas id="premDayB"></canvas></div></div><div class="pdread" id="premDayRead"></div></section>
     <section class="pane" id="premBigPane"><div class="phead"><h2>Big minutes</h2><span class="hint">minutes in the top 5% for their own side</span></div><div class="prembig" id="premBig"></div></section>
   </main>
@@ -977,7 +977,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Strikes: 21 / 31 / 51 / &#xFF0B; / &minus;</dt><dd>How many strikes the map shows.</dd>
           <dt>Back to live</dt><dd>Return to the latest minute, centred on price (or double-click the map).</dd>
           <dt>Flow bars</dt><dd>Colours each minute of the price line by that minute&rsquo;s near-the-money flow: green = bullish, red = bearish, grey = mixed. <b>W / M arrows</b> mark a double bottom / double top that broke out <i>and</i> where the flow flipped the same way.</dd>
-          <dt>Side: Quote / Trade tag</dt><dd>How each trade is called a buy or a sell. <b>Quote</b> = the minute&rsquo;s last price compared with the bid and ask. <b>Trade tag</b> = each trade&rsquo;s own buy/sell tag. In Quote, a trade that printed outside that minute&rsquo;s bid/ask (the quote moved after it, common in fast markets) is left <b>unsigned</b> rather than guessed. Changes the bubbles, flow bars, sliders, volume ladders and the Premium tab&rsquo;s Through the day charts. Also switchable on the Premium tab (same setting).</dd>
+          <dt>Side: Quote / Trade tag</dt><dd>How each trade is called a buy or a sell. <b>Quote</b> = the minute&rsquo;s last price compared with the bid and ask. <b>Trade tag</b> = each trade&rsquo;s own buy/sell tag. In Quote, a trade that printed outside that minute&rsquo;s bid/ask (the quote moved after it, common in fast markets) is left <b>unsigned</b> rather than guessed. Changes the bubbles, flow bars, sliders, volume ladders and the Premium tab&rsquo;s Through the day charts. Also switchable on the Premium tab (same setting). <b>Per trade</b> = every trade judged on its own: at the ask = buy, at the bid = sell (against its own quote at that moment); anything in between decided by the <i>tick rule</i> (the direction of that contract&rsquo;s last price change). Spread legs and trades too small for the tape stay unsigned. The footer says how much was decided each way.</dd>
           <dt>Seq</dt><dd>Sequence bubbles. <b>Small grey</b> = after a big move, calls sold then puts bought at a top (or the reverse at a bottom). <b>Big coloured &ldquo;Reversal&rdquo;</b> = the same at a key level, with dealers short gamma and the flow flipping. Each is scored 30 minutes later: &#10003; worked, &#10007; failed.</dd>
           <dt>&#128277; / &#128276;</dt><dd>Beep and flash the tab when a new sequence bubble appears. Off by default.</dd>
           <dt>AM levels</dt><dd>Draw the morning plan&rsquo;s levels on the map (key D).</dd>
@@ -2994,9 +2994,24 @@ function sideOf(l,b,a){
   const mid=(a+b)/2; if(Math.abs(l-mid)<=Math.max(0.0025,F2_MID_FRAC*sp/2)) return {side:0,tier:3};
   return {side:l>mid?1:-1,tier:2};
 }
+/* 2026-11-05 Side: Per trade — sides_YYYYMMDD.json from sides_feed.py (NAS): per strike / call-put / minute, contracts
+   decided by the quote rule (at the ask = buy, at the bid = sell; tier 1), by the tick rule (tier 2), or unsigned.
+   Minute-log volume the tape did not carry (trades under the tape floor, gaps) stays unsigned. */
+function tradeParts(k,cp,t,n){
+  const S=st.sides&&st.sides.map.get(k+"|"+cp+"|"+t); if(!S) return [[n,0,3]];
+  const [qb,qs,tb,ts,u]=S, tot=qb+qs+tb+ts+u; const sc=tot>n&&tot>0?n/tot:1;
+  const out=[[qb*sc,1,1],[tb*sc,1,2],[qs*sc,-1,1],[ts*sc,-1,2]].filter(x=>x[0]>0); const rem=n-(qb+qs+tb+ts)*sc; if(rem>0.5) out.push([rem,0,3]); return out; }
+async function pollSides(){
+  if(DEMO) return; const c=liveClock(); const name=`sides_${String(c.date||"").replace(/-/g,"")}.json`;
+  try{ const r=await fetch(name+"?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(r.status); const j=await r.json();
+    const map=new Map(); for(const x of j.rows||[]) map.set(x[0]+"|"+x[1]+"|"+x[2],x.slice(3));
+    const had=st.sides&&st.sides.asof; st.sides={asof:j.asof,day:j.day,floor:j.floor,stats:j.stats||{},map,file:name};
+    if(st.sideSrc==="trade"&&had!==j.asof) render(); }
+  catch(e){ if(st.sides&&st.sides.file!==name) st.sides=null; }
+}
 function signedRows(se){
   if(!se||!se.bC) return null;
-  const key=se.m+"|"+se.n+"|"+se.T[se.m-1]+"|"+(se.spot[se.m-1]||0)+"|"+st.sideSrc;
+  const key=se.m+"|"+se.n+"|"+se.T[se.m-1]+"|"+(se.spot[se.m-1]||0)+"|"+st.sideSrc+"|"+(st.sideSrc==="trade"&&st.sides?st.sides.asof:"");
   if(_f2.key===key) return _f2.res;
   const rows=[]; let bull=0,bear=0,uns=0,net=0,total=0,n1=0,n2=0,n3=0;
   for(let i=0;i<se.n;i++) for(let j=1;j<se.m;j++) for(const cp of ["C","P"]){  // dC/dP are per-minute DIFFS (clamped >=0), so they self-zero across the 9:30 reset; jReset is only for the CUMULATIVE arrays (cuC/cuP). Using it here discarded the whole session whenever the log contained the 16:15 expiry roll.
@@ -3008,7 +3023,8 @@ function signedRows(se){
     // OI + signed map: Convex's side everywhere, its mid guesses included). Older minutes: the LAST-vs-quote estimate.
     const useCvx=st.sideSrc==="convex";   // "Side" toggle on the Flow tab (default Cockpit = the pre-2026-11-04 behaviour)
     const vb=useCvx&&se.bbC?(c?se.bbC[i][j]:se.bbP[i][j]):null, vs=useCvx&&se.ssC?(c?se.ssC[i][j]:se.ssP[i][j]):null;
-    const parts = (vb!=null&&vs!=null&&(vb+vs)>0) ? [[vb,1,1],[vs,-1,1]].filter(x=>x[0]>0) : (()=>{ const o=sideOf(l,b,a); return [[n,o.side,o.tier]]; })();
+    const parts = st.sideSrc==="trade" ? tradeParts(se.ks[i],cp,se.T[j],n)
+      : (vb!=null&&vs!=null&&(vb+vs)>0) ? [[vb,1,1],[vs,-1,1]].filter(x=>x[0]>0) : (()=>{ const o=sideOf(l,b,a); return [[n,o.side,o.tier]]; })();
     for(const [nn,side,tier] of parts){
       const prem=nn*px*100; if(!(prem>0)) continue;
       const bullish = side===0?0 : ((c&&side>0)||(!c&&side<0)) ? 1 : -1;   // call bought / put sold = bullish
@@ -3440,7 +3456,11 @@ function renderFlow2(se,d,book){
     <div class="f2meta">Order-flow lean, signed premium ${money(sr.bull+sr.bear)} · net delta <b class="${sr.net>=0?"up":"dn"}">${sr.net>=0?"+":""}${fmtN(Math.round(sr.net))}</b> share-equiv${prev!=null?` · last logged session (${st.prevDate||'earlier'}) ${Math.round(prev*100)}%`:""}</div>`;
   const boxes=moodBoxes(sr,d);
   ex.innerHTML=boxes.length?`<div class="f2exh">Mood by expiration · share of directional premium that was bullish</div><div class="f2boxes">`+boxes.map(b=>`<div class="f2box ${b.src}"><small>${esc(b.lbl)}</small><b>${b.share==null?"–":Math.round(b.share*100)+"%"}</b><div class="mini"><i style="width:${b.share==null?0:(b.share*100).toFixed(0)}%"></i><s style="width:${(b.grey*100).toFixed(0)}%"></s></div><span>${b.src==="tape"?money(b.notional||0):fmtN(b.n)+" rows"}</span></div>`).join("")+`</div>`:"";
-  ft.innerHTML=st.sideSrc==="convex"?`Sides from each trade's own buy/sell tag (Side: Trade tag). Volume between polls is missed. Descriptive positioning, not a signal.`:`Sides from the last price vs the quote at each 1-minute poll: at the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid or outside the quote (stale) = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry each trade's own tag. Descriptive positioning, not a signal.`;
+  ft.innerHTML=st.sideSrc==="trade"?(()=>{ const S=st.sides, P=x=>Math.round(100*x/Math.max(1,sr.total))+"%";
+      if(!S) return `Side: Per trade needs the tape feed — no per-trade file for today yet, so everything shows unsigned. Switch to Quote or Trade tag meanwhile.`;
+      const z=S.stats||{}, ag=(a,b)=>z[b]?Math.round(100*z[a]/z[b])+"%":"–";
+      return `Side: Per trade (file ${esc(String(S.asof||"").slice(11,16))} ET): at the bid/ask = ${P(sr.n1)} of premium, tick rule = ${P(sr.n2)}, unsigned = ${P(sr.n3)} (includes trades under the tape's $${Math.round((S.floor||5000)/1000)}k floor). ${z.prints||0} prints today; they agree with the trade tag ${ag("quote_vendor_agree","quote_vendor_n")} at the bid/ask and ${ag("tick_vendor_agree","tick_vendor_n")} by tick rule. Descriptive positioning, not a signal.`; })()
+    : st.sideSrc==="convex"?`Sides from each trade's own buy/sell tag (Side: Trade tag). Volume between polls is missed. Descriptive positioning, not a signal.`:`Sides from the last price vs the quote at each 1-minute poll: at the quote = firm (${Math.round(100*sr.n1/Math.max(1,sr.total))}%), inside = soft (${Math.round(100*sr.n2/Math.max(1,sr.total))}%), at mid or outside the quote (stale) = unsigned (${Math.round(100*sr.n3/Math.max(1,sr.total))}% of premium today). Volume between polls is missed; tape rows carry each trade's own tag. Descriptive positioning, not a signal.`;
   drawHump("humpC",se,book,false);
   renderRobust(sr);
 }
@@ -3852,7 +3872,7 @@ document.getElementById("screenshotBtn").addEventListener("click",()=>{
 
 /* ============================================================ boot */
 if(DEMO){ demo(); pollFlowPrev(); render(); }
-else { pollLive(); pollFlow(); pollTI(); pollFlowPrev(); setInterval(pollLive,POLL_LIVE); setInterval(pollFlow,POLL_FLOW); setInterval(pollTI,POLL_TI); setInterval(freshness,5000); }
+else { pollLive(); pollFlow(); pollTI(); pollFlowPrev(); setTimeout(pollSides,1500); setInterval(pollLive,POLL_LIVE); setInterval(pollFlow,POLL_FLOW); setInterval(pollTI,POLL_TI); setInterval(pollSides,60000); setInterval(freshness,5000); }
 
 /* ---- premium.js (v2 release 1) ---- */
 /* ============================================================ Premium tab (v2, 2026-10-25)

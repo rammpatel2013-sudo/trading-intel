@@ -161,11 +161,11 @@ class Settings(BaseSettings):
 
     # ── Options time & sales capture (Phase 3 NAS tape -> tas_prints) ──
     TAS_MIN_PREMIUM: float = 25_000.0  # keep prints with notional (price*size*100) >= this $
-    TAS_LIMIT: int = 2000  # raw prints pulled per poll (indices flood the tape; pull wide)
+    TAS_LIMIT: int = 40000  # raw prints per poll. 2026-11-05 live probe: 2,000 = only ~5 s of tape (~400-500 prints/s midday); 40,000 ~ 90 s, one call ~11 s
     TAS_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"  # high-volume index roots (covered by other jobs)
     TAS_POLL_INTERVAL: int = 30  # seconds between polls (NAS capture daemon)
     TAS_RETENTION_DAYS: int = 30  # prune raw tas_prints older than this
-    TAS_SPX_TAPE_MIN_PREMIUM: float = 5_000.0  # SPX/SPXW/SPY prints kept from this $ (put buy-ratio report); QQQ keeps the index floor
+    TAS_SPX_TAPE_MIN_PREMIUM: float = 5_000.0  # SPX/SPXW prints kept from this $ (retail 0DTE puts, put buy-ratio report); SPY/QQQ use TAS_MIN_PREMIUM (2026-11-05)
     TAS_INDEX_MIN_PREMIUM: float = 250_000.0  # un-exclude big index prints >= this $ (SPX/SPXW; ETFs use 0.4x)
 
     # ── Daily AM report ───────────────────────────────────────────────

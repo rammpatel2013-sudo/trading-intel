@@ -55,7 +55,9 @@ _SWEEP_CODES = frozenset({"I"})          # ISO / intermarket sweep
 _BLOCK_CODES = frozenset({"t", "m", "D"})  # negotiated / block prints on the tape
 _BLOCK_MIN_SIZE = 250                     # large single print = block even without a block code
 _INDEX_ETF = frozenset({"SPY", "QQQ"})   # index ETFs get a lower premium floor than SPX/SPXW
-_SPX_TAPE = frozenset({"SPX", "SPXW", "SPY"})  # 2026-11-04: kept from Settings.TAS_SPX_TAPE_MIN_PREMIUM ($5k)
+_SPX_TAPE = frozenset({"SPX", "SPXW"})  # kept from Settings.TAS_SPX_TAPE_MIN_PREMIUM ($5k); 2026-11-05 SPY moved to the ETF rule
+_ETF_TAPE = frozenset({"SPY", "QQQ"})   # 2026-11-05: index ETFs kept from the market-wide floor (TAS_MIN_PREMIUM, $25k)
+_LAST_TS: list = [None]                 # newest print time of the previous poll (daemon = one process) -> gap check
 
 
 def _flag(value: object) -> bool | None:
@@ -147,7 +149,7 @@ def _row_record(
     row: pd.Series, *, captured_at: datetime, trade_date: date, min_premium: float,
     exclude: frozenset[str] = frozenset(),
     index_roots: frozenset[str] = frozenset(), index_base_premium: float = 250_000.0,
-    spx_tape_premium: float | None = None,
+    spx_tape_premium: float | None = None, etf_premium: float | None = None,
 ) -> dict | None:
     """Build one ``tas_prints`` row from a tape row, or None if it's dropped."""
     price = _f(row.get("price"))
@@ -186,6 +188,8 @@ def _row_record(
         floor = _index_floor(ru, index_base_premium)
         if spx_tape_premium is not None and ru in _SPX_TAPE:
             floor = min(floor, spx_tape_premium)
+        if etf_premium is not None and ru in _ETF_TAPE:
+            floor = min(floor, etf_premium)
         if not (is_index and notional >= floor):
             return None  # small index / other high-volume root covered by other jobs
     source = _SOURCE_INDEX if (is_index and ru in exclude) else _SOURCE
@@ -282,7 +286,7 @@ def _records(
         rec = _row_record(
             row, captured_at=captured_at, trade_date=trade_date, min_premium=min(min_premium, spx_tape_premium or min_premium),
             exclude=exclude, index_roots=index_roots, index_base_premium=index_base_premium,
-            spx_tape_premium=spx_tape_premium,
+            spx_tape_premium=spx_tape_premium, etf_premium=min_premium,
         )
         if rec is not None and rec["notional"] < min_premium and (rec["root"] or "").upper() not in _SPX_TAPE:
             rec = None      # the lower SPX floor never lets a single-name print under the market-wide floor
@@ -332,7 +336,7 @@ def run(
         df = source.time_and_sales(None, limit=limit, orderby="time")
     except TradingIntelError as exc:
         bound.warning("tas_capture.fetch_failed", error=str(exc))
-        return
+        return "fetch_failed"      # the daemon backs off on this (2026-11-05)
     if df is None or df.empty:
         bound.warning("tas_capture.empty_tape")
         return
@@ -344,6 +348,18 @@ def run(
     if prem is None or float(prem.fillna(0).abs().sum()) <= 0:
         bound.warning("tas_capture.zeroed_tape", rows=int(len(df)))
         return
+
+    # Gap check (2026-11-05): the pull is the newest `limit` prints. If its OLDEST print is newer than the
+    # previous poll's NEWEST, the seconds in between were never seen -> logged as tas_capture.gap.
+    tsr = pd.to_datetime(df.get("time"), errors="coerce").dropna()
+    if len(tsr):
+        t_old, t_new = tsr.min(), tsr.max()
+        prev = _LAST_TS[0]
+        if prev is not None and t_old > prev:
+            bound.warning("tas_capture.gap", missed_s=round((t_old - prev).total_seconds(), 1),
+                          span_s=round((t_new - t_old).total_seconds(), 1), polled=int(len(df)))
+        _LAST_TS[0] = t_new if prev is None else max(prev, t_new)
+        bound.info("tas_capture.span", span_s=round((t_new - t_old).total_seconds(), 1), polled=int(len(df)))
 
     captured_at = now.replace(microsecond=0)
     records = _records(

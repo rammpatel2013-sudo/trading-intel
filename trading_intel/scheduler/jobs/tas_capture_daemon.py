@@ -16,7 +16,9 @@ Run (manual; exits at 16:00 ET):
 """
 from __future__ import annotations
 
+import os
 import time
+from pathlib import Path
 
 import structlog
 
@@ -30,6 +32,23 @@ log = structlog.get_logger(__name__)
 
 _CLOSE_HOUR = 16
 _DEFAULT_INTERVAL = 30
+# 2026-11-05 safety: the cockpit collector comes first. Its raw file is appended every minute; if it goes
+# stale (collector slow, throttled or stuck) the tape pull steps aside until the cockpit is writing again.
+_COCKPIT_RAW = Path(os.environ.get("TI_DIR", "/app")) / "scripts" / "cvxmap" / "data"
+_COCKPIT_STALE_S = 150
+_MAX_BACKOFF_S = 600
+
+
+def _cockpit_stale(now) -> bool:
+    """True when today's cockpit raw file exists but has not been written for _COCKPIT_STALE_S seconds.
+    No file at all = collector not running today -> never blocks the tape."""
+    if (now.hour, now.minute) < (9, 35):
+        return False
+    fp = _COCKPIT_RAW / f"raw_{now:%Y%m%d}.ndjson.gz"
+    try:
+        return (time.time() - fp.stat().st_mtime) > _COCKPIT_STALE_S
+    except OSError:
+        return False
 
 
 def main() -> None:
@@ -48,21 +67,36 @@ def main() -> None:
     factory = make_session_factory(settings)
     log.info("tas_daemon.start", interval=interval)
 
-    polls = 0
+    polls, fails, yields = 0, 0, 0
     while True:
         now = eastern_now()
         if now.weekday() >= 5 or now.hour >= _CLOSE_HOUR:
             break
+        if _cockpit_stale(now):
+            yields += 1
+            log.warning("tas_daemon.yield_to_cockpit", yields=yields)
+            time.sleep(60)
+            continue
+        t0 = time.time()
+        status = None
         with factory() as session:
             try:
                 # force=False -> run() self-skips before 09:30; captures during RTH.
-                tas_capture_job.run(session, source, settings=settings)
+                status = tas_capture_job.run(session, source, settings=settings)
             except Exception as exc:  # noqa: BLE001 - keep the session alive on a blip
                 log.warning("tas_daemon.poll_error", error=str(exc))
+                status = "fetch_failed"
         polls += 1
-        time.sleep(interval)
+        if status == "fetch_failed":       # throttled / dropped: back off 30 s, 60 s, 120 s ... max 10 min
+            fails += 1
+            wait = min(_MAX_BACKOFF_S, interval * 2 ** (fails - 1))
+            log.warning("tas_daemon.backoff", fails=fails, wait_s=wait)
+            time.sleep(wait)
+            continue
+        fails = 0
+        time.sleep(max(1.0, interval - (time.time() - t0)))   # 2026-11-05: fixed cadence; a 40k pull takes ~11 s
 
-    log.info("tas_daemon.done", polls=polls)
+    log.info("tas_daemon.done", polls=polls, yields=yields)
 
 
 if __name__ == "__main__":
