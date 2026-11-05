@@ -61,6 +61,12 @@ PULLS = [
     # rng 5.0 so VIX calls reach ~100 - strikes >=30 carried 10% of Nov 18's
     # implied variance and the old 1.30 stopped at 39. Still ONE request a minute.
     {"name":"vix", "symbols":["VIX"],             "exps":list(range(10)), "rng":5.0},
+    # 2026-11-04 (Straddle + Flow Constellation tabs): expiries 12-25 near the money,
+    # every 5th cycle only (~0.2 request/min, never more than 3 in a minute with the two
+    # above). Written to its OWN file ext_raw_YYYYMMDD.ndjson.gz so nothing that reads
+    # raw_*.ndjson.gz - the Map's All book included - ever sees it (MAP rule).
+    {"name":"ext", "symbols":["SPX","SPY","QQQ"], "exps":list(range(12, 26)), "rng":0.02,
+     "every":5, "file":"ext_raw"},
 ]
 
 POLL_S     = 60
@@ -200,8 +206,10 @@ def main():
         if now.weekday() >= 5 or now.hour >= END_HH:
             log("window closed - exiting after %d cycles" % cycles)
             break
-        raw_path = os.path.join(DATA, "raw_%s.ndjson.gz" % now.strftime("%Y%m%d"))
         for spec in PULLS:
+            if cycles % spec.get("every", 1):
+                continue
+            raw_path = os.path.join(DATA, "%s_%s.ndjson.gz" % (spec.get("file", "raw"), now.strftime("%Y%m%d")))
             try:
                 j, el, nbytes = pull(S, spec)
             except PermissionError:

@@ -93,8 +93,21 @@ case "${1:-}" in
       echo "  ledger job launched"
     } >> "$LOG" 2>&1
     ;;
+  s12backfill)
+    # One-shot (added 2026-11-04): build the Straddle tab (straddle_*.ndjson) and Flow
+    # Constellation tab (const_*.json) files for every past raw day that lacks them.
+    # ~3 min per day per tab. Safe to re-run: it skips days already built.
+    #     sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_cvxmap.sh s12backfill
+    {
+      echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap S1/S2 BACKFILL ==="
+      "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+      "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
+      run_one cvxmap-s12bf "" "python scripts/cvxmap/straddle_feed.py --all --build && python scripts/cvxmap/constellation.py --all"
+      echo "  backfill launched (docker logs -f cvxmap-s12bf)"
+    } >> "$LOG" 2>&1
+    ;;
   stopall)
-    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-serve cvxmap-ledger >/dev/null 2>&1
+    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-serve cvxmap-ledger cvxmap-s12bf >/dev/null 2>&1
     echo "all cvxmap containers removed"
     ;;
   status)
@@ -113,7 +126,7 @@ case "${1:-}" in
     done
     ;;
   *)
-    echo "usage: run_cvxmap.sh start|stop|stopall|ledger [YYYYMMDD]|status" >&2
+    echo "usage: run_cvxmap.sh start|stop|stopall|ledger [YYYYMMDD]|s12backfill|status" >&2
     exit 2
     ;;
 esac

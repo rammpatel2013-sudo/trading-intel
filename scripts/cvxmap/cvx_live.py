@@ -42,6 +42,17 @@ try:
     import gapread
 except Exception:
     gapread = None
+# 2026-11-04: Straddle tab (S1) and Flow Constellation tab (S2) feeds -> straddle.json,
+# const_<SYM>_<day>.json. Optional and fully guarded like gapread: a failure in either
+# never touches live.json or the map, and neither runs on --rebuild.
+try:
+    import straddle_feed
+except Exception:
+    straddle_feed = None
+try:
+    import constellation
+except Exception:
+    constellation = None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
@@ -654,6 +665,11 @@ def process(rebuild=False):
                 dv = decode(rec)
                 pending_vix = {"spot": dv["VIX"]["spot"], "v9d": 0,
                                "exps": vix_rows(dv, _rec_now(rec))}
+                if constellation is not None and not rebuild:
+                    try:
+                        constellation.on_rec(dv, rec.get("ts", ""), DATA, exp_date)
+                    except Exception as exc:
+                        log("constellation vix: %s" % str(exc)[:80])
             except Exception:
                 pass
             state["_vix"] = pending_vix
@@ -668,6 +684,17 @@ def process(rebuild=False):
             log("decode failed on line %d" % i)
             state["lines_done"] = i + 1
             continue
+        if not rebuild:
+            if straddle_feed is not None:
+                try:
+                    straddle_feed.on_idx(dec, rec.get("ts", ""), DATA, exp_date)
+                except Exception as exc:
+                    log("straddle: %s" % str(exc)[:80])
+            if constellation is not None:
+                try:
+                    constellation.on_rec(dec, rec.get("ts", ""), DATA, exp_date)
+                except Exception as exc:
+                    log("constellation: %s" % str(exc)[:80])
         if gapread is not None and "_gap_am" not in state and str(rec.get("ts", ""))[11:16] >= "09:30":
             try:
                 a = gapread.am_read(dec, today.isoformat(), rec.get("ts"), exp_date)
@@ -721,6 +748,13 @@ def process(rebuild=False):
         atomic_write(os.path.join(DATA, "live.json"), last_live)
         if not rebuild:
             _log_regime(day, last_live, state)
+    if n and not rebuild:
+        for _mod in (straddle_feed, constellation):
+            if _mod is not None:
+                try:
+                    _mod.finalize(DATA, today, decode, exp_date)
+                except Exception as exc:
+                    log("%s finalize: %s" % (_mod.__name__, str(exc)[:80]))
     mirror_shared()
     atomic_write(spath, state)
     return n

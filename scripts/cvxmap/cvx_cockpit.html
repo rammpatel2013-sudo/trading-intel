@@ -187,6 +187,23 @@ body.phone #tabVol{grid-template-columns:1fr;grid-template-rows:520px 520px 520p
 .vesvg{width:100%;height:auto;display:block}
 .vesvg text{fill:#DCE6F2;font-size:15px;font-family:var(--font)}
 body.phone .vegrid{grid-template-columns:1fr}
+/* --- Straddle (S1) + Flow Constellation (S2) tabs, 2026-11-04: big, high-contrast text --- */
+#tabStraddle,#tabConstel{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+.sxbtn{background:var(--pane2);border:1px solid var(--rule);color:#fff;border-radius:6px;padding:5px 14px;font-size:15px;font-weight:700;cursor:pointer}
+.sxbtn[aria-pressed="true"]{border-color:var(--longg);color:var(--longg)}
+#csHead .tabs{display:inline-flex;gap:4px}
+.csdate{background:var(--pane2);color:#fff;border:1px solid var(--rule);border-radius:6px;padding:5px 8px;font-size:15px}
+.csctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:6px 0}
+.csctl input[type=range]{flex:1;min-width:220px}
+.csctl .cst{font-size:20px;color:#fff;min-width:110px}
+.csbars{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px 18px;margin:6px 0 10px}
+.csbar{display:grid;grid-template-columns:70px 1fr 80px;align-items:center;gap:8px;font-size:15px;color:#fff;cursor:pointer;padding:2px 4px;border-radius:4px}
+.csbar.on{outline:2px solid #F4D03F}
+.csbar .tr{display:flex;height:14px;background:#0B1529}
+.csbar .tr .h{flex:1;display:flex}.csbar .tr .h.l{justify-content:flex-end;border-right:1px solid #9DB0CA}
+.csbar .tr i{display:block;height:100%}.csbar .tr i.r{background:#FF6B5A}.csbar .tr i.b{background:#3FD0B0}
+.csbar .nv{text-align:right;font-weight:700}
+body.phone .csbars{grid-template-columns:1fr}
 .vxrow2 .vxsec{margin:0}
 .vxscroll{overflow-x:auto}
 .vxtbl{width:100%;border-collapse:collapse;font-size:14px}
@@ -609,6 +626,8 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus trading-intel's morning book">Plan</button>
       <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly from the NAS DB — no live calls.">Vol EOD</button>
       <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
+      <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
+      <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
@@ -830,6 +849,18 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <div id="veBody"></div>
     </div>
   </main>
+  <main id="tabStraddle" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="sxHead"></section>
+      <div id="sxBody"></div>
+    </div>
+  </main>
+  <main id="tabConstel" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="csHead"></section>
+      <div id="csBody"></div>
+    </div>
+  </main>
   <main id="tabLedger" class="tab" hidden>
     <div id="ledgerHeader">
       <div class="tabs" role="group" aria-label="Ledger variant" id="ledgerVarSeg">
@@ -867,6 +898,8 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Sequence bubbles</dt><dd>Button <b>Seq</b> on the Flow map (on by default). <b>Small grey</b>: after a ~25-pt move (0.33% of spot) inside an hour, calls sold then puts bought within 15 min at a top (&darr;) &mdash; or puts sold then calls bought at a bottom (&uarr;). <b>Big coloured &ldquo;Reversal&rdquo;</b>: price at a top-4 premium line built from premium traded <i>so far</i> (calls at a top, puts at a bottom) or an expected-move edge (9:30 open &plusmn; the 9:31 ATM straddle &ldquo;EM&rdquo;, or &plusmn; spot&times;VIX/15.87 &ldquo;VIX&rdquo;), <i>and</i> dealers short gamma at spot, <i>and</i> the 5-minute signed flow flipped the reversal way within 10&ndash;15 min. Each bubble is scored 30 min later: &check; if price moved ~10 SPX pts (0.135%) the expected way first, &cross; if against first, &middot; if neither. The legend shows today&rsquo;s count and the running hit rate over every day logged in this browser. Hover a bubble for the detail. <b>&#128276;</b> adds a beep and a flashing tab title for a new live bubble (off by default). Built only from data up to that minute; descriptive, not a signal.</dd>
           <dt>AM cone / Live cone</dt><dd>On the Map tab. <b>AM cone</b> (amber): width = the 0DTE at-the-money IV from the 08:35 book (falls back to the first logged minute), starting at the open (first real print, 9:31), &plusmn;1&sigma; dashed and &plusmn;2&sigma; dotted, frozen for the day. <b>Live cone</b> (thin white): the original moving curve &mdash; it re-centres on live spot and resizes with live ATM IV every update. Each has its own toggle.</dd>
           <dt>Screenshot</dt><dd>&#128247; copies the Flow map (or the tab you are on) to the clipboard, ready to paste. Browsers only allow that on an https address (the Tailscale one) or localhost; on plain http it saves a PNG instead.</dd>
+          <dt>Straddle</dt><dd>Three panels for the symbol picked at the top (SPX, SPY or QQQ): <b>Daily</b> (today&rsquo;s 0DTE), <b>Weekly</b> (this week&rsquo;s last expiry) and <b>Monthly</b> (next third-Friday expiry). Each takes the at-the-money straddle (call + put) at the <i>start of its own period</i> &mdash; today&rsquo;s open, the week&rsquo;s first session, the first session after the last monthly expiry &mdash; and draws price since then inside that &plusmn;1&times; band (shaded) and &plusmn;1.5&times; (dashed orange). <b>Used %</b> = how much of the priced move price has travelled. Orange / red dots = first break of 1&times; / 1.5&times;. The green bracket at the right = what options price from <i>now</i> to expiry. When the true anchor day is older than the minute files, the anchor is estimated from that day&rsquo;s first stored book (labelled) or taken from the first day collected (labelled). Off by default; press ON.</dd>
+          <dt>Constellation</dt><dd>Where today&rsquo;s option money went, contract by contract, for SPX, SPY, QQQ and VIX. Columns = expiries (M = monthly), left half = bearish, right half = bullish, height = strike, bubble area = premium. Bullish = calls bought + puts sold; bearish = puts bought + calls sold (the vendor&rsquo;s own buy/sell split). Header = net customer delta-$ lean per expiry. <b>Near</b> (default) shows the weeklies inside 10 days plus the next monthly; Weeklies / Monthlies / All switch the set; click an expiry bar to isolate it. Slider / Play replay the session in 5-minute steps; the date list opens past sessions (latest = today, live). Lines below: cumulative dealer gamma $ and vanna $ added by today&rsquo;s trades, and cumulative bullish / bearish / net premium (all, weeklies, monthlies). A positioning read, not a trade signal. Off by default; press ON.</dd>
           <dt>Bubbles</dt><dd>The default Flow-map view (Ridges, Heat, IV and Gamma are still one click away). Each strike is a straight line; each bubble is one minute of <i>signed</i> option flow at that strike &mdash; size = premium (or contracts on Contracts), <b class="up">green</b> = calls bought / puts sold, <b class="dn">red</b> = calls sold / puts bought, grey = mixed. Solid = traded at or through the bid/ask (firm), hollow = inside the spread (soft); at-mid prints are not drawn. <b>Calls | Puts</b> puts calls just above the line and puts just below; <b>Total</b> merges them into one bubble coloured by the net side; <b>Net</b> sizes the bubble by bullish minus bearish only. <b>Size</b> hides the small stuff by ranking against the whole day (default Top 20%; the legend prints the cut-off). <b>Unusual only</b> keeps a bubble only when it is at least 3&times; that strike&rsquo;s typical minute &mdash; this strips the constant drizzle at the money (on by default). <b>+ Ridges</b> draws the ridge lines underneath the bubbles (off by default). Every choice is remembered by the browser. Dashed rings are real vendor prints (&ge;$100k, NAS tape) on this expiry. Top right of the map: contracts, premium and bullish % for the time window on screen. These are 1-minute bubbles, not individual trades, and the side is estimated from last vs quote at each poll &mdash; descriptive, not a signal.</dd>
           <dt>Flow bars</dt><dd>On the Flow map, button <b>Flow bars</b> (on by default). Each minute of the spot path becomes a bar from the previous close to this close, coloured by that minute&rsquo;s signed premium on near-the-money strikes (|&Delta;| 0.3&ndash;0.7): <b class="up">green</b> = calls bought / puts sold outweighed the reverse, <b class="dn">red</b> = the opposite, grey = mixed (net under 20% of gross) or nothing signed. Brighter = bigger. <b>W / M arrows</b> mark a double bottom / double top that closed through its neckline <i>and</i> where the 5-minute flow flipped the same way (bearish into the lows, bullish at the break &mdash; or the mirror). Pattern-only breaks are counted in the legend but not drawn. Sides are estimated from last vs quote at each 1-minute poll, so this is descriptive, not a signal.</dd>
           <dt>Strikes</dt><dd>Per-strike detail for whichever strike you have selected. Use the up and down arrows to walk through them.</dd>
@@ -997,7 +1030,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.volCol=load("volCol","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -2266,7 +2299,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
@@ -2283,6 +2316,8 @@ function render(){
   else if(st.tab==="density") renderDensity(se);
   else if(st.tab==="ledger") renderLedger();
   else if(st.tab==="voleod") renderVolEod();
+  else if(st.tab==="straddle") renderStraddle();
+  else if(st.tab==="constel") renderConstel();
   else renderSkew(se,d);
 }
 
@@ -4901,6 +4936,194 @@ function renderVolEod(){
   const ev=(D.events||[]).map(e=>`<span class="vepill">${veEsc(e.d)} ${veEsc(e.t||"")} · ${veEsc(e.label)}</span>`).join("");
   if(ev) h+=veSec("veEv","Upcoming events","from events.json",`<div class="vepills">${ev}</div>`);
   body.innerHTML=h;
+}
+
+/* ============================================================ Straddle tab (S1, 2026-11-04)
+   Reads straddle.json, written each minute on the NAS by scripts/cvxmap/straddle_feed.py.
+   Daily / weekly / monthly ATM straddle, each anchored at the start of its own period, with
+   the price path drawn inside anchor ± straddle. No live calls from the page; never touches the map. */
+let sxData=null, sxAt=0, sxBusy=false;
+st.sxOn=load("sxOn","0")==="1";
+function sxFetch(){
+  if(sxBusy) return; sxBusy=true; sxAt=Date.now();
+  fetch("straddle.json?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()})
+    .then(d=>{ sxData=d; sxBusy=false; if(st.tab==="straddle") renderStraddle(); })
+    .catch(()=>{ sxData={err:"straddle.json not found yet — the NAS writer creates it once the 09:25 collector is running."}; sxBusy=false; if(st.tab==="straddle") renderStraddle(); });
+}
+function sxPct(x,k){ return x==null||!isFinite(x)?"—":(x*100).toFixed(k==null?0:k)+"%"; }
+function sxChart(p){
+  const W=1000,H=320,L=70,R=118,T=14,B=34, pts=p.pts||[], n=pts.length, a=p.anchor, sd=a.strad;
+  if(n<2) return '<p class="veread">Not enough minutes yet.</p>';
+  let lo=a.spot-1.6*sd, hi=a.spot+1.6*sd;
+  pts.forEach(q=>{ lo=Math.min(lo,q[2]); hi=Math.max(hi,q[2]); });
+  const nw=p.now||{}; if(nw.spot&&nw.strad){ lo=Math.min(lo,nw.spot-nw.strad); hi=Math.max(hi,nw.spot+nw.strad); }
+  const pad=(hi-lo)*0.04; lo-=pad; hi+=pad;
+  const X=i=>L+(W-L-R)*i/(n-1), Y=y=>T+(H-T-B)*(1-(y-lo)/(hi-lo));
+  let g="";
+  for(let k=0;k<=4;k++){ const y=lo+(hi-lo)*k/4; g+=`<line x1="${L}" x2="${W-R}" y1="${Y(y)}" y2="${Y(y)}" stroke="#1B2C4C"/><text x="${L-6}" y="${Y(y)+5}" text-anchor="end">${y.toFixed(sd<20?2:0)}</text>`; }
+  g+=`<rect x="${L}" y="${Y(a.spot+sd)}" width="${W-L-R}" height="${Y(a.spot-sd)-Y(a.spot+sd)}" fill="#4C8DFF" fill-opacity="0.13"/>`;
+  [[1,"#4C8DFF","",2],[-1,"#4C8DFF","",2],[1.5,"#FF8A3D","7 5",2],[-1.5,"#FF8A3D","7 5",2]].forEach(([m,c,da,w])=>{ const y=Y(a.spot+m*sd);
+    g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="${c}" stroke-width="${w}"${da?` stroke-dasharray="${da}"`:""}/><text x="${W-R+6}" y="${y+5}" style="fill:${c}">${m>0?"+":"−"}${Math.abs(m)}× ${(a.spot+m*sd).toFixed(sd<20?2:0)}</text>`; });
+  g+=`<line x1="${L}" x2="${W-R}" y1="${Y(a.spot)}" y2="${Y(a.spot)}" stroke="#DCE6F2" stroke-dasharray="2 4"/><text x="${W-R+6}" y="${Y(a.spot)+5}">anchor ${a.spot.toFixed(sd<20?2:0)}</text>`;
+  let prev=-1; pts.forEach((q,i)=>{ if(q[0]!==prev){ if(i>0) g+=`<line x1="${X(i)}" x2="${X(i)}" y1="${T}" y2="${H-B}" stroke="#2A3F66" stroke-dasharray="3 4"/>`;
+      const d=(p.days||[])[q[0]]||""; const dd=new Date(d+"T12:00:00"); g+=`<text x="${X(i)+3}" y="${H-10}">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dd.getDay()]||""} ${d.slice(5)}</text>`; prev=q[0]; } });
+  if((p.days||[]).length===1){ [0.25,0.5,0.75].forEach(f=>{ const i=Math.round((n-1)*f); g+=`<text x="${X(i)}" y="${H-10}" text-anchor="middle">${pts[i][1]}</text>`; }); }
+  let d="", pen=false; pts.forEach((q,i)=>{ if(q[4]){ pen=false; return; } d+=(pen?"L":"M")+X(i).toFixed(1)+" "+Y(q[2]).toFixed(1); pen=true; });
+  g+=`<path d="${d}" fill="none" stroke="#F4D03F" stroke-width="2.5"/>`;
+  pts.forEach((q,i)=>{ if(q[4]) g+=`<circle cx="${X(i)}" cy="${Y(q[2])}" r="5" fill="#F4D03F"><title>${(p.days||[])[q[0]]} close ${q[2]}</title></circle>`; });
+  const hits={}; pts.forEach((q,i)=>{ const u=(q[2]-a.spot)/sd; [[1,"u1"],[1.5,"u15"],[-1,"d1"],[-1.5,"d15"]].forEach(([m,k])=>{ if(hits[k]==null&&(m>0?u>=m:u<=m)) hits[k]=i; }); });
+  Object.entries(hits).forEach(([k,i])=>{ const big=k.endsWith("15"), c=big?"#FF5C5C":"#FF8A3D";
+    g+=`<circle cx="${X(i)}" cy="${Y(pts[i][2])}" r="${big?8:6}" fill="${c}" stroke="#0A1426" stroke-width="2"><title>broke ${k[0]==="u"?"above":"below"} ${big?"1.5":"1"}× at ${(p.days||[])[pts[i][0]]} ${pts[i][1]}</title></circle>`; });
+  if(nw.spot&&nw.strad){ const x=W-R+60, y1=Y(nw.spot+nw.strad), y0=Y(nw.spot-nw.strad);
+    g+=`<line x1="${x}" x2="${x}" y1="${y1}" y2="${y0}" stroke="#3FD0B0" stroke-width="3"/><line x1="${x-7}" x2="${x+7}" y1="${y1}" y2="${y1}" stroke="#3FD0B0" stroke-width="3"/><line x1="${x-7}" x2="${x+7}" y1="${y0}" y2="${y0}" stroke="#3FD0B0" stroke-width="3"/><circle cx="${x}" cy="${Y(nw.spot)}" r="4" fill="#F4D03F"/><text x="${x}" y="${Math.min(H-B,y0+18)}" text-anchor="middle" style="fill:#3FD0B0">left</text>`; }
+  return `<svg class="vesvg" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+}
+function sxRead(p){
+  const a=p.anchor, nw=p.now||{}, sd=a.strad, u=(nw.spot-a.spot)/sd, dir=u>=0?"up":"down", per={daily:"day",weekly:"week",monthly:"monthly cycle"}[p.key]||"period";
+  let s;
+  if(!isFinite(u)) return "";
+  if(Math.abs(u)<0.5) s=`Price is well inside the move options priced at the start of the ${per} — it has used ${sxPct(Math.abs(u))} of it (${dir}). Quiet compared with what was paid for.`;
+  else if(Math.abs(u)<1) s=`Price is inside the band but has used <b>${sxPct(Math.abs(u))}</b> of the move priced for the ${per} (${dir}). Getting close to the edge buyers of this straddle need.`;
+  else if(Math.abs(u)<1.5) s=`Price has moved <b>more than the straddle priced</b> (${Math.abs(u).toFixed(2)}× ${dir}) — a bigger ${per} than options expected; sellers of this straddle are losing.`;
+  else s=`Price is <b>far outside</b> the priced move (${Math.abs(u).toFixed(2)}× ${dir}) — a trend ${per}; the options market under-priced it.`;
+  if(nw.strad) s+=` From here to expiry options still price <b>±${nw.strad.toFixed(nw.strad<20?2:1)}</b> (${sxPct(nw.strad/nw.spot,2)} of spot) — the green bracket.`;
+  return s;
+}
+function renderStraddle(){
+  const head=document.getElementById("sxHead"), body=document.getElementById("sxBody");
+  const btn=`<button class="sxbtn" id="sxOnBtn" aria-pressed="${st.sxOn}">${st.sxOn?"ON":"OFF"}</button>`;
+  head.innerHTML=`<span class="big">Straddle · ${veEsc(st.sym)}</span>${btn}<span>daily · weekly · monthly at-the-money straddle, each from the start of its own period · symbol = the SPX/SPY/QQQ buttons above</span>`;
+  document.getElementById("sxOnBtn").onclick=()=>{ st.sxOn=!st.sxOn; save("sxOn",st.sxOn?"1":"0"); if(st.sxOn) sxFetch(); renderStraddle(); };
+  if(!st.sxOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load the straddle bands. The page reads straddle.json, which the NAS writes each minute from data it already collects — no extra live calls.</p>'; return; }
+  if(!sxData||Date.now()-sxAt>55000) sxFetch();
+  if(!sxData){ body.innerHTML='<p class="veread">loading…</p>'; return; }
+  if(sxData.err){ body.innerHTML=`<p class="veread">${veEsc(sxData.err)}</p>`; return; }
+  const S=(sxData.syms||{})[st.sym]; if(!S||S.err){ body.innerHTML=`<p class="veread">${veEsc((S&&S.err)||"No straddle data for "+st.sym+".")}</p>`; return; }
+  let h=`<p class="vxnote" style="font-size:14px;color:var(--ink)">Built ${veEsc(sxData.asof)}. Shaded band = anchor ± 1× the straddle bought at the start of the period; dashed orange = ± 1.5×; yellow = price; orange / red dots = first break of 1× / 1.5×; green bracket = what options price from now to expiry.</p>`;
+  (S.panels||[]).forEach(p=>{
+    if(p.err){ h+=veSec("sx_"+p.key,p.label,"",`<p class="veread">${veEsc(p.err)}</p>`); return; }
+    const a=p.anchor, nw=p.now||{}, u=(nw.spot-a.spot)/a.strad, dp=a.strad<20?2:1;
+    const pills=`<div class="vepills"><span class="vepill">anchor <b>${veEsc(a.date.slice(5))} ${veEsc(a.t)}</b> · spot ${a.spot.toFixed(dp)}</span><span class="vepill">straddle then <b>±${a.strad.toFixed(dp)}</b> (${sxPct(a.strad/a.spot,2)})</span><span class="vepill${Math.abs(u)>=1?" hot":""}">used <b>${sxPct(Math.abs(u))}</b> ${u>=0?"up":"down"} (${(nw.spot-a.spot>=0?"+":"")+(nw.spot-a.spot).toFixed(dp)})</span><span class="vepill">left to expiry <b>±${nw.strad!=null?nw.strad.toFixed(dp):"—"}</b></span><span class="vepill">expires <b>${veEsc(p.expiry.slice(5))}</b> · ${p.dte}d</span>${a.src==="est"?'<span class="vepill hot">anchor estimated</span>':""}</div>`;
+    h+=veSec("sx_"+p.key,p.label,`expiry ${veEsc(p.expiry)} · period from ${veEsc(p.start)}`, pills+`<p class="veread">${sxRead(p)}</p>`+sxChart(p)+(p.note?`<p class="vxnote" style="font-size:14px;color:#FF8A3D">${veEsc(p.note)}</p>`:""));
+  });
+  body.innerHTML=h;
+}
+
+/* ============================================================ Flow Constellation tab (S2, 2026-11-04)
+   Reads const_<SYM>_<YYYYMMDD>.json + const_index.json, written by scripts/cvxmap/constellation.py
+   from the collector's own buy/sell counters (vendor-classified). One bubble per contract:
+   columns = expiries, left = bearish / right = bullish, height = strike, size = premium.
+   Positioning read only, not a trade signal. No live calls from the page; never touches the map. */
+let csIdx=null, csData=null, csKey="", csAt=0, csBusy=false, csTimer=null;
+st.csOn=load("csOn","0")==="1"; st.csSym=load("csSym","SPX"); st.csGroup=load("csGroup","near");
+st.csDate=""; st.csFrame=-1; st.csExp=null; st.csSel=null;
+function csFile(){ const d=st.csDate||((csIdx&&csIdx.syms&&(csIdx.syms[st.csSym]||[])[0])||""); return d?`const_${st.csSym}_${d}.json`:""; }
+function csFetch(force){
+  if(csBusy) return; csBusy=true;
+  fetch("const_index.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null).then(ix=>{
+    if(ix) csIdx=ix; const f=csFile();
+    if(!f){ csData={err:"No constellation file yet — the NAS writer creates const_*.json once the collector runs (or run constellation.py --all for past days)."}; csBusy=false; if(st.tab==="constel") renderConstel(); return; }
+    if(!force&&f===csKey&&st.csDate&&csData&&!csData.err){ csBusy=false; return; }
+    return fetch(f+"?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()}).then(d=>{ csData=d; csKey=f; csAt=Date.now(); })
+      .catch(()=>{ csData={err:"Could not read "+f+"."}; }).then(()=>{ csBusy=false; if(st.tab==="constel") renderConstel(); });
+  });
+}
+function csState(D,f){
+  const cum=new Map(); for(const u of D.upd){ if(u[0]>f) continue; cum.set(u[1],u); } return cum;
+}
+function csMoney(x){ return veBig(x); }
+function csVisibleExps(D){
+  const today=D.date.slice(0,4)+"-"+D.date.slice(4,6)+"-"+D.date.slice(6,8), t0=new Date(today+"T12:00:00").getTime();
+  const ex=D.exps.map((e,i)=>({i,iso:e[0],m:e[1],days:Math.round((new Date(e[0]+"T12:00:00").getTime()-t0)/864e5)})).filter(e=>e.days>=0).sort((a,b)=>a.iso<b.iso?-1:1);
+  const firstM=ex.find(e=>e.m);
+  let v=ex;
+  if(st.csGroup==="near") v=ex.filter(e=>e.days<=10||(firstM&&e.i===firstM.i));
+  else if(st.csGroup==="weekly") v=ex.filter(e=>!e.m);
+  else if(st.csGroup==="monthly") v=ex.filter(e=>e.m);
+  if(st.csExp!=null) v=v.filter(e=>e.i===st.csExp);
+  return v;
+}
+function csRender(D,f){
+  const cum=csState(D,f), spot=D.fspot[f]||D.spot, isVix=D.sym==="VIX", PU=(D.units||{}).prem||1, DU=(D.units||{}).delta||1;
+  const vex=csVisibleExps(D), col=new Map(vex.map((e,j)=>[e.i,j])), n=Math.max(vex.length,1);
+  const W=1240,H=640,L=74,R=16,T=64,B=26, cw=(W-L-R)/n, span=isVix?0.6:(D.sym==="SPX"?0.035:0.04);
+  const lo=spot*(1-span), hi=spot*(1+span), Y=k=>T+(H-T-B)*(1-(Math.min(hi,Math.max(lo,k))-lo)/(hi-lo));
+  const items=[]; let maxP=1;
+  cum.forEach((u,ci)=>{ const kk=D.ks[ci]; if(!kk) return; const j=col.get(kk[0]); if(j==null) return;
+    const vb=u[2]*PU, vs=u[3]*PU, prem=vb+vs; if(prem<=0) return; const bull=kk[2]==="C"?vb:vs, bear=kk[2]==="C"?vs:vb;
+    items.push({ci,j,k:kk[1],cp:kk[2],vb,vs,prem,bull,bear,lean:(bull-bear)/prem,nd:u[4]*DU,dlt:u[5]}); maxP=Math.max(maxP,prem); });
+  const rMax=Math.max(6,Math.min(cw*0.22,28));
+  let g="";
+  for(let q=0;q<=6;q++){ const y=lo+(hi-lo)*q/6; g+=`<line x1="${L}" x2="${W-R}" y1="${Y(y)}" y2="${Y(y)}" stroke="#16243F"/><text x="${L-6}" y="${Y(y)+5}" text-anchor="end">${y.toFixed(isVix?1:0)}</text>`; }
+  const colTot=vex.map(()=>({b:0,r:0,nd:0,ad:0}));
+  items.forEach(it=>{ const c=colTot[it.j]; c.b+=it.bull; c.r+=it.bear; c.nd+=it.nd; c.ad+=Math.abs(it.nd); });
+  vex.forEach((e,j)=>{ const x0=L+j*cw, cx=x0+cw/2, c=colTot[j], ln=c.ad?c.nd/c.ad:0, lc=ln>0.05?"#3FD0B0":ln<-0.05?"#FF6B5A":"#DCE6F2";
+    g+=`<rect x="${x0+1}" y="${T-2}" width="${cw-2}" height="${H-T-B+2}" fill="${j%2?"#0E1A30":"#0B1529"}"/><line x1="${cx}" x2="${cx}" y1="${T}" y2="${H-B}" stroke="#22365A" stroke-dasharray="2 5"/>`;
+    g+=`<text x="${cx}" y="18" text-anchor="middle" style="font-weight:700;fill:#fff">${e.iso.slice(5)}${e.m?" M":""}</text><text x="${cx}" y="36" text-anchor="middle" style="fill:${lc}">Δ$ lean ${(ln>=0?"+":"")+(ln*100).toFixed(0)}%</text><text x="${cx}" y="53" text-anchor="middle" style="fill:#9DB0CA;font-size:13px">${csMoney(c.b+c.r)}</text>`; });
+  g+=`<line x1="${L}" x2="${W-R}" y1="${Y(spot)}" y2="${Y(spot)}" stroke="#F4D03F" stroke-dasharray="7 5" stroke-width="1.6"/><text x="${W-R-4}" y="${Y(spot)-6}" text-anchor="end" style="fill:#F4D03F">last ${spot.toFixed(isVix?2:1)}</text>`;
+  const sel=items.find(it=>it.ci===st.csSel);
+  if(sel){ const nb=items.filter(it=>it!==sel&&((it.j===sel.j&&it.cp===sel.cp)||(it.k===sel.k&&it.cp===sel.cp&&Math.abs(it.j-sel.j)===1)));
+    const same=nb.filter(it=>it.j===sel.j).sort((a,b)=>Math.abs(a.k-sel.k)-Math.abs(b.k-sel.k)).slice(0,2), adj=nb.filter(it=>it.j!==sel.j);
+    const px=it=>L+it.j*cw+cw/2+it.lean*cw*0.4; [...same,...adj].forEach(it=>{ g+=`<line x1="${px(sel)}" y1="${Y(sel.k)}" x2="${px(it)}" y2="${Y(it.k)}" stroke="#fff" stroke-opacity=".55" stroke-width="1.5"/>`; }); }
+  items.sort((a,b)=>b.prem-a.prem).slice(0,1600).reverse().forEach(it=>{
+    const cx=L+it.j*cw+cw/2+it.lean*cw*0.4, r=Math.max(1.6,Math.sqrt(it.prem/maxP)*rMax), out=it.k<lo||it.k>hi, itm=Math.abs(it.dlt)>=0.9;
+    const fill=it.lean>0.15?"#3FD0B0":it.lean<-0.15?"#FF6B5A":"#9DB0CA";
+    g+=`<circle data-ci="${it.ci}" cx="${cx.toFixed(1)}" cy="${Y(it.k).toFixed(1)}" r="${r.toFixed(1)}" fill="${fill}" fill-opacity="${itm||out?0.18:0.6}" stroke="${it.ci===st.csSel?"#fff":(it.cp==="C"?"#DCE6F2":"#E0579E")}" stroke-width="${it.ci===st.csSel?3:1}"${it.cp==="P"?' stroke-dasharray="3 2"':""} style="cursor:pointer"><title>${D.exps[D.ks[it.ci][0]][0]} ${it.k} ${it.cp} · ${csMoney(it.prem)} · bought ${csMoney(it.vb)} / sold ${csMoney(it.vs)} · lean ${(it.lean*100).toFixed(0)}%${itm?" · deep ITM":""}</title></circle>`; });
+  return {svg:`<svg class="vesvg" id="csSvg" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`, items, colTot, vex, sel};
+}
+function csExpBars(D,R){
+  const mx=Math.max(1,...R.colTot.map(c=>Math.max(c.b,c.r)));
+  return '<div class="csbars">'+R.vex.map((e,j)=>{ const c=R.colTot[j];
+    return `<div class="csbar${st.csExp===e.i?" on":""}" data-ei="${e.i}"><span class="lb">${e.iso.slice(5)}${e.m?" M":""}</span><span class="tr"><span class="h l"><i class="r" style="width:${(c.r/mx*100).toFixed(1)}%"></i></span><span class="h"><i class="b" style="width:${(c.b/mx*100).toFixed(1)}%"></i></span></span><span class="nv" style="color:${c.b>=c.r?"#3FD0B0":"#FF6B5A"}">${c.b>=c.r?"+":"−"}${csMoney(Math.abs(c.b-c.r))}</span></div>`; }).join("")+'</div>';
+}
+function csRead(D,f,R){
+  const L=D.lines, t=D.frames[f], i=Math.max(0,L.t.lastIndexOf(t)>=0?L.t.lastIndexOf(t):L.t.length-1);
+  const bull=L.bull[i], bear=L.bear[i], net=bull-bear, lean=(bull+bear)?net/(bull+bear):0, wn=L.wb[i]-L.wr[i], mn=L.mb[i]-L.mr[i];
+  const wl=(L.wb[i]+L.wr[i])?wn/(L.wb[i]+L.wr[i]):0, ml=(L.mb[i]+L.mr[i])?mn/(L.mb[i]+L.mr[i]):0;
+  const top=R.items.slice().sort((a,b)=>b.prem-a.prem).filter(it=>Math.abs(it.dlt)<0.9).slice(0,3);
+  const g=L.g[i], isVix=D.sym==="VIX";
+  let s=`By ${t}: <b>${csMoney(bull)}</b> bullish vs <b>${csMoney(bear)}</b> bearish premium — net <b>${net>=0?"+":"−"}${csMoney(Math.abs(net))}</b> (lean ${(lean*100).toFixed(0)}%). `;
+  if(L.mb[i]+L.mr[i]>0) s+=`Weeklies lean ${(wl*100).toFixed(0)}%, monthlies ${(ml*100).toFixed(0)}% — ${(wl>0.03&&ml<-0.03)||(wl<-0.03&&ml>0.03)?"<b>they disagree</b> (short-dated and longer-dated money pull opposite ways)":"same direction"}. `;
+  if(top.length) s+=`Biggest: ${top.map(it=>`${D.exps[D.ks[it.ci][0]][0].slice(5)} ${it.k}${it.cp} ${csMoney(it.prem)} (${it.lean>0.15?"bullish":it.lean<-0.15?"bearish":"two-way"})`).join(", ")}. `;
+  s+=`Dealer gamma from today's trades: <b>${g>=0?"+":"−"}$${veBig(Math.abs(g))}</b> per 1% — ${g>=0?"customers net SOLD options, dealers got longer gamma: moves tend to be absorbed":"customers net BOUGHT options, dealers got shorter gamma: moves can speed up"}.`;
+  if(isVix) s+=` <i>VIX: calls bought = betting VIX up (fear), so "bullish" here means bullish VIX.</i>`;
+  return s+` Deep in-the-money contracts (|Δ| ≥ 0.90) are faded: they are often financing or spread legs. Positioning read, not a trade signal.`;
+}
+function renderConstel(){
+  const head=document.getElementById("csHead"), body=document.getElementById("csBody");
+  const syms=["SPX","SPY","QQQ","VIX"], dates=(csIdx&&csIdx.syms&&csIdx.syms[st.csSym])||[];
+  head.innerHTML=`<span class="big">Flow Constellation</span><button class="sxbtn" id="csOnBtn" aria-pressed="${st.csOn}">${st.csOn?"ON":"OFF"}</button>`
+    +`<span class="tabs" id="csSymSeg">${syms.map(s=>`<button data-v="${s}" aria-pressed="${st.csSym===s}">${s}</button>`).join("")}</span>`
+    +`<span class="tabs" id="csGrpSeg">${[["near","Near: weeklies + next monthly"],["weekly","Weeklies"],["monthly","Monthlies"],["all","All"]].map(([v,t])=>`<button data-v="${v}" aria-pressed="${st.csGroup===v}">${t}</button>`).join("")}</span>`
+    +`<select id="csDate" class="csdate"><option value="">${dates[0]?"latest ("+dates[0].slice(4,6)+"/"+dates[0].slice(6)+")":"latest"}</option>${dates.map(d=>`<option value="${d}"${st.csDate===d?" selected":""}>${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)}</option>`).join("")}</select>`;
+  document.getElementById("csOnBtn").onclick=()=>{ st.csOn=!st.csOn; save("csOn",st.csOn?"1":"0"); if(st.csOn) csFetch(true); renderConstel(); };
+  head.querySelectorAll("#csSymSeg button").forEach(b=>b.onclick=()=>{ st.csSym=b.dataset.v; save("csSym",st.csSym); st.csDate=""; st.csFrame=-1; st.csExp=null; st.csSel=null; csData=null; csFetch(true); renderConstel(); });
+  head.querySelectorAll("#csGrpSeg button").forEach(b=>b.onclick=()=>{ st.csGroup=b.dataset.v; save("csGroup",st.csGroup); st.csExp=null; renderConstel(); });
+  document.getElementById("csDate").onchange=e=>{ st.csDate=e.target.value; st.csFrame=-1; st.csSel=null; csData=null; csFetch(true); renderConstel(); };
+  if(!st.csOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load where today&rsquo;s option money went, contract by contract, for SPX, SPY, QQQ and VIX. The page reads files the NAS writes each minute from data it already collects — no extra live calls.</p>'; return; }
+  if(!csData||(!st.csDate&&Date.now()-csAt>55000)) csFetch(!csData);
+  if(!csData){ body.innerHTML='<p class="veread">loading…</p>'; return; }
+  if(csData.err){ body.innerHTML=`<p class="veread">${veEsc(csData.err)}</p>`; return; }
+  const D=csData, nf=D.frames.length; if(!nf){ body.innerHTML='<p class="veread">No frames yet today.</p>'; return; }
+  const f=st.csFrame<0||st.csFrame>=nf?nf-1:st.csFrame, live=!st.csDate&&f===nf-1;
+  const R=csRender(D,f);
+  const ctl=`<div class="csctl"><button class="sxbtn" id="csPlay">${csTimer?"Pause":"Play"}</button><input type="range" id="csSlider" min="0" max="${nf-1}" value="${f}"><b class="cst">${D.frames[f]}${live&&D.live_frame?" · live":""}</b><button class="sxbtn" id="csLive">Latest</button><span class="vxsub">${D.date.slice(0,4)}-${D.date.slice(4,6)}-${D.date.slice(6)} · 5-minute steps · built ${veEsc((D.asof||"").slice(11,16))}</span></div>`;
+  const s=R.sel; const det=s?`<div class="vepills"><span class="vepill"><b>${D.exps[D.ks[s.ci][0]][0]} ${s.k} ${s.cp==="C"?"call":"put"}</b></span><span class="vepill">bought <b>${csMoney(s.vb)}</b></span><span class="vepill">sold <b>${csMoney(s.vs)}</b></span><span class="vepill${s.lean<-0.15?" hot":s.lean>0.15?" ok":""}">lean <b>${(s.lean*100).toFixed(0)}%</b></span><span class="vepill">customer Δ$ <b>${s.nd>=0?"+":"−"}${csMoney(Math.abs(s.nd))}</b></span>${Math.abs(s.dlt)>=0.9?'<span class="vepill hot">deep ITM — likely a spread/financing leg</span>':""}</div>`:'<p class="vxnote" style="font-size:14px;color:var(--ink)">Click a bubble for its detail; lines link it to the neighbouring strikes and the same strike in the next/previous expiry.</p>';
+  const lg=veLegend([["#3FD0B0","bullish lean (calls bought / puts sold)"],["#FF6B5A","bearish lean (puts bought / calls sold)"],["#9DB0CA","two-way"],["#F4D03F","last price",1]])+'<p class="vxnote" style="font-size:14px;color:var(--ink)">Columns = expiries (M = monthly). Inside a column: left = bearish, right = bullish. Height = strike. Bubble area = premium traded. Solid outline = call, dashed pink = put. Faded = deep in the money (|Δ| ≥ 0.90) or outside the price window (pinned to the edge). Header = net customer delta-$ lean and total premium.</p>';
+  const L=D.lines, ti=Math.max(0,L.t.indexOf(D.frames[f])), dot=(arr,c)=>[{i:ti,y:arr[ti],c}];
+  const net=L.bull.map((b,i)=>b-L.bear[i]), wn=L.wb.map((b,i)=>b-L.wr[i]), mn=L.mb.map((b,i)=>b-L.mr[i]);
+  const lines=veSec("csG","Cumulative dealer gamma $ and vanna $ from today's trades","gamma: $ per 1% move (at trade time) · vanna: $ per 1 vol pt · dealer side = the other side of the vendor's buy/sell split",
+      '<div class="vegrid"><div>'+veLegend([["#4C8DFF","dealer gamma $ / 1%"]])+veChart(L.t,[{v:L.g,c:"#4C8DFF"}],{w:620,h:240,zero:1,fmt:veBig,dots:dot(L.g,"#fff")})+'</div><div>'+veLegend([["#E0579E","dealer vanna $ / vol pt"]])+veChart(L.t,[{v:L.v,c:"#E0579E"}],{w:620,h:240,zero:1,fmt:veBig,dots:dot(L.v,"#fff")})+'</div></div><p class="vxnote" style="font-size:14px;color:var(--ink)">Above zero = customers sold options to dealers today (dealers longer gamma — they buy dips and sell rips, damping moves). Below zero = customers bought (dealers shorter gamma — their hedging adds to moves). Gamma is measured when each trade printed, so late-day 0DTE trades weigh a lot. Vanna: how dealer delta shifts if implied vol moves 1 point.</p>')
+    +veSec("csF","Cumulative bullish, bearish and net premium","bullish = calls bought + puts sold · bearish = puts bought + calls sold · all expiries in the feed",
+      '<div class="vegrid"><div>'+veLegend([["#3FD0B0","bullish $"],["#FF6B5A","bearish $"],["#fff","net $"]])+veChart(L.t,[{v:L.bull,c:"#3FD0B0"},{v:L.bear,c:"#FF6B5A"},{v:net,c:"#fff",w:2}],{w:620,h:240,zero:1,fmt:veBig,dots:dot(net,"#F4D03F")})+'</div><div>'+veLegend([["#5DADE2","weeklies net $"],["#FF8A3D","monthlies net $"]])+veChart(L.t,[{v:wn,c:"#5DADE2"},{v:mn,c:"#FF8A3D"}],{w:620,h:240,zero:1,fmt:veBig})+'</div></div>');
+  const ext=(D.ext_exps||[]).length?`<p class="vxnote" style="font-size:14px;color:var(--ink)">Expiries ${D.ext_exps.map(x=>x.slice(5)).join(", ")} come from the 5-minute far-expiry pull (near the money only); the rest update every minute.</p>`:"";
+  body.innerHTML=ctl+`<p class="veread">${csRead(D,f,R)}</p>`+det+R.svg+lg+'<div class="vxh"><h2>By expiry</h2><span class="vxsub">red = bearish $, green = bullish $ · click to show one expiry, click again for all</span></div>'+csExpBars(D,R)+ext+lines;
+  const sl=document.getElementById("csSlider"); sl.oninput=()=>{ st.csFrame=+sl.value; renderConstel(); };
+  document.getElementById("csLive").onclick=()=>{ st.csFrame=-1; renderConstel(); };
+  document.getElementById("csPlay").onclick=()=>{ if(csTimer){ clearInterval(csTimer); csTimer=null; renderConstel(); return; }
+    if(f>=nf-1) st.csFrame=0; csTimer=setInterval(()=>{ if(st.tab!=="constel"||!csData){ clearInterval(csTimer); csTimer=null; return; } const n2=csData.frames.length; st.csFrame=(st.csFrame<0?n2-1:st.csFrame)+1; if(st.csFrame>=n2-1){ st.csFrame=-1; clearInterval(csTimer); csTimer=null; } renderConstel(); },450); renderConstel(); };
+  document.getElementById("csSvg").onclick=e=>{ const c=e.target.closest("circle[data-ci]"); st.csSel=c?(+c.dataset.ci===st.csSel?null:+c.dataset.ci):null; renderConstel(); };
+  body.querySelectorAll(".csbar").forEach(b=>b.onclick=()=>{ const ei=+b.dataset.ei; st.csExp=st.csExp===ei?null:ei; renderConstel(); });
 }
 
 })();
