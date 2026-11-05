@@ -585,88 +585,183 @@ def html_report(R):
     return "\n".join(p)
 
 
+START = "20261028"          # first stored session
+STOP = "20261204"           # 30-day scoring window ends after this session (Fri Dec 4 2026)
+
+
+def score_day(ymd, data, out_root, min_minutes):
+    """Everything for one session, cached in alt_days/<ymd>.json so later nights only add the new day."""
+    day = datetime.datetime.strptime(ymd, "%Y%m%d").date()
+    day_iso = day.isoformat()
+    fp = data / ("flow_%s.ndjson" % ymd)
+    if not fp.is_file():
+        return None, "no flow"
+    flow = load_flow_spx(fp, day_iso)
+    if len(flow) < min_minutes:
+        return None, "only %d SPX minutes" % len(flow)
+    path = sorted((t, j["x"]) for t, j in flow.items() if "09:31" <= t <= "16:00")
+    close = path[-1][1]
+    ex = get_extract(day, data, out_root)
+    oi = oi_book(ex) if ex else {}
+    week = ((ex or {}).get("week") or {}).get("SPX", {}).get("rows") or []
+    ledger = load_ledger(data, ymd, day_iso)
+    D = {"day": ymd, "minutes": len(flow), "oi": len(oi), "ledger": bool(ledger),
+         "t2": t2_pairs(flow), "t5": t5_day(flow, path, close)}
+    if oi:
+        D["t1"] = t1_flip(flow, oi, path, close)
+        D["t3"] = t3_day(flow, oi, ledger, close)
+        D["t4"] = t4_day(flow, oi, week, dict(path))
+    return D, None
+
+
+def tally(days, t2):
+    """Per-night old-vs-new verdicts -> 'new beat old on X of Y nights'."""
+    V = {}
+    # T1 flip: fixed closer to traded prices on most checks that day
+    w = n = 0
+    for D in days:
+        rs = [r for r in D.get("t1") or [] if (r.get("current") or {}).get("closest") is not None
+              and (r.get("fixed") or {}).get("closest") is not None]
+        if not rs:
+            continue
+        k = sum(r["fixed"]["closest"] < r["current"]["closest"] for r in rs)
+        n += 1
+        w += k * 2 > len(rs)
+    V["flip"] = (w, n)
+    # T2 smile: measured lower 15-min IV error than plain / than the Smile button, per night
+    pd_ = [x for x in t2["per_day"] if x.get("measured") is not None]
+    V["smile_vs_plain"] = (sum(x["measured"] < x["plain"] for x in pd_), len(pd_))
+    V["smile_vs_button"] = (sum(x["measured"] < x["smile"] for x in pd_), len(pd_))
+    V["button_vs_plain"] = (sum(x["smile"] < x["plain"] for x in pd_), len(pd_))
+    # T3 3:30 dealer delta: sign right per book
+    t3 = {}
+    for D in days:
+        v = (D.get("t3") or {}).get("15:30")
+        if not v:
+            continue
+        for b, d in v["D_bn"].items():
+            a = t3.setdefault(b, [0, 0])
+            a[1] += 1
+            a[0] += (d > 0) == (v["ret_bp"] > 0)
+    V["delta330"] = t3
+    # T5 bands: close inside +-1 band
+    t5 = {}
+    for D in days:
+        for name in ("IV cone 1sd", "Gap strip 1 straddle", "1.2533 x straddle"):
+            v = (D.get("t5") or {}).get(name)
+            if v:
+                a = t5.setdefault(name, [0, 0])
+                a[1] += 1
+                a[0] += bool(v["close_in_1"])
+    V["band"] = t5
+    return V
+
+
+def verdict_lines(V, t4, stopped):
+    L = []
+    w, n = V["flip"]
+    L.append("Flip: fixed maths closer to where price traded on %d of %d nights" % (w, n))
+    a, b, c = V["smile_vs_plain"], V["smile_vs_button"], V["button_vs_plain"]
+    L.append("Smile: measured beat plain map on %d of %d nights, beat Smile button on %d of %d (Smile button beat plain %d of %d)"
+             % (a[0], a[1], b[0], b[1], c[0], c[1]))
+    L.append("3:30 dealer delta called the close: " + ", ".join("%s %d of %d" % (k, v[0], v[1]) for k, v in sorted(V["delta330"].items())))
+    L.append("Gate (all nights pooled, more negative = more gamma, calmer next 30 min): 0DTE %s, longer expiries %s, all %s"
+             % (t4.get("g0"), t4.get("gw"), t4.get("gt")))
+    L.append("Band, close inside 1 sd (theory 68%): " + ", ".join("%s %d of %d" % (k, v[0], v[1]) for k, v in V["band"].items()))
+    if stopped:
+        L.append("SCORING PERIOD ENDED %s - decide each test and remove the nightly 'alt score' task." % STOP)
+    return L
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default=str(CVX / "data"))
     ap.add_argument("--out", default=str(HERE.parent / "reports" / "replay"))
-    ap.add_argument("--days", help="comma list YYYYMMDD (default: every day with a flow file)")
+    ap.add_argument("--days", help="comma list YYYYMMDD (default: every stored day in the window)")
     ap.add_argument("--min-minutes", type=int, default=300, help="skip days with fewer SPX minutes")
+    ap.add_argument("--rescore", action="store_true", help="ignore the per-day cache")
+    ap.add_argument("--no-telegram", action="store_true")
     args = ap.parse_args()
     data, out_root = Path(args.data), Path(args.out)
+    cache = out_root / "alt_days"
+    cache.mkdir(parents=True, exist_ok=True)
     if args.days:
         ymds = [d.strip() for d in args.days.split(",") if d.strip()]
     else:
         ymds = sorted(os.path.basename(p)[5:13] for p in glob.glob(str(data / "flow_2*.ndjson")))
-    R = {"days": [], "t1": {}, "t3": {}, "t5": {}}
-    t2_days, t4_rows, skipped = [], [], []
+    ymds = [d for d in ymds if START <= d <= STOP]
+    from zoneinfo import ZoneInfo
+    now_et = datetime.datetime.now(ZoneInfo("America/New_York"))      # NAS containers run on UTC
+    today = now_et.strftime("%Y%m%d")
+    stopped = today > STOP
+    skipped = []
     for ymd in ymds:
-        day = datetime.datetime.strptime(ymd, "%Y%m%d").date()
-        day_iso = day.isoformat()
-        fp = data / ("flow_%s.ndjson" % ymd)
-        if not fp.is_file():
-            skipped.append("%s no flow" % ymd)
+        cp = cache / ("%s.json" % ymd)
+        if cp.is_file() and not args.rescore:
             continue
-        flow = load_flow_spx(fp, day_iso)
-        if len(flow) < args.min_minutes:
-            skipped.append("%s only %d SPX minutes" % (ymd, len(flow)))
+        if ymd == today and now_et.hour < 17 and not args.days:
+            continue                                     # session not finished
+        D, why = score_day(ymd, data, out_root, args.min_minutes)
+        if D is None:
+            skipped.append("%s %s" % (ymd, why))
             continue
-        path = sorted((t, j["x"]) for t, j in flow.items() if "09:31" <= t <= "16:00")
-        path_d = dict(path)
-        close = path[-1][1]
-        ex = get_extract(day, data, out_root)
-        oi = oi_book(ex) if ex else {}
-        week = ((ex or {}).get("week") or {}).get("SPX", {}).get("rows") or []
-        ledger = load_ledger(data, ymd, day_iso)
-        R["days"].append(ymd)
-        t2_days.append((ymd, t2_pairs(flow)))
-        R["t5"][ymd] = t5_day(flow, path, close)
-        if oi:
-            R["t1"][ymd] = t1_flip(flow, oi, path, close)
-            R["t3"][ymd] = t3_day(flow, oi, ledger, close)
-            for r in t4_day(flow, oi, week, path_d):
-                r["day"] = ymd
-                t4_rows.append(r)
-        else:
-            skipped.append("%s no 0DTE OI (no raw / extract)" % ymd)
-        print("scored %s: %d minutes, OI strikes %d, week rows %d, ledger %s" % (ymd, len(flow), len(oi), len(week), "yes" if ledger else "no"), flush=True)
+        with open(cp, "w", encoding="utf-8") as fh:
+            json.dump(D, fh, separators=(",", ":"))
+        print("scored %s: %d minutes, OI strikes %d, ledger %s" % (ymd, D["minutes"], D["oi"], "yes" if D["ledger"] else "no"), flush=True)
 
-    R["t2"] = t2_score(t2_days)
-    # T3 summary per book
+    days = []
+    for cp in sorted(cache.glob("2*.json")):
+        if START <= cp.stem <= STOP:
+            days.append(json.load(open(cp, encoding="utf-8")))
+    R = {"days": [D["day"] for D in days], "t1": {D["day"]: D["t1"] for D in days if D.get("t1")},
+         "t3": {D["day"]: D["t3"] for D in days if D.get("t3")}, "t5": {D["day"]: D["t5"] for D in days}}
+    R["t2"] = t2_score([(D["day"], D["t2"]) for D in days])
     s3 = {}
     for d, x in R["t3"].items():
         v = x.get("15:30")
         if not v:
             continue
-        for b, D in v["D_bn"].items():
+        for b, Dv in v["D_bn"].items():
             a = s3.setdefault(b, {"D": [], "r": []})
-            a["D"].append(D); a["r"].append(v["ret_bp"])
-    R["t3_sum"] = {b: {"n": len(a["D"]), "hits": sum((D > 0) == (r > 0) for D, r in zip(a["D"], a["r"])),
+            a["D"].append(Dv); a["r"].append(v["ret_bp"])
+    R["t3_sum"] = {b: {"n": len(a["D"]), "hits": sum((Dv > 0) == (r > 0) for Dv, r in zip(a["D"], a["r"])),
                        "rho": spearman(a["D"], a["r"])} for b, a in s3.items()}
-    # T4: rank link within each time slot, averaged
     slots = {}
-    for r in t4_rows:
-        slots.setdefault(r["t"], []).append(r)
-    t4 = {"n": len(t4_rows)}
+    for D in days:
+        for r in D.get("t4") or []:
+            slots.setdefault(r["t"], []).append(r)
+    t4 = {"n": sum(len(v) for v in slots.values())}
     for key in ("g0", "gw", "gt"):
         vals = [spearman([r[key] for r in rs], [r["rv"] for r in rs]) for rs in slots.values() if len(rs) >= 4]
         vals = [v for v in vals if v is not None]
         t4[key] = round(sum(vals) / len(vals), 2) if vals else None
     R["t4"] = t4
     R["skipped"] = skipped
-    out_root.mkdir(parents=True, exist_ok=True)
+    V = tally(days, R["t2"])
+    R["verdict"] = verdict_lines(V, t4, stopped)
+    R["window"] = "%s to %s" % (START, STOP)
     with open(out_root / "alt_scores.json", "w", encoding="utf-8") as fh:
         json.dump(R, fh, indent=1, default=str)
+    head = ("<div class=read><b>Scoring window %s - %s (%d nights so far).</b><br>%s</div>"
+            % (START, STOP, len(days), "<br>".join(R["verdict"])))
+    body = html_report(R)
+    k = body.index("<h2>")
     with open(out_root / "alt_scores.html", "w", encoding="utf-8") as fh:
-        fh.write(html_report(R))
-    print("T2 rmse (vol pts): %s" % R["t2"]["rmse"])
-    print("T2 beta: %s" % R["t2"]["beta"])
-    print("T3: %s" % R["t3_sum"])
-    print("T4: %s" % R["t4"])
-    for d, x in R["t5"].items():
-        print("T5 %s: %s" % (d, {k: (v["width"], v["close_in_1"]) for k, v in x.items() if isinstance(v, dict)}))
+        fh.write(body[:k] + "<h2>Verdict so far - new vs old</h2>" + head + body[k:])
+    for line in R["verdict"]:
+        print(line)
     if skipped:
         print("skipped: " + "; ".join(skipped))
     print("wrote %s" % (out_root / "alt_scores.html"))
+    if not args.no_telegram:
+        try:
+            sys.path.insert(0, str(HERE))
+            import cvx_replay
+            txt = "<b>New vs old calculations</b> (%d nights, window to %s)\n" % (len(days), STOP) + "\n".join(
+                "- " + x for x in R["verdict"])
+            cvx_replay.telegram(txt, [(str(out_root / "alt_scores.html"), "New vs old - full table")])
+        except Exception as exc:
+            print("telegram failed: %s" % exc)
     return 0
 
 
