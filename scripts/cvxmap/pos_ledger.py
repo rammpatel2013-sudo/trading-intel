@@ -108,9 +108,9 @@ def get_engine():
 
 
 # ---------- raw data extraction ----------
-def read_raw(raw_path: str) -> list[dict]:
-    """Read all records from a raw_YYYYMMDD.ndjson.gz file."""
-    records = []
+def read_raw(raw_path: str):
+    """Yield records from a raw_YYYYMMDD.ndjson.gz file one at a time.
+    2026-11-05: was a list of the whole day - died silently (OOM, 3.8 GB NAS) on 11/03 and 11/04."""
     opener = gzip.open if raw_path.endswith(".gz") else open
     with opener(raw_path, "rt", encoding="utf-8") as fh:
         for line in fh:
@@ -118,10 +118,9 @@ def read_raw(raw_path: str) -> list[dict]:
             if not line:
                 continue
             try:
-                records.append(json.loads(line))
+                yield json.loads(line)
             except json.JSONDecodeError:
                 continue
-    return records
 
 
 def _abs(x):
@@ -130,7 +129,7 @@ def _abs(x):
 
 
 def extract_day_flow(
-    records: list[dict],
+    records,
     trade_date: datetime.date,
 ) -> dict[tuple, dict]:
     """Extract signed flow per contract from the raw records for one day.
@@ -672,13 +671,11 @@ def process_date(engine, trade_date: datetime.date) -> None:
     log(f"processing {trade_date}  raw={os.path.basename(raw_path)}")
 
     # Step 1: read raw records
-    records = read_raw(raw_path)
-    log(f"  {len(records)} raw records")
-    if not records:
+    # Step 2: extract day flow (streams the raw file - no whole-day list in memory)
+    flow = extract_day_flow(read_raw(raw_path), trade_date)
+    if not flow:
+        log("  no SPX contracts in the raw file - skipping")
         return
-
-    # Step 2: extract day flow
-    flow = extract_day_flow(records, trade_date)
     n_calls = sum(1 for k in flow if k[2] == "C")
     n_puts = sum(1 for k in flow if k[2] == "P")
     log(f"  {len(flow)} contracts ({n_calls}C + {n_puts}P)")
