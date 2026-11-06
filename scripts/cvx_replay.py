@@ -126,9 +126,13 @@ JS_DEN_STATE = r"""(last) => { const D=window.__density, st=window.__cockpit.st;
 JS_DEN_OUT = r"""() => { const D=window.__density, st=window.__cockpit.st;
   const runs=Object.keys(D.runs).filter(k=>!k.startsWith('x')).map(Number).sort((a,b)=>a-b).map(k=>{ const r=D.runs[k];
     return {t:r.t,k:r.k,spot:r.spot,strad:r.strad,sd:r.sd,med:r.med,p10:r.p10,p90:r.p90,zone:r.zone,pZone:r.pZone,
-            pAboveGz:r.pAboveGz,pRails:r.pRails,gz:r.gz,vt:r.vt,vb:r.vb}; });
+            pAboveGz:r.pAboveGz,pRails:r.pRails,gz:r.gz,vt:r.vt,vb:r.vb,
+            pull:r.pull?{med:r.pull.med,p10:r.pull.p10,p90:r.pull.p90}:null, odds:r.odds?{b:r.odds.b,touch:r.odds.touch,touchLv:r.odds.touchLv}:null, src:r.src||null}; });
   const skipped=Object.keys(D.runs).filter(k=>k.startsWith('x')).map(k=>+k.slice(1)).sort((a,b)=>a-b);
-  return {runs, skipped, basis:st.basis, sym:st.sym, charm:D.charm||[], err:D.err||null, tripped:!!D.tripped}; }"""
+  const cm=D.cm?{morning_total:D.cm.morning[D.cm.morning.length-1][1], tomorrow_total:D.cm.tomorrow?D.cm.tomorrow[D.cm.tomorrow.length-1][1]:null,
+    remarks:(D.cm.remarks||[]).map(x=>({T:x.T,S:x.S,remNow:x.remNow,morningRem:x.morningRem,spotTravel:x.spotTravel,ivPart:x.ivPart,after14:x.after14,tmw:x.tmw}))}:null;
+  return {runs, skipped, basis:st.basis, sym:st.sym, charm:D.charm||[], err:D.err||null, tripped:!!D.tripped,
+          board:D.board||null, shelf:D.shelf?{lo:D.shelf.lo,hi:D.shelf.hi,vol:D.shelf.vol,t:D.shelf.t,side:D.shelf.side||null}:null, charm_marks:cm}; }"""
 
 JS_LEVELS = r"""(bases) => { const c=window.__cockpit, st=c.st, d=st.live[st.sym], se=c.series(st.sym), keep=st.basis, out={};
   try{ for(const b of bases){ st.basis=b;
@@ -494,7 +498,7 @@ def replay_page(args, day_iso, page_html, flow, flow_lines, oi, tmpl, week, ti_b
         browser = pw.chromium.launch(args=CHROME_ARGS)
         ctx = browser.new_context(viewport={"width": 1600, "height": 1000}, device_scale_factor=1)
         prefs = {"basis": VIEW_BASIS, "mapBook": "0dte", "mapBookR": "all", "mapRight": "charm",
-                 "weekSrc": week_src, "denOn": "1", "sym": "SPX"}
+                 "weekSrc": week_src, "denOn": "1", "denPull": "1", "denVol": "strad", "sym": "SPX"}   # denPull: the plain cone stays in runs[].med (scored), the pulled one rides along in runs[].pull (2026-11-06)
         ctx.add_init_script("(p)=>{}")  # placeholder so the next script runs first on every page
         ctx.add_init_script("""(() => { const p=%s; try{ for(const k in p) localStorage.setItem('cockpit.'+k, p[k]); }catch(e){} })();"""
                             % json.dumps(prefs))

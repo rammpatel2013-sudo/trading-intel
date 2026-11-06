@@ -67,7 +67,7 @@ body.demo .demo-flag{display:inline-block}
 .denread .big{font-size:19px;font-weight:700}
 .denread .up{color:var(--longg)}.denread .dn{color:var(--shortg)}.denread .ev{color:var(--warn);font-weight:600}
 .denread .off{color:var(--warn);font-weight:700;font-size:17px}.denread .note{color:#B9C6D8;font-size:13px}
-.denchbody{position:relative;height:150px;margin:0 8px}.denchbody canvas{width:100%;height:100%;display:block}
+.denchbody{position:relative;height:170px;margin:0 8px}.denkey{padding:8px 14px 6px;font-size:17px;line-height:1.45;color:var(--ink)}.denkey .k{margin:7px 0}.denkey b{color:#fff;font-variant-numeric:tabular-nums}.denkey .big{font-size:21px;font-weight:700}.denkey .lab{color:#AFC3DA;font-size:14px;font-weight:700;margin-right:7px;text-transform:uppercase;letter-spacing:.03em}.denkey .up,.denkey .up b{color:var(--longg)}.denkey .dn,.denkey .dn b{color:var(--shortg)}.denkey .warn{color:var(--warn);font-weight:700}.denkey .note{color:#C9D3E0;font-size:14px}.densub{padding:10px 14px 3px;color:#C9D3E0;font-size:13px;font-weight:600;border-top:1px solid var(--rule)}.denodds{position:relative;height:190px;margin:0 8px}.denodds canvas{width:100%;height:100%;display:block}.denoddstxt{padding:3px 14px 8px;font-size:14px;line-height:1.5;color:var(--ink)}.denoddstxt b{color:#fff}.denoddstxt .note{color:#C9D3E0}.denleg{padding:3px 14px 8px;font-size:14px;line-height:1.5;color:var(--ink)}.denleg b{color:#fff}.denleg .note{color:#C9D3E0}details.denmore{margin:6px 8px 14px;border-top:1px solid var(--rule)}details.denmore>summary{cursor:pointer;color:#DCE6F2;font-size:15px;font-weight:700;padding:9px 6px}details.denmore>summary:hover{color:#fff}.denchbody canvas{width:100%;height:100%;display:block}
 .denlog{padding:2px 8px 12px;font-size:13px}
 .denlog table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
 .denlog th{color:var(--mute);font-weight:600;text-align:right;padding:3px 5px;border-bottom:1px solid var(--rule);font-size:12px}
@@ -609,6 +609,71 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
   .app{height:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* --- Risk tab (2026-11-05): drop-risk score + evidence-ranked tiles, big high-contrast text --- */
+#tabRisk{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+.rkhero{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr);gap:14px;margin:6px 0 12px}
+.rkcard{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:12px 14px}
+.rkbig{display:flex;justify-content:center;align-items:baseline;flex-wrap:wrap;font-size:64px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.rkbig small{font-size:20px;font-weight:600;color:#DCE6F2;margin-left:8px;letter-spacing:0}
+.rkline{font-size:17px;color:#fff;margin:6px 0}
+.rkline b{font-size:19px}
+.rkchip{display:inline-block;border-radius:999px;padding:3px 12px;font-size:15px;font-weight:800;color:#0A1426;margin-right:8px;vertical-align:middle}
+.rkdrv{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(0,1.6fr) 70px;gap:6px 10px;align-items:center;font-size:16px;color:#fff;margin:8px 0}
+.rkdrv .bar{position:relative;height:18px;background:#0F1D36;border-radius:4px}
+.rkdrv .bar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.rkdrv .bar b{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:#9DB0CA}
+.rkdrv .sub{display:block;font-size:13px;color:var(--ink)}
+.rkrange{display:inline-flex;gap:4px;margin-left:10px}
+.rkread{font-size:15px;color:#DCE6F2;min-height:22px;margin:2px 0 4px}
+.rkgrp{margin:14px 0 6px}
+.rkgrp h3{font-size:18px;color:#fff;margin:0 0 6px;font-weight:700}
+.rkgrp h3 span{font-size:14px;color:var(--ink);font-weight:500;margin-left:10px}
+.rkwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.rktile{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;cursor:pointer;position:relative;transition:transform .15s ease,box-shadow .15s ease;transform-origin:center}
+.rktile:hover,.rktile:focus-visible{transform:scale(1.08);z-index:6;box-shadow:0 10px 30px rgba(0,0,0,.6);outline:none}
+@media (prefers-reduced-motion:reduce){.rktile:hover{transform:none}}
+.rktile.warn{border-color:#FF5C5C;box-shadow:0 0 0 1px #FF5C5C inset}
+.rktile.dim{opacity:.62}
+.rkth{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;font-size:15px;color:#fff;font-weight:600}
+.rkbadge{font-size:11px;font-weight:800;letter-spacing:.05em;border-radius:4px;padding:2px 6px;white-space:nowrap}
+.rkb-score{background:#3FD0B0;color:#0A1426}.rkb-context{background:#33496E;color:#DCE6F2}.rkb-short{background:#F4D03F;color:#0A1426}.rkb-untested{background:#9B7BFF;color:#0A1426}.rkb-drop{background:#5A2A33;color:#FFB3B3}
+.rkv{font-size:28px;font-weight:800;color:#fff;line-height:1.1}
+.rkv small{font-size:14px;font-weight:600;color:#DCE6F2;margin-left:4px}
+.rkmeter{position:relative;height:10px;border-radius:5px;background:linear-gradient(90deg,#1E6B5C 0%,#3FD0B0 30%,#F4D03F 70%,#FF9F43 88%,#FF5C5C 100%);opacity:.9;margin-top:4px}
+.rkmeter i{position:absolute;top:-4px;width:4px;height:18px;margin-left:-2px;background:#fff;border-radius:2px;box-shadow:0 0 0 2px #0A1426}
+.rkmeter b{position:absolute;top:-2px;bottom:-2px;left:90%;width:2px;background:#0A1426}
+.rkml{display:flex;justify-content:space-between;font-size:12px;color:var(--ink)}
+.rkfoot{font-size:13px;color:#DCE6F2;line-height:1.35}
+.rkfoot b{color:#fff}
+.rksp{width:100%;height:42px;display:block}
+.rkcal{width:100%;border-collapse:collapse;font-size:15px}
+.rkcal td{padding:4px 6px;color:#fff;border-bottom:1px solid var(--rule)}
+.rkcal .cb{position:relative;height:14px;background:#0F1D36;border-radius:3px;min-width:120px}
+.rkcal .cb i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+.rkcal .cb b{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff}
+body.phone .rkhero{grid-template-columns:1fr}
+@media (max-width:980px){.rkhero{grid-template-columns:1fr}.rkbig{font-size:52px}.rkdrv{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 56px}}
+body.phone .rkbig{font-size:52px}
+
+.rkflags{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 2px}
+.rkflag{border-radius:8px;padding:6px 10px;font-size:15px;color:#fff;border:1px solid var(--rule);background:#0F1D36}
+.rkflag.on.bad{border-color:#FF9F43;background:#3A2A12}.rkflag.on.good{border-color:#3FD0B0;background:#0F3A33}
+.rkflag b{font-size:16px}
+.rkparts{display:flex;gap:6px;flex-wrap:wrap;font-size:12px}
+.rkparts span{border-radius:4px;padding:2px 6px;background:#0F1D36;color:#DCE6F2}.rkparts span.bear{background:#5A2A33;color:#FFD0D0}
+#rkModal{position:fixed;inset:0;background:rgba(5,10,20,.78);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+#rkModal[hidden]{display:none}
+.rklive{margin-top:8px;padding:6px 10px;border:1px dashed var(--rule);border-radius:8px}
+.rklive .sub{display:block;font-size:14px;color:#DCE6F2}
+#rkModal .box{background:var(--pane2);border:1px solid var(--rule);border-radius:12px;max-width:1100px;width:100%;max-height:92vh;overflow:auto;padding:16px 20px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+#rkModal .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+#rkModal h2{font-size:24px;color:#fff;margin:0 0 6px}
+#rkModal .x{background:none;border:1px solid var(--rule);color:#fff;font-size:22px;border-radius:8px;padding:2px 12px;cursor:pointer}
+#rkModal .big{font-size:44px;font-weight:800;color:#fff}
+#rkModal .big small{font-size:18px;color:#DCE6F2;margin-left:6px}
+#rkModal p{font-size:17px;line-height:1.5;color:#fff;margin:8px 0}
+#rkModal .rkmeter{height:14px;margin:10px 0 4px}
+#rkModal .rng{display:inline-flex;gap:4px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -635,6 +700,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
       <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
       <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
+      <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
@@ -812,13 +878,19 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
     <section class="pane" id="premBigPane"><div class="phead"><h2>Big minutes</h2><span class="hint">minutes in the top 5% for their own side</span></div><div class="prembig" id="premBig"></div></section>
   </main>
   <main id="tabDensity" class="tab" hidden>
-    <section class="pane" id="denMainPane"><div class="phead"><h2>Density &mdash; where the close is likely to land</h2><span class="hint">cone re-run every 5 min from live spot and the live 0DTE straddle &middot; left of the cursor = the 09:30 cone &middot; lines = the Map&rsquo;s own gamma zero and vanna rails as they stood &middot; model, not a forecast (key N)</span><button class="btn" id="denEngBtn" aria-pressed="true" title="Kill switch. OFF stops every Density calculation and closes its background worker; nothing else in the cockpit is affected. Remembered across reloads. ?nodensity in the address bar turns it off hard.">Engine ON</button><button class="btn" id="denCsvBtn" title="Download today's cone log as CSV (one row per 5-minute re-run)">Export log</button><span class="hint" id="denStatus"></span></div><div class="body"><canvas id="denMainC"></canvas></div></section>
-    <section class="pane" id="denSidePane"><div class="phead"><h2>Read</h2></div>
-      <div class="denread" id="denRead"></div>
-      <div class="phsub">Charm at the realized spot &mdash; 0DTE, open interest only (+ = dealers buy)</div>
+    <section class="pane" id="denMainPane"><div class="phead"><h2>Density &mdash; where the close is likely to land</h2><span class="hint">cone re-run every 5 min from live spot and the live 0DTE straddle &middot; left of the cursor = the 09:30 cone &middot; lines = the Map&rsquo;s own gamma zero and vanna rails as they stood &middot; model, not a forecast (key N)</span><button class="btn" id="denEngBtn" aria-pressed="true" title="Kill switch. OFF stops every Density calculation and closes its background worker; nothing else in the cockpit is affected. Remembered across reloads. ?nodensity in the address bar turns it off hard.">Engine ON</button><button class="btn" id="denPullBtn" aria-pressed="false" title="Pull (Don 11/05): adds a second set of paths drawn toward the morning pin band and the intraday put shelf. Off = the plain cone centred on price. The plain numbers are always kept for scoring.">Pull OFF</button><button class="btn" id="denVolBtn" aria-pressed="false" title="Cone width: Straddle = the live 0DTE straddle (default). VIX = the live VIX, as Don uses.">Width: Straddle</button><button class="btn" id="denCsvBtn" title="Download today's cone log as CSV (one row per 5-minute re-run)">Export log</button><span class="hint" id="denStatus"></span></div><div class="body"><canvas id="denMainC"></canvas></div></section>
+    <section class="pane" id="denSidePane"><div class="phead"><h2>Key readings</h2></div>
+      <div class="denkey" id="denKey"></div>
+      <div class="densub">Close odds &mdash; the latest cone (green = up on the day, red = down, bright = inside the pin)</div>
+      <div class="denodds"><canvas id="denOddsC"></canvas></div>
+      <div class="denoddstxt" id="denOddsTxt"></div>
+      <div class="densub">Charm hedge flow, $bn &mdash; today vs tomorrow (+ = dealers buy)</div>
       <div class="denchbody"><canvas id="denCharmC"></canvas></div>
-      <div class="phsub">Cone log &mdash; one row per 5-minute re-run</div>
-      <div class="denlog" id="denLog"></div>
+      <div class="denleg" id="denLeg"></div>
+      <details class="denmore" id="denMore"><summary>More detail &mdash; board, cone numbers, 5-minute log</summary>
+        <div class="denread" id="denRead"></div>
+        <div class="denlog" id="denLog"></div>
+      </details>
     </section>
   </main>
   <main id="tabVix" class="tab" hidden>
@@ -871,6 +943,12 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
       <div id="csBody"></div>
     </div>
   </main>
+  <main id="tabRisk" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="rkHead"></section>
+      <div id="rkBody"></div>
+    </div>
+  </main>
   <main id="tabLedger" class="tab" hidden>
     <div id="ledgerHeader">
       <div class="tabs" role="group" aria-label="Ledger variant" id="ledgerVarSeg">
@@ -903,7 +981,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
 
         <p class="hintro">This cockpit shows how options traders, and the dealers who take the other side of their trades, are positioned in SPX (and SPY, QQQ) through the day. Every page is explained below: what it shows, how to read it, and what each button does. <b>Nothing here is a trade signal</b> &mdash; it describes positioning so you can make your own call.</p>
         <nav class="hjump">
-          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
+          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
         </nav>
 
         <h3 class="pg" id="h-words">Words used on this page</h3>
@@ -1085,15 +1163,19 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
         </dl>
 
         <h3 class="pg" id="h-den">Density</h3>
-        <p class="what">Where the close is likely to land, re-estimated every 5 minutes from price and today&rsquo;s straddle. A model, not a forecast. Key N.</p>
+        <p class="what">Where the close is likely to land, re-estimated every 5 minutes. Layout and levels follow Derivatives Don&rsquo;s version of 11/05. A model, not a forecast. Key N.</p>
         <dl>
-          <dt>Bright band</dt><dd>The range of likely closes from thousands of simulated paths: wider where dealers are short gamma, narrower where long. Left of the cursor = the 9:30 version for comparison.</dd>
-          <dt>Lines</dt><dd>Cyan = the Map&rsquo;s gamma zero. Green and lavender = the vanna top and bottom, as they stood each minute.</dd>
-          <dt>Read</dt><dd><b>Median</b> = the middle close. <b>P10&ndash;P90</b> = 8 in 10 paths close inside this range. <b>Most likely 5-pt zone</b> = the busiest 5-point bucket. &ldquo;09:30 cone said&rdquo; = this morning&rsquo;s version.</dd>
-          <dt>Centred on price</dt><dd>The cone gives width and odds, not direction. Read the lines for direction.</dd>
+          <dt>Bright band</dt><dd>The range of likely closes from 20,000 simulated paths: wider where dealers are short gamma, narrower where long. Left of the cursor = the 9:30 version for comparison.</dd>
+          <dt>Key readings (right)</dt><dd>Only the numbers that matter for a trade: price and VIX, above or below the flip, the close odds, how long price has sat in the pin, the put shelf, and what charm and leveraged ETFs will push into the close. Everything else is folded under <b>More detail</b>.</dd>
+          <dt>Morning levels</dt><dd>Worked out once from the 9:31 book (today&rsquo;s options plus the next 7 days). <b>Full flip</b> = where dealer gamma from all those options changes sign: above it moves get absorbed, below they get bigger. <b>Pin</b> (green band) = where gamma from today&rsquo;s options is strongest (at least half of its peak), so price tends to stick. <b>Breakdown</b> = the bottom of the pin. <b>Fade top</b> = the biggest call strike above. <b>Full-book trough</b> = where dealers are most short gamma below price, the place a drop usually runs to and stalls.</dd>
+          <dt>Front flip</dt><dd>The cyan line: where gamma from today&rsquo;s options alone changes sign, as it stood each minute.</dd>
+          <dt>Put shelf (orange)</dt><dd>Appears during the day when today&rsquo;s puts at a run of strikes trade at 3 times or more their open interest, at least 150,000 contracts. That much volume means fresh positions. If they were mostly <b>bought</b>, dealers are short them and sell into a drop (it can speed up). If mostly <b>sold</b>, it is a cushion. The side comes from the per-trade tape.</dd>
+          <dt>Pull</dt><dd>Off: the cone sits on price and only gives width. On: paths are drawn toward the pin band and the put shelf, as Don draws them. The plain cone is still calculated and scored every night.</dd>
+          <dt>Width</dt><dd>Straddle = today&rsquo;s at-the-money straddle sets how wide the cone is (default). VIX = the live VIX sets it instead, as Don does.</dd>
+          <dt>Close odds chart</dt><dd>Where the latest cone&rsquo;s paths close. Green bars = up on the day, red = down, bright = inside the pin. Underneath: the chance of closing below breakdown, inside the pin under or over the flip, or above the pin, and the chance price touches breakdown, the trough or the fade top before the close.</dd>
+          <dt>Charm panel</dt><dd>Green = hedge flow from time passing, from this morning&rsquo;s book (+ = dealers buy). Dashed = tomorrow&rsquo;s book. Yellow &#9670; = re-marks every hour from 10:30 at the new price and IV, split into how much changed because price moved and how much because IV moved. Blue = leveraged-ETF rebalancing into the close (day move &times; the dollars per 1%); it is not charm and grows with the move.</dd>
           <dt>Engine ON / OFF</dt><dd>Switches the whole calculation on or off. Remembered.</dd>
-          <dt>Export log</dt><dd>Download today&rsquo;s cone log (one row per 5-minute run).</dd>
-          <dt>Charm strip and cone log</dt><dd>Charm at the price path (+ = dealers buy from time passing), and a table of every 5-minute run.</dd>
+          <dt>Export log</dt><dd>Download today&rsquo;s cone log (one row per 5-minute run), including the pulled cone and the odds buckets.</dd>
         </dl>
 
         <h3 class="pg" id="h-vix">VIX</h3>
@@ -1169,6 +1251,25 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
           <dt>Click a bubble</dt><dd>Shows its detail and links it to neighbouring strikes and the same strike in the next expiry.</dd>
           <dt>Last sessions</dt><dd>Press <b>Load last 6 sessions</b> for one row per stored day: how far price moved, bullish vs bearish dollars, the same-day expiry&rsquo;s delta lean, the most one-sided later expiry, and dealer gamma from that day&rsquo;s trades. A lean is only an early warning if it shows up before down days and not before up days.</dd>
           <dt>Lines below</dt><dd>Running dealer gamma and vanna added by today&rsquo;s trades, and running bullish / bearish / net money (all, weeklies, monthlies).</dd>
+        </dl>
+
+        <h3 class="pg" id="h-risk">Risk</h3>
+        <p class="what">How likely a sharp drop is in the next days, from end-of-day data, rebuilt every evening. Off by default; press <b>ON</b>.</p>
+        <dl>
+          <dt>Big number</dt><dd>Chance that SPX closes at least 3% below today&rsquo;s close at some point in the next 5 sessions. &ldquo;Normal&rdquo; is how often that happened on any day since 2010 (about 9%). The second line is the same for a 5% drop within 10 sessions.</dd>
+          <dt>Gauge colours</dt><dd>Green under 6% · yellow 6&ndash;15% · orange 15&ndash;25% · red 25%+. The white dashed tick is normal.</dd>
+          <dt>What drives it</dt><dd>The score uses only three readings: VIX level, VIX divided by 3-month VIX (above 1 = the near term is priced more fearful than the next three months), and the Chicago Fed financial-conditions index (NFCI, weekly, counted from its release day). Bars to the right push the risk up, bars to the left pull it down.</dd>
+          <dt>Days like today</dt><dd>Every day since 2010 with a similar score: how often a 3% drop followed, and the typical and bad-case worst close.</dd>
+          <dt>History chart</dt><dd>Score (coloured by band) and SPX (grey). Red ticks at the bottom = days a 3%+ drop began. Move across the chart to read a day. 6M / 1Y / 3Y = range.</dd>
+          <dt>Does the % mean what it says?</dt><dd>Tested on years the model never saw: for each predicted band, how often the drop really came. If the bars sit near the white marks, the number can be read at face value.</dd>
+          <dt>Tiles</dt><dd>Value, a stress bar (left = calmest reading of the past year, right = most stressed, the dark tick = top 10%), six months of history, and what the tile was worth on its own since 2010 (&ldquo;2.3&times;&rdquo; = drop odds 2.3 times normal when the tile was in its top 10%). A red outline = in its top 10% now.</dd>
+          <dt>Enlarge a tile</dt><dd>Hover over a tile to make it bigger. Click it (or press Enter) for the full view: a large chart of the last 6 months / 1 year / 3 years with its top-10% stress mark (and Kurt&rsquo;s 5% credit line or 40% breadth line where they apply), what the tile means, and what it was worth since 2010. Esc or &times; closes it.</dd>
+          <dt>Flags</dt><dd><b>False all-clear</b> (orange &#9670;): VIX fell 12%+ in one day right after a stressed week. Since 2011 a 3%+ drop still followed about a third of the time, more than the score itself says, so do not read that day as safe. It was on for Nov 4, 2026. <b>Fear release</b> (green &#9679;): VIX is 25%+ below its 20-day high and back under VIX3M after a spike above 25. Drop odds return to normal and SPX was higher 20 days later about three times in four.</dd>
+          <dt>Kurt&rsquo;s dashboard</dt><dd>Kurt Altrichter&rsquo;s weekly four-part read rebuilt on our data: gamma, systematic flow, 1-month vs 3-month realized vol, breadth under 40%. It ranks risk less well than the score, but when all four are bearish a drop followed about 31% of the time.</dd>
+          <dt>Badges</dt><dd><b>In score</b> = one of the three inputs. <b>Context</b> = warns on its own but added nothing once the three inputs were known, so it is shown but not counted. <b>3 years only</b> = too little history to test. <b>Untested</b> = our own gamma, only months of data. <b>No edge</b> = made the score worse in testing.</dd>
+          <dt>Live now</dt><dd>During the day the same score is worked out again from the live VIX and VIX&divide;VIX3M quotes (delayed), with financial conditions held at the last weekly reading. A guide only: the evening number is the official one, and it is what was tested.</dd>
+          <dt>Our gamma tiles</dt><dd>Our own SPX and Mag7 dealer gamma only go back to May 2026, so they cannot be tested like the rest yet. Each keeps a running track record (drop odds below vs above the flip, and with 2+ Mag7 names negative vs fewer) that updates every evening. They count as tested once there are 20 drop days.</dd>
+          <dt>Limits</dt><dd>Tested on end-of-day data. It ranks risk; it does not time the drop. A one-day VIX drop after a stressed week is not an all-clear.</dd>
         </dl>
 
         <h3 class="pg" id="h-trust">What to trust, and when</h3>
@@ -1277,7 +1378,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -2601,7 +2702,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -2622,6 +2723,7 @@ function render(){
   else if(st.tab==="voleod") renderVolEod();
   else if(st.tab==="straddle") renderStraddle();
   else if(st.tab==="constel") renderConstel();
+  else if(st.tab==="risk") renderRisk();
   else renderSkew(se,d);
 }
 
@@ -4310,33 +4412,116 @@ function drawChgBlocked(id){
 
 
 /* ---- density.js (v2 R3, shared) ---- */
-/* ---- density.js (v2 R3, 2026-10-28) — live density cone, Derivatives-Don layout ----------------------
-   READ-ONLY with respect to the Map: it CALLS the cockpit's own buildMap / mapRowsAt / greekCol and never
-   edits them or writes to st. Positions use the Map's basis setting, 0DTE book.
-   Frozen model (set 2026-10-27/28, not to be tuned after a bad day):
-     20,000 paths · width = 0DTE ATM straddle / 0.7979 (the market's 1-sigma for the rest of the day) spread over a
-     historical time-of-day variance profile (SPX 1-min, Oct 5-26 2026) · net gamma scales vol by exp(-ln1.4 * G/ref),
-     clipped 0.6-1.6, ref = 95th pct |G| over that run's projection grid · no drift · seed 11000 + run minute.
+/* ---- density.js (v2 R3 2026-10-28; Don 11/05 layers 2026-11-06) — live density cone, Derivatives-Don layout -----------------------
+   READ-ONLY with respect to the Map: it CALLS buildMap / mapRowsAt / greekCol / greekColNear / nearRows and never edits them or writes to st.
+   Base model (frozen 2026-10-27/28, not tuned after a bad day): 20,000 paths · width = 0DTE ATM straddle / 0.7979 spread over a
+     historical time-of-day variance profile (SPX 1-min, Oct 5-26 2026) · net gamma scales vol by exp(-ln1.4·G/ref) clipped 0.6-1.6,
+     ref = 95th pct |G| over that run's projection grid · no drift · seed 11000 + run minute. DEN.runs med/p10/p90 are ALWAYS this model.
+   2026-11-06, following Derivatives Don's 11/05 version (layers or switches; none of them changes the base numbers):
+     Pull (button, default OFF): a second path set on the same random draws, pulled 0.2%/min of the gap toward the pin band and the
+       intraday put shelf (no pull inside a band). Drawn when ON; base kept for the replay score.
+     Width (button, default Straddle): VIX = 1-day sigma VIX/sqrt(252) spread over the same clock, instead of the straddle.
+     Morning board (frozen from the first minute >= 09:31, 0DTE book + the 1-7 DTE morning book): front flip, full flip, pin band
+       (0DTE gamma >= 50% of its peak, peak within ±1.5% of the open), breakdown = pin bottom, fade top = largest call OI above (<= +5%),
+       full-book trough = most negative full-book gamma below spot (to -6%).
+     Put shelf: 0DTE put strikes below price and >= 0.4% below the open, day volume >= 3x max(OI,500) and >= 2,000; a run of >= 3 with >= 150,000 contracts. Side from the
+       per-trade tape when present (bought = can speed a drop up, sold = cushion).
+     Charm panel: morning curve (09:31 book, OI), tomorrow's book (dashed), hourly re-marks from 10:30 split into price move vs IV change,
+       leveraged-ETF rebalance into the close (day return x $M per 1%, drawn 15:00-16:00, NOT charm).
+     Odds chart: close histogram of the latest cone + bucket and touch odds.
    KILL SWITCH: the Engine button (remembered), or ?nodensity in the address bar (hard off: no timer, no worker).
    Any error stays inside this tab; three errors in a session switch the engine off by itself. */
 const DEN_W=[0.0156174,0.0138708,0.0124963,0.0106677,0.009148,0.00756782,0.00688242,0.00694332,0.00636975,0.0067974,0.00672841,0.00680138,0.00669252,0.00672686,0.0063582,0.00618581,0.00598422,0.00604475,0.00606542,0.00607278,0.00552713,0.00558828,0.00564071,0.0060455,0.00568373,0.00555504,0.00568397,0.00649205,0.00667885,0.00644371,0.00657601,0.00639518,0.00586258,0.00590584,0.00595226,0.00560584,0.00476482,0.0041944,0.00415959,0.00426102,0.00380388,0.00392381,0.00402892,0.00394425,0.00381932,0.00318113,0.00317338,0.00319917,0.00277628,0.0028774,0.00272034,0.00236933,0.00240308,0.00242093,0.00270629,0.00296597,0.00307106,0.00310365,0.00329342,0.00325605,0.00323949,0.00324579,0.00321673,0.00299405,0.00302009,0.00280782,0.00281674,0.0024956,0.00251452,0.00271366,0.00273002,0.00277497,0.0027504,0.00251224,0.00260323,0.00240846,0.00237393,0.00249975,0.0023567,0.0023542,0.00248006,0.00256599,0.00251812,0.00257435,0.00248703,0.00259577,0.00240326,0.00248602,0.0024102,0.00215302,0.00211251,0.00226794,0.00208425,0.0022392,0.00213672,0.00241358,0.00226337,0.00231548,0.00351986,0.00400696,0.00408244,0.00452041,0.00437418,0.0044037,0.00414095,0.00411668,0.00393061,0.00274927,0.00220471,0.00202118,0.00167587,0.00182255,0.00171937,0.00182046,0.00188657,0.00198789,0.00213428,0.00207053,0.0020807,0.00203213,0.00194191,0.0019955,0.00196066,0.00204803,0.00201246,0.00168882,0.00175945,0.0016671,0.00162107,0.00157428,0.00145519,0.00147692,0.00134708,0.0013893,0.00147323,0.00170632,0.00191639,0.00187115,0.00187542,0.00188228,0.00201768,0.0020975,0.00227761,0.00229593,0.00194212,0.00167986,0.00200975,0.00227981,0.00253896,0.00227366,0.00225433,0.00212253,0.00223863,0.00232972,0.00246948,0.00215968,0.00189479,0.00170758,0.00168561,0.00163827,0.00170966,0.00151466,0.00154566,0.00295049,0.00311067,0.00317131,0.00308636,0.00303504,0.00304324,0.00305477,0.00311428,0.00306798,0.00153643,0.00148377,0.00135794,0.00134851,0.00158466,0.0017192,0.00152107,0.0016555,0.0016636,0.00171303,0.00166275,0.00188619,0.001931,0.00245803,0.00251422,0.00252645,0.00243267,0.00236569,0.00245345,0.00242537,0.00229525,0.00271496,0.00222413,0.00202855,0.00217735,0.00234617,0.00262946,0.00273891,0.00268807,0.00274028,0.00242684,0.00211969,0.00221557,0.00214628,0.0023576,0.00234789,0.0027483,0.00314622,0.00328088,0.00311585,0.00323199,0.00309585,0.00313921,0.00264836,0.00243386,0.00179886,0.00162187,0.00139018,0.00144328,0.00160243,0.00188528,0.00175782,0.00174314,0.00174014,0.00178016,0.00174051,0.00187775,0.00184587,0.00173472,0.00141214,0.00172912,0.00198982,0.0021065,0.00207779,0.00196914,0.00188522,0.00200407,0.00193233,0.00211606,0.00177522,0.00150201,0.00135378,0.00127544,0.00127825,0.00121029,0.00207444,0.00202244,0.00189433,0.00192975,0.00197321,0.0020758,0.00212606,0.00219519,0.00228241,0.00137594,0.00135564,0.00139954,0.00144464,0.00154016,0.00164072,0.00163904,0.00148121,0.00149438,0.00134455,0.00152838,0.00165002,0.00198786,0.00194861,0.00174556,0.00194212,0.00231451,0.00229927,0.00243091,0.0022688,0.00211558,0.00166777,0.00162188,0.00177746,0.00159022,0.00128297,0.00127169,0.00121008,0.00117541,0.00112563,0.00122108,0.00114978,0.000987767,0.00107689,0.000994052,0.000920922,0.000931293,0.00102661,0.00103837,0.000973572,0.0012488,0.00124236,0.00118103,0.00115636,0.0011273,0.00118458,0.00119044,0.00119055,0.00118425,0.000922357,0.000872115,0.000769245,0.000879817,0.00102209,0.000983563,0.000939356,0.000895099,0.00105581,0.00110708,0.00127392,0.00142869,0.00139089,0.00140071,0.00132248,0.00133045,0.0014793,0.00149564,0.00146493,0.00135835,0.00139118,0.00169251,0.00167756,0.00194811,0.00208487,0.00213149,0.00201075,0.00248289,0.00249134,0.00239627,0.00204665,0.00203106,0.00195707,0.00200449,0.00182533,0.00201649,0.00154223,0.00147469,0.00162751,0.00173846,0.0019396,0.00192551,0.00172177,0.00182314,0.0017142,0.00176808,0.00189497,0.0018039,0.00178609,0.00177849,0.00180087,0.00189658,0.00191082,0.00178043,0.00195399,0.00199998,0.00192601,0.00206878,0.00190371,0.00171327,0.00157435,0.00151223,0.00147612,0.00129827,0.00115597,0.00113542,0.000958912,0.000964321,0.00103478,0.001044,0.00112069,0.00255597,0.00264322,0.00275668,0.00290125,0.00293871,0.00297475,0.00303083,0.00307378,0.00314668,0.00205191,0.00224437,0.0024525,0.00261293,0.00284965];
 const DEN_INF="00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4";
 const DEN_EVENTS={"2026-10-28":"Fed decision at 14:00 — the straddle prices it, but the time-of-day profile spreads that risk evenly through the afternoon (parameters frozen, so read the cone width after 14:00 with that in mind)."};
+const DEN_LETF={SPX:1016,SPY:1016,QQQ:2404};   // $M of leveraged-ETF rebalancing per 1% move of the index into the close (11/05 estimates) - not charm
+const DEN_PULL_K=0.002;                          // Pull: share of the gap to the pin band / put shelf closed each minute (read off Don's 11/05 12:27 frame)
+const DEN_REMARK=[630,690,750,810,870,930];      // charm re-marks 10:30 ... 15:30
 const DEN={hard:new URLSearchParams(location.search).has("nodensity")||DEMO, N:20000, BETA:Math.log(1.4), CLIP:[0.6,1.6], SEED:11000,
-  key:null, runs:{}, dens:{}, anchor:null, charm:[], charmN:0, worker:null, busy:null, fails:0, tripped:false, err:null, timer:null, lines:null, linesKey:null};
+  key:null, runs:{}, dens:{}, anchor:null, charm:[], charmN:0, worker:null, busy:null, fails:0, tripped:false, err:null, timer:null, lines:null, linesKey:null,
+  board:null, shelf:null, shelfKey:null, cm:null, cmKey:null};
 function denOn(){ return !DEN.hard && !DEN.tripped && load("denOn","1")==="1"; }
+function denPull(){ return load("denPull","0")==="1"; }
+function denVol(){ return load("denVol","strad")==="vix"?"vix":"strad"; }
 function denFail(where,e){ DEN.fails++; DEN.err=where+": "+(e&&e.message||e); try{ console.warn("[density]",DEN.err); }catch(_){}
   if(DEN.fails>=3){ DEN.tripped=true; denStop(); } }
 function denStop(){ if(DEN.worker){ try{ DEN.worker.terminate(); }catch(e){} } DEN.worker=null; DEN.busy=null; }
 function denNowMin(){ const c=liveClock(); return c.h*60+c.m; }
 function denSnaps(){ const a=(st.flow&&st.flow[st.sym])||[], now=denNowMin(); const out=[]; a.forEach((s,j)=>{ const t=tmin(s.t); if(t<=now) out.push([j,t,s]); }); return out; }
-function denReset(){ const c=liveClock(); const key=c.date+"|"+st.sym+"|"+st.basis+"|"+(st.flowFromFile?st.flowFile:"live");   // the minute-log file arriving resets everything built from the live-only fallback
-  if(DEN.key!==key){ denStop(); DEN.key=key; DEN.runs={}; DEN.dens={}; DEN.anchor=null; DEN.charm=[]; DEN.charmN=0; DEN.lines=null; DEN.linesKey=null; } }
+function denReset(){ const c=liveClock(); const key=c.date+"|"+st.sym+"|"+st.basis+"|"+(st.flowFromFile?st.flowFile:"live")+"|"+(denPull()?"pull":"")+"|"+denVol();   // the minute-log file arriving resets everything built from the live-only fallback
+  if(DEN.key!==key){ denStop(); DEN.key=key; DEN.runs={}; DEN.dens={}; DEN.anchor=null; DEN.charm=[]; DEN.charmN=0; DEN.lines=null; DEN.linesKey=null;
+    DEN.board=null; DEN.shelf=null; DEN.shelfKey=null; DEN.cm=null; DEN.cmKey=null; } }
+function denPrevClose(){ const a=(st.flow&&st.flow[st.sym])||[]; let p=null; for(const s of a){ const t=tmin(s.t); if(t>RTH_OPEN) break; if(s.x>0) p=s.x; } return p; }   // the 09:30 row is the pre-open print = prior close
+function denVix(){ const v=st.live&&st.live.VIX; return v&&v.spot>0?v.spot:null; }
+// ---- morning board (Don 11/05 level set), frozen from the first minute >= 09:31: 0DTE book + the 1-7 DTE morning book
+function denBoard(){
+  if(DEN.board) return DEN.board;
+  const d=st.live&&st.live[st.sym]; if(!d||!d.rows||!d.rows.length) return null;
+  const sn=denSnaps(); const f=sn.find(r=>r[1]>=RTH_OPEN+1); if(!f) return null;
+  const [j,t0,s]=f, S0=s.x; if(!(S0>0)) return null;
+  const rows=mapRowsAt(j,null,d), near=nearRows()||[], ty=Math.max(MAP_T1-t0,1)/525600, step=d.step||5;
+  const P=[], G=[], G0=[]; for(let p=Math.floor(S0*0.94/step)*step;p<=S0*1.06;p+=step){ const g0=greekCol("gamma",rows,p,ty); P.push(p); G0.push(g0); G.push(g0+(near.length?greekColNear("gamma",near,p,t0):0)); }
+  const zero=A=>{ const z=[]; for(let i=1;i<A.length;i++) if((A[i-1]<0&&A[i]>=0)||(A[i-1]>0&&A[i]<=0)) z.push(P[i-1]+step*(0-A[i-1])/((A[i]-A[i-1])||1)); return z.length?z.reduce((b,v)=>Math.abs(v-S0)<Math.abs(b-S0)?v:b):null; };
+  // pin band: today's options pin intraday, so the band is where 0DTE gamma is at least half of its peak (peak within ±1.5% of the open)
+  let ip=-1; for(let i=1;i<P.length-1;i++){ if(Math.abs(P[i]-S0)>S0*0.015) continue; if(G0[i]>0&&G0[i]>=G0[i-1]&&G0[i]>=G0[i+1]&&(ip<0||G0[i]>G0[ip])) ip=i; }
+  let pinLo=null, pinHi=null; if(ip>=0){ const th=G0[ip]*0.5; let a=ip, b=ip; while(a>0&&G0[a-1]>=th) a--; while(b<P.length-1&&G0[b+1]>=th) b++; pinLo=P[a]; pinHi=P[b]; }
+  let it=-1; for(let i=0;i<P.length&&P[i]<S0;i++) if(G[i]<0&&(it<0||G[i]<G[it])) it=i;
+  const coi=new Map(); const addC=(k,v)=>{ if(k>S0&&k<=S0*1.05) coi.set(k,(coi.get(k)||0)+(v||0)); };
+  for(const r of d.rows) addC(r.k,r.cOI); const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; for(const r of (nb&&nb.rows)||[]) addC(r.k,r.cOI);
+  let fade=null, fv=0; for(const [k,v] of coi) if(v>fv){ fv=v; fade=k; }
+  const b={t:t0,S0,frontFlip:zero(G0),fullFlip:zero(G),pinLo,pinHi,breakdown:pinLo,trough:it>=0?P[it]:null,fade,near:near.length>0,prev:denPrevClose()};
+  if(near.length||denNowMin()>=RTH_OPEN+15) DEN.board=b;   // wait up to 09:45 for the morning 1-7 DTE book before freezing
+  return b; }
+// ---- intraday put shelf: 0DTE puts below spot with day volume >= 3x open interest (and >= 2,000); a run of >= 3 such strikes, >= 40,000 contracts
+function denShelfFind(s,oi,step,open){ const S=s.x; if(!(S>0)||!s.k||!s.pv) return null; const q=[], cap=Math.min(S,open>0?open*0.996:S);   // only strikes below the open (by 0.4%) and below price
+  s.k.forEach((k,i)=>{ if(k>=cap) return; const v=s.pv[i]||0, o=oi.get(k)||0; if(v>=2000&&v>=3*Math.max(o,500)) q.push([k,v,o]); });
+  q.sort((a,b)=>a[0]-b[0]); const bands=[]; let c=null;
+  for(const [k,v,o] of q){ const r=v/Math.max(o,500); if(c&&k-c.hi<=2*step){ c.hi=k; c.vol+=v; c.oi+=o; c.n++; c.rmin=Math.min(c.rmin,r); c.rmax=Math.max(c.rmax,r); } else { c={lo:k,hi:k,vol:v,oi:o,n:1,rmin:r,rmax:r}; bands.push(c); } }
+  const ok=bands.filter(b=>b.n>=3&&b.vol>=150000); return ok.length?ok.reduce((a,b)=>b.vol>a.vol?b:a):null; }
+function denShelfAt(idx){ const d=st.live&&st.live[st.sym], sn=denSnaps(); if(!d||!d.rows||!sn.length) return null; if(idx==null||idx>=sn.length) idx=sn.length-1;
+  if(sn[idx][1]<=RTH_OPEN) return null;
+  const oi=new Map(d.rows.map(r=>[r.k,r.pOI||0])), step=d.step||5, f=sn.find(r=>r[1]>=RTH_OPEN+1), open=f?f[2].x:null;
+  const last=denShelfFind(sn[idx][2],oi,step,open); if(!last) return null;
+  let tb=sn[idx][1]; for(let n=0;n<=idx;n+=5){ if(sn[n][1]<=RTH_OPEN) continue; const b=denShelfFind(sn[n][2],oi,step,open); if(b&&b.hi>=last.lo&&b.lo<=last.hi){ tb=sn[n][1]; break; } }
+  return Object.assign({},last,{t:tb}); }
+function denShelfSide(sh){ const M=st.sides&&st.sides.map; if(!sh||!M||!M.size) return null; let b=0, s=0;
+  for(const [key,v] of M){ const p=key.split("|"); if(p[1]!=="P") continue; const k=+p[0]; if(k<sh.lo-1e-9||k>sh.hi+1e-9) continue; b+=(v[0]||0)+(v[2]||0); s+=(v[1]||0)+(v[3]||0); }
+  return b+s>0?{buy:b,sell:s,f:b/(b+s),cov:(b+s)/Math.max(sh.vol,1)}:null; }
+function denShelf(){ const sn=denSnaps(); if(!sn.length) return null; const key=sn.length+"|"+sn[sn.length-1][1]+"|"+(st.sides&&st.sides.asof||"");
+  if(DEN.shelfKey===key) return DEN.shelf; const sh=denShelfAt(sn.length-1); if(sh) sh.side=denShelfSide(sh); DEN.shelf=sh; DEN.shelfKey=key; return sh; }
+function denSideTxt(sd){ if(!sd) return "side not known yet";
+  const w=sd.f>=0.55?"mostly BOUGHT — can speed up a drop (dealers are short these puts)":sd.f<=0.45?"mostly SOLD — a cushion (dealers are long, they buy dips)":"two-way (bought ≈ sold)";
+  return w+(sd.cov<0.2?` · side known for only ${Math.round(sd.cov*100)}%`:""); }
+// ---- charm hedge flow (open interest book, as the 10/27 panel): morning curve, tomorrow's book, hourly re-marks
+function denOIRows(j,d){ const oi=new Map(d.rows.map(r=>[r.k,[r.cOI||0,r.pOI||0]])); return mapRowsAt(j,null,d).map(r=>{ const o=oi.get(r.k)||[0,0]; return {k:r.k,sg:r.sg,cp:o[0],pp:o[1]}; }); }
+function denCharmPath(rows,S,t0){ const out=[[t0,0]]; let c=0; for(let t=t0;t<MAP_T1;t+=5){ c+=greekCol("charm",rows,S,Math.max(MAP_T1-t,1)/525600)*100*S/1e9; out.push([Math.min(t+5,MAP_T1),c]); } return out; }
+function denCumAt(path,t){ let v=0; for(const p of path){ if(p[0]<=t) v=p[1]; else break; } return v; }
+function denCm(){
+  const d=st.live&&st.live[st.sym], sn=denSnaps(); if(!d||!d.rows||!sn.length) return DEN.cm;
+  const key=sn.length+"|"+sn[sn.length-1][1]; if(DEN.cmKey===key) return DEN.cm;
+  let cm=DEN.cm;
+  if(!cm){ const f=sn.find(r=>r[1]>=RTH_OPEN+1); if(!f) return null; const [j0,,s0]=f; const rows0=denOIRows(j0,d);
+    const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; let tm=null;
+    if(nb&&nb.rows){ const rt=[]; for(const r of nb.rows){ if(r.dte!==1||!(r.cOI||r.pOI)) continue; const sg=otmIV(r.k,s0.x,r.cIV||0,r.pIV||0); if(sg>0) rt.push({k:r.k,sg,cp:r.cOI||0,pp:r.pOI||0}); } if(rt.length) tm=rt; }
+    cm={S0:s0.x,rows0,morning:denCharmPath(rows0,s0.x,RTH_OPEN),tmRows:tm,tomorrow:tm?denCharmPath(tm,s0.x,RTH_OPEN):null,remarks:[],left:null};
+    if(!tm&&denNowMin()<RTH_OPEN+15){ DEN.cmKey=null; return cm; }   // wait for the morning 1-7 DTE book
+    DEN.cm=cm; }
+  const tot=p=>p[p.length-1][1];
+  for(const R of DEN_REMARK){ if(cm.remarks.some(x=>x.T===R)) continue; const hit=sn.find(r=>r[1]>=R&&r[1]<=R+3); if(!hit) continue;
+    const [j,,s]=hit, S=s.x, nowP=denCharmPath(denOIRows(j,d),S,R), spotP=denCharmPath(cm.rows0,S,R);
+    const mRem=tot(cm.morning)-denCumAt(cm.morning,R), a14=Math.max(R,14*60);
+    cm.remarks.push({T:R,S,remNow:tot(nowP),morningRem:mRem,spotTravel:tot(spotP)-mRem,ivPart:tot(nowP)-tot(spotP),
+      after14:tot(nowP)-denCumAt(nowP,a14),morningAfter14:tot(cm.morning)-denCumAt(cm.morning,a14),tmw:cm.tmRows?tot(denCharmPath(cm.tmRows,S,RTH_OPEN)):null,
+      path:nowP.map(p=>[p[0],p[1]+denCumAt(cm.morning,R)])}); }
+  const last=sn[sn.length-1]; if(last[1]>=RTH_OPEN&&last[1]<MAP_T1-5){ cm.left=tot(denCharmPath(denOIRows(last[0],d),last[2].x,Math.ceil(last[1]/5)*5)); cm.leftT=last[1]; }
+  DEN.cmKey=key; return cm; }
+function denLetf(S){ const B=DEN.board, prev=(B&&B.prev)||denPrevClose(), c=DEN_LETF[st.sym]; if(!(prev>0)||!c||!(S>0)) return null; const r=S/prev-1; return {r,bn:c*r*100/1000,prev}; }
+const denBn=v=>v==null||!isFinite(v)?"–":(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2)+"bn";
 // ---- inputs for the re-run at minute 570+k: the book exactly as it stood then (cockpit's mapRowsAt + greekCol)
 function denInputs(k){
   const d=st.live&&st.live[st.sym]; if(!d||!d.rows||!d.rows.length) return null;
-  const T=RTH_OPEN+k, T0=Math.max(T,RTH_OPEN+1); let hit=null; for(const r of denSnaps()){ if(r[1]>=T0&&r[1]<=T+3){ hit=r; break; } } if(!hit) return null;   // 2026-10-28: the 09:30 row is the pre-open print (prior close), so the 09:30 cone starts from the first minute >= 09:31
-  const [j,,s]=hit, S0=s.x; if(!(S0>0)||!s.k||s.k.length<5) return null;
+  const T=RTH_OPEN+k, T0=Math.max(T,RTH_OPEN+1), sn=denSnaps(); let hi=-1; for(let q=0;q<sn.length;q++){ if(sn[q][1]>=T0&&sn[q][1]<=T+3){ hi=q; break; } } if(hi<0) return null;   // 2026-10-28: the 09:30 row is the pre-open print (prior close), so the 09:30 cone starts from the first minute >= 09:31
+  const [j,,s]=sn[hi], S0=s.x; if(!(S0>0)||!s.k||s.k.length<5) return null;
   let q0=0; s.k.forEach((kk,q)=>{ if(Math.abs(kk-S0)<Math.abs(s.k[q0]-S0)) q0=q; });
   const strad=(s.cm[q0]||0)+(s.pm[q0]||0); if(!(strad>0)) return null;
   const rows=mapRowsAt(j,null,d), step=d.step||5, dp=step/MAP_SUB, ks=s.k.slice().sort((a,b)=>a-b);
@@ -4351,42 +4536,64 @@ function denInputs(k){
   const gz=gzs.length?gzs.reduce((b,v)=>Math.abs(v-S0)<Math.abs(b-S0)?v:b):null;
   const vt=vz.length===2?Math.max(...vz):null, vb=vz.length===2?Math.min(...vz):null;
   let ws=0; for(let i=k+1;i<390;i++) ws+=DEN_W[i]; const w=new Float64Array(390); for(let i=k+1;i<390;i++) w[i]=DEN_W[i]/(ws||1);
-  if(DEN.anchor==null){ const f=denSnaps().find(r=>r[1]>=RTH_OPEN+1); DEN.anchor=Math.round((f?f[2].x:S0)/step)*step; }
+  if(DEN.anchor==null){ const f=sn.find(r=>r[1]>=RTH_OPEN+1); DEN.anchor=Math.round((f?f[2].x:S0)/step)*step; }
   const bdp=step/2, nb=161, b0=DEN.anchor-80*bdp;
-  return {id:k,k0:k,N:DEN.N,seed:DEN.SEED+k,S0,sig:strad/0.7979/S0,strad,w,G,gp0:prices[0],gdp:dp,gnp:prices.length,gt0:times[0],gdt:MAP_STEP,gnt:times.length,
-          ref,beta:DEN.BETA,c0:DEN.CLIP[0],c1:DEN.CLIP[1],b0,bdp,nb,zoneW:step,gz,vt,vb,keep:(k===0)};
+  // width: the straddle (base) or, with Vol = VIX, the live VIX (1-day sigma = VIX/sqrt(252)) spread over the same clock
+  let sig=strad/0.7979/S0, src="straddle"; const vix=denVix();
+  if(denVol()==="vix"&&vix){ let all=0; for(let i=0;i<390;i++) all+=DEN_W[i]; sig=vix/100/Math.sqrt(252)*Math.sqrt(ws/(all||1)); src="VIX "+vix.toFixed(2); }
+  const B=denBoard(), SH=denShelfAt(hi); const bands=[]; if(B&&B.pinLo!=null) bands.push([B.pinLo,B.pinHi]); if(SH) bands.push([SH.lo,SH.hi]);
+  const lv=B?{bd:B.breakdown,flip:B.fullFlip!=null?B.fullFlip:B.frontFlip,top:B.pinHi,touch:[B.breakdown,B.trough,B.fade]}:null;
+  return {id:k,k0:k,N:DEN.N,seed:DEN.SEED+k,S0,sig,src,strad,w,G,gp0:prices[0],gdp:dp,gnp:prices.length,gt0:times[0],gdt:MAP_STEP,gnt:times.length,
+          ref,beta:DEN.BETA,c0:DEN.CLIP[0],c1:DEN.CLIP[1],b0,bdp,nb,zoneW:step,gz,vt,vb,keep:(k===0),
+          pull:denPull()&&bands.length?{k:DEN_PULL_K,bands}:null, lv, shelf:SH?[SH.lo,SH.hi]:null};
 }
 const DEN_WORKER=`
 function rng(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 onmessage=function(e){ const m=e.data; try{ const r=run(m); postMessage(r, r.dens?[r.dens.buffer]:[]); }catch(err){ postMessage({id:m.id,error:String(err&&err.message||err)}); } };
 function run(m){
   const N=m.N, S=new Float64Array(N).fill(m.S0), u=rng(m.seed); let spare=null;
+  const PL=m.pull&&m.pull.bands&&m.pull.bands.length?m.pull:null, SP=PL?new Float64Array(N).fill(m.S0):null, D=PL?SP:S;   // D = the set that is drawn
+  const mn=new Float64Array(N).fill(m.S0), mx=new Float64Array(N).fill(m.S0);
   const gauss=function(){ if(spare!==null){ const s=spare; spare=null; return s; } let x,y,r; do{ x=u()*2-1; y=u()*2-1; r=x*x+y*y; }while(r>=1||r===0); const f=Math.sqrt(-2*Math.log(r)/r); spare=y*f; return x*f; };
   const nMin=390-m.k0, nb=m.nb, dens=new Float32Array(nMin*nb);
-  const hist=function(row){ const o=row*nb; for(let n=0;n<N;n++){ const b=Math.round((S[n]-m.b0)/m.bdp); if(b>=0&&b<nb) dens[o+b]++; } };
+  const hist=function(row){ const o=row*nb; for(let n=0;n<N;n++){ const b=Math.round((D[n]-m.b0)/m.bdp); if(b>=0&&b<nb) dens[o+b]++; } };
   hist(0);
   const G=m.G, gnp=m.gnp, sig2=m.sig*m.sig;
+  const gAt=function(row,s){ const f=(s-m.gp0)/m.gdp; if(f>=0&&f<=gnp-1){ const i0=Math.floor(f), fr=f-i0; return i0<gnp-1?G[row+i0]*(1-fr)+G[row+i0+1]*fr:G[row+i0]; } return 0; };
+  const vAt=function(v0,g){ let mu=Math.exp(-m.beta*g/m.ref); if(mu<m.c0) mu=m.c0; else if(mu>m.c1) mu=m.c1; return v0*mu*mu; };
   for(let i=m.k0+1;i<390;i++){
     let c=Math.ceil((570+i-m.gt0)/m.gdt); if(c<0) c=0; if(c>m.gnt-1) c=m.gnt-1; const row=c*gnp, v0=sig2*m.w[i];
-    for(let n=0;n<N;n++){ const s=S[n]; let g=0; const f=(s-m.gp0)/m.gdp;
-      if(f>=0&&f<=gnp-1){ const i0=Math.floor(f), fr=f-i0; g=i0<gnp-1?G[row+i0]*(1-fr)+G[row+i0+1]*fr:G[row+i0]; }
-      let mu=Math.exp(-m.beta*g/m.ref); if(mu<m.c0) mu=m.c0; else if(mu>m.c1) mu=m.c1;
-      const v=v0*mu*mu; S[n]=s*Math.exp(-0.5*v+Math.sqrt(v)*gauss()); }
+    for(let n=0;n<N;n++){ const s=S[n], z=gauss(); const v=vAt(v0,gAt(row,s)); S[n]=s*Math.exp(-0.5*v+Math.sqrt(v)*z);
+      if(PL){ let p=SP[n]; const vp=vAt(v0,gAt(row,p)); p=p*Math.exp(-0.5*vp+Math.sqrt(vp)*z); let gap=0, best=1e18;
+        for(const b of PL.bands){ const dd=p<b[0]?b[0]-p:p>b[1]?b[1]-p:0; if(Math.abs(dd)<best){ best=Math.abs(dd); gap=dd; } } SP[n]=p+PL.k*gap; }
+      const x=D[n]; if(x<mn[n]) mn[n]=x; if(x>mx[n]) mx[n]=x; }
     hist(i-m.k0);
   }
-  const srt=Float64Array.from(S).sort(); const q=function(p){ const x=p*(N-1), i=Math.floor(x), f=x-i; return i+1<N?srt[i]*(1-f)+srt[i+1]*f:srt[i]; };
-  const zc=new Map(); for(let n=0;n<N;n++){ const z=Math.floor(S[n]/m.zoneW)*m.zoneW; zc.set(z,(zc.get(z)||0)+1); }
-  let zone=null, zn=-1; for(const [z,c] of zc){ if(c>zn){ zn=c; zone=z; } }
-  let above=0, rails=0; for(let n=0;n<N;n++){ if(m.gz!=null&&S[n]>m.gz) above++; if(m.vb!=null&&m.vt!=null&&S[n]>m.vb&&S[n]<m.vt) rails++; }
-  return {id:m.id, k0:m.k0, med:q(0.5), p10:q(0.1), p90:q(0.9), zone, pZone:zn/N, pAboveGz:m.gz!=null?above/N:null, pRails:(m.vb!=null&&m.vt!=null)?rails/N:null, dens:dens};
+  const stats=function(A){ const srt=Float64Array.from(A).sort(); const q=function(p){ const x=p*(N-1), i=Math.floor(x), f=x-i; return i+1<N?srt[i]*(1-f)+srt[i+1]*f:srt[i]; };
+    const zc=new Map(); for(let n=0;n<N;n++){ const z=Math.floor(A[n]/m.zoneW)*m.zoneW; zc.set(z,(zc.get(z)||0)+1); }
+    let zone=null, zn=-1; for(const [z,c] of zc){ if(c>zn){ zn=c; zone=z; } }
+    let above=0, rails=0; for(let n=0;n<N;n++){ if(m.gz!=null&&A[n]>m.gz) above++; if(m.vb!=null&&m.vt!=null&&A[n]>m.vb&&A[n]<m.vt) rails++; }
+    return {med:q(0.5), p10:q(0.1), p90:q(0.9), zone, pZone:zn/N, pAboveGz:m.gz!=null?above/N:null, pRails:(m.vb!=null&&m.vt!=null)?rails/N:null, q:q}; };
+  const base=stats(S), drawn=PL?stats(SP):base;
+  // odds of the drawn set: buckets against the morning board, touch odds, close histogram
+  const lv=m.lv||{}, b=[0,0,0,0], tl=lv.touch||[], tc=tl.map(function(){ return 0; });
+  for(let n=0;n<N;n++){ const x=D[n];
+    if(lv.bd!=null&&x<lv.bd) b[0]++; else if(lv.top!=null&&x>lv.top) b[3]++; else if(lv.flip!=null&&x<lv.flip) b[1]++; else b[2]++;
+    for(let t=0;t<tl.length;t++){ const L=tl[t]; if(L!=null&&mn[n]<=L&&mx[n]>=L) tc[t]++; } }
+  const lo=drawn.q(0.002), hi=drawn.q(0.998), bw=(hi-lo)>400?10:5, h0=Math.floor(lo/bw)*bw, nbin=Math.max(1,Math.ceil((hi-h0)/bw)), hc=new Array(nbin).fill(0);
+  for(let n=0;n<N;n++){ const i=Math.floor((D[n]-h0)/bw); if(i>=0&&i<nbin) hc[i]++; }
+  const strip=function(o){ return {med:o.med,p10:o.p10,p90:o.p90,zone:o.zone,pZone:o.pZone,pAboveGz:o.pAboveGz,pRails:o.pRails}; };
+  return {id:m.id, k0:m.k0, med:base.med, p10:base.p10, p90:base.p90, zone:base.zone, pZone:base.pZone, pAboveGz:base.pAboveGz, pRails:base.pRails,
+          pull:PL?strip(drawn):null, odds:{b:b.map(function(x){ return x/N; }), has:[lv.bd!=null,lv.flip!=null,lv.top!=null], touch:tc.map(function(c){ return c/N; }), touchLv:tl, hist:{lo:h0,w:bw,c:hc}}, dens:dens};
 }`;
 function denWorker(){ if(DEN.worker) return DEN.worker;
   const w=new Worker(URL.createObjectURL(new Blob([DEN_WORKER],{type:"text/javascript"})));
   w.onmessage=e=>{ const r=e.data, inp=DEN.busy; DEN.busy=null;
     if(r.error||!inp){ denFail("worker",r.error||"no input"); return; }
     DEN.runs[r.k0]={t:tlabel(RTH_OPEN+r.k0),k:r.k0,spot:inp.S0,strad:inp.strad,sd:inp.strad/0.7979,med:r.med,p10:r.p10,p90:r.p90,zone:r.zone,pZone:r.pZone,
-                    pAboveGz:r.pAboveGz,pRails:r.pRails,gz:inp.gz,vt:inp.vt,vb:inp.vb,b0:inp.b0,bdp:inp.bdp,nb:inp.nb};
-    const latest=Math.max(...Object.keys(DEN.runs).map(Number));
+                    pAboveGz:r.pAboveGz,pRails:r.pRails,gz:inp.gz,vt:inp.vt,vb:inp.vb,b0:inp.b0,bdp:inp.bdp,nb:inp.nb,
+                    pull:r.pull,odds:r.odds,src:inp.src,sdUsed:inp.sig*inp.S0,lv:inp.lv,shelf:inp.shelf};
+    const latest=Math.max(...Object.keys(DEN.runs).filter(x=>!x.startsWith("x")).map(Number));
     if(r.k0===0||r.k0===latest){ DEN.dens[r.k0]=r.dens; for(const kk of Object.keys(DEN.dens)) if(+kk!==0&&+kk!==latest) delete DEN.dens[kk]; }
     if(st.tab==="density") renderDensity(series(st.sym));
     denPump(); };
@@ -4402,7 +4609,7 @@ function denPump(){
     DEN.busy=inp; denWorker().postMessage(inp); return; }
 }
 function denTick(){ try{ if(!denOn()){ denStop(); return; } denReset(); denPump(); }catch(e){ denFail("tick",e); } }
-// ---- cumulative charm at the realized spot (0DTE, OI only), cockpit's greekCol
+// ---- cumulative charm at the realized spot (0DTE, OI only), cockpit's greekCol (kept for the nightly replay)
 function denCharm(){
   const d=st.live&&st.live[st.sym]; if(!d||!d.rows) return DEN.charm;
   const oi=new Map(d.rows.map(r=>[r.k,[r.cOI||0,r.pOI||0]])); const sn=denSnaps().filter(r=>r[1]>=RTH_OPEN&&r[1]<MAP_T1);
@@ -4425,51 +4632,74 @@ function denLines(se,d){
   DEN.lines={pts:out,proj,gcol:g.grid[inow],gprices:g.prices}; DEN.linesKey=key; return DEN.lines; }
 const denInf=(()=>{ const a=[]; for(let i=0;i<256;i++) a.push([parseInt(DEN_INF.substr(i*6,2),16),parseInt(DEN_INF.substr(i*6+2,2),16),parseInt(DEN_INF.substr(i*6+4,2),16)]); return a; })();
 function denZone(z,w){ if(z==null) return "–"; if(w!==5) return fmtN(z,w<1?2:0)+"–"+fmtN(z+w,w<1?2:0); const a=((Math.round(z)%100)+100)%100; return String(a).padStart(2,"0")+"-"+String((a+5)%100).padStart(2,"0"); }
+function denPinShare(B){ if(!B||B.pinLo==null) return null; const p=denSnaps().filter(r=>r[1]>RTH_OPEN&&r[1]<MAP_T1); if(!p.length) return null; return p.filter(r=>r[2].x>=B.pinLo&&r[2].x<=B.pinHi).length/p.length; }
+function denBtns(){
+  const on=denOn(), b=document.getElementById("denEngBtn"), p=document.getElementById("denPullBtn"), v=document.getElementById("denVolBtn");
+  if(b){ b.setAttribute("aria-pressed",on); b.textContent=DEN.hard?"Engine OFF (address bar)":DEN.tripped?"Engine STOPPED":on?"Engine ON":"Engine OFF"; b.disabled=DEN.hard; }
+  if(p){ p.setAttribute("aria-pressed",denPull()); p.textContent="Pull "+(denPull()?"ON":"OFF"); }
+  if(v){ v.setAttribute("aria-pressed",denVol()==="vix"); v.textContent="Width: "+(denVol()==="vix"?"VIX":"Straddle"); } }
 function renderDensity(se){
-  const rd=document.getElementById("denRead"), cv=document.getElementById("denMainC"), btn=document.getElementById("denEngBtn"), stEl=document.getElementById("denStatus");
-  if(!rd||!cv) return;
+  const kEl=document.getElementById("denKey"), rd=document.getElementById("denRead"), cv=document.getElementById("denMainC"), stEl=document.getElementById("denStatus");
+  if(!kEl||!cv) return;
   try{
-    if(btn){ const on=denOn(); btn.setAttribute("aria-pressed",on); btn.textContent=DEN.hard?"Engine OFF (address bar)":DEN.tripped?"Engine STOPPED":on?"Engine ON":"Engine OFF"; btn.disabled=DEN.hard; }
+    denBtns();
     if(!denOn()){ const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
-      rd.innerHTML=`<div class="l off">Density engine is ${DEN.tripped?"STOPPED after repeated errors":"OFF"} — nothing on this tab is being calculated.</div>`+
-        (DEN.err?`<div class="l note">Last error: ${esc(DEN.err)}</div>`:"")+(DEN.hard?`<div class="l note">Turned off by <code>?nodensity</code> in the address bar.</div>`:`<div class="l note">Press <b>Engine</b> to turn it back on.</div>`);
+      kEl.innerHTML=`<div class="k warn">Density engine is ${DEN.tripped?"STOPPED after repeated errors":"OFF"} — nothing on this tab is being calculated.</div>`+
+        (DEN.err?`<div class="k note">Last error: ${esc(DEN.err)}</div>`:"")+(DEN.hard?`<div class="k note">Turned off by <code>?nodensity</code> in the address bar.</div>`:`<div class="k note">Press <b>Engine</b> to turn it back on.</div>`);
       if(stEl) stEl.textContent=""; return; }
     denReset(); const d=st.live&&st.live[st.sym]; const now=denNowMin();
-    if(!d||!d.rows||now<RTH_OPEN){ rd.innerHTML=`<div class="l">Waiting for the 09:30 snapshot (needs the minute log).</div>`; return; }
+    if(!d||!d.rows||now<RTH_OPEN){ kEl.innerHTML=`<div class="k">Waiting for the 09:30 snapshot (needs the minute log).</div>`; return; }
+    const B=denBoard(), SH=denShelf(), CM=denCm();
     const L=denLines(se,d); const ks=Object.keys(DEN.runs).filter(x=>!x.startsWith("x")).map(Number).sort((a,b)=>a-b);
     const cur=ks.length?DEN.runs[ks[ks.length-1]]:null, g0=DEN.runs[0];
     const pend=Math.max(0,Math.floor((Math.min(now,MAP_T1-5)-RTH_OPEN)/5)+1-ks.length-Object.keys(DEN.runs).filter(x=>x.startsWith("x")).length);
     if(stEl) stEl.textContent=DEN.busy?`computing ${tlabel(RTH_OPEN+DEN.busy.k0)} · ${pend} to go`:(cur?`last run ${cur.t}`:"");
-    denDraw(cv,L,cur,g0,now,d);
-    // read
     const sn=denSnaps(); const S=d.spot||(sn.length?sn[sn.length-1][2].x:null); const lp=L&&L.pts.length?L.pts[L.pts.length-1]:null;
+    const flip=B?(B.fullFlip!=null?B.fullFlip:B.frontFlip):(lp?lp.gz:null), above=flip!=null&&S>flip, pin=denPinShare(B);
+    denDraw(cv,L,cur,g0,now,d,B,SH,{S,flip,above,pin});
+    // ---- key readings: the few numbers that matter for a trade
+    const M=cur?(denPull()&&cur.pull?cur.pull:cur):null, LE=denLetf(S), vix=denVix();
+    const left=CM&&CM.left!=null?CM.left:null;
+    kEl.innerHTML=
+      `<div class="k big">${esc(st.sym)} <b>${fmtN(S,2)}</b>${vix?` · VIX <b>${vix.toFixed(2)}</b>`:""}</div>`+
+      (flip!=null?`<div class="k"><span class="${above?"up":"dn"}"><b>${above?"Above":"Below"} the flip ${fmtN(flip,0)}</b></span> — ${above?"dealers long gamma: moves get absorbed":"dealers short gamma: moves get bigger"}</div>`:"")+
+      (M?`<div class="k"><span class="lab">Close odds (${cur.t}${denPull()&&cur.pull?", pull on":""})</span>middle <b>${fmtN(M.med,0)}</b> · 8 in 10 between <b>${fmtN(M.p10,0)}–${fmtN(M.p90,0)}</b></div>`:`<div class="k">First cone is computing…</div>`)+
+      (pin!=null?`<div class="k"><span class="lab">Pin ${fmtN(B.pinLo,0)}–${fmtN(B.pinHi,0)}</span>price spent <b>${Math.round(pin*100)}%</b> of the day inside it</div>`:"")+
+      `<div class="k"><span class="lab">Put shelf</span>${SH?`<b>${fmtN(SH.lo,0)}–${fmtN(SH.hi,0)}</b> built by ${tlabel(SH.t)} (${fmtN(SH.vol/1000,0)}k puts, ${SH.rmin.toFixed(0)}–${SH.rmax.toFixed(0)}× OI) — ${esc(denSideTxt(SH.side))}`:"none yet"}</div>`+
+      `<div class="k"><span class="lab">Into the close</span>charm left <b class="${left!=null&&left<0?"dn":"up"}">${denBn(left)}</b>${left!=null?(left<0?" (dealers sell)":" (dealers buy)"):""} · leveraged ETFs <b class="${LE&&LE.bn<0?"dn":"up"}">${LE?denBn(LE.bn):"–"}</b>${LE?` at ${(LE.r*100>=0?"+":"")+(LE.r*100).toFixed(2)}% on the day`:""}</div>`;
+    denDrawOdds(cur,B,S); denDrawCharm(CM,S);
+    // ---- more detail (folded)
     const inR=L?L.pts.filter(p=>p.vt!=null&&p.vb!=null&&p.S>p.vb&&p.S<p.vt).length/Math.max(1,L.pts.filter(p=>p.vt!=null).length):null;
-    const above=lp&&lp.gz!=null&&S>lp.gz; const ev=DEN_EVENTS[liveClock().date];
-    rd.innerHTML=
-      `<div class="l big">${esc(st.sym)} ${fmtN(S,2)} · straddle ${cur?cur.strad.toFixed(2):"–"} <span class="note">(±${cur?cur.sd.toFixed(0):"–"} pts 1σ left)</span></div>`+
-      (lp?`<div class="l"><b class="${above?"up":"dn"}">${above?"ABOVE gamma zero — long gamma, absorbs":"BELOW gamma zero — short gamma, chases"}</b> · γ-zero <b>${fmtN(lp.gz,1)}</b> · vanna <b>${lp.vb!=null?fmtN(lp.vb,1):"–"}</b> / <b>${lp.vt!=null?fmtN(lp.vt,1):"–"}</b> · in rails ${inR!=null?Math.round(inR*100)+"%":"–"} of the day</div>`:"")+
-      (cur?`<div class="l big">Cone from ${fmtN(cur.spot,0)} @ ${cur.t}: median ${fmtN(cur.med,0)} · P10 ${fmtN(cur.p10,0)} · P90 ${fmtN(cur.p90,0)}</div>
-       <div class="l">Most likely ${d.step===5?"5-pt zone":"zone"} <b>${denZone(cur.zone,d.step||5)}</b> (${Math.round(cur.pZone*100)}%) · P(close &gt; γ-zero) <b>${cur.pAboveGz!=null?Math.round(cur.pAboveGz*100)+"%":"–"}</b> · P(close between vanna rails) <b>${cur.pRails!=null?Math.round(cur.pRails*100)+"%":"–"}</b></div>`:`<div class="l">First cone is computing…</div>`)+
-      (g0&&cur&&cur!==g0?`<div class="l note">09:30 cone said: median ${fmtN(g0.med,0)}, P10–P90 ${fmtN(g0.p10,0)}–${fmtN(g0.p90,0)}, zone ${denZone(g0.zone,d.step||5)}.</div>`:"")+
+    const lAbove=lp&&lp.gz!=null&&S>lp.gz; const ev=DEN_EVENTS[liveClock().date]; const RM=CM&&CM.remarks.length?CM.remarks[CM.remarks.length-1]:null;
+    if(rd) rd.innerHTML=
+      `<div class="l big">${esc(st.sym)} ${fmtN(S,2)} · straddle ${cur?cur.strad.toFixed(2):"–"} <span class="note">(±${cur?cur.sd.toFixed(0):"–"} pts 1σ left${cur&&cur.src&&cur.src!=="straddle"?` · cone width from ${esc(cur.src)} ±${cur.sdUsed.toFixed(0)}`:""})</span></div>`+
+      (lp?`<div class="l"><b class="${lAbove?"up":"dn"}">${lAbove?"ABOVE 0DTE gamma zero — long gamma, absorbs":"BELOW 0DTE gamma zero — short gamma, chases"}</b> · γ-zero <b>${fmtN(lp.gz,1)}</b> · vanna <b>${lp.vb!=null?fmtN(lp.vb,1):"–"}</b> / <b>${lp.vt!=null?fmtN(lp.vt,1):"–"}</b> · in rails ${inR!=null?Math.round(inR*100)+"%":"–"} of the day</div>`:"")+
+      (B?`<div class="l"><b>Morning board ${tlabel(B.t)}</b> (from ${fmtN(B.S0,0)}): front flip ${fmtN(B.frontFlip,0)} · full flip ${fmtN(B.fullFlip,0)} · pin ${B.pinLo!=null?fmtN(B.pinLo,0)+"–"+fmtN(B.pinHi,0):"–"} · breakdown ${fmtN(B.breakdown,0)} · fade top ${fmtN(B.fade,0)} · full-book trough ${fmtN(B.trough,0)}${B.near?"":" <span class='note'>(no 1–7 DTE book: 0DTE only)</span>"}</div>`:"")+
+      (cur?`<div class="l">Base cone from ${fmtN(cur.spot,0)} @ ${cur.t}: median ${fmtN(cur.med,0)} · P10 ${fmtN(cur.p10,0)} · P90 ${fmtN(cur.p90,0)} · top ${d.step===5?"5-pt zone":"zone"} <b>${denZone(cur.zone,d.step||5)}</b> (${Math.round(cur.pZone*100)}%) · P(close &gt; γ-zero) ${cur.pAboveGz!=null?Math.round(cur.pAboveGz*100)+"%":"–"} · P(between vanna rails) ${cur.pRails!=null?Math.round(cur.pRails*100)+"%":"–"}</div>`+
+        (cur.pull?`<div class="l">With pull: median ${fmtN(cur.pull.med,0)} · P10 ${fmtN(cur.pull.p10,0)} · P90 ${fmtN(cur.pull.p90,0)}</div>`:""):"")+
+      (g0&&cur&&cur!==g0?`<div class="l note">09:30 cone said: median ${fmtN(g0.med,0)}, P10–P90 ${fmtN(g0.p10,0)}–${fmtN(g0.p90,0)}${g0.pull?` (with pull ${fmtN(g0.pull.med,0)}, ${fmtN(g0.pull.p10,0)}–${fmtN(g0.pull.p90,0)})`:""}.</div>`:"")+
+      (RM?`<div class="l">Charm re-mark ${tlabel(RM.T)} at ${fmtN(RM.S,0)}: left today ${denBn(RM.remNow)} vs the morning curve ${denBn(RM.morningRem)} — price move ${denBn(RM.spotTravel)}, IV change ${denBn(RM.ivPart)} · after 14:00 ${denBn(RM.after14)} (morning ${denBn(RM.morningAfter14)})${RM.tmw!=null&&CM.tomorrow?` · tomorrow ${denBn(CM.tomorrow[CM.tomorrow.length-1][1])} → ${denBn(RM.tmw)}`:""}</div>`:"")+
       (L&&L.proj!=null?`<div class="l note">Map's gamma zero projected to 15:50: <b>${fmtN(L.proj,1)}</b>.</div>`:"")+
       (ev?`<div class="l ev">${esc(ev)}</div>`:"")+
-      `<div class="l note">Centred on spot by design: the cone gives width and odds, not direction. Book: 0DTE · basis ${esc(st.basis.toUpperCase())} (your Map setting).${DEN.err?" · last error: "+esc(DEN.err):""}</div>`;
-    denDrawCharm(denCharm());
+      `<div class="l note">Base cone is centred on spot by design (width and odds, not direction); Pull adds Don-style drift toward the pin band and put shelf. Book: 0DTE · basis ${esc(st.basis.toUpperCase())} (your Map setting). Leveraged-ETF size: ${esc(st.sym)} $${DEN_LETF[st.sym]||"–"}M per 1% (11/05 estimate).${DEN.err?" · last error: "+esc(DEN.err):""}</div>`;
     const lg=document.getElementById("denLog");
-    if(lg){ const rows=ks.slice().reverse().map(k=>{ const r=DEN.runs[k]; return `<tr><td>${r.t}</td><td>${fmtN(r.spot,1)}</td><td>±${r.sd.toFixed(0)}</td><td>${fmtN(r.med,0)}</td><td>${fmtN(r.p10,0)}–${fmtN(r.p90,0)}</td><td>${denZone(r.zone,d.step||5)} ${Math.round(r.pZone*100)}%</td><td>${r.pAboveGz!=null?Math.round(r.pAboveGz*100)+"%":"–"}</td><td>${r.pRails!=null?Math.round(r.pRails*100)+"%":"–"}</td></tr>`; }).join("");
-      lg.innerHTML=`<table><tr><th>run</th><th>spot</th><th>1σ</th><th>median</th><th>P10–P90</th><th>top zone</th><th>&gt;γ0</th><th>rails</th></tr>${rows}</table>`; }
-  }catch(e){ denFail("render",e); try{ rd.innerHTML=`<div class="l off">Density tab error (the rest of the cockpit is unaffected): ${esc(e.message||e)}</div>`; }catch(_){} }
+    if(lg){ const rows=ks.slice().reverse().map(k=>{ const r=DEN.runs[k]; return `<tr><td>${r.t}</td><td>${fmtN(r.spot,1)}</td><td>±${r.sd.toFixed(0)}</td><td>${fmtN(r.med,0)}</td><td>${fmtN(r.p10,0)}–${fmtN(r.p90,0)}</td><td>${r.pull?fmtN(r.pull.med,0):"–"}</td><td>${denZone(r.zone,d.step||5)} ${Math.round(r.pZone*100)}%</td><td>${r.pAboveGz!=null?Math.round(r.pAboveGz*100)+"%":"–"}</td><td>${r.pRails!=null?Math.round(r.pRails*100)+"%":"–"}</td></tr>`; }).join("");
+      lg.innerHTML=`<table><tr><th>run</th><th>spot</th><th>1σ</th><th>median</th><th>P10–P90</th><th>pull med</th><th>top zone</th><th>&gt;γ0</th><th>rails</th></tr>${rows}</table>`; }
+  }catch(e){ denFail("render",e); try{ kEl.innerHTML=`<div class="k warn">Density tab error (the rest of the cockpit is unaffected): ${esc(e.message||e)}</div>`; }catch(_){} }
 }
-function denDraw(cv,L,cur,g0,now,d){
+function denDraw(cv,L,cur,g0,now,d,B,SH,X0){
   const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); ctx.fillStyle="#05080f"; ctx.fillRect(0,0,w,h);
   const padL=70, padR=118, padT=22, padB=40, W=w-padL-padR, H=h-padT-padB; if(W<50||H<50) return;
   const cursor=Math.max(0,Math.min(389,now-RTH_OPEN));
   const sn=denSnaps().filter(r=>r[1]>=RTH_OPEN&&r[1]<MAP_T1); const path=sn.map(r=>[r[1]-RTH_OPEN,r[2].x]);
   const ref=cur||g0; if(!ref&&!path.length) return;
-  // y range: path, rails, cones
+  // y range: path, rails, cones, morning board, shelf
   let lo=1e9, hi=-1e9; const add=v=>{ if(v!=null&&isFinite(v)){ lo=Math.min(lo,v); hi=Math.max(hi,v); } };
-  path.forEach(p=>add(p[1])); for(const r of [cur,g0]) if(r){ add(r.p10); add(r.p90); }
+  path.forEach(p=>add(p[1])); for(const r of [cur,g0]) if(r){ add(r.p10); add(r.p90); if(r.pull){ add(r.pull.p10); add(r.pull.p90); } }
   if(L) L.pts.forEach(p=>{ add(p.vt); add(p.vb); });
+  if(B){ add(B.pinLo); add(B.pinHi); add(B.fullFlip); } if(SH){ add(SH.lo); add(SH.hi); }
+  if(B&&path.length){ const pm=Math.min(...path.map(p=>p[1])), px=Math.max(...path.map(p=>p[1]));
+    if(B.trough!=null&&pm-B.trough<B.S0*0.012) add(B.trough); if(B.fade!=null&&B.fade-px<B.S0*0.012) add(B.fade); }
   if(lo>hi){ lo=d.spot-50; hi=d.spot+50; } const mid=(lo+hi)/2, span=Math.max(110,(hi-lo)*1.15); lo=mid-span/2; hi=mid+span/2;
   const X=m=>padL+W*m/390, Y=p=>padT+H*(1-(p-lo)/(hi-lo));
   // heat: left of the cursor = the 09:30 cone (dimmed), right = the current cone; each minute scaled to its own peak
@@ -4483,16 +4713,30 @@ function denDraw(cv,L,cur,g0,now,d){
         const o=(r*390+m)*4; img.data[o]=c[0]; img.data[o+1]=c[1]; img.data[o+2]=c[2]; img.data[o+3]=255; } }
     const tmp=document.createElement("canvas"); tmp.width=390; tmp.height=rowsPx; tmp.getContext("2d").putImageData(img,0,0);
     ctx.imageSmoothingEnabled=true; ctx.drawImage(tmp,padL,padT,W,H); }
+  // morning board bands (Don 11/05 levels): pin band, put shelf from the minute it was built
+  if(B&&B.pinLo!=null){ ctx.fillStyle="#3FD0B016"; ctx.fillRect(padL,Y(B.pinHi),W,Y(B.pinLo)-Y(B.pinHi)); }
+  if(SH){ const x0=X(Math.max(0,SH.t-RTH_OPEN)), y0=Y(SH.hi+2.5), y1=Y(SH.lo-2.5); ctx.fillStyle="#FF8C2826"; ctx.fillRect(x0,y0,padL+W-x0,y1-y0); ctx.strokeStyle="#FF8C28aa"; ctx.lineWidth=1.4; ctx.strokeRect(x0,y0,padL+W-x0,y1-y0); }
   // grid + axes
   ctx.font="13px system-ui"; ctx.fillStyle="#C9D3E0"; ctx.strokeStyle="#ffffff14"; ctx.lineWidth=1;
   const stp=[5,10,25,50,100].find(s=>(hi-lo)/s<=9)||100; for(let p=Math.ceil(lo/stp)*stp;p<=hi;p+=stp){ const y=Y(p); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillText(fmtN(p),6,y+4); }
   for(const [m,lb] of [[0,"9:30"],[60,"10:30"],[120,"11:30"],[180,"12:30"],[240,"13:30"],[270,"14:00"],[300,"14:30"],[360,"15:30"],[390,"16:00"]]){ ctx.textAlign=m===390?"right":m===0?"left":"center"; ctx.fillText(lb,X(m),h-12); } ctx.textAlign="left";
+  // board lines + left labels
+  if(B){ const bl=[]; const hl=(v,col,dash,txt)=>{ if(v==null) return; const y=Y(v); if(y<padT-2||y>padT+H+2){ if(txt) bl.push([y<padT?padT+12:padT+H-4,(y<padT?"▲ ":"▼ ")+txt,col]); return; }
+      ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.setLineDash([]); if(txt) bl.push([y-4,txt,col]); };
+    hl(B.fade,"#F2B33D",[2,4],`FADE TOP ${fmtN(B.fade,0)}`);
+    if(B.pinLo!=null) bl.push([Y(B.pinHi)+15,`PIN ${fmtN(B.pinLo,0)}–${fmtN(B.pinHi,0)}`,"#3FD0B0"]);
+    hl(B.fullFlip,"#7FB8FF",[6,4],`FULL FLIP ${fmtN(B.fullFlip,0)}`);
+    hl(B.breakdown,"#FF7A50",[2,4],`BREAKDOWN ${fmtN(B.breakdown,0)}`);
+    hl(B.trough,"#FF4D6A",[8,3],`FULL-BOOK TROUGH ${fmtN(B.trough,0)} · short-gamma floor`);
+    if(SH) bl.push([Y(SH.hi+2.5)+15,`PUT SHELF ${fmtN(SH.lo,0)}–${fmtN(SH.hi,0)} · built ${tlabel(SH.t)}`,"#FFA040"]);
+    bl.sort((a,b)=>a[0]-b[0]); for(let i=1;i<bl.length;i++) if(bl[i][0]-bl[i-1][0]<16) bl[i][0]=bl[i-1][0]+16;
+    ctx.font="bold 13px system-ui"; bl.forEach(([y,t,c])=>{ const tw=ctx.measureText(t).width; ctx.fillStyle="#05080fcc"; ctx.fillRect(padL+4,y-13,tw+8,17); ctx.fillStyle=c; ctx.fillText(t,padL+8,y); }); }
   // lines as they stood
   const line=(key,col)=>{ if(!L) return null; ctx.strokeStyle=col; ctx.lineWidth=2.4; ctx.setLineDash([]); ctx.beginPath(); let on=false, lastV=null, lastM=null;
     for(const p of L.pts){ const v=p[key]; const m=p.t-RTH_OPEN; if(v==null){ on=false; continue; } const x=X(m), y=Y(v); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; lastV=v; lastM=m; } ctx.stroke();
     if(lastV!=null){ ctx.setLineDash([3,4]); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(X(lastM),Y(lastV)); ctx.lineTo(X(390),Y(lastV)); ctx.stroke(); ctx.setLineDash([]); } return lastV; };
   const labs=[]; const lv=(k,c,n)=>{ const v=line(k,c); if(v!=null) labs.push([v,`${n} ${fmtN(v,1)}`,c]); };
-  lv("gz","#38C6E8","GAMMA ZERO"); lv("vt","#9DFF6B","VANNA TOP"); lv("vb","#C9A7FF","VANNA BOTTOM");
+  lv("gz","#38C6E8","FRONT FLIP (0DTE γ zero)"); lv("vt","#9DFF6B","VANNA TOP"); lv("vb","#C9A7FF","VANNA BOTTOM");
   if(L&&L.proj!=null){ ctx.fillStyle="#38C6E8"; const x=X(390), y=Y(L.proj); ctx.beginPath(); ctx.moveTo(x,y-7); ctx.lineTo(x+7,y); ctx.lineTo(x,y+7); ctx.lineTo(x-7,y); ctx.closePath(); ctx.fill(); labs.push([L.proj,`◆ γ-zero @15:50 ${fmtN(L.proj,1)}`,"#38C6E8"]); }
   labs.sort((a,b)=>a[0]-b[0]); const ys=labs.map(l=>Y(l[0])); for(let i=ys.length-2;i>=0;i--) if(ys[i]-ys[i+1]<18) ys[i]=ys[i+1]+18;
   ctx.font="bold 14px system-ui"; ctx.textAlign="right"; const labDraw=()=>labs.forEach((l,i)=>{ const tw=ctx.measureText(l[1]).width; ctx.fillStyle="#05080fd9"; ctx.fillRect(padL+W-tw-12,ys[i]-21,tw+10,20); ctx.fillStyle=l[2]; ctx.fillText(l[1],padL+W-7,ys[i]-6); }); ctx.textAlign="left";
@@ -4501,29 +4745,73 @@ function denDraw(cv,L,cur,g0,now,d){
     ctx.strokeStyle="#fff"; ctx.lineWidth=2.4; ctx.beginPath(); path.forEach((p,i)=>i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1]))); ctx.stroke();
     const lp=path[path.length-1]; ctx.strokeStyle="#ffffff55"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(X(cursor),padT); ctx.lineTo(X(cursor),padT+H); ctx.stroke();
     ctx.fillStyle="#FFD34D"; ctx.strokeStyle="#000"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(X(lp[0]),Y(lp[1]),6,0,7); ctx.fill(); ctx.stroke(); }
-  ctx.textAlign="right"; labDraw(); ctx.font="bold 22px system-ui"; ctx.fillStyle="#fff"; ctx.fillText(tlabel(Math.min(now,MAP_T1))+" ET",padL+W-8,padT+26); ctx.textAlign="left";
+  // status box (top right): time, price + VIX, time in pin, regime
+  ctx.textAlign="right"; labDraw();
+  { const vix=denVix(), l1=tlabel(Math.min(now,MAP_T1))+" ET", l2=X0&&X0.S?`${st.sym} ${fmtN(X0.S,2)}${vix?" · VIX "+vix.toFixed(2):""}`:"",
+      l3=X0?[X0.pin!=null?`time in pin ${Math.round(X0.pin*100)}%`:"",X0.flip!=null?(X0.above?"ABOVE flip — long gamma":"BELOW flip — short gamma"):""].filter(Boolean).join(" · "):"";
+    ctx.font="bold 15px system-ui"; const bw=Math.max(150,ctx.measureText(l2).width,ctx.measureText(l3).width)+20, bx=padL+W-bw-4, by=padT+4;
+    ctx.fillStyle="#05080fd0"; ctx.fillRect(bx,by,bw,l3?78:58); ctx.strokeStyle="#38C6E866"; ctx.lineWidth=1; ctx.strokeRect(bx,by,bw,l3?78:58);
+    ctx.font="bold 22px system-ui"; ctx.fillStyle="#fff"; ctx.fillText(l1,padL+W-12,by+26);
+    ctx.font="bold 15px system-ui"; ctx.fillStyle="#DCE6F2"; ctx.fillText(l2,padL+W-12,by+48);
+    if(l3){ ctx.fillStyle=X0.above?"#3FE0A0":"#FF7A6B"; ctx.fillText(l3,padL+W-12,by+68); } }
+  ctx.textAlign="left";
   // the Map's gamma column now (right strip)
   if(L&&L.gcol){ const x0=padL+W+16, ww=padR-26, mx=Math.max(1e-9,...L.gcol.map(Math.abs)); ctx.fillStyle="#C9D3E0"; ctx.font="bold 12px system-ui"; ctx.fillText("Map γ now",x0,padT-2>8?padT-2:10);
     L.gprices.forEach((p,i)=>{ if(p<lo||p>hi) return; const v=L.gcol[i]/mx, y=Y(p), bh=Math.max(1.5,H*(L.gprices[1]-L.gprices[0])/(hi-lo)); ctx.fillStyle=v>=0?"#3FD0B0":"#FF6B5A"; const xm=x0+ww/2; ctx.fillRect(v>=0?xm:xm+v*ww/2,y-bh/2,Math.abs(v)*ww/2,bh); });
     ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText("red = short",x0+4,h-22); ctx.fillText("green = long",x0+4,h-8); }
 }
-function denDrawCharm(arr){
-  const cv=document.getElementById("denCharmC"); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); if(!arr.length) return;
-  const padL=40, padB=18, padT=22, W=w-padL-8, H=h-padT-padB; let lo=Math.min(0,...arr.map(a=>a[1])), hi=Math.max(0,...arr.map(a=>a[1])); if(hi-lo<1e-6){ hi+=1; }
-  const X=t=>padL+W*(t-RTH_OPEN)/390, Y=v=>padT+H*(1-(v-lo)/(hi-lo));
-  ctx.strokeStyle="#ffffff22"; ctx.beginPath(); ctx.moveTo(padL,Y(0)); ctx.lineTo(padL+W,Y(0)); ctx.stroke();
-  ctx.strokeStyle="#ffffff30"; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(X(14*60),padT); ctx.lineTo(X(14*60),padT+H); ctx.stroke(); ctx.setLineDash([]);
-  ctx.strokeStyle="#3FE0A0"; ctx.lineWidth=2.2; ctx.beginPath(); arr.forEach((a,i)=>i?ctx.lineTo(X(a[0]),Y(a[1])):ctx.moveTo(X(a[0]),Y(a[1]))); ctx.stroke();
-  const last=arr[arr.length-1], at14=arr.find(a=>a[0]>=14*60);
-  ctx.fillStyle="#DCE6F2"; ctx.font="bold 13px system-ui"; ctx.fillText(`total ${last[1]>=0?"+":"−"}$${Math.abs(last[1]).toFixed(2)}bn${at14?` · after 14:00 ${last[1]-at14[1]>=0?"+":"−"}$${Math.abs(last[1]-at14[1]).toFixed(2)}bn`:""}`,padL,14);
-  ctx.font="11px system-ui"; ctx.fillStyle="#9DB0CA"; ctx.fillText(fmtN(hi,1),4,padT+8); ctx.fillText(fmtN(lo,1),4,padT+H); ctx.fillText("$bn",4,padT+H/2);
+// ---- close odds: histogram of the latest cone's closes (green = up on the day, red = down, bright = inside the pin)
+function denDrawOdds(r,B,S){
+  const cv=document.getElementById("denOddsC"), tx=document.getElementById("denOddsTxt"); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+  const o=r&&r.odds; if(!o||!o.hist||!o.hist.c.length){ if(tx) tx.innerHTML=`<span class="note">Waiting for the first cone…</span>`; return; }
+  const Hh=o.hist, n=Hh.c.length, prev=(B&&B.prev)||denPrevClose(), M=denPull()&&r.pull?r.pull:r, tot=Hh.c.reduce((a,b)=>a+b,0)||1;
+  const padL=10, padR=10, padT=26, padB=22, W=w-padL-padR, H=h-padT-padB, xlo=Hh.lo, xhi=Hh.lo+n*Hh.w, mx=Math.max(1,...Hh.c);
+  const X=p=>padL+W*(p-xlo)/(xhi-xlo); const bw=Math.max(1,W/n-1);
+  for(let i=0;i<n;i++){ const m=Hh.lo+(i+0.5)*Hh.w, up=prev?m>=prev:m>=r.spot, inPin=B&&B.pinLo!=null&&m>=B.pinLo&&m<=B.pinHi;
+    ctx.fillStyle=up?(inPin?"#2EE07A":"#1E8F4E"):(inPin?"#FF5A5A":"#9B2F2F"); const bh=H*Hh.c[i]/mx; ctx.fillRect(X(Hh.lo+i*Hh.w),padT+H-bh,bw,bh); }
+  const vl=[[B&&B.breakdown,"#FF7A50","breakdown"],[B&&(B.fullFlip!=null?B.fullFlip:B.frontFlip),"#7FB8FF","flip"],[B&&B.pinHi,"#3FD0B0","pin top"],[B&&B.fade,"#F2B33D","fade"],[prev,"#FFD34D","prev close"],[S,"#ffffff","now"]];
+  ctx.font="bold 12px system-ui"; let lane=0;
+  for(const [v,c,t] of vl){ if(v==null||v<xlo||v>xhi) continue; const x=X(v); ctx.strokeStyle=c; ctx.lineWidth=1.5; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,padT-2); ctx.lineTo(x,padT+H); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=c; ctx.textAlign=x>w-60?"right":"left"; ctx.fillText(t,x+(x>w-60?-3:3),12+(lane++%2)*12); }
+  ctx.textAlign="left"; ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText(fmtN(xlo,0),padL,h-6); ctx.textAlign="right"; ctx.fillText(fmtN(xhi,0),padL+W,h-6); ctx.textAlign="center"; ctx.fillText(fmtN((xlo+xhi)/2,0),padL+W/2,h-6); ctx.textAlign="left";
+  if(tx){ const p=v=>v==null?"–":Math.round(v*100)+"%", b=o.b, has=o.has||[], T=o.touch||[], TL=o.touchLv||[];
+    tx.innerHTML=`<div><b>${r.t}</b> cone${denPull()&&r.pull?" (pull on)":""}: middle <b>${fmtN(M.med,0)}</b> · 8 in 10 between <b>${fmtN(M.p10,0)}–${fmtN(M.p90,0)}</b></div>`+
+      (has[0]&&has[2]?`<div>Below breakdown <b>${p(b[0])}</b> · in pin, under flip <b>${p(b[1])}</b> · in pin, over flip <b>${p(b[2])}</b> · above pin top <b>${p(b[3])}</b></div>`:"")+
+      (TL.some(v=>v!=null)?`<div class="note">Chance price touches before the close: ${[["breakdown",0],["trough",1],["fade top",2]].filter(x=>TL[x[1]]!=null).map(x=>`${x[0]} ${fmtN(TL[x[1]],0)} <b>${p(T[x[1]])}</b>`).join(" · ")}</div>`:""); }
+}
+// ---- charm hedge flow panel: morning curve, tomorrow's book (dashed), latest re-mark (dotted), leveraged ETFs into the close
+function denDrawCharm(CM,S){
+  const cv=document.getElementById("denCharmC"), lg=document.getElementById("denLeg"); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+  if(!CM||!CM.morning){ if(lg) lg.innerHTML=`<span class="note">Waiting for the 09:31 book…</span>`; return; }
+  const RM=CM.remarks.length?CM.remarks[CM.remarks.length-1]:null, LE=denLetf(S), letf=LE?[[15*60,0],[MAP_T1,LE.bn]]:null;
+  const sets=[[CM.morning,"#3FE0A0",[],2.4],[CM.tomorrow,"#C9D3E0",[6,4],1.8],[RM&&RM.path,"#FFD34D",[2,3],2.2],[letf,"#38C6E8",[],2.6]].filter(x=>x[0]);
+  let lo=0, hi=0; for(const [s] of sets) for(const p of s){ lo=Math.min(lo,p[1]); hi=Math.max(hi,p[1]); } if(hi-lo<1e-6) hi+=0.5; const pd=(hi-lo)*0.08; lo-=pd; hi+=pd;
+  const padL=48, padR=8, padT=8, padB=20, W=w-padL-padR, H=h-padT-padB, X=t=>padL+W*(t-RTH_OPEN)/390, Y=v=>padT+H*(1-(v-lo)/(hi-lo));
+  ctx.strokeStyle="#ffffff30"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,Y(0)); ctx.lineTo(padL+W,Y(0)); ctx.stroke();
+  ctx.setLineDash([2,3]); for(const t of [14*60,15*60]){ ctx.beginPath(); ctx.moveTo(X(t),padT); ctx.lineTo(X(t),padT+H); ctx.stroke(); } ctx.setLineDash([]);
+  const now=denNowMin(); if(now>RTH_OPEN&&now<MAP_T1){ ctx.strokeStyle="#ffffff55"; ctx.beginPath(); ctx.moveTo(X(now),padT); ctx.lineTo(X(now),padT+H); ctx.stroke(); }
+  for(const [s,c,dash,lw] of sets){ ctx.strokeStyle=c; ctx.lineWidth=lw; ctx.setLineDash(dash); ctx.beginPath(); s.forEach((p,i)=>i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1]))); ctx.stroke(); } ctx.setLineDash([]);
+  for(const r of CM.remarks){ const x=X(r.T), y=Y(denCumAt(CM.morning,r.T)); ctx.fillStyle="#FFD34D"; ctx.strokeStyle="#000"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,y-6); ctx.lineTo(x+6,y); ctx.lineTo(x,y+6); ctx.lineTo(x-6,y); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText((hi>=0?"+":"")+hi.toFixed(1),4,padT+10); ctx.fillText(lo.toFixed(1),4,padT+H); ctx.fillText("$bn",4,Y(0)+4);
+  for(const [t,lb] of [[RTH_OPEN,"9:30"],[12*60,"12:00"],[14*60,"14:00"],[15*60,"15:00"],[MAP_T1,"16:00"]]){ ctx.textAlign=t===MAP_T1?"right":t===RTH_OPEN?"left":"center"; ctx.fillText(lb,X(t),h-4); } ctx.textAlign="left";
+  if(lg){ const T=p=>p[p.length-1][1], a14=p=>T(p)-denCumAt(p,14*60);
+    lg.innerHTML=`<div><span style="color:#3FE0A0">━</span> Today, morning book: total <b>${denBn(T(CM.morning))}</b> · after 14:00 <b>${denBn(a14(CM.morning))}</b></div>`+
+      (CM.tomorrow?`<div><span style="color:#C9D3E0">╌</span> Tomorrow's book: total <b>${denBn(T(CM.tomorrow))}</b> · after 14:00 ${denBn(a14(CM.tomorrow))}${RM&&RM.tmw!=null?` · re-marked at today's price <b>${denBn(RM.tmw)}</b>`:""}</div>`:"")+
+      (RM?`<div><span style="color:#FFD34D">◆</span> Re-mark ${tlabel(RM.T)}: left today <b>${denBn(RM.remNow)}</b> vs morning ${denBn(RM.morningRem)} — price move ${denBn(RM.spotTravel)}, IV change ${denBn(RM.ivPart)}</div>`:`<div class="note"><span style="color:#FFD34D">◆</span> First re-mark at 10:30.</div>`)+
+      (LE?`<div><span style="color:#38C6E8">━</span> Leveraged ETFs into the close: <b>${denBn(LE.bn)}</b> at ${(LE.r*100>=0?"+":"")+(LE.r*100).toFixed(2)}% (not charm; grows with the move, trades 15:00–16:00)</div>`:""); }
 }
 function denCsv(){ try{ const ks=Object.keys(DEN.runs).filter(x=>!x.startsWith("x")).map(Number).sort((a,b)=>a-b);
-  const lines=["date,sym,basis,run,spot,straddle,sd_pts,median,p10,p90,top_zone,p_zone,p_above_gz,p_in_rails,gamma_zero,vanna_top,vanna_bottom"];
-  for(const k of ks){ const r=DEN.runs[k]; lines.push([liveClock().date,st.sym,st.basis,r.t,r.spot,r.strad,r.sd.toFixed(2),r.med.toFixed(2),r.p10.toFixed(2),r.p90.toFixed(2),r.zone,r.pZone.toFixed(4),r.pAboveGz==null?"":r.pAboveGz.toFixed(4),r.pRails==null?"":r.pRails.toFixed(4),r.gz==null?"":r.gz.toFixed(2),r.vt==null?"":r.vt.toFixed(2),r.vb==null?"":r.vb.toFixed(2)].join(",")); }
+  const lines=["date,sym,basis,run,spot,straddle,sd_pts,median,p10,p90,top_zone,p_zone,p_above_gz,p_in_rails,gamma_zero,vanna_top,vanna_bottom,width_src,pull_median,pull_p10,pull_p90,p_below_breakdown,p_pin_under_flip,p_pin_over_flip,p_above_pin"];
+  const f=(v,n)=>v==null||!isFinite(v)?"":(+v).toFixed(n);
+  for(const k of ks){ const r=DEN.runs[k], o=r.odds||{}, b=o.b||[];
+    lines.push([liveClock().date,st.sym,st.basis,r.t,r.spot,r.strad,r.sd.toFixed(2),r.med.toFixed(2),r.p10.toFixed(2),r.p90.toFixed(2),r.zone,r.pZone.toFixed(4),f(r.pAboveGz,4),f(r.pRails,4),f(r.gz,2),f(r.vt,2),f(r.vb,2),
+      r.src||"",f(r.pull&&r.pull.med,2),f(r.pull&&r.pull.p10,2),f(r.pull&&r.pull.p90,2),f(b[0],4),f(b[1],4),f(b[2],4),f(b[3],4)].join(",")); }
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"})); a.download=`density_${st.sym}_${liveClock().date.replace(/-/g,"")}.csv`; document.body.appendChild(a); a.click(); a.remove(); }catch(e){ denFail("export",e); } }
 try{
   const eb=document.getElementById("denEngBtn"); if(eb) eb.addEventListener("click",()=>{ if(DEN.hard) return; const on=!denOn(); if(on){ DEN.tripped=false; DEN.fails=0; DEN.err=null; } save("denOn",on?"1":"0"); if(!on) denStop(); else denTick(); render(); });
+  const pb=document.getElementById("denPullBtn"); if(pb) pb.addEventListener("click",()=>{ save("denPull",denPull()?"0":"1"); denStop(); denTick(); render(); });
+  const vb=document.getElementById("denVolBtn"); if(vb) vb.addEventListener("click",()=>{ save("denVol",denVol()==="vix"?"strad":"vix"); denStop(); denTick(); render(); });
+  const mo=document.getElementById("denMore"); if(mo){ mo.open=load("denMore","0")==="1"; mo.addEventListener("toggle",()=>save("denMore",mo.open?"1":"0")); }
   const cb=document.getElementById("denCsvBtn"); if(cb) cb.addEventListener("click",denCsv);
   if(!DEN.hard){ DEN.timer=setInterval(denTick,10000); setTimeout(denTick,1500); }
   window.__density=DEN;
@@ -5555,6 +5843,179 @@ function renderConstel(){
   body.querySelectorAll(".csbar").forEach(b=>b.onclick=()=>{ const ei=+b.dataset.ei; st.csExp=st.csExp===ei?null:ei; renderConstel(); });
 }
 
+/* ============================================================ Risk tab (2026-11-05)
+   Reads risktab.json, written each evening by scripts/risk_tab.py (end-of-day data only).
+   Score = chance of a 3%+ SPX drop within 5 sessions, from VIX, VIX/VIX3M and NFCI (tested 2010-2026).
+   Never touches the map. Off by default. */
+st.rkOn=load("rkOn","0")==="1"; st.rkRange=load("rkRange","1y"); st.rkTileRange=load("rkTileRange","1y");
+let rkData=null, rkBusy=false;
+function rkFetch(){
+  if(rkBusy) return; rkBusy=true;
+  fetch("risktab.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+    .then(d=>{ rkData=d; }).catch(()=>{ rkData={err:"No risk data yet. It is rebuilt every evening after the close."}; })
+    .then(()=>{ rkBusy=false; if(st.tab==="risk") renderRisk(); });
+}
+const RK_BANDS=[[0,.06,"#3FD0B0","Low"],[.06,.15,"#F4D03F","Elevated"],[.15,.25,"#FF9F43","High"],[.25,1,"#FF5C5C","Very high"]];
+function rkCol(p){ if(p==null) return "#9DB0CA"; for(const b of RK_BANDS) if(p<b[1]) return b[2]; return "#FF5C5C"; }
+function rkLab(p){ if(p==null) return "–"; for(const b of RK_BANDS) if(p<b[1]) return b[3]; return "Very high"; }
+function rkPct(p,k){ return p==null||!isFinite(p)?"—":(p*100).toFixed(k==null?0:k)+"%"; }
+function rkGauge(p,base){
+  const W=440,H=250,cx=220,cy=222,R=180,r0=122,MAX=.5;
+  const ang=v=>Math.PI*(1-Math.max(0,Math.min(v,MAX))/MAX);
+  const pt=(v,rad)=>[(cx+rad*Math.cos(ang(v))).toFixed(1),(cy-rad*Math.sin(ang(v))).toFixed(1)];
+  let g="";
+  RK_BANDS.forEach(([a,b,c])=>{ const bb=Math.min(b,MAX); if(a>=MAX) return; const [x1,y1]=pt(a,R),[x2,y2]=pt(bb,R),[x3,y3]=pt(bb,r0),[x4,y4]=pt(a,r0);
+    g+=`<path d="M${x1} ${y1} A${R} ${R} 0 0 1 ${x2} ${y2} L${x3} ${y3} A${r0} ${r0} 0 0 0 ${x4} ${y4}Z" fill="${c}" opacity="${p!=null&&p>=a&&p<b?1:.38}"/>`; });
+  [0,.1,.2,.3,.4,.5].forEach(v=>{ const [x,y]=pt(v,R+18); g+=`<text x="${x}" y="${+y+5}" text-anchor="middle" style="font-size:14px;fill:#9DB0CA">${Math.round(v*100)}%</text>`; });
+  if(base!=null){ const [x1,y1]=pt(base,r0-8),[x2,y2]=pt(base,R+6); g+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#fff" stroke-width="3" stroke-dasharray="5 4"/>`; }
+  if(p!=null){ const [nx,ny]=pt(p,R-6); g+=`<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#fff" stroke-width="6" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="12" fill="#fff"/><circle cx="${cx}" cy="${cy}" r="5" fill="#0A1426"/>`; }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:440px;display:block;margin:0 auto" role="img" aria-label="drop risk gauge">${g}</svg>`;
+}
+function rkSpark(v,warnHigh){
+  const a=(v||[]).filter(x=>x!=null&&isFinite(x)); if(a.length<3) return "";
+  const W=260,H=42,lo=Math.min(...a),hi=Math.max(...a),n=v.length,X=i=>(W-4)*i/(n-1)+2,Y=y=>H-4-(H-8)*((y-lo)/((hi-lo)||1));
+  let d="",pen=false; v.forEach((y,i)=>{ if(y==null||!isFinite(y)){ pen=false; return; } d+=(pen?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1); pen=true; });
+  const lx=X(n-1), ly=Y(v[n-1]);
+  return `<svg class="rksp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="#9DB0CA" stroke-width="2"/><circle cx="${lx}" cy="${ly}" r="3.5" fill="${warnHigh?"#FF5C5C":"#fff"}"/></svg>`;
+}
+function rkHistChart(D){
+  const rng={"6m":126,"1y":252,"3y":9999}[st.rkRange]||252;
+  const H0=D.hist.slice(-rng), n=H0.length; if(n<5) return '<p class="veread">Not enough history yet.</p>';
+  const W=1100,H=320,L=56,R=70,T=14,B=34;
+  const pmax=Math.max(.3,...H0.map(h=>h[2]||0))*1.08, sx=H0.map(h=>h[1]).filter(x=>x!=null), slo=Math.min(...sx), shi=Math.max(...sx);
+  const X=i=>L+(W-L-R)*i/(n-1), Y=p=>T+(H-T-B)*(1-p/pmax), YS=s=>T+(H-T-B)*(1-(s-slo)/((shi-slo)||1));
+  let g="";
+  RK_BANDS.forEach(([a,b,c])=>{ if(a>=pmax) return; g+=`<rect x="${L}" y="${Y(Math.min(b,pmax))}" width="${W-L-R}" height="${Y(a)-Y(Math.min(b,pmax))}" fill="${c}" opacity=".07"/>`; });
+  for(let k=0;k<=4;k++){ const p=pmax*k/4; g+=`<line x1="${L}" x2="${W-R}" y1="${Y(p)}" y2="${Y(p)}" stroke="#1B2C4C"/><text x="${L-6}" y="${Y(p)+5}" text-anchor="end">${Math.round(p*100)}%</text>`; }
+  for(let k=0;k<=3;k++){ const s=slo+(shi-slo)*k/3; g+=`<text x="${W-R+6}" y="${YS(s)+5}" text-anchor="start" style="fill:#7F93B2">${Math.round(s)}</text>`; }
+  [0,Math.floor((n-1)/2),n-1].forEach(i=>{ g+=`<text x="${X(i)}" y="${H-10}" text-anchor="${i===0?"start":i===n-1?"end":"middle"}">${H0[i][0]}</text>`; });
+  const base=(D.score||{}).base5; if(base!=null) g+=`<line x1="${L}" x2="${W-R}" y1="${Y(base)}" y2="${Y(base)}" stroke="#fff" stroke-dasharray="6 5" stroke-width="1.5"/><text x="${L+6}" y="${Y(base)-6}" style="fill:#fff;font-size:13px">normal ${rkPct(base)}</text>`;
+  let ds="",pen=false; H0.forEach((h,i)=>{ if(h[1]==null){pen=false;return;} ds+=(pen?"L":"M")+X(i).toFixed(1)+" "+YS(h[1]).toFixed(1); pen=true; });
+  g+=`<path d="${ds}" fill="none" stroke="#7F93B2" stroke-width="2"/>`;
+  for(let i=1;i<n;i++){ const a=H0[i-1][2], b=H0[i][2]; if(a==null||b==null) continue; g+=`<line x1="${X(i-1).toFixed(1)}" y1="${Y(a).toFixed(1)}" x2="${X(i).toFixed(1)}" y2="${Y(b).toFixed(1)}" stroke="${rkCol(b)}" stroke-width="3" stroke-linecap="round"/>`; }
+  const idx={}; H0.forEach((h,i)=>idx[h[0]]=i);
+  (D.drop_starts||[]).forEach(d=>{ const i=idx[d]; if(i==null) return; g+=`<line x1="${X(i)}" x2="${X(i)}" y1="${T}" y2="${H-B}" stroke="#FF5C5C" stroke-width="1" opacity=".25"/><path d="M${X(i)-6} ${H-B+2} L${X(i)+6} ${H-B+2} L${X(i)} ${H-B-9}Z" fill="#FF5C5C"/>`; });
+  H0.forEach((h,i)=>{ if(h[4]) g+=`<path d="M${X(i)} ${T+2} l7 7 l-7 7 l-7 -7z" fill="#FF9F43"/>`; else if(h[5]) g+=`<circle cx="${X(i)}" cy="${T+9}" r="4" fill="#3FD0B0" opacity=".8"/>`; });
+  g+=`<line id="rkCross" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="#fff" stroke-width="1" opacity="0"/><rect id="rkHit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent"/>`;
+  return `<svg class="vesvg" id="rkHistSvg" viewBox="0 0 ${W} ${H}" data-n="${n}" data-l="${L}" data-w="${W-L-R}" data-full="${W}">${g}</svg>`;
+}
+function rkCalib(rows,title){
+  if(!rows||!rows.length) return "";
+  const mx=Math.max(.45,...rows.map(r=>r[2]));
+  return `<table class="rkcal"><tr><td colspan="3" style="color:var(--ink);font-size:14px">${title}</td></tr>`+rows.map(([a,b,real,n])=>{ const mid=(a+Math.min(b,.6))/2;
+    return `<tr><td style="white-space:nowrap">said ${b>=1?Math.round(a*100)+"%+":Math.round(a*100)+"–"+Math.round(b*100)+"%"}</td><td style="width:60%"><div class="cb"><i style="width:${(100*real/mx).toFixed(1)}%;background:${rkCol(real)}"></i><b style="left:${(100*Math.min(mid,mx)/mx).toFixed(1)}%"></b></div></td><td style="white-space:nowrap"><b>${rkPct(real)}</b> <span class="vxsub">${n} days</span></td></tr>`; }).join("")+`</table>`;
+}
+function rkTile(t){
+  const roleTxt={score:"IN SCORE",context:"CONTEXT",short:"3 YEARS ONLY",untested:"UNTESTED",drop:"NO EDGE"}[t.role]||t.role;
+  const v=t.value==null?"—":(Math.abs(t.value)>=100?Math.round(t.value).toLocaleString():(+t.value).toString());
+  let meter="";
+  if(t.pct!=null) meter=`<div class="rkmeter"><b></b><i style="left:${(100*t.pct).toFixed(1)}%"></i></div><div class="rkml"><span>calm</span><span>stress rank ${Math.round(100*t.pct)} / 100 (past year)</span><span>stressed</span></div>`;
+  else if(t.role==="untested") meter=`<div class="rkml"><span>${t.at?"as of "+veEsc(t.at):"no reading"}</span></div>`;
+  else if(t.id==="mc_div") meter=`<div class="rkml"><span>only read when SPX is within 2% of its 20-day high</span></div>`;
+  const lift=t.rates&&t.value!=null?`History at ${t.value} of 4: <b>${rkPct(t.rates[t.value])}</b> drop odds · `:t.lift5!=null?`Alone: <b>${(+t.lift5).toFixed(1)}×</b> drop odds when in its top 10% (${(+t.calm5).toFixed(1)}× on calm days) · `:"";
+  let extra="";
+  if(t.parts) extra=`<div class="rkparts">${t.parts.map(p=>`<span class="${p.bear?"bear":""}">${p.bear?"▼":"·"} ${veEsc(p.name.split(" (")[0])}</span>`).join("")}</div>`;
+  if(t.id==="our_spx_gamma"&&t.flip) extra=`<div class="rkml"><span>SPX ${t.flip_dist>=0?"above":"below"} the gamma flip ${Math.abs(t.flip_dist)}% (flip ${Math.round(t.flip).toLocaleString()})</span></div>`;
+  return `<div class="rktile${t.warn?" warn":""}${t.role==="drop"?" dim":""}" tabindex="0" data-id="${veEsc(t.id)}"><div class="rkth"><span>${veEsc(t.label)}</span><span class="rkbadge rkb-${t.role}">${roleTxt}</span></div>`+
+    `<div class="rkv">${veEsc(v)}<small>${veEsc(t.unit||"")}</small></div>${meter}${extra}${rkSpark(t.spark,t.warn)}<div class="rkfoot">${lift}${veEsc(t.verdict||"")}</div></div>`;
+}
+function rkFlagsHtml(D){
+  const F=D.flags||{}, fa=F.false_allclear||{}, fr=F.fear_release||{};
+  return `<div class="rkflags"><div class="rkflag bad${fa.on?" on":""}">◆ <b>False all-clear</b> ${fa.on?"<b>ON</b>":"off"} — a 12%+ one-day VIX drop right after a stressed week. History: a 3%+ drop still followed <b>${rkPct(fa.rate)}</b> of the time (${fa.n} days), while the score said ${rkPct(fa.score_avg)}.</div>`+
+    `<div class="rkflag good${fr.on?" on":""}">● <b>Fear release</b> ${fr.on?"<b>ON</b>":"off"} — VIX 25%+ off its 20-day high, back below VIX3M, after a spike over 25. History: drop odds back to normal (${rkPct(fr.rate)}, ${fr.n} days); SPX higher 20 days later ${rkPct(fr.up20)} of the time vs ${rkPct(fr.up20_all)} on all days.</div></div>`;
+}
+function rkModal(id){
+  const D=rkData; if(!D||!D.tiles) return; const t=D.tiles.find(x=>x.id===id); if(!t) return;
+  let m=document.getElementById("rkModal");
+  if(!m){ m=document.createElement("div"); m.id="rkModal"; m.hidden=true; document.body.appendChild(m);
+    m.addEventListener("click",e=>{ if(e.target===m||e.target.closest(".x")) m.hidden=true; });
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape") m.hidden=true; }); }
+  const roleTxt={score:"IN SCORE",context:"CONTEXT",short:"3 YEARS ONLY",untested:"UNTESTED",drop:"NO EDGE"}[t.role]||t.role;
+  const rng={"6m":126,"1y":252,"3y":9999}[st.rkTileRange||"1y"]||252;
+  const dates=(t.spark_dates||D.tile_dates||[]).slice(-rng), vals=(t.long||(t.spark_dates?t.spark:null)||[]).slice(-rng);
+  const hl=[]; if(t.thr!=null) hl.push({y:t.thr,c:"#FF5C5C",label:"top-10% stress mark"});
+  if(t.id==="hy_oas") hl.push({y:5,c:"#FF9F43",label:"Kurt's 5% warning line"});
+  if(t.id==="pct200_low") hl.push({y:40,c:"#FF9F43",label:"Kurt's 40% line"});
+  if(t.id==="our_spx_gamma") hl.push({y:0,c:"#FF9F43",label:"zero gamma"});
+  if(t.id==="our_mag7_neg") hl.push({y:2,c:"#FF9F43",label:"2+ names negative"});
+  const chart=vals.length>2?veChart(dates,[{v:vals,c:t.warn?"#FF5C5C":"#4C8DFF",w:3}],{h:340,hl,fmt:v=>(Math.abs(v)>=1000?Math.round(v).toLocaleString():(+v).toFixed(Math.abs(v)<10?2:0))}):'<p>No history for this one yet.</p>';
+  const v=t.value==null?"—":(Math.abs(t.value)>=100?Math.round(t.value).toLocaleString():t.value);
+  let body=`<div class="top"><div><h2>${veEsc(t.label)}</h2><span class="rkbadge rkb-${t.role}">${roleTxt}</span></div><button class="x" aria-label="close">×</button></div>`+
+    `<div class="big">${veEsc(v)}<small>${veEsc(t.unit||"")}</small></div>`+
+    (t.pct!=null?`<div class="rkmeter"><b></b><i style="left:${(100*t.pct).toFixed(1)}%"></i></div><div class="rkml"><span>calmest reading of the past year</span><span>stress rank ${Math.round(100*t.pct)} / 100</span><span>most stressed</span></div>`:"")+
+    `<p>${veEsc(t.about||"")}</p>`;
+  if(t.parts) body+=`<p>${t.parts.map(p=>`${p.bear?"▼ <b>bearish</b>":"· not bearish"} — ${veEsc(p.name)}`).join("<br>")}</p><table class="rkcal">${[0,1,2,3,4].map(k=>`<tr><td>${k} of 4 bearish</td><td style="width:60%"><div class="cb"><i style="width:${(100*t.rates[k]/0.35).toFixed(1)}%;background:${rkCol(t.rates[k])}"></i></div></td><td><b>${rkPct(t.rates[k])}</b> drop odds</td></tr>`).join("")}</table>`;
+  if(t.id==="our_spx_gamma"&&t.flip) body+=`<p>SPX ${t.spot?Math.round(t.spot).toLocaleString():""} is <b>${Math.abs(t.flip_dist)}% ${t.flip_dist>=0?"above":"below"}</b> the gamma flip (${Math.round(t.flip).toLocaleString()}). Below the flip dealers sell into drops; above it they buy them (as of ${veEsc(t.at||"")}).</p>`;
+  body+=`<div class="rng tabs" id="rkTileRng">${["6m","1y","3y"].map(r=>`<button data-v="${r}" aria-pressed="${(st.rkTileRange||"1y")===r}">${r.toUpperCase()}</button>`).join("")}</div>${chart}`;
+  if(t.track){ const tr=t.track, lb=tr.labels||{}, ks=Object.keys(tr).filter(k=>k!=="labels"&&tr[k]&&typeof tr[k]==="object");
+    body+=`<p><b>Track record so far</b> (since ${veEsc(tr.since||"")}): ${tr.drop_days} drop days in ${tr.days} sessions. ${tr.tested?"Enough to judge.":"Too few drops to judge yet — needs 20."}</p><table class="rkcal">${ks.map(k=>`<tr><td>${veEsc(lb[k]||k.replace(/_/g," "))}</td><td style="width:55%"><div class="cb"><i style="width:${tr[k].rate==null?0:Math.min(100,100*tr[k].rate/0.35).toFixed(1)}%;background:${rkCol(tr[k].rate||0)}"></i></div></td><td><b>${tr[k].rate==null?"–":rkPct(tr[k].rate)}</b> drop odds · ${tr[k].n} days</td></tr>`).join("")}</table>`; }
+  if(t.lift5!=null) body+=`<p><b>What it was worth since ${Math.max(2010,+((t.since||"2010").slice(0,4)))}:</b> when this tile sat in its top 10%, a 3%+ SPX drop within 5 sessions came <b>${(+t.lift5).toFixed(1)}×</b> as often as normal (${(+t.calm5).toFixed(1)}× on calm days with VIX under 20); a 5%+ drop within 10 sessions came ${(+t.lift10).toFixed(1)}× as often. ${veEsc(t.verdict||"")}.</p>`;
+  else body+=`<p>${veEsc(t.verdict||"")}</p>`;
+  m.innerHTML=`<div class="box" role="dialog" aria-modal="true">${body}</div>`; m.hidden=false;
+  m.querySelectorAll("#rkTileRng button").forEach(b=>b.onclick=e=>{ e.stopPropagation(); st.rkTileRange=b.dataset.v; save("rkTileRange",st.rkTileRange); rkModal(id); });
+}
+let rkLastKey="";
+function rkLive(D){
+  // intraday re-score: live VIX + VIX/VIX3M from the VIX regime board, NFCI held at its weekly value
+  const L=D&&D.score&&D.score.live_ref, R=st.live&&st.live.VIXR; if(!L||!R||!Array.isArray(R.rows)) return null;
+  const row=id=>R.rows.find(r=>r.id===id), rv=row("vix"), r3=row("r3m");
+  if(!rv||!r3||!(rv.v>0)||!(r3.v>0)||L.nfci_pct==null) return null;
+  const hist=(L.v3||[]).filter(x=>x!=null); if(hist.length+1<(L.minp||126)) return null;
+  const w=hist.concat([r3.v]), a=w.filter(x=>x<=r3.v).length/w.length;
+  const P=m=>{ const x=[Math.log(rv.v),a,L.nfci_pct]; let z=m.w[0]; for(let i=0;i<3;i++) z+=m.w[i+1]*(x[i]-m.mu[i])/m.sd[i]; return 1/(1+Math.exp(-z)); };
+  return {p5:P(L.m5), p10:P(L.m10), vix:rv.v, r3:r3.v, pct:a};
+}
+function renderRisk(){
+  const head=document.getElementById("rkHead"), body=document.getElementById("rkBody");
+  const D=rkData;
+  head.innerHTML=`<span class="big">Risk</span><button class="sxbtn" id="rkOnBtn" aria-pressed="${st.rkOn}">${st.rkOn?"ON":"OFF"}</button>`+
+    (D&&!D.err?`<span><small>data to</small>${veEsc(D.asof)}</span><span><small>built</small>${veEsc((D.generated||"").replace("T"," "))}</span><span>End of day · rebuilt each evening</span>`:"");
+  document.getElementById("rkOnBtn").onclick=()=>{ st.rkOn=!st.rkOn; save("rkOn",st.rkOn?"1":"0"); if(st.rkOn&&!rkData) rkFetch(); renderRisk(); };
+  if(!st.rkOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load the drop-risk score and its tiles.</p>'; return; }
+  if(!D){ rkFetch(); body.innerHTML='<p class="veread">Loading…</p>'; return; }
+  if(D.err){ body.innerHTML=`<p class="veread">${veEsc(D.err)}</p>`; return; }
+  { // the cockpit calls render() on every poll: rebuild only when the data, range or live quote changed,
+    // so the page does not jump while scrolling and an open hover does not flicker
+    const lv0=rkLive(D), key=[D.generated,st.rkRange,lv0?lv0.vix+"/"+lv0.r3:""].join("|");
+    if(key===rkLastKey&&body.querySelector(".rkhero")) return; rkLastKey=key; }
+  const S=D.score||{}, p=S.p5, c=rkCol(p), mult=p!=null&&S.base5?p/S.base5:null;
+  const prev=(S.prev||[]).filter(x=>x!=null), y=prev.length?prev[prev.length-1]:null;
+  const chg=p!=null&&y!=null?(p-y):null;
+  const sim=S.similar;
+  const LV=rkLive(D);
+  const nm={vix:"VIX level",vix_vix3m:"VIX ÷ VIX3M",nfci:"Financial conditions (NFCI)"};
+  const cmax=Math.max(1,...(S.contrib||[]).map(Math.abs));
+  const drv=(S.inputs||[]).map((x,i)=>{ const cv=(S.contrib||[])[i]||0, w=50*Math.abs(cv)/cmax;
+    const sub=x.id==="vix"?"level":x.pct!=null?`${Math.round(100*x.pct)}th percentile of the past year`:"";
+    return `<div><b>${nm[x.id]||x.label}</b><span class="sub">${x.value==null?"—":x.value} · ${sub}</span></div><div class="bar"><b></b><i style="${cv>=0?`left:50%;width:${w}%`:`left:${50-w}%;width:${w}%`};background:${cv>=0?"#FF5C5C":"#3FD0B0"}"></i></div><div style="text-align:right">${cv>=0?"▲ up":"▼ down"}</div>`; }).join("");
+  const ctx=(D.tiles||[]).filter(t=>t.role!=="score"&&t.role!=="drop"&&t.pct!=null), warnN=ctx.filter(t=>t.warn).length;
+  let h=`<div class="rkhero"><div class="rkcard">${rkGauge(p,S.base5)}<div style="text-align:center"><div class="rkbig" style="color:${c}">${rkPct(p)}<small>chance</small></div>`+
+    `<div class="rkline">of a <b>3%+ SPX drop</b> within the next <b>5 sessions</b></div>`+
+    `<div class="rkline"><span class="rkchip" style="background:${c}">${rkLab(p)}</span>${mult!=null?`<b>${mult.toFixed(1)}×</b> normal (${rkPct(S.base5)})`:""}${chg!=null?` · ${chg>=0?"+":"−"}${Math.abs(chg*100).toFixed(1)} pts vs yesterday`:""}</div>`+
+    `<div class="rkline">5%+ drop within 10 sessions: <b style="color:${rkCol(S.p10)}">${rkPct(S.p10)}</b> (normal ${rkPct(S.base10)})</div>`+
+    (LV?`<div class="rkline rklive">Live now: <b style="color:${rkCol(LV.p5)}">${rkPct(LV.p5)}</b> · 10-session ${rkPct(LV.p10)} <span class="sub">from VIX ${LV.vix.toFixed(2)} and VIX÷VIX3M ${LV.r3.toFixed(3)} (delayed quotes); the evening score is the official one</span></div>`:"")+`</div></div>`+
+    `<div class="rkcard"><div class="vxh"><h2 style="font-size:19px">What drives it</h2><span class="vxsub">the three score inputs · bar = how much each pushes today&rsquo;s risk</span></div><div class="rkdrv">${drv}</div>`+
+    (sim?`<p class="rkline" style="margin-top:12px"><b>Days like today since 2010</b> (score ${rkPct(sim.lo)}–${rkPct(sim.hi)}, ${sim.n} days): a 3%+ drop followed <b style="color:${rkCol(sim.drop_rate)}">${rkPct(sim.drop_rate)}</b> of the time · typical worst close next 5 sessions <b>${sim.median_worst5}%</b> · bad case (1 in 10) <b>${sim.p10_worst5}%</b>.</p>`:"")+
+    `<p class="rkline">Context tiles in their top 10% now: <b style="color:${warnN>=ctx.length/3?"#FF5C5C":"#fff"}">${warnN} of ${ctx.length}</b>${S.max20!=null?` · highest score in the last 20 sessions: <b>${rkPct(S.max20)}</b>`:""}</p>`+rkFlagsHtml(D)+`</div></div>`;
+  h+=veSec("rkHist","Score history","coloured by band · grey = SPX (right scale) · red ticks = a 3%+ drop began · orange ◆ = false all-clear · green ● = fear release",
+    `<div><span class="rkrange tabs" id="rkRangeSeg">${["6m","1y","3y"].map(r=>`<button data-v="${r}" aria-pressed="${st.rkRange===r}">${r.toUpperCase()}</button>`).join("")}</span></div><div class="rkread" id="rkHover">Move across the chart to read a day.</div>${rkHistChart(D)}`);
+  h+=`<div class="vegrid">`+veSec("rkCal5","Does the % mean what it says?","tested on years the model never saw · bar = what really happened · white mark = what it said",rkCalib(D.calib5,"5 sessions, 3%+ drop"))+
+     veSec("rkCal10","Same test, 10 sessions","5%+ drop within 10 sessions",rkCalib(D.calib10,"10 sessions, 5%+ drop"))+`</div>`;
+  const gm={}; (D.tiles||[]).forEach(t=>{ (gm[t.group]=gm[t.group]||[]).push(t); });
+  (D.groups||[]).forEach(([g,title])=>{ const ts=gm[g]||[]; if(!ts.length) return; const w=ts.filter(t=>t.warn).length;
+    h+=`<section class="rkgrp"><h3>${veEsc(title)}<span>${w} of ${ts.length} in warning · hover to enlarge, click for the full chart</span></h3><div class="rkwall">${ts.map(rkTile).join("")}</div></section>`; });
+  const M=D.method||{};
+  h+=`<p class="vxnote" style="font-size:14px;color:var(--ink);margin-top:14px"><b style="color:#fff">How it is built.</b> Event: ${veEsc(M.event||"")}. Score: ${veEsc(M.fit||"")}. Ranking quality on unseen years (0.5 = coin flip, 1 = perfect): score ${(M.auc&&M.auc.score||[]).join(" / ")} vs VIX alone ${(M.auc&&M.auc.vix_only||[]).join(" / ")}. ${veEsc(M.lift||"")}. Breadth, credit, correlation, sector, beta and gamma tiles each warn on their own, but once VIX, VIX/VIX3M and financial conditions are known they added nothing, so they are shown and not counted. It ranks risk; it does not time the drop. Not a trade signal.</p>`;
+  body.innerHTML=h;
+  body.querySelectorAll(".rktile").forEach(el=>{ el.onclick=()=>rkModal(el.dataset.id); el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); rkModal(el.dataset.id); } }; });
+  body.querySelectorAll("#rkRangeSeg button").forEach(b=>b.onclick=()=>{ st.rkRange=b.dataset.v; save("rkRange",st.rkRange); renderRisk(); });
+  const svg=document.getElementById("rkHistSvg"), hov=document.getElementById("rkHover");
+  if(svg){ const rng={"6m":126,"1y":252,"3y":9999}[st.rkRange]||252, H0=D.hist.slice(-rng), n=H0.length, L=+svg.dataset.l, Wd=+svg.dataset.w, full=+svg.dataset.full, cr=document.getElementById("rkCross");
+    svg.addEventListener("mousemove",e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)*full/r.width, i=Math.max(0,Math.min(n-1,Math.round((x-L)/Wd*(n-1)))), hh=H0[i];
+      const xx=L+Wd*i/(n-1); cr.setAttribute("x1",xx); cr.setAttribute("x2",xx); cr.setAttribute("opacity",".6");
+      hov.innerHTML=`<b>${hh[0]}</b> · score <b style="color:${rkCol(hh[2])}">${rkPct(hh[2],1)}</b> (${rkLab(hh[2])}) · 10-session ${rkPct(hh[3],1)} · SPX ${hh[1]==null?"—":hh[1].toFixed(0)}${(D.drop_starts||[]).includes(hh[0])?' · <b style="color:#FF5C5C">a 3%+ drop began here</b>':""}${hh[4]?' · <b style="color:#FF9F43">false all-clear</b>':""}${hh[5]?' · <b style="color:#3FD0B0">fear release</b>':""}`; });
+    svg.addEventListener("mouseleave",()=>{ cr.setAttribute("opacity","0"); }); }
+}
 })();
 </script>
 </body>
