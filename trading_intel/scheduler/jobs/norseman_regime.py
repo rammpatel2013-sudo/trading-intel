@@ -30,6 +30,9 @@ log = structlog.get_logger(__name__)
 _ICON = {"critical": "🚨", "high": "⚠️", "medium": "🔔", "low": "ℹ️", "info": "🗓"}
 
 
+_NO_PUSH_KINDS = frozenset({"PROXIMITY"})
+
+
 def format_event(e: dict) -> str:
     if e["kind"] == "WEEKLY_GRADE":
         return e["text"]
@@ -57,6 +60,10 @@ def run(session: Session, *, settings: Settings | None = None, dry_run: bool = F
 
         tg = TelegramClient(settings)
         for e in new:
+            # Mithil 2026-11-05: no Telegram for PROXIMITY (still banked + in the MCP tool);
+            # line tests / breaks / violations still push.
+            if e["kind"] in _NO_PUSH_KINDS:
+                continue
             tg.send_message(format_event(e))
     bound.info("norseman_regime.done", as_of=str(st.as_of) if st else None,
                new_events=[e["kind"] for e in new])

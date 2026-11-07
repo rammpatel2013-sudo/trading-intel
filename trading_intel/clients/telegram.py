@@ -12,6 +12,8 @@ bot once and read the chat id from ``https://api.telegram.org/bot<token>/getUpda
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 import httpx
@@ -22,6 +24,39 @@ from trading_intel.config import Settings
 log = structlog.get_logger(__name__)
 
 _API = "https://api.telegram.org/bot{token}/{method}"
+
+# Reports whose Telegram push is OFF (Mithil, 2026-11-05: the cockpit tabs show them now).
+# The job still runs and still writes its files and DB rows — only the push is skipped.
+# Override without a code change: TELEGRAM_MUTE="a,b" adds jobs, TELEGRAM_UNMUTE="a,b" removes.
+MUTED_JOBS = frozenset({
+    "breadth_report",
+    "vol_board_report",
+    "sector_report",
+    "flow_report",
+    "eod_vol_report",
+    "skew_vanna_report",
+    "cockpit_report",
+    "vol_regime_report",
+})
+
+
+def _env_set(name: str) -> set[str]:
+    return {x.strip() for x in os.environ.get(name, "").split(",") if x.strip()}
+
+
+def job_name() -> str:
+    """Name of the running job: ``python -m pkg.jobs.<name>`` or ``python scripts/<name>.py``."""
+    main = sys.modules.get("__main__")
+    spec = getattr(main, "__spec__", None)
+    if spec is not None and getattr(spec, "name", None):
+        return spec.name.rsplit(".", 1)[-1]
+    return Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else ""
+
+
+def is_muted(job: str | None = None) -> bool:
+    j = job if job is not None else job_name()
+    muted = (set(MUTED_JOBS) | _env_set("TELEGRAM_MUTE")) - _env_set("TELEGRAM_UNMUTE")
+    return bool(j) and j in muted
 _MAX_TEXT = 4096  # Telegram sendMessage cap
 _MAX_CAPTION = 1024
 
@@ -44,6 +79,9 @@ class TelegramClient:
 
     def send_message(self, text: str, *, parse_mode: str = "HTML", preview: bool = False) -> bool:
         """Send a text message (HTML by default). No-op + ``False`` if unconfigured."""
+        if is_muted():
+            log.info("telegram.muted", job=job_name())
+            return False
         if not self.enabled:
             log.debug("telegram.disabled")
             return False
@@ -69,6 +107,9 @@ class TelegramClient:
 
     def send_document(self, path: str | Path, *, caption: str = "") -> bool:
         """Attach a file (the report HTML/PDF). No-op + ``False`` if unconfigured/missing."""
+        if is_muted():
+            log.info("telegram.muted", job=job_name())
+            return False
         p = Path(path)
         if not self.enabled or not p.is_file():
             return False
@@ -92,6 +133,9 @@ class TelegramClient:
 
     def send_photo(self, path: str | Path, *, caption: str = "") -> bool:
         """Send an image (report PNG preview) so it renders inline in Telegram."""
+        if is_muted():
+            log.info("telegram.muted", job=job_name())
+            return False
         p = Path(path)
         if not self.enabled or not p.is_file():
             return False
