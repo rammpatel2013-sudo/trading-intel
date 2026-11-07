@@ -14,6 +14,9 @@ Options:
     --max-dte N           skip expirations further out than N days (default 400)
     --out DIR             default reports/optionsdata
     --workers N           symbols pulled at the same time (default 3)
+    --day YYYY-MM-DD      folder label; weekend catch-up of the last session, e.g.
+                          run_script.sh od_nightly --force --day 2026-11-06
+                          (after the 17:00 roll the flow records are gone; the rest stays)
 
 Writes reports/optionsdata/<YYYYMMDD>/:
     <SYM>.csv.gz            every expiration stacked, all fields as served
@@ -200,6 +203,7 @@ def main():
     ap.add_argument("--max-dte", type=int, default=400)
     ap.add_argument("--out", default=os.path.join("reports", "optionsdata"))
     ap.add_argument("--workers", type=int, default=3)
+    ap.add_argument("--day", help="YYYY-MM-DD label for the folder (weekend catch-up of the last session); default today ET")
     a = ap.parse_args()
     n = now_et()
     if not a.force:
@@ -210,7 +214,7 @@ def main():
             print(f"od_nightly.skip outside 16:15-16:58 ET window ({n:%H:%M} ET); use --force to test")
             return 0
     key = load_key()
-    day = n.date()
+    day = datetime.strptime(a.day, "%Y-%m-%d").date() if a.day else n.date()
     outdir = os.path.join(a.out, f"{day:%Y%m%d}")
     os.makedirs(outdir, exist_ok=True)
     deadline = None if a.force else datetime.strptime(f"{DEADLINE[0]}:{DEADLINE[1]}", "%H:%M").time()
