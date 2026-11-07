@@ -1,5 +1,5 @@
 {
- "_note": "Hand-maintained. Sources: federalreserve.gov FOMC calendar, BLS and BEA release schedules, Cboe expiration calendar. Created 2026-10-28; extend before Dec 16.",
+ "_note": "Hand-maintained. Sources: federalreserve.gov FOMC calendar (2027 tentative), BLS 2027 release schedule, Cboe/VIX expiration calendar. Created 2026-10-28; extended 2026-11-05 to 2027-04-28; extend again before Apr 2027. (PCE/GDP after Nov 2026 not added - BEA dates not checked.)",
  "events": [
   {
    "d": "2026-10-28",
@@ -84,6 +84,168 @@
    "t": "09:30",
    "kind": "Expiry",
    "label": "VIX monthly expiry (AM)"
+  },
+  {
+   "d": "2026-12-18",
+   "t": "16:00",
+   "kind": "Expiry",
+   "label": "SPX quarterly OPEX (quad witching)"
+  },
+  {
+   "d": "2026-12-24",
+   "t": "13:00",
+   "kind": "Holiday",
+   "label": "Christmas Eve, early close 13:00"
+  },
+  {
+   "d": "2026-12-25",
+   "t": "",
+   "kind": "Holiday",
+   "label": "Christmas, closed"
+  },
+  {
+   "d": "2026-12-31",
+   "t": "16:00",
+   "kind": "Expiry",
+   "label": "SPX quarter-end expiry"
+  },
+  {
+   "d": "2027-01-01",
+   "t": "",
+   "kind": "Holiday",
+   "label": "New Year's Day, closed"
+  },
+  {
+   "d": "2027-01-08",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "Jobs report (Dec)"
+  },
+  {
+   "d": "2027-01-13",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "CPI (Dec)"
+  },
+  {
+   "d": "2027-01-15",
+   "t": "16:00",
+   "kind": "Expiry",
+   "label": "SPX monthly OPEX"
+  },
+  {
+   "d": "2027-01-18",
+   "t": "",
+   "kind": "Holiday",
+   "label": "MLK Day, closed"
+  },
+  {
+   "d": "2027-01-20",
+   "t": "09:30",
+   "kind": "Expiry",
+   "label": "VIX monthly expiry (AM)"
+  },
+  {
+   "d": "2027-01-27",
+   "t": "14:00",
+   "kind": "Fed",
+   "label": "FOMC decision 14:00 · presser 14:30"
+  },
+  {
+   "d": "2027-02-05",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "Jobs report (Jan)"
+  },
+  {
+   "d": "2027-02-11",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "CPI (Jan)"
+  },
+  {
+   "d": "2027-02-15",
+   "t": "",
+   "kind": "Holiday",
+   "label": "Presidents' Day, closed"
+  },
+  {
+   "d": "2027-02-17",
+   "t": "09:30",
+   "kind": "Expiry",
+   "label": "VIX monthly expiry (AM)"
+  },
+  {
+   "d": "2027-02-19",
+   "t": "16:00",
+   "kind": "Expiry",
+   "label": "SPX monthly OPEX"
+  },
+  {
+   "d": "2027-03-05",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "Jobs report (Feb)"
+  },
+  {
+   "d": "2027-03-10",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "CPI (Feb)"
+  },
+  {
+   "d": "2027-03-17",
+   "t": "09:30",
+   "kind": "Expiry",
+   "label": "VIX monthly expiry (AM)"
+  },
+  {
+   "d": "2027-03-17",
+   "t": "14:00",
+   "kind": "Fed",
+   "label": "FOMC decision 14:00 · presser 14:30"
+  },
+  {
+   "d": "2027-03-19",
+   "t": "16:00",
+   "kind": "Expiry",
+   "label": "SPX quarterly OPEX (quad witching)"
+  },
+  {
+   "d": "2027-03-26",
+   "t": "",
+   "kind": "Holiday",
+   "label": "Good Friday, closed"
+  },
+  {
+   "d": "2027-04-02",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "Jobs report (Mar)"
+  },
+  {
+   "d": "2027-04-13",
+   "t": "08:30",
+   "kind": "Data",
+   "label": "CPI (Mar)"
+  },
+  {
+   "d": "2027-04-16",
+   "t": "16:00",
+   "kind": "Expiry",
+   "label": "SPX monthly OPEX"
+  },
+  {
+   "d": "2027-04-21",
+   "t": "09:30",
+   "kind": "Expiry",
+   "label": "VIX monthly expiry (AM)"
+  },
+  {
+   "d": "2027-04-28",
+   "t": "14:00",
+   "kind": "Fed",
+   "label": "FOMC decision 14:00 · presser 14:30"
   }
  ]
 }

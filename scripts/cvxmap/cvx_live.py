@@ -448,7 +448,47 @@ def build_symbol(sym, dec, today, state):
             "pd": [r["pD"] for r in rows],
             "cvb": [r["cVb"] for r in rows], "cvs": [r["cVs"] for r in rows],
             "pvb": [r["pVb"] for r in rows], "pvs": [r["pVs"] for r in rows]}
+    # 2026-11-06: next expiry's per-strike volume for the Map's "0+1DTE vol" switch. Additive keys
+    # only (live "x1", flow "n1"); nothing existing reads them, default map unchanged.
+    nx = next_expiry_vol(d, exp0, spot, step, today)
+    if nx:
+        out["x1"] = nx
+        flow["n1"] = nx
     return out, flow
+
+
+def next_expiry_vol(d, exp0, spot, step, today):
+    """The first listed expiry after today's (1DTE; Friday -> Monday): per-strike volume,
+    measured buy/sell and IV over the same +-20-step window as rows[]. IV uses the same
+    T convention as build_week (calendar days / 365)."""
+    for head, bk in d["exps"][1:]:
+        ed = exp_date(head)
+        if ed <= exp0:
+            continue
+        try:
+            dte = max((datetime.date.fromisoformat(ed) - today).days, 1)
+        except Exception:
+            return None
+        Ti = dte / 365.0
+        Fi, _ = parity_forward([(k, c, p) for k, (c, p) in bk.items()], spot)
+        o = {"e": ed, "dte": dte, "k": [], "cv": [], "pv": [], "ci": [], "pi": [],
+             "cvb": [], "cvs": [], "pvb": [], "pvs": []}
+        for k in window_strikes(spot, step):
+            cp = bk.get(k)
+            if not cp:
+                continue
+            c, p = cp
+            o["k"].append(k)
+            o["cv"].append(_n(c.get("volm")))
+            o["pv"].append(_n(p.get("volm")))
+            o["ci"].append(implied(mid(c), Fi, k, Ti, "C") or 0)
+            o["pi"].append(implied(mid(p), Fi, k, Ti, "P") or 0)
+            o["cvb"].append(c.get("volm_buy"))
+            o["cvs"].append(c.get("volm_sell"))
+            o["pvb"].append(p.get("volm_buy"))
+            o["pvs"].append(p.get("volm_sell"))
+        return o if o["k"] else None
+    return None
 
 
 def build_week(dec, today):

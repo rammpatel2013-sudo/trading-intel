@@ -401,6 +401,9 @@ body.phone .vxlines>.k{padding-top:6px}
 #mapBreakPane{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
 .mapread{padding:6px 10px 8px;font-size:13px;line-height:1.5;border-top:1px solid var(--rule);flex:1 1 auto;min-height:0;overflow:auto}
 #mapBreakPane .body{flex:0 0 48%}.mapread b{color:var(--r4)}.mapread .l{margin:2px 0}.mapread .l i{font-style:normal;color:var(--mute)}
+.seg.dim{opacity:.4}
+.mapread .blbox{padding:2px 0 6px;border-bottom:1px solid var(--rule);margin-bottom:4px}.mapread .bl1{font-size:17px;margin:2px 0 6px;line-height:1.4}.mapread .bl{font-size:15px;margin:4px 0;line-height:1.45;color:var(--ink)}.mapread .bl i{font-style:normal;color:var(--ink);opacity:.8}
+.mapread details.rdet{margin-top:6px}.mapread details.rdet>summary{cursor:pointer;font-size:15px;font-weight:600;color:var(--ink);padding:4px 0}
 body.phone #tabMap{grid-template-columns:1fr;grid-template-rows:420px 300px 420px}
 body.mapmax #tabFlow{grid-template-rows:minmax(0,1fr) 0 0}
 body.mapmax #conPane, body.mapmax #readsPane{display:none}
@@ -858,7 +861,7 @@ body.phone .rkbig{font-size:52px}
     </div>
   </main>
   <main id="tabMap" class="tab" hidden>
-    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus today's tagged buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><button class="btn" id="ledBtn" aria-pressed="false" title="Ledger book (Map only): start the 0DTE book from the signed-position ledger at yesterday's close (customers' running buys minus sells; dealers hold the other side), then add today's tagged buy/sell volume minute by minute. Closest we get to measured market-maker positions. Week book and other tabs unchanged. Scored nightly against OI + vol.">Ledger</button><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: each strike's IV moves with SPX by the amount we actually measured (updated every night from our own data: same-day options from the minute log, longer expiries day to day). Today that means IV falls as SPX rises and rises as it falls. Changes gamma and charm on all maps. Scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
+    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus today's tagged buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><div class="seg" role="group" id="mapVol1Seg" title="Which day's VOLUME goes into the maps (only matters on Vol / OI + vol / OI + signed, or with Ledger on). 0DTE vol = today's expiry only (the standard). 0+1DTE vol = also the next expiry's volume, priced as that expiry (its own days left and its own IV), never merged into today's strikes. The 1-7 DTE book itself stays morning OI only."><button data-v="0" aria-pressed="true">0DTE vol</button><button data-v="1" aria-pressed="false">0+1DTE vol</button></div><button class="btn" id="ledBtn" aria-pressed="false" title="Ledger book (Map only): start the 0DTE book from the signed-position ledger at yesterday's close (customers' running buys minus sells; dealers hold the other side), then add today's tagged buy/sell volume minute by minute. Closest we get to measured market-maker positions. Week book and other tabs unchanged. Scored nightly against OI + vol.">Ledger</button><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: each strike's IV moves with SPX by the amount we actually measured (updated every night from our own data: same-day options from the minute log, longer expiries day to day). Today that means IV falls as SPX rises and rises as it falls. Changes gamma and charm on all maps. Scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
     <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div><button class="btn" id="zoomBtn" aria-pressed="false" title="Zoom all three map panes: a price window around spot, finer rows and 1-minute columns inside it. Mouse wheel = wider/narrower · drag = move up/down · double-click = back to spot.">Zoom</button><div class="seg" role="group" id="zoomWSeg" title="Zoom price window around spot"><button data-v="25">±25</button><button data-v="50">±50</button><button data-v="100">±100</button></div><div class="seg" role="group" id="zoomTSeg" title="Zoom time window"><button data-v="rth">9:30 →</button><button data-v="2h">Last 2h →</button></div><div class="seg" role="group" id="mapColSeg" title="Colour: Classic = one colour per side, brighter = bigger. Gradient = a ramp of colours (dark at zero, then blue/cyan or amber/gold to near-white) so each size has its own colour, with a faint line where the value is half the column's strongest."><button data-v="classic">Classic</button><button data-v="grad">Gradient</button></div><div class="seg" role="group" id="mapScaleSeg" title="Colour scale: Day = one scale for the whole map (afternoon charm is far bigger, so mornings look dim). Column = each minute scaled to its own strongest value, so the shape shows all day; sizes are still in the read-out."><button data-v="day">Day</button><button data-v="col">Column</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
@@ -1111,6 +1114,8 @@ body.phone .rkbig{font-size:52px}
           <dt>Thin grey curves</dt><dd>The expected-move cone (&plusmn;1&sigma;).</dd>
           <dt>0DTE / Week / All</dt><dd>Which options the map uses: today&rsquo;s, the next week&rsquo;s, or both (key E). <b>Check the read-out: often most of the gamma at price is in the Week book, so 0DTE alone can mislead.</b></dd>
           <dt>OI / Vol / OI + vol / OI + signed</dt><dd>What the book is built from (see the Flow page). Same setting as Flow.</dd>
+          <dt>0DTE vol / 0+1DTE vol</dt><dd>Which day&rsquo;s trades go into the maps. <b>0DTE vol</b> (standard) = only today&rsquo;s expiry. <b>0+1DTE vol</b> = also the next expiry&rsquo;s trades, counted as next-day options (less gamma each), never piled onto today&rsquo;s strikes. Only matters when the book uses volume (Vol, OI + vol, OI + signed, or Ledger); greyed out on plain OI. The week book itself is always morning OI only.</dd>
+          <dt>Map read-out</dt><dd>The panel under &ldquo;Breakdown by strike&rdquo;: a plain bottom line first (calm or fast market, ceiling, flip line, downside magnet, what a vol rise or the clock does, where the gamma sits, outside levels that agree), then the Week book check, then <b>Details</b> with every number. Details stays open or closed as you left it.</dd>
           <dt>Ledger</dt><dd><b>Test view.</b> Starts today&rsquo;s book from a running count of customers&rsquo; buys minus sells from earlier days, then adds today&rsquo;s trades. The closest estimate of real dealer positions, but scored nightly before it is trusted.</dd>
           <dt>De-trend</dt><dd>Removes each minute&rsquo;s background level so small structure shows. <b>Warning:</b> blue and red then mean &ldquo;above or below this minute&rsquo;s average&rdquo;, not long or short.</dd>
           <dt>AM cone</dt><dd>Amber cone from the open, sized by this morning&rsquo;s 0DTE IV: &plusmn;1&sigma; dashed, &plusmn;2&sigma; dotted. Frozen for the day.</dd>
@@ -1380,7 +1385,7 @@ st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volCol30=l
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
 if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
-st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1";   // 0dte | week | all — Map tab book switch
+st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
 function saveSlots(){ try{ localStorage.setItem(NS+"slots", JSON.stringify(st.slots)); }catch(e){} }
 function load(k,d){ try{ return localStorage.getItem(NS+k) || d; }catch(e){ return d; } }
@@ -1477,7 +1482,7 @@ function accumulateFromLive(j){ // fallback: build minute snapshots from live.js
     const snap={t,s,x:d.spot,k:[],cv:[],pv:[],cm:[],pm:[],ci:[],pi:[],cb:[],ca:[],cl:[],cz:[],cd:[],pb:[],pa:[],pl:[],pz:[],pd:[]};
     for(const r of d.rows){ snap.k.push(r.k); snap.cv.push(r.cV||0); snap.pv.push(r.pV||0); snap.cm.push(r.cM||0); snap.pm.push(r.pM||0); snap.ci.push(r.cIV||0); snap.pi.push(r.pIV||0);
       snap.cb.push(r.cB||0); snap.ca.push(r.cA||0); snap.cl.push(r.cL||0); snap.cz.push(r.cZ||0); snap.cd.push(r.cD!=null?r.cD:null); snap.pb.push(r.pB||0); snap.pa.push(r.pA||0); snap.pl.push(r.pL||0); snap.pz.push(r.pZ||0); snap.pd.push(r.pD!=null?r.pD:null); }
-    if(!d.rows.some(r=>r.cB>0)){ delete snap.cb; }
+    if(!d.rows.some(r=>r.cB>0)){ delete snap.cb; } if(d.x1) snap.n1=d.x1;
     const arr=st.flow[s]; if(arr.length&&arr[arr.length-1].t===t) arr[arr.length-1]=snap; else arr.push(snap); }
 }
 
@@ -3774,6 +3779,24 @@ function nearRowsConvex(){ // 1–7 DTE book from the morning feed (ti.json near
   return out.length?out:null; }
 function greekColNear(kind,rows,S,tMin){ // same greek for longer expiries: τ = days to expiry + remaining minutes today
   let tot=0; for(const r of rows){ const ty=(r.dte*390+Math.max(MAP_T1-tMin,1))/525600; tot+=greekCol(kind,[r],S,ty); } return tot; }
+/* 2026-11-06 "0DTE vol | 0+1DTE vol" switch. 1 = also add the NEXT expiry's volume (feed: live x1 / minute log n1),
+   priced as that expiry (its own days left via greekColNear, its own IV) - never merged into today's strikes.
+   Basis decides how the volume counts (Vol / OI + vol = fixed sign, OI + signed = measured buy/sell); with Ledger on
+   only measured buy/sell is used; on plain OI there is no volume, so it adds nothing. Default 0 = map unchanged. */
+const BASIS_TITLE=(document.getElementById("mapBasisSeg")||{}).title||"";
+function v1Rows(snapIdx){
+  if(st.vol1!=="1") return null; const snap=snapIdx==null?null:(st.flow[st.sym]||[])[snapIdx];
+  const lv=st.live&&st.live[st.sym]; const n=snap?snap.n1:(lv&&lv.x1); if(!n||!n.k||!n.k.length) return null;
+  const LB=st.mapLed?ledBook():null; if(!LB&&st.basis==="oi") return null;
+  const S=snap?snap.x:(lv&&lv.spot||0); const out=[];
+  n.k.forEach((k,q)=>{ const sg=otmIV(k,S,n.ci[q]||0,n.pi[q]||0); if(!(sg>0)) return;
+    const cb=_at(n.cvb,q),cs=_at(n.cvs,q),pb=_at(n.pvb,q),ps=_at(n.pvs,q); let cp,pp;
+    if(LB){ if(cb==null||cs==null||pb==null||ps==null) return; cp=cs-cb; pp=pb-ps; }
+    else [cp,pp]=bookCP(0,0,n.cv[q]||0,n.pv[q]||0,cb,cs,pb,ps);
+    if(!cp&&!pp) return; out.push({k,sg,cp,pp,dte:n.dte||1}); });
+  return out.length?out:null; }
+function v1On(){ return st.vol1==="1"&&(!!(st.mapLed&&ledBook())||st.basis!=="oi"); }
+function v1Exp(){ const lv=st.live&&st.live[st.sym]; return lv&&lv.x1&&lv.x1.e||""; }
 function buildMap(kind,se,d,bookArg,view){
   const snaps=st.flow[st.sym]||[]; if(!snaps.length||!d||!d.rows) return null;
   const book=bookArg||st.mapBook||"all"; const near=book==="0dte"?null:nearRows(); const use0=book!=="week"; let nearCol=null;
@@ -3784,21 +3807,24 @@ function buildMap(kind,se,d,bookArg,view){
   const prices=[]; for(let p=pLo;p<=pHi+1e-9;p+=dp) prices.push(p);
   const c=liveClock(), now=c.h*60+c.m; const times=[]; for(let t=V?V.t0:MAP_T0;t<=MAP_T1;t+=V?(t>=now?Math.max(2,V.step):V.step):MAP_STEP) times.push(t);   // zoom: 1-min history, 2-min projection
   const LB=st.mapLed?ledBook():null;
-  const key=kind+"|"+st.sym+"|"+st.basis+"|"+(st.smileOn?"S"+(SMILE_MEASURED&&SB?SB.generated:""):"")+(st.clockVar?"V":"")+(LB?"L"+LB.key:"")+"|"+(V?[pLo,pHi,dp,times[0],V.step].join(","):"")+"|"+book+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
+  const key=kind+"|"+st.sym+"|"+st.basis+(st.vol1==="1"?"+n1":"")+"|"+(st.smileOn?"S"+(SMILE_MEASURED&&SB?SB.generated:""):"")+(st.clockVar?"V":"")+(LB?"L"+LB.key:"")+"|"+(V?[pLo,pHi,dp,times[0],V.step].join(","):"")+"|"+book+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
   const _mapCache=mapCacheFor(key);
   const liveRows=mapRowsAt(null,se,d); const byT=new Map(snaps.map((s,j)=>[tmin(s.t),j]));
   const grid=[]; let vmax=1e-9;
   const VC=!!st.clockVar, tyNow=Math.max(MAP_T1-Math.max(now,MAP_OPEN),1)/525600, rNow=vcRem(Math.max(now,MAP_OPEN));
-  for(const t of times){ const ty=Math.max(MAP_T1-t,1)/525600; let col;
+  for(const t of times){ const ty=Math.max(MAP_T1-t,1)/525600; let col, jj=null;
     const cm=VC&&kind==="charm"?vcRate(t):1, tyF=VC&&t>now?Math.max(tyNow*vcRem(t)/Math.max(rNow,1e-9),1/525600):ty;
     if(t<MAP_OPEN){ const ck="pre"; if(_mapCache.cols.has(ck)) col=_mapCache.cols.get(ck); else { col=prices.map(p=>greekCol(kind,liveRows,p,Math.max(MAP_T1-MAP_OPEN,1)/525600)); _mapCache.cols.set(ck,col); } }
     else if(t<=now){ // history: nearest logged minute at/after t within 3 min
       let j=null; for(let q=0;q<4;q++){ if(byT.has(t+q)){ j=byT.get(t+q); break; } }
-      const ck="h"+t+"|"+(j==null?"x":j);
+      jj=j; const ck="h"+t+"|"+(j==null?"x":j);
       if(_mapCache.cols.has(ck)) col=_mapCache.cols.get(ck);
       else { const rows=j==null?liveRows:mapRowsAt(j,se,d); col=prices.map(p=>greekCol(kind,rows,p,ty,cm)); _mapCache.cols.set(ck,col); }
     } else col=prices.map(p=>greekCol(kind,liveRows,p,tyF,cm));
     if(near){ if(!nearCol) nearCol=prices.map(p=>greekColNear(kind,near,p,12*60)); col=use0?col.map((v,i)=>v+nearCol[i]):nearCol.slice(); }
+    if(st.vol1==="1"){ const hist=t>=MAP_OPEN&&t<=now, ck1="v1|"+t+"|"+(hist?(jj==null?"x":jj):"f"); let add=hist?_mapCache.cols.get(ck1):undefined;   // next expiry's volume, its own clock
+      if(add===undefined){ const v1=v1Rows(hist&&jj!=null?jj:null); add=v1?prices.map(p=>greekColNear(kind,v1,p,Math.max(t,MAP_OPEN))):null; if(hist) _mapCache.cols.set(ck1,add); }
+      if(add) col=col.map((v,i)=>v+add[i]); }
     grid.push(col); }
   // colour field: raw greek for gamma; for charm/vanna with the week book, the baseline (column median) is removed so the 0DTE structure stays visible
   let base=null, cgrid=grid;
@@ -3931,9 +3957,27 @@ function mapRead(g,ch,va,se,d){
     for(const m of [g,ch,va]) if(m&&sh(m)!=null) parts.push(`${nm[m.kind]} <b>${sh(m)}%</b> 0DTE / ${100-sh(m)}% week`);
     const bk=(g&&g.book)||"0dte"; const ivs=bk==="0dte"?"":` · week IV re-marked by ${weekIVShift().src}`;
     if(parts.length) L.push(`<div class="l">Book at spot (${bk==="0dte"?"showing 0DTE":bk==="week"?"showing 1–7 DTE":"showing both"}): ${parts.join(" · ")}${ivs}.</div>`); }
-  { const wd=weekDiff(); if(wd) L.push(wd); }
+  
   L.push(`<div class="l"><i>Rules, not a forecast. Sign is naive OI; a put-heavy book reads short gamma. Structure holds only while the book keeps this shape.</i></div>`);
-  return L.join("");
+  /* 2026-11-06 bottom line in plain words; the Week book check stays visible; everything above goes under Details. */
+  const B=[]; const lg=gS>=0; const zB=nearest(gN.z,S,-1), zA=nearest(gN.z,S,1); const ii=a=>Math.max(0,Math.min(a.prices.length-1,i0));
+  B.push(`<div class="bl1"><b>${lg?"Calm market":"Fast market"}</b> — dealers ${lg?"absorb moves":"chase moves"} at <b>${f(S)}</b> <i>(${lg?"they sell rallies, buy dips":"they sell into drops, buy into rallies"})</i>.</div>`);
+  if(pkA!=null) B.push(`<div class="bl"><b>Ceiling ${f(pkA)}</b> — price tends to stall or pin here${drift(pkA,pkAC)?`; moves to ${f(pkAC)} by 3:30`:""}.</div>`);
+  if(lg) B.push(zB!=null?`<div class="bl"><b>Flip line ${f(zB)}</b> — below this, dealers stop absorbing and moves speed up.</div>`:`<div class="bl"><b>No flip line below</b> in the window — the calm zone runs down the whole map.</div>`);
+  else B.push(zA!=null?`<div class="bl"><b>Flip line ${f(zA)}</b> — above this, dealers start absorbing and moves calm down.</div>`:`<div class="bl"><b>No flip line above</b> in the window — fast market across the map.</div>`);
+  if(trB!=null) B.push(`<div class="bl"><b>Downside magnet ${f(trB)}</b> — ${lg?"if the flip breaks, selling chases toward here":"selling chases toward here"}${drift(trB,trBC)?`; moves to ${f(trBC)} by 3:30`:""}.</div>`);
+  if(va){ const vS=va.grid[jN][ii(va)], vz=featLevels(va,jN).z, z=nearest(vz,S,-1)??nearest(vz,S,1);
+    B.push(`<div class="bl"><b>If fear (vol) rises</b> → dealers <b>${vS>=0?"buy":"sell"}</b> (about ${fmtN(Math.round(Math.abs(vS)))} deltas per vol point) → ${vS>=0?"cushions price":"pushes price down"}.${z!=null?` ${z<S?"Below":"Above"} ${f(z)} this reverses — rising fear makes dealers ${vS>=0?"sell":"buy"}.`:""}</div>`); }
+  if(ch&&ch.grid){ const cS=ch.grid[jN][ii(ch)], cz=featLevels(ch,jN).z, z=nearest(cz,S,-1)??nearest(cz,S,1);
+    B.push(`<div class="bl"><b>As time passes</b> → dealers <b>${cS>=0?"buy":"sell"}</b> (about ${fmtN(Math.round(Math.abs(cS)))} deltas per 5 min) → ${cS>=0?"supports price":"weighs on price"}.${z!=null?` ${z<S?"Below":"Above"} ${f(z)} it turns to ${cS>=0?"selling":"buying"}.`:""}</div>`); }
+  if(d&&d.rows){ const colT=d.rows.reduce((a,r)=>a+(r.color||0),0); if(Math.abs(colT)>0.01) B.push(`<div class="bl"><b>As the day passes</b> → ${colT>0?"time makes dealers buy more, so the pull toward the ceiling / pin gets stronger into the close":"the gamma wall loosens, so levels hold less well into the close"}.</div>`); }
+  if(g.share&&g.share.p0!=null){ const wk=Math.round((1-g.share.p0)*100), bk=g.book||"0dte";
+    B.push(`<div class="bl"><b>Where the weight is:</b> ${wk}% of the gamma at price is in next week's options${bk==="0dte"?(wk>=50?" — read the All book, not 0DTE alone":""):" — this map includes it"}.</div>`); }
+  if(st.sym==="SPX"&&docFresh()){ const nm=[]; const nr=(v,arr)=>arr.some(x=>x!=null&&Math.abs(x-v)/S<=0.0012);
+    for(const d0 of docLevels("SPX")){ const w=nr(d0.v,[pkA])?"our ceiling":nr(d0.v,[trB])?"our downside magnet":nr(d0.v,[zB,zA])?"our flip line":nr(d0.v,gN.pk)?"a gamma peak":nr(d0.v,gN.tr)?"a gamma trough":nr(d0.v,gN.z)?"a gamma zero":null; if(w) nm.push(`${d0.label} ${f(d0.v)} = ${w}`); }
+    if(nm.length) B.push(`<div class="bl"><b>Outside levels agree:</b> ${[...new Set(nm)].slice(0,3).join(" · ")}.</div>`); }
+  const wd=weekDiff();
+  return `<div class="blbox">${B.join("")}</div>${wd||""}<details class="rdet" id="mapReadDet"${st.readOpen?" open":""}><summary>Details</summary>${L.join("")}</details>`;
 }
 function renderMapTab(se,d){
   if(!d||!d.rows){ for(const id of ["mapGammaC","mapRightC","mapBreakC"]) drawHeat(id,null); return; }
@@ -3941,9 +3985,11 @@ function renderMapTab(se,d){
   const V=mapView();
   const g=buildMap("gamma",se,d,undefined,V), r=st.mapRight==="chg"?changeMap(se,d,bookR,V):buildMap(st.mapRight||"charm",se,d,bookR,V);
   const gF=V?buildMap("gamma",se,d):g, rF=V?(st.mapRight==="chg"?changeMap(se,d,bookR):buildMap(st.mapRight||"charm",se,d,bookR)):r;   // the read always uses the full map
-  drawHeat("mapGammaC",g,se,d,`Dealer Δ per 2.5 pts · ${(st.mapBook||"0dte")==="0dte"?"0DTE":(st.mapBook==="week"?"1–7 DTE book":"0DTE + 1–7 DTE")} · ${st.gDet?"DE-TRENDED: blue/red = above/below the column average, NOT long/short":"blue long / red short"} · green peak · yellow trough · dotted zero · ±1σ from 9:35`);
-  syncSeg("mapBookSeg",st.mapBook||"all"); syncSeg("mapBookRSeg",bookR); syncSeg("mapBasisSeg",st.basis);
-  const bk=bookR; const bkTxt=bk==="0dte"?"0DTE only":bk==="week"?`1–7 DTE book only (${r?r.nearN:0} strikes, 08:35 OI)`:`0DTE + ${r?r.nearN:0} strikes of the 1–7 DTE book · colour = structure vs the window baseline`;
+  drawHeat("mapGammaC",g,se,d,`Dealer Δ per 2.5 pts · ${(st.mapBook||"0dte")==="0dte"?"0DTE":(st.mapBook==="week"?"1–7 DTE book":"0DTE + 1–7 DTE")}${v1On()?" + next expiry's volume":""} · ${st.gDet?"DE-TRENDED: blue/red = above/below the column average, NOT long/short":"blue long / red short"} · green peak · yellow trough · dotted zero · ±1σ from 9:35`);
+  syncSeg("mapBookSeg",st.mapBook||"all"); syncSeg("mapBookRSeg",bookR); syncSeg("mapBasisSeg",st.basis); syncSeg("mapVol1Seg",st.vol1);
+  { const ledOn=!!(st.mapLed&&ledBook()); const bs=document.getElementById("mapBasisSeg"); if(bs){ bs.classList.toggle("dim",ledOn); bs.title=ledOn?"Ledger is ON: the maps use the ledger + today's measured buy/sell, so OI / Vol / OI + vol / OI + signed are NOT used by the maps (they still set the Flow tab). Turn Ledger off to use them.":BASIS_TITLE; }
+    const vs=document.getElementById("mapVol1Seg"); if(vs) vs.classList.toggle("dim",!ledOn&&st.basis==="oi"); }
+  const bk=bookR; const bkTxt=bk==="0dte"?"0DTE only":bk==="week"?`1–7 DTE book only (${r?r.nearN:0} strikes, 08:35 OI)`:`0DTE + ${r?r.nearN:0} strikes of the 1–7 DTE book (morning OI only, no volume)${v1On()?" + next expiry's volume":""} · colour = structure vs the window baseline`;
   if(st.mapRight==="chg"&&r&&r.blocked){ drawChgBlocked("mapRightC"); }
   else drawHeat("mapRightC",r,se,d,st.mapRight==="chg"
     ?`Change in dealer Δ per 2.5 pts over the last ${r?r.lagMin:30} min · orange = gamma added · cyan = removed · dotted = unchanged · basis ${st.basis.toUpperCase()} · ${bkTxt}`
@@ -3956,12 +4002,12 @@ function renderMapTab(se,d){
   document.getElementById("coneAmBtn").setAttribute("aria-pressed",st.coneAm); document.getElementById("coneLiveBtn").setAttribute("aria-pressed",st.coneLive);
   for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn","clockVar"]]){ const b=document.getElementById(id); if(b) b.setAttribute("aria-pressed",!!st[k]); }
   { const gb=document.getElementById("gapBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gapOn); const gs=document.getElementById("gapStrip"); if(gs){ const html=st.gapOn?gapStripHTML(se):""; gs.hidden=!html; if(html&&gs.innerHTML!==html) gs.innerHTML=html; } }
-  const rd=document.getElementById("mapRead"); if(rd) rd.innerHTML=mapRead(gF,st.mapRight==="vanna"?null:rF,st.mapRight==="vanna"?rF:null,se,d);
+  const rd=document.getElementById("mapRead"); if(rd){ const h=mapRead(gF,st.mapRight==="vanna"?null:rF,st.mapRight==="vanna"?rF:null,se,d); if(rd._h!==h){ rd.innerHTML=h; rd._h=h; } }
   { const zb=document.getElementById("zoomBtn"); if(zb) zb.setAttribute("aria-pressed",!!st.zoomOn); for(const id of ["zoomWSeg","zoomTSeg"]){ const e=document.getElementById(id); if(e) e.style.display=st.zoomOn?"":"none"; }
     syncSeg("zoomWSeg",String(st.zoomW)); syncSeg("zoomTSeg",st.zoomT); syncSeg("mapColSeg",st.mapCol); syncSeg("mapScaleSeg",st.mapScale);
     const lb=document.getElementById("ledBtn"); if(lb) lb.setAttribute("aria-pressed",!!st.mapLed); }
-  const ledTxt=st.mapLed?(()=>{ const L=ledBook(), I=ledgerInfo(); return L?` LEDGER book: as of ${L.asof}, ${L.n} 0DTE strikes, median ${L.cov??"?"} days of measured flow (the ledger starts 10/26; older flow is missing). `:` LEDGER on but not usable (${st.sym!=="SPX"?"SPX only":I&&I.asof?"file is as of "+I.asof+", not today":"ledger not loaded"}) — showing ${st.basis.toUpperCase()}. `; })():"";
-  const nt=document.getElementById("mapNote"); if(nt) nt.textContent=ledTxt+`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile.`;
+  const ledTxt=st.mapLed?(()=>{ const L=ledBook(), I=ledgerInfo(); return L?` LEDGER book: as of ${L.asof}, ${L.n} 0DTE strikes, median ${L.cov??"?"} days of measured flow (the ledger starts 10/26; older flow is missing). The OI / Vol / OI + vol buttons are not used by the maps while Ledger is on. `:` LEDGER on but not usable (${st.sym!=="SPX"?"SPX only":I&&I.asof?"file is as of "+I.asof+", not today":"ledger not loaded"}) — showing ${st.basis.toUpperCase()}. `; })():"";
+  const nt=document.getElementById("mapNote"); if(nt) nt.textContent=ledTxt+`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile. Week book = morning OI only (no volume).${v1On()?` 0+1DTE vol: next expiry (${v1Exp()||"not in the feed yet"}) volume added, priced as that expiry.`:st.vol1==="1"?" 0+1DTE vol is on but adds nothing on the OI basis (no volume).":""}`;
 }
 document.querySelectorAll("#viewSeg button[data-go]").forEach(b=>b.addEventListener("click",()=>{ st.mapRight=b.dataset.go; save("mapRight",st.mapRight); syncSeg("mapRightSeg",st.mapRight); st.tab="map"; save("tab","map"); render(); }));
 document.getElementById("mapDocBtn").addEventListener("click",()=>{ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); });
@@ -3969,6 +4015,8 @@ document.getElementById("mapPremBtn").addEventListener("click",()=>{ st.premOv=!
 document.getElementById("gDetBtn").addEventListener("click",()=>{ st.gDet=!st.gDet; save("gDet",st.gDet?"1":"0"); render(); });
 document.querySelectorAll("#mapRightSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapRight=b.dataset.v; save("mapRight",st.mapRight); syncSeg("mapRightSeg",st.mapRight); render(); }));
 document.querySelectorAll("#mapBookSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapBook=b.dataset.v; save("mapBook",st.mapBook); syncSeg("mapBookSeg",st.mapBook); render(); }));
+document.querySelectorAll("#mapVol1Seg button").forEach(b=>b.addEventListener("click",()=>{ st.vol1=b.dataset.v; save("vol1",st.vol1); syncSeg("mapVol1Seg",st.vol1); render(); }));
+{ const rd=document.getElementById("mapRead"); if(rd) rd.addEventListener("toggle",e=>{ if(e.target&&e.target.id==="mapReadDet"){ st.readOpen=!!e.target.open; save("readOpen",st.readOpen?"1":"0"); } },true); }
 document.querySelectorAll("#mapBookRSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapBookR=b.dataset.v; save("mapBookR",st.mapBookR); render(); }));
 syncSeg("mapBookSeg",st.mapBook||"all");
 syncSeg("mapRightSeg",st.mapRight||"charm");

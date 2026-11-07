@@ -130,8 +130,20 @@ case "${1:-}" in
       run_one cvxmap-sidesbf "-e DASH_DIR=/app/scripts/cvxmap/data" "$CMD"
     } >> "$LOG" 2>&1
     ;;
+  n1)
+    # One-shot (added 2026-11-06): add the next expiry's volume ("n1", Map "0+1DTE vol" switch) to a
+    # day's flow log for minutes written before the writer carried it. Touches no other key.
+    # Today: run AFTER 17:05 (writer stopped). Past days: any time.
+    #     sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_cvxmap.sh n1 [YYYYMMDD ...]
+    # (Do NOT use cvx_live.py --rebuild for this: it stamps every line with the rebuild time.)
+    {
+      echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap N1 BACKFILL ==="
+      run_one cvxmap-n1 "" "python scripts/cvxmap/n1_backfill.py ${*:2}"
+      echo "  launched (docker logs -f cvxmap-n1)"
+    } >> "$LOG" 2>&1
+    ;;
   stopall)
-    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-serve cvxmap-ledger cvxmap-s12bf cvxmap-sidesbf >/dev/null 2>&1
+    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-serve cvxmap-ledger cvxmap-s12bf cvxmap-sidesbf cvxmap-n1 >/dev/null 2>&1
     echo "all cvxmap containers removed"
     ;;
   status)
