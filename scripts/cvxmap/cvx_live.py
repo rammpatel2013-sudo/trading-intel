@@ -28,7 +28,7 @@ Run:  python cvx_live.py            (loop, follows the raw file)
       python cvx_live.py --once     (single pass)
       python cvx_live.py --rebuild  (reprocess the whole day from line 0)
 """
-import os, sys, json, math, gzip, time, datetime, traceback
+import os, sys, json, math, gzip, time, datetime, traceback, re
 
 # VIX tab data (2026-10-28): forward/ATM per expiry, implied variance, regime
 # board, events. Optional - if it fails to import, the writer runs as before.
@@ -180,7 +180,83 @@ def decode(rec):
                 c["_sym"], p["_sym"] = row[1][0], row[2][0]
                 book[k] = (c, p)
             exps.append((head, book))
-        out[sym] = {"spot": _n(entry.get("spot")), "exps": exps}
+        kinds = [_group_kind(sym, b) for _h, b in exps]
+        out[sym] = {"spot": _n(entry.get("spot")), "exps": exps, "kind": kinds, "pm_idx": _pm_index(exps, kinds)}
+    return out
+
+
+# 2026-11-07/08 candidate: the feed lists the AM-settled SPX monthly (root .SPX) as its OWN group with the same date as
+# that day's PM-settled SPXW group (11/06 record: the 11/20 .SPX group is listed BEFORE the 11/20 .SPXW group).
+# "exps" stays unchanged for every other reader. The cockpit's 0DTE book, next-expiry volume and live week rows use
+# pm_groups() / am_groups(). A group is classified from the roots of ALL its contract symbols:
+#   {SPXW} -> PM, {SPX} -> AM, no symbols -> unknown, more than one root -> mixed.
+#   unknown: kept as PM only when it is the only group listed for its date; two unknown groups on one date ->
+#            the LAST listed is taken as PM (feed order SPX before SPXW, seen 11/06) and the choice is flagged;
+#   mixed:   never used; flagged.
+# Every non-clean case is listed in group_issues(d) and written to live.json as "root_warn".
+AM_ROOTS = {"SPX": ("SPX", "SPXW")}          # symbol -> (AM root, PM root)
+_ROOT_RE = re.compile(r"^\.([A-Z]+)\d")
+
+
+def _group_kind(sym, book):
+    pair = AM_ROOTS.get(sym)
+    if not pair:
+        return "PM"
+    roots = set()
+    for c, p in book.values():
+        for x in (c, p):
+            m = _ROOT_RE.match(str((x or {}).get("_sym") or ""))
+            if m:
+                roots.add(m.group(1))
+    if not roots:
+        return "unknown"
+    if roots == {pair[1]}:
+        return "PM"
+    if roots == {pair[0]}:
+        return "AM"
+    return "mixed"
+
+
+def _pm_index(exps, kinds):
+    by_date = {}
+    for i, (h, _b) in enumerate(exps):
+        by_date.setdefault(str(h), []).append(i)
+    keep = []
+    for i, (h, _b) in enumerate(exps):
+        k, same = kinds[i], by_date[str(h)]
+        if k == "PM":
+            keep.append(i)
+        elif k == "unknown":
+            others = [j for j in same if j != i]
+            if not others or (all(kinds[j] == "unknown" for j in others) and i == max(same)):
+                keep.append(i)
+    return keep
+
+
+def _endpoint(ed, fam):
+    try:
+        from market_cal import model_endpoint
+        return model_endpoint(datetime.date.fromisoformat(ed), fam)
+    except Exception:
+        return ed + ("T09:30" if fam == "AM" else "T16:00")
+
+
+def pm_groups(d):
+    idx = d.get("pm_idx")
+    return d["exps"] if idx is None else [d["exps"][i] for i in idx]
+
+
+def am_groups(d):
+    kinds = d.get("kind")
+    return [] if kinds is None else [g for g, k in zip(d["exps"], kinds) if k == "AM"]
+
+
+def group_issues(d):
+    kinds = d.get("kind") or []
+    out = []
+    for (h, _b), k in zip(d["exps"], kinds):
+        if k in ("unknown", "mixed"):
+            out.append("%s group %s" % (exp_date(h), k))
     return out
 
 
@@ -341,11 +417,11 @@ SYMS = ("SPX", "SPY", "QQQ")
 
 def build_symbol(sym, dec, today, state):
     d = dec.get(sym)
-    if not d or not d["exps"]:
+    if not d or not pm_groups(d):
         return None, None
     spot = d["spot"]
     step = STEP.get(sym, 1.0)
-    head0, book0 = d["exps"][0]
+    head0, book0 = pm_groups(d)[0]
     exp0 = exp_date(head0)
     dte = max((datetime.date.fromisoformat(exp0) - today).days, 0)
     # Phase 3 (2026-11-04): 0DTE greeks use the real minutes left (the old 0.25-day floor made
@@ -454,6 +530,9 @@ def build_symbol(sym, dec, today, state):
     if nx:
         out["x1"] = nx
         flow["n1"] = nx
+    gi = group_issues(d)
+    if gi:
+        out["root_warn"] = gi          # shown on the cockpit Map (2026-11-08 candidate)
     return out, flow
 
 
@@ -461,7 +540,7 @@ def next_expiry_vol(d, exp0, spot, step, today):
     """The first listed expiry after today's (1DTE; Friday -> Monday): per-strike volume,
     measured buy/sell and IV over the same +-20-step window as rows[]. IV uses the same
     T convention as build_week (calendar days / 365)."""
-    for head, bk in d["exps"][1:]:
+    for head, bk in pm_groups(d)[1:]:
         ed = exp_date(head)
         if ed <= exp0:
             continue
@@ -471,7 +550,7 @@ def next_expiry_vol(d, exp0, spot, step, today):
             return None
         Ti = dte / 365.0
         Fi, _ = parity_forward([(k, c, p) for k, (c, p) in bk.items()], spot)
-        o = {"e": ed, "dte": dte, "k": [], "cv": [], "pv": [], "ci": [], "pi": [],
+        o = {"e": ed, "dte": dte, "exp_t": _endpoint(ed, "PM"), "k": [], "cv": [], "pv": [], "ci": [], "pi": [],
              "cvb": [], "cvs": [], "pvb": [], "pvs": []}
         for k in window_strikes(spot, step):
             cp = bk.get(k)
@@ -500,11 +579,13 @@ def build_week(dec, today):
     centre = round(spot / step) * step
     ks = [centre + step * i for i in range(-WEEK_N, WEEK_N + 1)]
     rows = []
-    for head, bk in d["exps"][1:]:
+    for fam, (head, bk) in [("PM", g) for g in pm_groups(d)[1:]] + [("AM", g) for g in am_groups(d)]:
         ed = exp_date(head)
         try:
             dte = max((datetime.date.fromisoformat(ed) - today).days, 0)
         except Exception:
+            continue
+        if fam == "AM" and dte < 1:      # the monthly settles at today's open: not in the live week book
             continue
         Fi, _ = parity_forward([(k, c, p) for k, (c, p) in bk.items()], spot)
         Ti = t_iv() if dte == 0 else (dte / 365.0)
@@ -513,7 +594,7 @@ def build_week(dec, today):
             if not cp:
                 continue
             c, p = cp
-            rows.append({"e": ed, "dte": dte, "k": k,
+            rows.append({"e": ed, "set": fam, "exp_t": _endpoint(ed, fam), "dte": dte, "k": k,
                          "cOI": _n(c.get("oi")), "cIV": implied(mid(c), Fi, k, Ti, "C") or 0,
                          "cD": _n(c.get("delta")),
                          "pOI": _n(p.get("oi")), "pIV": implied(mid(p), Fi, k, Ti, "P") or 0,

@@ -3755,12 +3755,12 @@ function weekIVShift(){
 function tosWeekRows(){ // 1–7 DTE book straight from TOS (live.json "week", LiveLog v18) — live IV, no re-mark
   const wk=st.live&&st.live.week&&st.live.week[st.sym]; if(!wk||!wk.rows||!wk.rows.length) return null;
   const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const out=[];
-  for(const r of wk.rows){ const sg=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg>0)) continue; const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte}); }
+  for(const r of wk.rows){ const sg=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg>0)) continue; const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||"PM",exp_t:r.exp_t||(r.e+"T16:00")}); }
   return out.length?out:null; }
 function nearRows(){ return nearRowsConvex(); }
 function weekDiff(){ // one line: how the two week books differ (OI match, ATM IV, walls) — only when both exist
   const cv=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym], wk=st.live&&st.live.week&&st.live.week[st.sym]; if(!cv||!cv.rows||!wk||!wk.rows||!wk.rows.length) return "";
-  const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const key=r=>r.e+"|"+r.k; const A=new Map(cv.rows.map(r=>[key(r),r])), B=new Map(wk.rows.map(r=>[key(r),r]));
+  const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const key=r=>r.e+"|"+(r.set||"PM")+"|"+r.k; /* 2026-11-07 candidate: AM monthly and PM weekly of the same date are different contracts */ const A=new Map(cv.rows.map(r=>[key(r),r])), B=new Map(wk.rows.map(r=>[key(r),r]));
   let n=0,same=0,ivC=[],ivT=[]; const wall={c:{cv:null,tos:null},p:{cv:null,tos:null}}; const agg={cv:new Map(),tos:new Map()};
   for(const [k,b] of B){ const a=A.get(k); if(!a) continue; n++; const oa=(a.cOI||0)+(a.pOI||0), ob=(b.cOI||0)+(b.pOI||0); if(Math.abs(oa-ob)<=Math.max(2,0.02*Math.max(oa,ob))) same++;
     if(b.dte===1&&Math.abs(b.k-S)<=10){ const ia=otmIV(b.k,S,a.cIV||0,a.pIV||0), ib=otmIV(b.k,S,b.cIV||0,b.pIV||0); if(ia>0) ivC.push(ia); if(ib>0) ivT.push(ib); }
@@ -3775,10 +3775,69 @@ function nearRowsConvex(){ // 1–7 DTE book from the morning feed (ti.json near
   const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; if(!nb||!nb.rows||!nb.rows.length) return null;
   const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const out=[]; const dv=Math.max(-0.1,Math.min(0.1,weekIVShift().dv));
   for(const r of nb.rows){ const sg0=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue; const sg=Math.max(0.01,sg0+dv);
-    const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte}); }
+    const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||"PM",exp_t:r.exp_t||(r.e+"T16:00"),cal_ok:r.cal_ok!==false}); }
   return out.length?out:null; }
 function greekColNear(kind,rows,S,tMin){ // same greek for longer expiries: τ = days to expiry + remaining minutes today
+  if(WEEK_CLOCK_V2) return greekColWeek(kind,rows,S,tMin,wkDayISO());
   let tot=0; for(const r of rows){ const ty=(r.dte*390+Math.max(MAP_T1-tMin,1))/525600; tot+=greekCol(kind,[r],S,ty); } return tot; }
+/* 2026-11-07 CANDIDATE (offline, not shipped): Week book timed per contract.
+   τ = calendar minutes from the map column (today's date, minute t, ET wall clock) to the contract's own model endpoint
+   exp_t (PM-settled SPXW 16:00, AM-settled SPX monthly 09:30 = special opening quotation), ÷ 525,600 — the feed quotes IV
+   on calendar time. A contract leaves the book once its endpoint has passed; a same-day PM contract belongs to the 0DTE
+   book. Every map column (history and projection) gets its own clock. WEEK_CLOCK_V2=false = the shipped rule
+   (dte × 390 + minutes to 16:00, frozen at 12:00 for the whole map). Does not handle DST weekends (±60 min) or half days. */
+const WEEK_CLOCK_V2=true;
+const WK_NODES_FAR=[MAP_T0,MAP_OPEN,765,MAP_T1], WK_NODES_NEAR=Array.from({length:17},(_,i)=>480+30*i);
+function dayNum(iso){ const [y,m,d]=String(iso).split("-").map(Number); return Date.UTC(y,m-1,d)/86400000; }
+const _etOff=new Map(), _etFmtOff=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",timeZoneName:"shortOffset"});
+function etOffsetMin(iso){ // ET offset from UTC in minutes on that date (−300 EST, −240 EDT); map hours never cross the 2 a.m. switch
+  if(_etOff.has(iso)) return _etOff.get(iso); const [y,m,d]=String(iso).split("-").map(Number);
+  const p=_etFmtOff.formatToParts(new Date(Date.UTC(y,m-1,d,17))).find(x=>x.type==="timeZoneName"); const mm=/GMT([+-]\d+)(?::(\d+))?/.exec(p&&p.value||"");
+  const off=mm?(+mm[1])*60+(mm[2]?Math.sign(+mm[1])*(+mm[2]):0):-300; _etOff.set(iso,off); return off; }
+function etInstant(iso,mins){ const [y,m,d]=String(iso).split("-").map(Number); return Date.UTC(y,m-1,d)+(mins-etOffsetMin(iso))*60000; }
+function expInstant(r){ const et=r.exp_t||((r.e||"")+"T16:00"); if(r._xi!==undefined&&r._xe===et) return r._xi;
+  const v=/[+-]\d\d:\d\d$|Z$/.test(et)?Date.parse(et):etInstant(et.slice(0,10),tmin(et.slice(11,16))); r._xi=v; r._xe=et; return v; }
+function wkDayISO(){ const c=liveClock(); return c.date||((st.live&&st.live.ts)||"").slice(0,10); }
+function wkTauMin(r,day,t){ // real minutes (UTC instants, so DST spans count right) from map minute t to this contract's endpoint; null = not in the Week book then
+  const et=r.exp_t||((r.e||"")+"T16:00"), dd=dayNum(et.slice(0,10))-dayNum(day); if(!(dd>=0)) return null;
+  if(dd===0&&(r.set||"PM")!=="AM") return null;          // same-day PM contract = the 0DTE book
+  const m=(expInstant(r)-etInstant(day,t))/60000; return m>0?m:null; }
+function wkBookInfo(){ // what the Week book is and how far to trust it (shown on the Map, never silent)
+  const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; if(!nb||!nb.rows) return null; const day=wkDayISO();
+  const asof=nb.as_of_date||String(nb.as_of||"").slice(0,10), rc=nb.recon||{}, ss=st.ti.session||null;
+  const w=[]; if(asof&&asof!==day) w.push(`Week book is from ${asof}, not ${day} (today's 08:35 book not in yet) - timed from today, OI from that day`);
+  if(rc.n_conflicts) w.push(`${rc.n_conflicts} contract${rc.n_conflicts>1?"s":""} with conflicting duplicate rows (larger OI kept - temporary rule)`);
+  if(nb.rows.some(r=>r.cal_ok===false)) w.push("expiries past the verified exchange calendar");
+  if(ss&&ss.date===day&&ss.early_close) w.push(`early close ${ss.close} today: Week endpoints use it, the 0DTE clock still runs to 16:00`);
+  return {asof,stale:!!asof&&asof!==day,warn:w}; }
+function greekColWeek(kind,rows,S,t,day){ let tot=0;
+  if(st.smileOn){ for(const r of rows){ const m=wkTauMin(r,day,t); if(m==null) continue; tot+=greekCol(kind,[r],S,m/525600); } return tot; }
+  for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue; const m=wkTauMin(r,day,t); if(m==null) continue;   // same maths as greekCol, Smile off, no per-row array
+    const ty=m/525600, sq=Math.sqrt(Math.max(ty,1e-7)), d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);
+    if(kind==="gamma") tot+=pos*(p/(S*r.sg*sq))*2.5; else if(kind==="charm") tot-=pos*(p*d2/(2*ty))*(5/525600); else tot-=pos*(-p*d2/r.sg)*0.01; }
+  return tot; }
+function wkHash(rows){ // FNV-1a over EVERY input of every row (strike, IV, position, endpoint, family, dte) - any change rebuilds
+  let h=0x811c9dc5; const add=s=>{ for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } };
+  for(const r of rows) add(r.k+"|"+r.sg+"|"+r.cp+"|"+r.pp+"|"+(r.exp_t||r.e||"")+"|"+(r.set||"")+"|"+(r.dte??"")+";");
+  return rows.length+":"+h.toString(16); }
+const WK_CACHE=new Map();   // weekField results shared by every map built from the same inputs (cleared when inputs change)
+function weekField(kind,rows,prices,day){
+  const ck=[kind,day,st.sym,st.smileOn?"S"+(SMILE_MEASURED&&SB?SB.generated:"old"):"",wkHash(rows),prices.length,prices[0],prices[prices.length-1]].join("|");
+  if(WK_CACHE.has(ck)) return WK_CACHE.get(ck); if(WK_CACHE.size>12) WK_CACHE.delete(WK_CACHE.keys().next().value);
+  const fn=weekFieldBuild(kind,rows,prices,day); WK_CACHE.set(ck,fn); return fn; }
+function weekFieldBuild(kind,rows,prices,day){ // t -> Week column over prices. Exact at nodes, linear between (max error measured
+  // 2026-11-07: ≤0.02% of mean |value| for contracts ≥2 days from their endpoint with 4 nodes; 30-min nodes for those <2 days
+  // away); contracts that settle inside today's window (AM monthly on its own morning) are computed exactly per column.
+  const far=[],near=[],same=[];
+  for(const r of rows){ if(wkTauMin(r,day,MAP_T0)==null) continue; const m16=wkTauMin(r,day,MAP_T1); (m16==null?same:m16<2880?near:far).push(r); }
+  const mk=(rs,N)=>{ if(!rs.length) return null; const cols=N.map(t=>prices.map(p=>greekColWeek(kind,rs,p,t,day)));
+    return t=>{ let j=0; while(j<N.length-2&&t>N[j+1]) j++; const u=Math.max(0,Math.min(1,(t-N[j])/(N[j+1]-N[j]))); return cols[j].map((v,i)=>v*(1-u)+cols[j+1][i]*u); }; };
+  const F=mk(far,WK_NODES_FAR), Nr=mk(near,WK_NODES_NEAR), memo=new Map();
+  const fn=t=>{ if(memo.has(t)) return memo.get(t); const out=new Array(prices.length).fill(0);
+    for(const g of [F,Nr]) if(g){ const a=g(t); for(let i=0;i<a.length;i++) out[i]+=a[i]; }
+    if(same.length) for(let i=0;i<prices.length;i++) out[i]+=greekColWeek(kind,same,prices[i],t,day);
+    memo.set(t,out); return out; };
+  fn.n={far:far.length,near:near.length,same:same.length}; return fn; }
 /* 2026-11-06 "0DTE vol | 0+1DTE vol" switch. 1 = also add the NEXT expiry's volume (feed: live x1 / minute log n1),
    priced as that expiry (its own days left via greekColNear, its own IV) - never merged into today's strikes.
    Basis decides how the volume counts (Vol / OI + vol = fixed sign, OI + signed = measured buy/sell); with Ledger on
@@ -3793,13 +3852,13 @@ function v1Rows(snapIdx){
     const cb=_at(n.cvb,q),cs=_at(n.cvs,q),pb=_at(n.pvb,q),ps=_at(n.pvs,q); let cp,pp;
     if(LB){ if(cb==null||cs==null||pb==null||ps==null) return; cp=cs-cb; pp=pb-ps; }
     else [cp,pp]=bookCP(0,0,n.cv[q]||0,n.pv[q]||0,cb,cs,pb,ps);
-    if(!cp&&!pp) return; out.push({k,sg,cp,pp,dte:n.dte||1}); });
+    if(!cp&&!pp) return; out.push({k,sg,cp,pp,dte:n.dte||1,e:n.e,set:n.set||"PM",exp_t:n.exp_t||(n.e?(n.e+"T16:00"):null)}); });
   return out.length?out:null; }
 function v1On(){ return st.vol1==="1"&&(!!(st.mapLed&&ledBook())||st.basis!=="oi"); }
 function v1Exp(){ const lv=st.live&&st.live[st.sym]; return lv&&lv.x1&&lv.x1.e||""; }
 function buildMap(kind,se,d,bookArg,view){
   const snaps=st.flow[st.sym]||[]; if(!snaps.length||!d||!d.rows) return null;
-  const book=bookArg||st.mapBook||"all"; const near=book==="0dte"?null:nearRows(); const use0=book!=="week"; let nearCol=null;
+  const book=bookArg||st.mapBook||"all"; const near=book==="0dte"?null:nearRows(); const use0=book!=="week"; let nearCol=null, wkF=null; const wkDay=wkDayISO();
   if(book==="week"&&!near) return null;
   const S=d.spot, step=d.step||5, ks=d.rows.map(r=>r.k).sort((a,b)=>a-b); if(ks.length<5) return null;
   const V=view||null; let pLo=ks[0], pHi=ks[ks.length-1], dp=step/MAP_SUB;
@@ -3807,7 +3866,7 @@ function buildMap(kind,se,d,bookArg,view){
   const prices=[]; for(let p=pLo;p<=pHi+1e-9;p+=dp) prices.push(p);
   const c=liveClock(), now=c.h*60+c.m; const times=[]; for(let t=V?V.t0:MAP_T0;t<=MAP_T1;t+=V?(t>=now?Math.max(2,V.step):V.step):MAP_STEP) times.push(t);   // zoom: 1-min history, 2-min projection
   const LB=st.mapLed?ledBook():null;
-  const key=kind+"|"+st.sym+"|"+st.basis+(st.vol1==="1"?"+n1":"")+"|"+(st.smileOn?"S"+(SMILE_MEASURED&&SB?SB.generated:""):"")+(st.clockVar?"V":"")+(LB?"L"+LB.key:"")+"|"+(V?[pLo,pHi,dp,times[0],V.step].join(","):"")+"|"+book+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
+  const key=kind+"|"+st.sym+"|"+st.basis+(st.vol1==="1"?"+n1":"")+"|"+(st.smileOn?"S"+(SMILE_MEASURED&&SB?SB.generated:""):"")+(st.clockVar?"V":"")+(LB?"L"+LB.key:"")+"|"+(V?[pLo,pHi,dp,times[0],V.step].join(","):"")+"|"+book+(WEEK_CLOCK_V2?"|W2"+wkDay:"")+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
   const _mapCache=mapCacheFor(key);
   const liveRows=mapRowsAt(null,se,d); const byT=new Map(snaps.map((s,j)=>[tmin(s.t),j]));
   const grid=[]; let vmax=1e-9;
@@ -3821,7 +3880,9 @@ function buildMap(kind,se,d,bookArg,view){
       if(_mapCache.cols.has(ck)) col=_mapCache.cols.get(ck);
       else { const rows=j==null?liveRows:mapRowsAt(j,se,d); col=prices.map(p=>greekCol(kind,rows,p,ty,cm)); _mapCache.cols.set(ck,col); }
     } else col=prices.map(p=>greekCol(kind,liveRows,p,tyF,cm));
-    if(near){ if(!nearCol) nearCol=prices.map(p=>greekColNear(kind,near,p,12*60)); col=use0?col.map((v,i)=>v+nearCol[i]):nearCol.slice(); }
+    if(near){ let nc; if(WEEK_CLOCK_V2){ if(!wkF) wkF=weekField(kind,near,prices,wkDay); nc=wkF(t); }
+      else { if(!nearCol) nearCol=prices.map(p=>greekColNear(kind,near,p,12*60)); nc=nearCol; }
+      col=use0?col.map((v,i)=>v+nc[i]):nc.slice(); }
     if(st.vol1==="1"){ const hist=t>=MAP_OPEN&&t<=now, ck1="v1|"+t+"|"+(hist?(jj==null?"x":jj):"f"); let add=hist?_mapCache.cols.get(ck1):undefined;   // next expiry's volume, its own clock
       if(add===undefined){ const v1=v1Rows(hist&&jj!=null?jj:null); add=v1?prices.map(p=>greekColNear(kind,v1,p,Math.max(t,MAP_OPEN))):null; if(hist) _mapCache.cols.set(ck1,add); }
       if(add) col=col.map((v,i)=>v+add[i]); }
@@ -3976,6 +4037,7 @@ function mapRead(g,ch,va,se,d){
   if(st.sym==="SPX"&&docFresh()){ const nm=[]; const nr=(v,arr)=>arr.some(x=>x!=null&&Math.abs(x-v)/S<=0.0012);
     for(const d0 of docLevels("SPX")){ const w=nr(d0.v,[pkA])?"our ceiling":nr(d0.v,[trB])?"our downside magnet":nr(d0.v,[zB,zA])?"our flip line":nr(d0.v,gN.pk)?"a gamma peak":nr(d0.v,gN.tr)?"a gamma trough":nr(d0.v,gN.z)?"a gamma zero":null; if(w) nm.push(`${d0.label} ${f(d0.v)} = ${w}`); }
     if(nm.length) B.push(`<div class="bl"><b>Outside levels agree:</b> ${[...new Set(nm)].slice(0,3).join(" · ")}.</div>`); }
+  { const wi=WEEK_CLOCK_V2&&g&&g.book!=="0dte"?wkBookInfo():null; if(wi&&wi.warn.length) B.push(`<div class="bl"><b>⚠ Week book:</b> ${wi.warn.join(" · ")}.</div>`); }
   const wd=weekDiff();
   return `<div class="blbox">${B.join("")}</div>${wd||""}<details class="rdet" id="mapReadDet"${st.readOpen?" open":""}><summary>Details</summary>${L.join("")}</details>`;
 }
@@ -4007,7 +4069,9 @@ function renderMapTab(se,d){
     syncSeg("zoomWSeg",String(st.zoomW)); syncSeg("zoomTSeg",st.zoomT); syncSeg("mapColSeg",st.mapCol); syncSeg("mapScaleSeg",st.mapScale);
     const lb=document.getElementById("ledBtn"); if(lb) lb.setAttribute("aria-pressed",!!st.mapLed); }
   const ledTxt=st.mapLed?(()=>{ const L=ledBook(), I=ledgerInfo(); return L?` LEDGER book: as of ${L.asof}, ${L.n} 0DTE strikes, median ${L.cov??"?"} days of measured flow (the ledger starts 10/26; older flow is missing). The OI / Vol / OI + vol buttons are not used by the maps while Ledger is on. `:` LEDGER on but not usable (${st.sym!=="SPX"?"SPX only":I&&I.asof?"file is as of "+I.asof+", not today":"ledger not loaded"}) — showing ${st.basis.toUpperCase()}. `; })():"";
-  const nt=document.getElementById("mapNote"); if(nt) nt.textContent=ledTxt+`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile. Week book = morning OI only (no volume).${v1On()?` 0+1DTE vol: next expiry (${v1Exp()||"not in the feed yet"}) volume added, priced as that expiry.`:st.vol1==="1"?" 0+1DTE vol is on but adds nothing on the OI basis (no volume).":""}`;
+  const wbi=WEEK_CLOCK_V2&&(st.mapBook||"all")!=="0dte"?wkBookInfo():null;
+  const rw=WEEK_CLOCK_V2&&st.live&&st.live[st.sym]&&st.live[st.sym].root_warn;   // feed groups whose settlement root could not be read
+  const nt=document.getElementById("mapNote"); if(nt) nt.textContent=(rw&&rw.length?"⚠ Feed: "+rw.join(", ")+" (excluded or chosen by listing order). ":"")+(wbi&&wbi.warn.length?"⚠ "+wbi.warn.join(" · ")+". ":"")+ledTxt+`Left of the dashed line: the book as it stood each minute. Right: today's book carried to the close as time decays (sticky-strike IV). ${st.sym} · basis ${st.basis.toUpperCase()} (Flow tab dealer book). Sign is naive OI (customers long puts / short calls) — no cleared positioning, so a put-heavy book reads short gamma. Colour scale = 95th percentile. Week book = morning OI only (no volume).${v1On()?` 0+1DTE vol: next expiry (${v1Exp()||"not in the feed yet"}) volume added, priced as that expiry.`:st.vol1==="1"?" 0+1DTE vol is on but adds nothing on the OI basis (no volume).":""}`;
 }
 document.querySelectorAll("#viewSeg button[data-go]").forEach(b=>b.addEventListener("click",()=>{ st.mapRight=b.dataset.go; save("mapRight",st.mapRight); syncSeg("mapRightSeg",st.mapRight); st.tab="map"; save("tab","map"); render(); }));
 document.getElementById("mapDocBtn").addEventListener("click",()=>{ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); });

@@ -643,7 +643,7 @@ _DEAD_IV = 0.10   # vol points: smaller IV moves vs ATM are "unclear"
 def lean_from_rows(cur: list[dict], prev: dict, spot: float | None) -> dict:
     """Overnight positioning from two 8:35 books (pure; rows are plain dicts).
 
-    cur rows: {expiry, strike, cp, dte, oi_change, oi, iv, delta}; prev: {(expiry, strike, cp): iv}.
+    cur rows: {expiry, strike, cp, dte, oi_change, oi, iv, delta}; prev: {(expiry, strike, cp, set): iv} (set = AM / PM settlement family, 2026-11-07).
     OI change says opened vs closed; that strike's IV change MINUS its expiry's ATM IV
     change says who pushed (IV up = buyers, down = sellers). Customer delta added =
     |dOI| x delta x sign(dIV vs ATM) x 100. Dealers hold the other side. Descriptive.
@@ -653,12 +653,13 @@ def lean_from_rows(cur: list[dict], prev: dict, spot: float | None) -> dict:
         if r["cp"] != "C" or r.get("delta") is None or not r.get("iv"):
             continue
         d = abs(r["delta"] - 0.5)
-        if r["expiry"] not in atm_c or d < atm_c[r["expiry"]][0]:
-            atm_c[r["expiry"]] = (d, r["iv"], r["strike"])
-    for e, (_, ivc, k) in atm_c.items():
-        ivp = prev.get((e, k, "C"))
+        ef = (r["expiry"], r.get("set", "PM"))
+        if ef not in atm_c or d < atm_c[ef][0]:
+            atm_c[ef] = (d, r["iv"], r["strike"])
+    for ef, (_, ivc, k) in atm_c.items():
+        ivp = prev.get((ef[0], k, "C", ef[1]))
         if ivp:
-            atm_p[e] = ivp
+            atm_p[ef] = ivp
     agg = {"calls_bought": 0, "calls_sold": 0, "puts_bought": 0, "puts_sold": 0, "unclear": 0,
            "cust_delta": 0.0, "gross_delta": 0.0}
     rows = []
@@ -666,8 +667,8 @@ def lean_from_rows(cur: list[dict], prev: dict, spot: float | None) -> dict:
         doi = r.get("oi_change")
         if not doi:
             continue
-        ivp = prev.get((r["expiry"], r["strike"], r["cp"]))
-        e = r["expiry"]
+        ivp = prev.get((r["expiry"], r["strike"], r["cp"], r.get("set", "PM")))
+        e = (r["expiry"], r.get("set", "PM"))
         rel = None
         if r.get("iv") and ivp and e in atm_c and e in atm_p:
             rel = ((r["iv"] - ivp) - (atm_c[e][1] - atm_p[e])) * 100.0
@@ -683,7 +684,7 @@ def lean_from_rows(cur: list[dict], prev: dict, spot: float | None) -> dict:
                 cd = abs(doi) * r["delta"] * (1 if rel > 0 else -1) * 100.0
                 agg["cust_delta"] += cd
                 agg["gross_delta"] += abs(cd)
-        rows.append({"expiry": e, "strike": r["strike"], "cp": r["cp"], "dte": r.get("dte"), "oi_change": doi,
+        rows.append({"expiry": r["expiry"], "set": r.get("set", "PM"), "strike": r["strike"], "cp": r["cp"], "dte": r.get("dte"), "oi_change": doi,
                      "oi": r.get("oi"), "d_iv_rel": None if rel is None else round(rel, 2), "label": label})
     rows.sort(key=lambda x: abs(x["oi_change"]), reverse=True)
     g = agg["gross_delta"]
@@ -712,14 +713,16 @@ def oi_lean(session, sym: str) -> dict | None:
         return None
     tc, tp = ts[0], ts[1]
     cols = (OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.oi,
-            OiChainEod.oi_change, OiChainEod.iv, OiChainEod.delta)
-    cur = [dict(zip(("expiry", "strike", "cp", "dte", "oi", "oi_change", "iv", "delta"), r))
+            OiChainEod.oi_change, OiChainEod.iv, OiChainEod.delta, OiChainEod.source)
+    cur = [dict(zip(("expiry", "strike", "cp", "dte", "oi", "oi_change", "iv", "delta", "source"), r))
            for r in session.execute(select(*cols).where(OiChainEod.symbol == sym, OiChainEod.ts == tc,
                                                         OiChainEod.dte >= 0, OiChainEod.dte <= 7)).all()]
     for r in cur:
         r["cp"] = "C" if str(r["cp"]).upper().startswith("C") else "P"
-    prev = {(e, k, "C" if str(cp).upper().startswith("C") else "P"): iv
-            for e, k, cp, iv in session.execute(select(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, OiChainEod.iv)
+        r["set"] = _FAMILY.get(r.pop("source"), "PM")
+    prev = {(e, k, "C" if str(cp).upper().startswith("C") else "P", _FAMILY.get(src, "PM")): iv
+            for e, k, cp, iv, src in session.execute(select(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, OiChainEod.iv,
+                                                            OiChainEod.source)
                                                 .where(OiChainEod.symbol == sym, OiChainEod.ts == tp,
                                                        OiChainEod.dte <= 8)).all()}
     spot = session.execute(select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.spot.isnot(None))
@@ -798,31 +801,101 @@ def tape_context(session, day) -> dict:
     return out
 
 
+# Settlement family per stored source (2026-11-07 candidate). oi_chain_eod keeps the AM-settled SPX
+# monthlies (root .SPX) under source "<src>_set" and the PM-settled weeklies/dailies (.SPXW) under "<src>"
+# (oi_chain_eod._chain_to_records). They are DIFFERENT contracts: never merge them on (expiry, strike, side).
+_FAMILY = {"convex_am": "PM", "convex_am_set": "AM"}
+_ENDPOINT = {"PM": "16:00", "AM": "09:30"}      # model expiry endpoint, ET (AM = special opening quotation)
+
+
+def _session_info(today_iso):
+    """Today's session per the exchange calendar (2026-11-08 candidate): the cockpit warns on an early close."""
+    import datetime as _d
+    from market_cal import session_close, is_session, verified
+    d = _d.date.fromisoformat(today_iso)
+    h, m = session_close(d)
+    return {"date": today_iso, "open": is_session(d), "close": f"{h:02d}:{m:02d}", "early_close": (h, m) != (16, 0),
+            "calendar_verified": verified(d)}
+
+
+def _cal_ok(e):
+    from market_cal import verified
+    return verified(e)
+
+
+def _near_rows(rows, dte_max, endpoint=None):
+    """Pure book builder: rows = (source, expiry, dte, strike, cp, oi, iv, delta). Row-order independent.
+    Window: PM contracts dte 1..dte_max (dte 0 = the live 0DTE book), AM contracts dte 0..dte_max.
+
+    All observations of one contract (family, expiry, strike, side) are collected first, then resolved:
+      * identical repeats  -> one row, counted in recon["repeats"];
+      * conflicting values -> TEMPORARY FALLBACK: keep the larger OI; on equal OI the lower IV, then the lower
+        delta (a fixed rule so the result never depends on row order). Every conflict is listed in
+        recon["conflicts"] with all its values. This makes the output deterministic — it does NOT show that the
+        kept OI/IV is the right one. Replace with a source/timestamp precedence rule once observation times are
+        stored.
+    endpoint(expiry, family) -> "YYYY-MM-DDTHH:MM±HH:MM" model endpoint (default: market_cal.model_endpoint).
+    Returns (rows, recon); recon reconciles distinct contracts and OI in vs out per family.
+    """
+    if endpoint is None:
+        from market_cal import model_endpoint as endpoint
+    obs = {}
+    for src, e, dte, k, cp, oi, iv, d in rows:
+        fam = _FAMILY.get(src)
+        lo = 0 if fam == "AM" else 1           # the AM monthly stays in until its 09:30 endpoint on its own day (pre-open columns)
+        if fam is None or dte is None or not (lo <= int(dte) <= dte_max) or not oi or oi <= 0:
+            continue
+        side = "c" if str(cp).upper().startswith("C") else "p"
+        o = (int(oi), None if iv is None else float(iv), None if d is None else float(d))
+        obs.setdefault((fam, e, float(k), side), []).append((o, int(dte)))
+    by, recon, conflicts, repeats = {}, {}, [], 0
+    for (fam, e, k, side), lst in sorted(obs.items(), key=lambda kv: (kv[0][0], kv[0][1].isoformat(), kv[0][2], kv[0][3])):
+        vals = sorted({o for o, _ in lst}, key=lambda o: (-o[0], o[1] if o[1] is not None else 9e9, o[2] if o[2] is not None else 9e9))
+        if len(lst) > 1 and len(vals) == 1:
+            repeats += len(lst) - 1
+        if len(vals) > 1:
+            conflicts.append({"set": fam, "e": e.isoformat(), "k": k, "side": side,
+                              "values": [{"oi": o[0], "iv": o[1], "delta": o[2]} for o in vals]})
+        oi, iv, _d = vals[0]
+        rc = recon.setdefault(fam, {"in_rows": 0, "contracts": 0, "oi": 0})
+        rc["in_rows"] += len(lst); rc["contracts"] += 1; rc["oi"] += oi
+        r = by.setdefault((fam, e, k), {"e": e.isoformat(), "set": fam, "exp_t": endpoint(e, fam), "dte": lst[0][1], "k": k,
+                                        "cal_ok": _cal_ok(e),
+                                        "cOI": 0, "pOI": 0, "cIV": None, "pIV": None})
+        r[side + "OI"] = oi; r[side + "IV"] = iv
+    out = sorted(by.values(), key=lambda r: (r["e"], r["set"], r["k"]))
+    for fam, rc in recon.items():
+        rc["out_contracts"] = sum((1 if r["cOI"] else 0) + (1 if r["pOI"] else 0) for r in out if r["set"] == fam)
+        rc["out_oi"] = sum(r["cOI"] + r["pOI"] for r in out if r["set"] == fam)
+    return out, {"families": recon, "repeats": repeats, "conflicts": conflicts[:50], "n_conflicts": len(conflicts),
+                 "rule": "conflicts: larger OI, then lower IV, then lower delta (temporary fallback)"}
+
+
 def near_book(session, sym, dte_max=7) -> dict | None:
-    """The newest 8:35 book for one root, dte 1..dte_max: strikes with OI / IV / delta per side.
+    """The newest 8:35 book for one root, dte 1..dte_max: strikes with OI / IV per side AND settlement family.
 
     Feeds the cockpit's vanna and charm maps (vanna lives in the weeklies and the monthly, not in the 0DTE
     chain — vega ∝ √τ). Sign convention downstream: calls +, puts − (naive OI). ~300-600 rows per root.
+    2026-11-07 candidate: rows carry "set" (AM / PM) and "exp_t" (model expiry endpoint, ET) so the cockpit
+    times each contract to its own endpoint; AM and PM contracts of the same date/strike stay separate rows.
+    "recon" = per-family distinct contracts and OI in vs out, identical repeats, and every conflicting duplicate.
     """
     from sqlalchemy import select
     from trading_intel.memory.models import OiChainEod
-    ts = session.execute(select(OiChainEod.ts).where(OiChainEod.symbol == sym).distinct()
-                         .order_by(OiChainEod.ts.desc()).limit(1)).scalar_one_or_none()
+    ts = session.execute(select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source.in_(tuple(_FAMILY)))
+                         .distinct().order_by(OiChainEod.ts.desc()).limit(1)).scalar_one_or_none()   # newest ELIGIBLE snapshot
     if ts is None:
         return None
-    rows = session.execute(select(OiChainEod.expiry, OiChainEod.dte, OiChainEod.strike, OiChainEod.cp, OiChainEod.oi,
-                                  OiChainEod.iv, OiChainEod.delta)
-                           .where(OiChainEod.symbol == sym, OiChainEod.ts == ts, OiChainEod.dte >= 1,
-                                  OiChainEod.dte <= dte_max, OiChainEod.oi > 0)).all()
-    by = {}
-    for e, dte, k, cp, oi, iv, d in rows:
-        key = (e.isoformat(), float(k))
-        r = by.setdefault(key, {"e": e.isoformat(), "dte": int(dte), "k": float(k), "cOI": 0, "pOI": 0, "cIV": None, "pIV": None})
-        if str(cp).upper().startswith("C"):
-            r["cOI"] = int(oi or 0); r["cIV"] = float(iv) if iv else None
-        else:
-            r["pOI"] = int(oi or 0); r["pIV"] = float(iv) if iv else None
-    return {"as_of": ts, "rows": sorted(by.values(), key=lambda r: (r["e"], r["k"]))}
+    rows = session.execute(select(OiChainEod.source, OiChainEod.expiry, OiChainEod.dte, OiChainEod.strike, OiChainEod.cp,
+                                  OiChainEod.oi, OiChainEod.iv, OiChainEod.delta)
+                           .where(OiChainEod.symbol == sym, OiChainEod.ts == ts, OiChainEod.dte >= 0,
+                                  OiChainEod.dte <= dte_max, OiChainEod.oi > 0,
+                                  OiChainEod.source.in_(tuple(_FAMILY)))).all()
+    out, recon = _near_rows(rows, dte_max)
+    # as_of_date = the trading date the 8:35 pull belongs to (ts is stored as that date at 00:00; the real pull
+    # time is not recorded). The cockpit compares it with its own date and labels a book from another day.
+    return {"as_of": ts, "as_of_date": ts.date().isoformat() if hasattr(ts, "date") else str(ts)[:10],
+            "pull_time": None, "rows": out, "recon": recon}
 
 
 def _book_pair(session, sym):
@@ -835,14 +908,16 @@ def _book_pair(session, sym):
         return None, None, None
     tc, tp = ts[0], ts[1]
     cols = (OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.oi,
-            OiChainEod.oi_change, OiChainEod.iv, OiChainEod.delta)
-    cur = [dict(zip(("expiry", "strike", "cp", "dte", "oi", "oi_change", "iv", "delta"), r))
+            OiChainEod.oi_change, OiChainEod.iv, OiChainEod.delta, OiChainEod.source)
+    cur = [dict(zip(("expiry", "strike", "cp", "dte", "oi", "oi_change", "iv", "delta", "source"), r))
            for r in session.execute(select(*cols).where(OiChainEod.symbol == sym, OiChainEod.ts == tc,
                                                         OiChainEod.dte >= 0, OiChainEod.dte <= 45)).all()]
     for r in cur:
         r["cp"] = "C" if str(r["cp"]).upper().startswith("C") else "P"
-    prev = {(e, k, "C" if str(cp).upper().startswith("C") else "P"): iv
-            for e, k, cp, iv in session.execute(select(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, OiChainEod.iv)
+        r["set"] = _FAMILY.get(r.pop("source"), "PM")
+    prev = {(e, k, "C" if str(cp).upper().startswith("C") else "P", _FAMILY.get(src, "PM")): iv
+            for e, k, cp, iv, src in session.execute(select(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, OiChainEod.iv,
+                                                            OiChainEod.source)
                                                 .where(OiChainEod.symbol == sym, OiChainEod.ts == tp,
                                                        OiChainEod.dte <= 46)).all()}
     return cur, prev, (tc, tp)
@@ -862,28 +937,31 @@ def oi_verdicts(session, sym, yday) -> dict | None:
         if r["cp"] != "C" or r.get("delta") is None or not r.get("iv"):
             continue
         d = abs(r["delta"] - 0.5)
-        if r["expiry"] not in atm_c or d < atm_c[r["expiry"]][0]:
-            atm_c[r["expiry"]] = (d, r["iv"], r["strike"])
-    for e, (_, ivc, k) in atm_c.items():
-        ivp = prev.get((e, k, "C"))
+        ef = (r["expiry"], r["set"])
+        if ef not in atm_c or d < atm_c[ef][0]:
+            atm_c[ef] = (d, r["iv"], r["strike"])
+    for ef, (_, ivc, k) in atm_c.items():
+        ivp = prev.get((ef[0], k, "C", ef[1]))
         if ivp:
-            atm_p[e] = ivp
-    by = {(r["expiry"].isoformat() if r["expiry"] else None, float(r["strike"]), r["cp"]): r for r in cur}
+            atm_p[ef] = ivp
+    by = {(r["expiry"].isoformat() if r["expiry"] else None, float(r["strike"]), r["cp"], r["set"]): r for r in cur}
     roots = [k for k, v in _ROOT_GROUP.items() if v == sym]
     prints = [p for p in _print_rows(session, yday) if p["root"] in roots and (p["notional"] or 0) >= _TAPE_MIN_CARD and not p["financing"]]
     cards = []
     for p in prints[:12]:
-        r = by.get((p["expiry"], float(p["strike"] or 0), p["cp"]))
+        fam = "AM" if p["root"] == "SPX" else "PM"      # .SPX = AM-settled monthly, .SPXW / SPY / QQQ = PM
+        r = by.get((p["expiry"], float(p["strike"] or 0), p["cp"], fam))
         if not r:
             cards.append({**p, "doi": None, "d_iv_rel": None, "verdict": "no book"})
             continue
         doi = r.get("oi_change") or 0
         sz = max(1, int(p["size"] or 0))
         e = r["expiry"]
+        ef = (e, fam)
         rel = None
-        ivp = prev.get((e, r["strike"], r["cp"]))
-        if r.get("iv") and ivp and e in atm_c and e in atm_p:
-            rel = ((r["iv"] - ivp) - (atm_c[e][1] - atm_p[e])) * 100.0
+        ivp = prev.get((e, r["strike"], r["cp"], fam))
+        if r.get("iv") and ivp and ef in atm_c and ef in atm_p:
+            rel = ((r["iv"] - ivp) - (atm_c[ef][1] - atm_p[ef])) * 100.0
         if doi >= 0.5 * sz:
             v = "opened"
         elif doi <= 0.2 * sz:
@@ -1087,7 +1165,7 @@ def main(argv: list[str]) -> int:
             except Exception as exc:
                 oiv_errs = [f"oi_verdict: {type(exc).__name__}"]
             oiv_at = time.time()
-        payload = {"asof": now.isoformat(timespec="seconds"), "today": today, "doc": doc, "own": own, "ti": ti,
+        payload = {"asof": now.isoformat(timespec="seconds"), "today": today, "session": _session_info(today), "doc": doc, "own": own, "ti": ti,
                    "tape": tape, "oi_verdict": oiv, "near_book": near, "errors": doc_errs + ti_errs + tape_errs + oiv_errs + ([own_err] if own_err else [])}
         try:
             write_json(payload)
