@@ -94,7 +94,72 @@ def test_raw_reader_skips_half_written_member_and_rebuild_writes_slots(tmp_path,
     assert len(rd.new_records()) == 1
     assert W.rebuild("20261106") == 0
     j = json.loads((tmp_path / "wide_20261106.json").read_text())
+    assert j["v"] == 2 and j["slot_min"] == 1
     sl = j["syms"]["SPX"]["slots"]
-    assert [s["t"] for s in sl] == ["09:30", "09:35", "09:37"] and sl[-1].get("live") == 1
+    # 2026-11-09: one slot per pull (1 minute), nothing provisional
+    assert [s["t"] for s in sl] == ["09:30", "09:31", "09:35", "09:36", "09:37"]
+    assert all(s.get("dz") == 1 and "live" not in s for s in sl)
     assert len(j["syms"]["SPX"]["px"]) == 5
     assert json.loads((tmp_path / "wide_index.json").read_text())["days"] == ["20261106"]
+
+
+def _blocks(spots):
+    out = []
+    for i, x in enumerate(spots):
+        t = "2026-11-06T10:%02d:00" % i
+        now = datetime.datetime.fromisoformat(t)
+        rec = make_rec(t, spot=x, n_exp=3)
+        # volume grows minute to minute (cumulative), so the change coding has something to do
+        for e in rec["data"][0]["chain"]:
+            for row in e[1]:
+                for c in (row[1], row[2]):
+                    eff = [p for p in rec["params"] if p not in L.DROPPED]
+                    for f in ("volm", "volm_buy", "volm_sell"):
+                        c[1 + eff.index(f)] += 7 * i
+        out.append(W.build_slot("SPX", L.decode(rec)["SPX"], now.date(), now))
+    return out
+
+
+def test_day_file_coding_round_trip_exact_for_cumulative_fields():
+    blocks = _blocks([7400.0, 7400.0, 7410.0, 7390.0])        # the strike window shifts between minutes
+    assert blocks[0]["k"][0] != blocks[2]["k"][0]
+    enc = W.encode_slots(blocks)
+    assert all("k" not in e and e["dz"] == 1 for e in enc)
+    dec = W.decode_slots(enc, 5.0)
+    for a, b in zip(blocks, dec):
+        assert b["k"] == a["k"]
+        for g in ("0", "7"):
+            for f in W.CUM_INT:
+                assert b[f + g] == a[f + g]                       # contracts: exact
+            for f in W.CUM_PREM:
+                assert all(abs(x - y) <= 0.0005 + 1e-12 for x, y in zip(a[f + g], b[f + g]))
+            for f in W.SNAP:
+                assert all(abs(x - y) <= W.GQ / 2 + 1e-12 for x, y in zip(a[f + g], b[f + g]))
+    # cumulative changes are small numbers after the first slot
+    assert max(abs(v) for v in enc[1]["c0"]) == 7 < max(abs(v) for v in enc[0]["c0"])
+
+
+def test_live_files_written_only_for_fresh_pulls(tmp_path, monkeypatch):
+    monkeypatch.setattr(W, "DATA", str(tmp_path))
+    now = datetime.datetime(2026, 11, 6, 10, 41, 2)
+    monkeypatch.setattr(L, "now_et", lambda: now)
+    day = W.Day("20261106", live_mode=True)
+    day.feed(make_rec("2026-11-06T10:20:00", n_exp=3))          # 21 min old: catch-up, no live file
+    assert not (tmp_path / "wide_live_SPX.json").exists()
+    day.feed(make_rec("2026-11-06T10:41:00", n_exp=3))          # fresh
+    j = json.loads((tmp_path / "wide_live_SPX.json").read_text())
+    assert j["slot"]["t"] == "10:41" and j["n"] == 2 and "dz" not in j["slot"] and j["slot_min"] == 1
+    assert len(json.dumps(j)) < 60000                             # small enough to poll every 3 s
+    assert day.live_writes == 1
+
+
+def test_vix_pull_feeds_the_vix_map(tmp_path, monkeypatch):
+    monkeypatch.setattr(W, "DATA", str(tmp_path))
+    from .test_vix_map import make_vix_rec   # noqa: PLC0415
+    day = W.Day("20261106")
+    assert day.feed(make_vix_rec("2026-11-06T10:35:00"))
+    assert day.feed(make_vix_rec("2026-11-06T10:36:00"))
+    day.write()
+    j = json.loads((tmp_path / "vixmap_20261106.json").read_text())
+    assert [c["t"] for c in j["cols"]] == ["10:35", "10:36"] and j["cols"][-1]["live"] == 1
+    assert not (tmp_path / "wide_20261106.json").exists()        # no idx pull yet -> no Orbs day file

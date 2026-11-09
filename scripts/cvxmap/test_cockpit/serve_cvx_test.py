@@ -192,11 +192,7 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     threading.Thread(target=archiver, daemon=True).start()
-    try:   # VIX-tab toggles VX1/VX2 + Density DN6 (2026-11-08 evening): free Cboe quotes + daily history -> data/test/volx.json. Not Convex.
-        sys.path.insert(0, HERE)
-        import volx
-        volx.start(OUT, now_et)
-    except Exception as e:
-        print("volx not started:", e, flush=True)
+    # 2026-11-09: the vol-regime poller moved to its own container (cvxmap-volx, scripts/nas/run_volx.sh) and now
+    # feeds the MAIN cockpit's Density / VIX options; this server only serves its files from data/.
     print("TEST cockpit  http://0.0.0.0:%d/cvx_cockpit_test.html  (production stays on 8899)" % PORT, flush=True)
     Server(("", PORT), functools.partial(Handler, directory=DATA)).serve_forever()

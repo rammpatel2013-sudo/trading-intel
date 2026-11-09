@@ -7,9 +7,22 @@ WHAT IT DOES
   slice than the cockpit's minute log does:
       SPX  +-200 points (81 strikes)         SPY / QQQ  +-2.7% of spot (same width as SPX +-200)
       every expiry up to 7 calendar days out (0DTE kept apart from 1-7 DTE)
-  Writes data/wide_YYYYMMDD.json (one block every 5 minutes + the newest minute) and data/wide_index.json
-  (the list of days), and copies flow_orbs.html into data/ so the existing server shows it at
-      http://192.168.1.211:8899/flow_orbs.html
+  Writes data/wide_YYYYMMDD.json (2026-11-09 v2: ONE block per collector pull = every minute, compacted - see
+  "DAY FILE v2" below) and data/wide_index.json (the list of days), and copies flow_orbs.html into data/ so the
+  existing server shows it at  http://192.168.1.211:8899/flow_orbs.html
+  2026-11-09 (cockpit Orbs tab): also data/wide_live_<SYM>.json = the newest minute only (full block, ~10 KB),
+  written the moment a new pull is read (the live loop looks for new pulls every POLL_S = 3 s), so the cockpit
+  polls a small file every 3 s and loads the day file once. And data/vixmap_YYYYMMDD.json: the VIX tab's dealer
+  gamma / vanna map from the collector's VIX pull (vix_map.py) - same raw file, no extra vendor calls.
+
+DAY FILE v2 (2026-11-09, Mithil: 1-minute candles/blocks; the page aggregates 1 / 3 / 5 min)
+  Every slot = one pull. Strikes = k0 + i * step (n of them). Fields g / gv / gt / va are that minute's
+  snapshot, stored as whole units of $10k (GQ = 1e-5 $bn). Fields
+  c p cb cs pb ps (contracts) and cP pP (premium) are CUMULATIVE for the day; in the day file they are stored as
+  the change since the previous slot of the same symbol, matched by strike (a strike new to the window carries
+  its full value), premium in whole $k. "dz": 1 marks such a slot; decode_slots() / the pages' decoder rebuild
+  the cumulative values exactly. "ex" (expiries + IV) is kept on the newest slot only. The live file is never
+  delta-coded.
 
 WHAT IT NEVER TOUCHES
   The Map, live.json, flow_*.ndjson, cvx_cockpit.html, cvx_live.py, run_cvxmap.sh and every other production
@@ -44,9 +57,18 @@ SYMS = ("SPX", "SPY", "QQQ")
 WIDE_PTS_SPX = 200.0            # +-200 SPX points
 WIDE_FRAC = WIDE_PTS_SPX / 7400.0   # ~2.7%: the same width for SPY / QQQ
 MAX_DTE = 7                     # calendar days
-SLOT_MIN = 5                    # one stored block every 5 minutes
+SLOT_MIN = 1                    # 2026-11-09: one stored block per pull (the idx pull is every 60 s)
 START_HM, END_HM = (9, 25), (16, 20)
-POLL_S = 20
+POLL_S = 3                      # 2026-11-09: look for a new pull every 3 s (reads only new gzip members)
+CUM_INT = ("c", "p", "cb", "cs", "pb", "ps")     # cumulative contracts
+CUM_PREM = ("cP", "pP")                         # cumulative premium, $M (stored as whole $k in the day file)
+SNAP = ("g", "gv", "gt", "va")                  # per-minute snapshot greeks
+LIVE_MAX_AGE_S = 150            # a pull older than this (catch-up after a late start) does not write live files
+WANT = (b'"idx"', b'"vix"')     # cheap pre-filter; feed() checks the pull name
+try:
+    import vix_map                                  # VIX tab map (2026-11-09); the Orbs feed runs without it
+except Exception:                                   # pragma: no cover
+    vix_map = None
 
 
 def log(msg):
@@ -182,7 +204,9 @@ class RawReader:
     def iter_records(self, want=None):
         """Stream the file member by member (2026-11-09: the old version read the whole day into one buffer
         and kept every record of every symbol, which pushed the NAS into swap - ~25 min per day).
-        `want` = bytes that must appear in a line before it is JSON-parsed (cheap pre-filter)."""
+        `want` = bytes (or a tuple of bytes, any of them) that must appear in a line before it is JSON-parsed."""
+        if isinstance(want, bytes):
+            want = (want,)
         if not os.path.exists(self.path):
             return
         with open(self.path, "rb") as fh:
@@ -202,7 +226,7 @@ class RawReader:
                         self.off += pending + len(data) - len(rest)
                         pending = 0
                         for line in b"".join(parts).splitlines():
-                            if not line.strip() or (want and want not in line):
+                            if not line.strip() or (want and not any(w in line for w in want)):
                                 continue
                             try:
                                 yield json.loads(line)
@@ -215,19 +239,72 @@ class RawReader:
         # a half-written member at the end is left (offset not advanced) and read again next pass
 
 
+# ---------------------------------------------------------------- day file v2 coding
+GQ = 1e-5                       # day file: greeks stored as whole units of 1e-5 $bn ($10k)
+
+
+def encode_slots(slots):
+    """Full blocks -> day-file v2 blocks: strikes as k0 + n (step = the symbol's), greeks as whole $10k,
+    cumulative fields as per-strike changes since the previous slot (premium in whole $k)."""
+    out, prev = [], {}
+    for j, blk in enumerate(slots):
+        ks = blk["k"]
+        e = {"t": blk["t"], "x": blk["x"], "k0": ks[0], "n": len(ks), "dz": 1}
+        if j == len(slots) - 1 and "ex" in blk:
+            e["ex"] = blk["ex"]
+        for g in ("0", "7"):
+            for f in SNAP:
+                e[f + g] = [int(round((v or 0) / GQ)) for v in blk[f + g]]
+            for f in CUM_INT + CUM_PREM:
+                cur = blk[f + g]
+                if f in CUM_PREM:
+                    cur = [int(round((v or 0) * 1000)) for v in cur]
+                pm = prev.get(f + g, {})
+                e[f + g] = [int(v) - pm.get(k, 0) for k, v in zip(ks, cur, strict=False)]
+                prev[f + g] = dict(zip(ks, (int(v) for v in cur), strict=False))
+        out.append(e)
+    return out
+
+
+def decode_slots(slots, step):
+    """Inverse of encode_slots (greeks to the nearest $10k) - the pages do the same in JS."""
+    out, prev = [], {}
+    for e in slots:
+        if not e.get("dz"):
+            out.append(e)
+            continue
+        ks = [e["k0"] + step * i for i in range(e["n"])]
+        blk = {k: v for k, v in e.items() if k not in ("dz", "k0", "n")}
+        blk["k"] = ks
+        for g in ("0", "7"):
+            for f in SNAP:
+                blk[f + g] = [v * GQ for v in e[f + g]]
+            for f in CUM_INT + CUM_PREM:
+                pm = prev.get(f + g, {})
+                cur = [pm.get(k, 0) + d for k, d in zip(ks, e[f + g], strict=False)]
+                prev[f + g] = dict(zip(ks, cur, strict=False))
+                blk[f + g] = [v / 1000.0 for v in cur] if f in CUM_PREM else cur
+        out.append(blk)
+    return out
+
+
 # ---------------------------------------------------------------- day state
 class Day:
-    def __init__(self, ymd):
+    def __init__(self, ymd, live_mode=False):
         self.ymd = ymd
         self.today = datetime.date(int(ymd[:4]), int(ymd[4:6]), int(ymd[6:]))
-        self.slots = {s: [] for s in SYMS}     # finished 5-min blocks
-        self.last = {s: None for s in SYMS}    # newest minute's block (provisional)
+        self.slots = {s: [] for s in SYMS}     # one block per pull
         self.px = {s: [] for s in SYMS}        # every minute's spot [t, x]
         self.reader = RawReader(os.path.join(DATA, "raw_%s.ndjson.gz" % ymd))
         self.n_recs = 0
+        self.live_mode = live_mode
+        self.live_writes = 0
+        self.vix = vix_map.VixDay(ymd) if vix_map is not None else None
+        self.dirty = False
 
     def feed(self, rec):
-        if rec.get("pull") != "idx":
+        pull = rec.get("pull")
+        if pull not in ("idx", "vix"):
             return False
         try:
             now = datetime.datetime.fromisoformat(str(rec.get("ts"))[:19])
@@ -236,7 +313,10 @@ class Day:
         t = now.strftime("%H:%M")
         if t < "09:30" or t > "16:15":
             return False
+        if pull == "vix":
+            return self.feed_vix(rec, now)
         dec = L.decode(rec)
+        got = []
         for s in SYMS:
             d = dec.get(s)
             if not d or not d.get("exps") or not d.get("spot"):
@@ -246,44 +326,76 @@ class Day:
             except Exception as exc:
                 log("%s %s: %s" % (s, t, str(exc)[:120]))
                 continue
-            self.px[s].append([t, round(d["spot"], 2)])
-            mins = now.hour * 60 + now.minute
-            if mins % SLOT_MIN == 0 or not self.slots[s]:
-                if self.slots[s] and self.slots[s][-1]["t"] == t:
-                    self.slots[s][-1] = blk
-                else:
-                    self.slots[s].append(blk)
-                self.last[s] = None
+            sl, px = self.slots[s], self.px[s]
+            if sl and sl[-1]["t"] == t:
+                sl[-1] = blk
             else:
-                self.last[s] = blk
+                sl.append(blk)
+            if px and px[-1][0] == t:
+                px[-1] = [t, round(d["spot"], 2)]
+            else:
+                px.append([t, round(d["spot"], 2)])
+            got.append(s)
+        self.dirty = self.dirty or bool(got)
+        if got and self.live_mode and (L.now_et() - now).total_seconds() < LIVE_MAX_AGE_S:
+            for s in got:
+                self.write_live(s)      # the newest minute goes out before anything else is done
         self.n_recs += 1
         return True
 
+    def feed_vix(self, rec, now):
+        if self.vix is None:
+            return False
+        try:
+            dv = L.decode(rec).get("VIX")
+            return bool(dv) and self.vix.feed(dv, now)
+        except Exception as exc:
+            log("vix map %s: %s" % (now.strftime("%H:%M"), str(exc)[:120]))
+            return False
+
     def pump(self):
         n = 0
-        for rec in self.reader.iter_records(want=b'"idx"'):
+        for rec in self.reader.iter_records(want=WANT):
             if self.feed(rec):
                 n += 1
         return n
 
+    def live_payload(self, s):
+        sl = self.slots[s]
+        if not sl:
+            return None
+        return {"v": 2, "day": self.today.isoformat(), "sym": s, "step": L.STEP.get(s, 1.0),
+                "gen": L.now_et().isoformat(timespec="seconds"), "slot_min": SLOT_MIN,
+                "n": len(sl), "slot": sl[-1], "px": self.px[s][-15:]}
+
+    def write_live(self, s):
+        p = self.live_payload(s)
+        if p is not None:
+            L.atomic_write(os.path.join(DATA, "wide_live_%s.json" % s), p)
+            self.live_writes += 1
+
     def payload(self):
         syms = {}
         for s in SYMS:
-            sl = list(self.slots[s])
-            if self.last[s] is not None:
-                sl.append(dict(self.last[s], live=1))
+            sl = self.slots[s]
             if not sl:
                 continue
-            syms[s] = {"step": L.STEP.get(s, 1.0), "slots": sl, "px": self.px[s]}
+            syms[s] = {"step": L.STEP.get(s, 1.0), "slots": encode_slots(sl), "px": self.px[s]}
         asof = max((v[-1][0] for v in self.px.values() if v), default="")
-        return {"v": 1, "day": self.today.isoformat(), "asof": asof,
+        return {"v": 2, "day": self.today.isoformat(), "asof": asof,
                 "gen": L.now_et().isoformat(timespec="seconds"), "max_dte": MAX_DTE, "slot_min": SLOT_MIN,
+                "enc": "dz1: c p cb cs pb ps cP($k) pP($k) as per-strike change since the previous slot",
                 "width": {"SPX": "+-%d pts" % WIDE_PTS_SPX, "other": "+-%.1f%%" % (WIDE_FRAC * 100)},
                 "syms": syms}
 
     def write(self):
-        L.atomic_write(os.path.join(DATA, "wide_%s.json" % self.ymd), self.payload())
-        write_index()
+        if self.dirty and any(self.slots.values()):
+            self.dirty = False
+            L.atomic_write(os.path.join(DATA, "wide_%s.json" % self.ymd), self.payload())
+            write_index()
+        if self.vix is not None and self.vix.changed:
+            L.atomic_write(os.path.join(DATA, "vixmap_%s.json" % self.ymd), self.vix.payload())
+            self.vix.changed = False
 
 
 def write_index():
@@ -304,7 +416,7 @@ def rebuild(ymd):
     t0 = time.time()
     day = Day(ymd)
     n = day.pump()
-    if not n:
+    if not any(day.slots.values()):
         log("%s: no idx pulls in raw_%s.ndjson.gz" % (ymd, ymd))
         return 1
     day.write()
@@ -316,8 +428,8 @@ def rebuild(ymd):
 def live():
     copy_page()
     ymd = L.now_et().strftime("%Y%m%d")
-    day = Day(ymd)
-    log("live start %s" % ymd)
+    day = Day(ymd, live_mode=True)
+    log("live start %s  (poll %ds)" % (ymd, POLL_S))
     while True:
         now = L.now_et()
         hm = (now.hour, now.minute)

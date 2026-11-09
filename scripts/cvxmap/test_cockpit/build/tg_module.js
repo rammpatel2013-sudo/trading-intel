@@ -16,16 +16,8 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["c2","IV path","C2","v0","IV at a map price moves along β from the anchor spot: σ(S) = σ₀ + ∫ β/x dx. Greeks are computed at that IV. Smile ON adds the slope terms on top. Needs the β file."],
   ["d4","Real 5-min charm","D4","v1","Charm = the actual change in delta over the next 5 minutes (instead of rate × 5 min, which overstates the last 10–30 minutes)."],
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
-  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
-  // 2026-11-08 evening (Mithil): Density = Derivatives Don's 11/06 version (claude/don-density-versions.md); VIX tab = claude/vol-regime-knowledge-20261108.md.
-  // Display / odds layers only (tg_den.js, tg_vix.js): none changes the Map or the base cone numbers, so none is in TG_CFGS (gamma read-outs).
-  ["dn1","Support + walls","DN1","v0","Density: call wall = largest 1–7 DTE call OI above spot (to +8%), put wall = largest 1–7 DTE put OI below (to −8%), round-number support = the 100-pt strike below spot with the most put OI (both books, to −8%). Lines on the cone and the odds chart, plus touch odds. Fade top (production) stays as it is."],
-  ["dn2","Split axis","DN2","v1","Density: board levels beyond the chart's price range (a far full-book trough, support, walls) are drawn in a strip under the cone instead of ▲/▼ edge labels, so the cone isn't squashed."],
-  ["dn3","Odds extras","DN3","v1","Odds chart: P25 / P75 marks and Don's buckets — below breakdown / in pin / pin top → flip / above flip (read off the close histogram, ± one bin)."],
-  ["dn5","Replay summary","DN5","v1","Density: one summary line — latest cone median / P10 / P90 / P(in pin) / P(above flip) next to the session open / high / low, time in pin, and whether round-number support held."],
-  ["dn6","Status extras","DN6","v0","Density: levered-ETF reset at the current mark in the status box (trades 15:00–16:00), the 1–7 DTE book's date, a 'thin book — levels soft' tag when OI within ±1.5% of spot is under 150k contracts, and QQQ with Width = VIX uses VXN (test server's Cboe quote)."],
-  ["vx1","Regime gauge","VX1","v0","VIX tab: Doublewide VIXM/VIXY gauge — ratio 8d vs 21d EMA, filters VIX9D/VIX > 1.00 and SPX < 21d EMA → CALM / UNCONFIRMED / MIXED / CONFIRMED, his playbook lines, VIX9D/VIX close-shorts (peak > 1.15 then ≤ 1.05) and re-entry (< 1.00 + SPX > 8d EMA) cues. Untested by us as a predictor. Data: test server, free Cboe."],
-  ["vx2","Variance stack","VX2","v1","VIX tab: VIX² + DSPX² ≈ VIXEQ² session to date (1-min Cboe quotes from the test server), transmission share = VIX² ÷ (VIX² + DSPX²) vs the prior close, COR1M / COR3M, identity check."]];
+  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."]];
+// 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
 const TG_SEL={b2:["","1600","1615"]};
 let TG={}; for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false;
 let TG_ANYG=false, TG_GEND=16*60;

@@ -1,16 +1,16 @@
 """Build scripts/cvxmap/test_cockpit/cvx_cockpit_test.html from the production cockpit (2026-11-08).
 Every edit is an exact, single-occurrence replacement; the script stops if production text is not as expected.
+2026-11-09: MAP toggles only. The Density (DN1-DN6) and VIX (VX1/VX2) toggles moved to the production page as options
+(OFF by default), so the test page simply inherits them from production; tg_den.js / tg_vix.js are gone.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("d1486e1d6497d4ad"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("5a5edb9c224f1259"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
-DENM = open(os.path.join(HERE, "tg_den.js"), encoding="utf-8").read()   # 2026-11-08 evening: Density DN1-DN6
-VIXM = open(os.path.join(HERE, "tg_vix.js"), encoding="utf-8").read()   # 2026-11-08 evening: VIX tab VX1-VX2
 MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
@@ -46,7 +46,7 @@ rep("const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DENM + "\n" + VIXM + "\n")
+rep(anchor, anchor + MOD + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -133,31 +133,7 @@ rep(GOLD, GNEW)
 ROLD = """:(st.mapRight==="vanna"?"Dealer Δ per +1 vol pt":"Dealer Δ per 5 min")+" · orange = dealer buys · cyan = sells · green peak · yellow trough · dotted zero · "+(bk!=="0dte"&&!(r&&r.near)?"week book not loaded (am_feed near_book)":bkTxt));"""
 RNEW = """:(st.mapRight==="vanna"?"Dealer Δ per +1 vol pt":"Dealer Δ per 5 min")+(TG.fx?((r&&r.base?" · colour = vs this column's median, NOT buy/sell":" · orange = dealer buys · cyan = sells")+" · "+(st.mapScale==="col"?"COLUMN scale: brightness not comparable across times":"one scale for the whole map")+" · green peak · yellow trough · dotted = raw zero"+(r&&r.base?" (not the colour edge)":"")+" · "):" · orange = dealer buys · cyan = sells · green peak · yellow trough · dotted zero · ")+(bk!=="0dte"&&!(r&&r.near)?"week book not loaded (am_feed near_book)":bkTxt));"""
 rep(ROLD, RNEW)
-# 13. (2026-11-08 evening) Density = Don's 11/06 version, toggles DN1-DN6 (tg_den.js); VIX tab VX1-VX2 (tg_vix.js).
-#     All off = production: every hook below is a no-op unless its toggle is on.
-rep('+(denPull()?"pull":"")+"|"+denVol();   // the minute-log', '+(denPull()?"pull":"")+"|"+denVol()+tgDenKey();   // TEST DN1/DN6 · the minute-log')
-rep('let sig=strad/0.7979/S0, src="straddle"; const vix=denVix();', 'let sig=strad/0.7979/S0, src="straddle"; const vix=tgDenVol();   /* TEST DN6: VXN for QQQ */')
-rep('src="VIX "+vix.toFixed(2); }', 'src=tgDenVolName()+" "+vix.toFixed(2); }')
-rep('const lv=B?{bd:B.breakdown,flip:B.fullFlip!=null?B.fullFlip:B.frontFlip,top:B.pinHi,touch:[B.breakdown,B.trough,B.fade]}:null;',
-    'const lv=B?{bd:B.breakdown,flip:B.fullFlip!=null?B.fullFlip:B.frontFlip,top:B.pinHi,touch:[B.breakdown,B.trough,B.fade]}:null; tgDenTouch(lv,B);')
-rep('const padL=70, padR=118, padT=22, padB=40, W=w-padL-padR, H=h-padT-padB; if(W<50||H<50) return;',
-    'const padL=70, padR=118, padT=22, padB=40, W=w-padL-padR; let H=h-padT-padB; if(W<50||H<50) return; let SPL=null;   // TEST DN2')
-rep('  const X=m=>padL+W*m/390, Y=p=>padT+H*(1-(p-lo)/(hi-lo));\n',
-    '  SPL=tgDenSplit(B,lo,hi); if(SPL) H-=SPL.h;   // TEST DN2: strip under the cone\n  const X=m=>padL+W*m/390, Y=p=>padT+H*(1-(p-lo)/(hi-lo));\n')
-rep('const hl=(v,col,dash,txt)=>{ if(v==null) return; const y=Y(v);', 'const hl=(v,col,dash,txt)=>{ if(v==null) return; if(SPL&&SPL.vals.includes(v)) return; const y=Y(v);')
-rep('hl(B.trough,"#FF4D6A",[8,3],`FULL-BOOK TROUGH ${fmtN(B.trough,0)} · short-gamma floor`);',
-    'hl(B.trough,"#FF4D6A",[8,3],`FULL-BOOK TROUGH ${fmtN(B.trough,0)} · short-gamma floor`); tgDenLines(hl,B);')
-rep('  ctx.textAlign="left";\n  // the Map\'s gamma column now (right strip)',
-    '  ctx.textAlign="left"; tgDenDrawSplit(ctx,SPL,padL,W,padT+H); tgDenStatus(ctx,padL,W,padT,X0&&X0.S);   // TEST DN2 / DN6\n  // the Map\'s gamma column now (right strip)')
-rep('[prev,"#FFD34D","prev close"],[S,"#ffffff","now"]];', '[prev,"#FFD34D","prev close"],[S,"#ffffff","now"]]; tgOddsLines(vl,B);')
-rep('  ctx.textAlign="left"; ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText(fmtN(xlo,0),padL,h-6);',
-    '  tgOddsDraw(ctx,o,X,padT,H); ctx.textAlign="left"; ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText(fmtN(xlo,0),padL,h-6);')
-rep(':""); }\n}\n// ---- charm hedge flow panel', ':""); tx.innerHTML+=tgOddsTxt(r,B); }\n}\n// ---- charm hedge flow panel')
-rep('    denDrawOdds(cur,B,S); denDrawCharm(CM,S);\n', '    denDrawOdds(cur,B,S); denDrawCharm(CM,S); if(TG.dn5||TG.dn6) kEl.innerHTML+=tgDenExtra(cur,B,S,d);   // TEST DN5 / DN6\n')
-rep('      <section class="vxsec vxreadbox" id="vxRead"></section>\n',
-    '      <section class="vxsec vxreadbox" id="vxRead"></section>\n      <section class="vxsec tgsec" id="vxGauge" hidden></section>\n      <section class="vxsec tgsec" id="vxStack" hidden></section>\n')
-rep('(document.getElementById("tabVix")||{}).clientWidth].join("|");', '(document.getElementById("tabVix")||{}).clientWidth, tgVixKey()].join("|");')
-rep('  vxICorrPanel(R);\n', '  vxICorrPanel(R);\n  tgVixRender();   // TEST VX1 / VX2\n')
+# 13. (2026-11-08 evening) Density DN1-DN6 / VIX VX1-VX2 hooks: removed 2026-11-09 - they are production options now.
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)

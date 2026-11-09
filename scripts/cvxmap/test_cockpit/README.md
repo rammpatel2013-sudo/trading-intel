@@ -1,6 +1,8 @@
 # TEST cockpit (created 2026-11-08)
 
-A copy of the production Convex cockpit (commit `824a06c`, page sha256 `d1486e1d…`) where every change in the MAP master tracker (`claude/map-master-tracker-20261108.md`) sits behind its own toggle. You can test each change live, next to the real MAP.
+A copy of the production Convex cockpit where every change in the MAP master tracker (`claude/map-master-tracker-20261108.md`) sits behind its own toggle. You can test each change live, next to the real MAP. First built from commit `824a06c` (page sha256 `d1486e1d…`); rebuilt 2026-11-09 from the production page with the Orbs tab, the Density / VIX options and the VIX map (page sha256 in `LOCK.json`).
+
+**Rule (Mithil, 2026-11-09):** only NEW MAP calculations and their testing live here. Everything else goes on the production cockpit (8899) as an option or tab, OFF by default. The Density toggles DN1–DN6 and the VIX toggles VX1 / VX2 moved to production on 2026-11-09 (Density tab "Options" row, VIX tab "Options" row); the test page inherits them from production like any other production feature.
 
 - **Test page:** http://192.168.1.211:8898/cvx_cockpit_test.html
 - **Production page (unchanged):** http://192.168.1.211:8899/cvx_cockpit.html
@@ -31,13 +33,6 @@ All toggles are off by default and independent of each other. A **v0** toggle us
 | Real 5-min charm | D4 | v1 | Charm = the actual change in delta over the next 5 minutes. |
 | Levels from raw | F2 | v0 | Peaks and troughs are found from the raw field's scale, not the colour field's. |
 | Display labels | F1, F3–F5 | v1 | The display candidate (`7fd6345a`), reapplied onto `824a06c`: raw vs median-relative labels, flat zones, line rules, Smile OFF/ON check. |
-| Support + walls | DN1 (Density) | v0 | Call wall = largest 1–7 DTE call OI above spot (to +8%), put wall = largest 1–7 DTE put OI below (to −8%), round-number support = the 100-pt strike below spot with the most put OI (to −8%). Lines on the cone and odds chart + touch odds. |
-| Split axis | DN2 (Density) | v1 | Board levels outside the chart's price range go into a strip under the cone (Don 11/06) instead of ▲/▼ edge labels. |
-| Odds extras | DN3 (Density) | v1 | P25 / P75 marks; Don's buckets below breakdown / in pin / pin top → flip / above flip (from the close histogram). |
-| Replay summary | DN5 (Density) | v1 | One line: latest cone median / P10 / P90 / P(in pin) / P(above flip) vs session O/H/L, time in pin, support held. |
-| Status extras | DN6 (Density) | v0 | Levered-ETF reset at the mark in the status box; 1–7 DTE book date; "thin book" under 150k contracts within ±1.5%; QQQ + Width VIX uses VXN. |
-| Regime gauge | VX1 (VIX tab) | v0 | Doublewide VIXM/VIXY 8d/21d EMA gauge with the VIX9D/VIX and SPX-vs-21d-EMA filters, playbook lines, close-shorts / re-entry cues. Untested as a predictor. |
-| Variance stack | VX2 (VIX tab) | v1 | VIX² + DSPX² ≈ VIXEQ² session to date, transmission share vs prior close, COR1M / COR3M, identity check. |
 
 The toggles also act on the other tabs that use the Map's maths (Density, Change).
 
@@ -63,11 +58,15 @@ This stops if production is not the locked version. It applies exact single-matc
 - `test_score.py`: scorer unit tests on constructed price paths (touch / held / broke / unresolved, no look-ahead, early close, lock-in, missing predictions, pending 1DTE then scored, duplicates, determinism). The ship bat runs it first.
 - `readout_test.js`: read-out content and determinism across fresh page loads (11/06 data).
 - `toggles.js`: per-toggle checks (what moves, the B2 same-gamma check, A5 simulation, B4a on a corrupted book, E2 steps, D1 finite-difference check, C2 path, D4, F2, FX, speed).
+- `main_options.js` (2026-11-09): checks on the PRODUCTION page (`prod.html`) for the Orbs tab, the Density / VIX options and the VIX map — every tab renders, every option toggles on / off, nothing is fetched while off, Orbs hover / slider / blocks / Net diverging bars, the live file appends the newest minute, VIX map sign switch, 0 JS errors also with the new data files missing. Needs `wide_*`, `wide_live_*`, `wide_trunc_YYYYMMDD.json` + `wide_live_trunc_SPX.json` (day cut at 15:50 and its 15:51 minute), `vixmap_*` and `volx*` in `srv/`.
 
-## Density + VIX toggles (added 2026-11-08 evening)
+## Density + VIX toggles (added 2026-11-08 evening; MOVED to production 2026-11-09)
+Moved to the production page as options (OFF by default) on 2026-11-09 — see below for history. `build/tg_den.js`, `build/tg_vix.js` and `tests/density_vix.js` were removed; their code now lives in `cvx_cockpit.html` (`dno*` / `vxo*` functions), and the Cboe poller `volx.py` moved to `scripts/cvxmap/volx.py` in its own container `cvxmap-volx` (`scripts/nas/run_volx.sh`), writing `data/volx.json` (no longer `data/test/volx.json`). The test server no longer starts it.
+
+History (2026-11-08):
 - Source notes: `claude/don-density-versions.md` (Don's 11/06 Density version) and `claude/vol-regime-knowledge-20261108.md` (VIXM/VIXY gauge, variance stack).
 - Built from `build/tg_den.js` and `build/tg_vix.js` (hooks in section 13 of `make_test_page.py`). Display / odds layers only: none changes the Map, the base cone numbers or the gamma read-outs.
 - **Data for VX1 / VX2 / DN6:** `volx.py`, a thread in the test server, reads free Cboe delayed quotes (VIX, VIX9D, VIXEQ, DSPX, COR1M, COR3M, SPX, VXN, VIXM, VIXY) every minute and Cboe daily history (VIX, VIX9D, SPX, VIXM, VIXY) every 15 min — the same CDN `vixdash.py` uses, no Convex. It writes `data/test/volx.json` and `data/test/volx_YYYYMMDD.json` (the day's 1-minute series). The page fetches it only while VX1, VX2 or DN6 is on.
 - Already in production, so no toggle: Don's "after 14:00" charm number and the 14:00 marker, and tomorrow's book without the front expiry.
 - Not ported: an intraday VIX move split (sticky / parallel / skew / convexity) — it needs a live 30-day SPX chain we don't pull; the daily 08:35 six-factor split on the VIX tab stays. NDX: our QQQ book is not thin, so DN6 only adds VXN for the cone width and a generic thin-book tag.
-- Test: `tests/density_vix.js parity` (all off: Density runs, odds, key text, canvas pixels and every VIX section identical to production — OK 2026-11-08 on 11/06 data) and `tests/density_vix.js shots`. Map `parity.js eod` still 40/40 identical.
+- Test (2026-11-08, removed 2026-11-09 with the toggles): `tests/density_vix.js` parity and shots. Map `parity.js eod` still 40/40 identical.

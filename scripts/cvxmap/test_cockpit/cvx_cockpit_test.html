@@ -677,6 +677,133 @@ body.phone .rkbig{font-size:52px}
 #rkModal p{font-size:17px;line-height:1.5;color:#fff;margin:8px 0}
 #rkModal .rkmeter{height:14px;margin:10px 0 4px}
 #rkModal .rng{display:inline-flex;gap:4px;margin:6px 0}
+/* --- Levels tab (2026-11-09): where several independent views agree; chart first, details on hover/tap --- */
+#tabLevels{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+#tabLevels .vxhead small{font-size:16px;color:#fff}
+#tabLevels .vxhead span:not(.big){font-size:16px;color:#fff}
+.lvwrap{font-size:17px;color:#fff}
+.lvlegend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:16px;color:#fff;margin:6px 0 8px}
+.lvlegend i{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:7px}
+.lvlegend i.band{width:26px;height:10px;border-radius:2px;background:#9DB0CA;opacity:.5}
+.lvlegend i.band.key{background:#FFD54A;opacity:.8;outline:1.5px solid #FFE27A}
+.lvlegend i.ring,.lvtl i.ring{background:none;border:2.5px dashed #FFCF8A;box-sizing:border-box}
+.lvlegend i.dia{width:11px;height:11px;border-radius:0;border:2px solid #fff;transform:rotate(45deg);box-sizing:border-box}
+.lvchart{width:100%;overflow:hidden}
+.lvsvg{display:block;max-width:100%;height:auto;touch-action:manipulation}
+.lvsvg text{font-family:var(--font)}
+.lvsvg .ax{fill:#F2F6FC;font-size:16px}
+.lvsvg .lvzl{fill:#fff;font-size:17px;font-weight:700}
+.lvsvg .lvspot{fill:#0A1426;font-size:16px;font-weight:800}
+.lvsvg .lvband,.lvsvg .lvhit{cursor:pointer}
+.lvsvg .lvband.hov{fill-opacity:.75;stroke:#fff;stroke-width:2}
+.lvsvg .lvband.sel{fill-opacity:.85;stroke:#fff;stroke-width:3}
+.lvchips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
+.lvchip{display:flex;align-items:baseline;gap:10px;background:var(--pane2);border:2px solid #FFD54A88;color:#fff;border-radius:10px;padding:8px 14px;font-size:17px;cursor:pointer;font-family:var(--font)}
+.lvchip b{font-size:22px}.lvchip .up{color:#3FD0B0;font-weight:700}.lvchip .dn{color:#FF8A7A;font-weight:700}
+.lvchip.on{background:#3a3216;border-color:#FFE27A}
+#lvTip{position:fixed;z-index:9999;max-width:min(460px,calc(100vw - 16px));background:#0A1426;border:2px solid #FFD54A;border-radius:12px;padding:12px 16px;color:#fff;font-size:17px;line-height:1.45;box-shadow:0 14px 40px rgba(0,0,0,.75);pointer-events:none}
+#lvTip .lvth{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+#lvTip .lvth b{font-size:30px;font-weight:800}#lvTip .lvth span{font-size:18px;color:#fff}
+#lvTip .lvtd{font-size:17px;margin:2px 0 6px;color:#fff}
+#lvTip .lvtl{margin-top:8px;font-size:17px}
+#lvTip .lvtl i{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:8px;vertical-align:-2px}
+#lvTip .lvtv{font-size:16px;color:#fff;margin:2px 0 0 22px}
+#lvTip .lvtc{font-size:16px;color:#fff;margin-top:8px;border-top:1px solid #ffffff33;padding-top:6px}
+.lvdet{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:8px 14px;margin:10px 0}
+.lvdet summary{font-size:18px;font-weight:700;color:#fff;cursor:pointer}
+.lvtbl{width:100%;border-collapse:collapse;font-size:16px;margin:8px 0}
+.lvtbl th{color:#fff;text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule)}
+.lvtbl td{color:#fff;padding:6px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+.lvtbl tr.key td{background:#2a2614}
+.lvchipl{display:inline-block;color:#0A1426;font-weight:800;font-size:16px;border-radius:5px;padding:1px 7px;margin:1px}
+.lvnote{font-size:16px;color:#fff;line-height:1.5;margin:8px 0}
+.lvgaps li{font-size:16px;color:#fff}
+body.phone #tabLevels .vxwrap{padding:8px 8px 40px}
+/* --- Tenor tab (2026-11-09): gamma/vega by expiry bucket + factor cards, big high-contrast text --- */
+#tabTenor{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+.tnwrap{font-size:17px;color:#fff}
+#tabTenor .vxsub{font-size:16px;color:#F2F6FC;opacity:1}
+#tabTenor .vxhead small{font-size:14px;color:#DCE6F2}
+#tabTenor .vxhead span:not(.big){font-size:16px;color:#fff}
+.tnread{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:10px 16px;margin:6px 0 10px}
+.tnread p{margin:4px 0;font-size:17px;line-height:1.5;color:#fff}
+.tnsvg{width:100%;height:auto;display:block}
+.tnsvg text{fill:#F2F6FC;font-size:16px;font-family:var(--font)}
+.tnlegend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:16px;color:#fff;margin:4px 0}
+.tnlegend i{display:inline-block;width:22px;height:5px;border-radius:2px;vertical-align:middle;margin-right:7px}
+.tnhov{font-size:16px;color:#fff;min-height:24px;margin:2px 0 4px}
+.tntbl{width:100%;border-collapse:collapse;font-size:17px;margin:10px 0 4px}
+.tntbl th{color:#DCE6F2;font-weight:600;text-align:right;padding:5px 8px;border-bottom:1px solid var(--rule)}
+.tntbl td{color:#fff;text-align:right;padding:6px 8px;border-bottom:1px solid var(--rule)}
+.tntbl th:first-child,.tntbl td:first-child{text-align:left}
+.tntbl tr.tot td{font-weight:800}
+.tntbl i,.tnbars i{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:8px;vertical-align:-2px}
+.tnnote{font-size:16px;color:#DCE6F2;line-height:1.45;margin:8px 0 2px}
+.tnseg{margin:4px 0 10px}.tnseg button{font-size:16px;color:#DCE6F2}
+.tnbars{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2.2fr) 110px;gap:8px 12px;align-items:center;font-size:17px;color:#fff}
+.tnbars .bar{position:relative;height:24px;background:#0F1D36;border-radius:4px}
+.tnbars .bar span{position:absolute;top:0;bottom:0;border-radius:4px}
+.tnbars .bar b{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:#DCE6F2}
+.tnbars .val{text-align:right;font-weight:700}
+.tngrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.tncard{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.tnch{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:18px;color:#fff}
+.tnbadge{font-size:15px;font-weight:800;border-radius:5px;padding:3px 9px;color:#0A1426;white-space:nowrap}
+.tnsub{font-size:16px;color:#DCE6F2}
+.tnz{font-size:34px;font-weight:800;color:#fff;line-height:1.1;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.tnz small{font-size:16px;font-weight:600;color:#DCE6F2}
+.tnz2{font-size:22px;font-weight:700;margin-left:auto}
+.tnspk{width:100%;height:90px;display:block}
+.tnml{font-size:15px;color:#DCE6F2}
+.tngrade{font-size:16px;font-weight:800;border-radius:6px;padding:3px 8px;align-self:flex-start}
+.tngrade.weak{background:#3A2A12;color:#FFD3A6}.tngrade.ok{background:#0F3A33;color:#A8F0DF}
+.tnsent{font-size:16px;line-height:1.45;color:#fff;margin:4px 0 0}
+@media (max-width:980px){.tnbars{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) 90px}}
+/* --- Orbs tab + Density / VIX options + VIX map (2026-11-09): large high-contrast text --- */
+#tabOrbs{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+#tabOrbs .vxhead{align-items:center}
+#tabOrbs .vxhead span:not(.big){font-size:16px;color:#fff}
+.orgrp{display:inline-flex;align-items:center;gap:6px}
+.orlab{font-size:15px;font-weight:700;color:#DCE6F2;text-transform:uppercase;letter-spacing:.04em}
+.orseg{display:inline-flex;gap:2px;background:var(--pane);border:1px solid var(--rule);border-radius:7px;padding:2px}
+.orseg button{border:0;background:transparent;color:#C9D6E6;font:600 16px var(--font);padding:5px 11px;border-radius:5px;cursor:pointer}
+.orseg button[aria-pressed=true]{background:#1F8FC4;color:#fff}
+.ortime{display:flex;align-items:center;gap:12px;margin:8px 0}
+.ortime input[type=range]{flex:1;accent-color:#FFD23F;height:28px;min-width:120px}
+.ort{font-size:20px;font-weight:700;color:#fff;min-width:110px}
+.orbadge{font-size:15px;font-weight:700;padding:3px 9px;border-radius:5px;background:#7c3aed;color:#fff}
+.orbadge.live{background:#1f9d55}
+.orgrid{display:grid;grid-template-columns:minmax(0,1fr) 230px 260px;border:1px solid var(--rule);border-radius:8px;background:var(--pane)}
+.orpane{min-width:0;border-right:1px solid var(--rule)}.orpane:last-child{border-right:0}
+.orph{font-size:16px;font-weight:700;color:#fff;padding:8px 10px 2px}.orph span{font-weight:500;color:#DCE6F2;font-size:15px}
+.orpane canvas{display:block;width:100%;height:620px}
+.orread{font-size:17px;line-height:1.55;color:#fff;margin:10px 2px}
+.orread .orpos{color:#FFD23F}.orread .orneg{color:#C99BFF}.orread .orpoc{color:#FF8A3D}.orread .ornote{color:#DCE6F2}
+#orTip{position:fixed;z-index:9999;pointer-events:none;background:#0A1426;border:2px solid #FFD23F;border-radius:10px;padding:8px 12px;color:#fff;font-size:16px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.7)}
+body.phone .orgrid{grid-template-columns:1fr}
+body.phone .orpane{border-right:0;border-bottom:1px solid var(--rule)}
+body.phone .orpane canvas{height:460px}
+@media (max-width:900px){.orgrid{grid-template-columns:1fr 1fr}.orgrid .orpane:first-child{grid-column:1 / -1;border-right:0;border-bottom:1px solid var(--rule)}}
+.optrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:4px 12px 8px}
+.optrow .optlab,.optsec .optlab{font-size:15px;font-weight:700;color:#DCE6F2;text-transform:uppercase;letter-spacing:.04em;margin-right:4px}
+.optrow .optb,.optsec .optb{font-size:16px;padding:5px 12px}
+.optsec{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.vxwarn{display:block;margin-top:6px;font-size:16px;font-weight:700;color:#FFD23F}
+#tabVix #vxGauge .vxsub,#tabVix #vxStack .vxsub,#tabVix #vxMap .vxsub{font-size:15px;color:#DCE6F2}
+#tabVix #vxGauge .vxnote,#tabVix #vxStack .vxnote,#tabVix #vxMap .vxnote{font-size:16px;color:#E8EFF8}
+#tabVix #vxGauge,#tabVix #vxStack{font-size:16px}
+.vxmctl{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0 10px}
+.vxmgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.vxmbox{min-width:0}.vxmbox canvas{display:block;width:100%;height:440px;background:#0E1B33;border-radius:6px}
+.vxmt{font-size:17px;font-weight:700;color:#fff;margin:2px 0 4px}.vxmt span{font-weight:500;font-size:15px;color:#DCE6F2;margin-left:6px}
+.vxmleg{display:flex;align-items:center;gap:8px;font-size:15px;color:#fff;margin:4px 0 0}
+.vxmleg i{flex:0 1 240px;height:12px;border-radius:3px;background:linear-gradient(90deg,#FF6B5A,#0E1B33,#4C8DFF)}
+.vxmkey{font-size:16px;color:#fff;line-height:1.5;margin:8px 0}
+.vxmhov{font-size:16px;color:#fff;min-height:24px;margin:4px 0;padding:6px 10px;background:var(--pane2);border-radius:6px}
+.vxmread{font-size:17px;line-height:1.55;color:#fff}.vxmread div{margin:4px 0}
+.vxmup{color:#7FB0FF}.vxmdn{color:#FF8A7A}
+body.phone .vxmgrid{grid-template-columns:1fr}
+@media (max-width:900px){.vxmgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -708,6 +835,7 @@ body.phone .rkbig{font-size:52px}
     </div>
     <div class="tabs" role="tablist" aria-label="View" id="pageTabs">
       <button data-tab="flow" aria-pressed="true">Flow</button>
+      <button data-tab="orbs" aria-pressed="false" title="Dealer gamma by strike through the day as orbs, with the volume profile beside it (calls / puts / bull / bear / net). Off until you press ON.">Orbs</button>
       <button data-tab="strikes" aria-pressed="false">Strikes</button>
       <button data-tab="skew" aria-pressed="false">Skew</button>
       <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
@@ -723,6 +851,8 @@ body.phone .rkbig{font-size:52px}
       <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
       <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
       <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
+      <button data-tab="tenor" aria-pressed="false" title="Dealer gamma and vega split by expiry bucket (1 day, up to 1 week, up to 1 month, longer) across SPX levels, its daily history, and six factor cards with their past record. Built each evening.">Tenor</button>
+      <button data-tab="levels" aria-pressed="false" title="Price levels where several independent views agree (options positioning, open interest, VIX options, price history, crowded strikes), drawn over the last 60 sessions. Hover or tap a band for the details. Built each evening.">Levels</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
@@ -900,7 +1030,7 @@ body.phone .rkbig{font-size:52px}
     <section class="pane" id="premBigPane"><div class="phead"><h2>Big minutes</h2><span class="hint">minutes in the top 5% for their own side</span></div><div class="prembig" id="premBig"></div></section>
   </main>
   <main id="tabDensity" class="tab" hidden>
-    <section class="pane" id="denMainPane"><div class="phead"><h2>Density &mdash; where the close is likely to land</h2><span class="hint">cone re-run every 5 min from live spot and the live 0DTE straddle &middot; left of the cursor = the 09:30 cone &middot; lines = the Map&rsquo;s own gamma zero and vanna rails as they stood &middot; model, not a forecast (key N)</span><button class="btn" id="denEngBtn" aria-pressed="true" title="Kill switch. OFF stops every Density calculation and closes its background worker; nothing else in the cockpit is affected. Remembered across reloads. ?nodensity in the address bar turns it off hard.">Engine ON</button><button class="btn" id="denPullBtn" aria-pressed="false" title="Pull (Don 11/05): adds a second set of paths drawn toward the morning pin band and the intraday put shelf. Off = the plain cone centred on price. The plain numbers are always kept for scoring.">Pull OFF</button><button class="btn" id="denVolBtn" aria-pressed="false" title="Cone width: Straddle = the live 0DTE straddle (default). VIX = the live VIX, as Don uses.">Width: Straddle</button><button class="btn" id="denCsvBtn" title="Download today's cone log as CSV (one row per 5-minute re-run)">Export log</button><span class="hint" id="denStatus"></span></div><div class="body"><canvas id="denMainC"></canvas></div></section>
+    <section class="pane" id="denMainPane"><div class="phead"><h2>Density &mdash; where the close is likely to land</h2><span class="hint">cone re-run every 5 min from live spot and the live 0DTE straddle &middot; left of the cursor = the 09:30 cone &middot; lines = the Map&rsquo;s own gamma zero and vanna rails as they stood &middot; model, not a forecast (key N)</span><button class="btn" id="denEngBtn" aria-pressed="true" title="Kill switch. OFF stops every Density calculation and closes its background worker; nothing else in the cockpit is affected. Remembered across reloads. ?nodensity in the address bar turns it off hard.">Engine ON</button><button class="btn" id="denPullBtn" aria-pressed="false" title="Pull (Don 11/05): adds a second set of paths drawn toward the morning pin band and the intraday put shelf. Off = the plain cone centred on price. The plain numbers are always kept for scoring.">Pull OFF</button><button class="btn" id="denVolBtn" aria-pressed="false" title="Cone width: Straddle = the live 0DTE straddle (default). VIX = the live VIX, as Don uses.">Width: Straddle</button><button class="btn" id="denCsvBtn" title="Download today's cone log as CSV (one row per 5-minute re-run)">Export log</button><span class="hint" id="denStatus"></span></div><div class="optrow" id="denOpts"></div><div class="body"><canvas id="denMainC"></canvas></div></section>
     <section class="pane" id="denSidePane"><div class="phead"><h2>Key readings</h2></div>
       <div class="denkey" id="denKey"></div>
       <div class="densub">Close odds &mdash; the latest cone (green = up on the day, red = down, bright = inside the pin)</div>
@@ -918,9 +1048,11 @@ body.phone .rkbig{font-size:52px}
   <main id="tabVix" class="tab" hidden>
     <div class="vxwrap">
       <section class="vxhead" id="vxHead"></section>
+      <section class="vxsec optsec" id="vxOpts"></section>
       <section class="vxsec vxreadbox" id="vxRead"></section>
-      <section class="vxsec tgsec" id="vxGauge" hidden></section>
-      <section class="vxsec tgsec" id="vxStack" hidden></section>
+      <section class="vxsec" id="vxGauge" hidden></section>
+      <section class="vxsec" id="vxStack" hidden></section>
+      <section class="vxsec" id="vxMap" hidden></section>
       <section class="vxsec" id="vxPick"></section>
       <section class="vxsec" id="vxRegime"></section>
       <section class="vxsec" id="vxRvIv"></section>
@@ -973,6 +1105,26 @@ body.phone .rkbig{font-size:52px}
       <div id="rkBody"></div>
     </div>
   </main>
+  <main id="tabLevels" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="lvHead"></section>
+      <div id="lvBody"></div>
+    </div>
+    <div id="lvTip" role="tooltip" hidden></div>
+  </main>
+  <main id="tabOrbs" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="orHead"></section>
+      <div id="orBody"></div>
+    </div>
+    <div id="orTip" role="tooltip" hidden></div>
+  </main>
+  <main id="tabTenor" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="tnHead"></section>
+      <div id="tnBody"></div>
+    </div>
+  </main>
   <main id="tabLedger" class="tab" hidden>
     <div id="ledgerHeader">
       <div class="tabs" role="group" aria-label="Ledger variant" id="ledgerVarSeg">
@@ -1005,7 +1157,7 @@ body.phone .rkbig{font-size:52px}
 
         <p class="hintro">This cockpit shows how options traders, and the dealers who take the other side of their trades, are positioned in SPX (and SPY, QQQ) through the day. Every page is explained below: what it shows, how to read it, and what each button does. <b>Nothing here is a trade signal</b> &mdash; it describes positioning so you can make your own call.</p>
         <nav class="hjump">
-          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
+          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-orbs">Orbs</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-levels">Levels</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
         </nav>
 
         <h3 class="pg" id="h-words">Words used on this page</h3>
@@ -1099,6 +1251,19 @@ body.phone .rkbig{font-size:52px}
           <dt>Call + put / Call / Put</dt><dd>Which side of that strike to chart.</dd>
           <dt>Watch</dt><dd>Pin this contract to your watch list (key W).</dd>
           <dt>Back to map</dt><dd>Hide the panel.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-orbs">Orbs</h3>
+        <p class="what">Dealer gamma at every strike through the day, drawn as orbs, with the volume profile beside it. Off by default; press <b>ON</b> (nothing is fetched or drawn while it is off). Follows the SPX / SPY / QQQ buttons. A positioning read, not a trade signal.</p>
+        <dl>
+          <dt>Orbs</dt><dd>Each orb is one strike in one time block. <b>Bigger orb = more dealer hedging tied to that strike.</b> <b style="color:#FFD23F">Yellow = positive</b> (dealers trade against the move there, so price tends to slow, stall or pin). <b style="color:#C99BFF">Purple = negative</b> (dealers trade with the move, so price can speed up through it). Candles = price in the same blocks. Orb size is scaled to the biggest value so far, so a replay never uses a later, bigger number.</dd>
+          <dt>Show</dt><dd><b>Gamma</b> = dollars dealers must buy or sell for each 1% move. <b>Vanna</b> = how those hedges change when volatility moves 1 point. <b>Both</b> = gamma filled, vanna as rings. Vanna always comes from open interest.</dd>
+          <dt>Positions from</dt><dd>One at a time, never added together. <b>Open interest</b> = contracts open at the start of the day. <b>Today's volume</b> = contracts traded today. Both use the simple rule the Map uses: dealers long calls, short puts.</dd>
+          <dt>Expiries</dt><dd><b>Today</b> = same-day options only. <b>Next 7 days</b> = tomorrow through 7 days out. <b>All</b> = both. About &plusmn;200 SPX points (&plusmn;2.7% for SPY / QQQ).</dd>
+          <dt>Volume</dt><dd>Contracts traded today at each strike, up to the time on the slider. <b>Calls</b> / <b>Puts</b>: solid = bought, striped = sold, faint = no buy/sell tag. <b style="color:#58D68D">Bull</b> = calls bought (solid) + puts sold (striped). <b style="color:#FF7B72">Bear</b> = puts bought (solid) + calls sold (striped). <b>Net</b> = Bull minus Bear: green bar to the right when more bullish, red to the left when more bearish. Buy / sell comes from each trade's own tag. <b style="color:#FF8A3D">POC</b> (orange line) = the busiest strike for what is shown (Net: the biggest net either way); dashed <b>VAH / VAL</b> = the strikes that hold 70% of it. The orange dotted line on the orbs = where the POC sat through the day.</dd>
+          <dt>Block</dt><dd>1, 3 or 5 minutes per orb column and candle (1 minute is the finest: a new reading arrives once a minute). A block that is still filling has a yellow dashed frame marked <b>building</b>.</dd>
+          <dt>Play / slider / Now</dt><dd>Play replays the day; nothing to the right of the slider is shown, so it never peeks ahead. Hover an orb or a volume bar for its numbers; click the orbs to jump there. <b>Now</b> = back to the latest minute.</dd>
+          <dt>How fresh</dt><dd>The options feed is read once a minute. A new minute shows up here a few seconds after it is read (the tab checks every 3 seconds). The stand-alone page flow_orbs.html shows the same data.</dd>
         </dl>
 
         <h3 class="pg" id="h-strikes">Strikes</h3>
@@ -1202,6 +1367,12 @@ body.phone .rkbig{font-size:52px}
           <dt>Charm panel</dt><dd>Green = hedge flow from time passing, from this morning&rsquo;s book (+ = dealers buy). Dashed = tomorrow&rsquo;s book. Yellow &#9670; = re-marks every hour from 10:30 at the new price and IV, split into how much changed because price moved and how much because IV moved. Blue = leveraged-ETF rebalancing into the close (day move &times; the dollars per 1%); it is not charm and grows with the move.</dd>
           <dt>Engine ON / OFF</dt><dd>Switches the whole calculation on or off. Remembered.</dd>
           <dt>Export log</dt><dd>Download today&rsquo;s cone log (one row per 5-minute run), including the pulled cone and the odds buckets.</dd>
+          <dt>Options (all off by default)</dt><dd>Extra layers under the Density title. Off = the tab is exactly as before.
+            <b>Support + walls</b>: call wall = the biggest 1&ndash;7 day call open interest above price, put wall = the biggest 1&ndash;7 day put open interest below, round-number support = the round strike below price with the most put open interest; drawn on the cone and the odds chart with the chance of touching each before the close.
+            <b>Split axis</b>: levels far from price go into a strip under the cone so the cone is not squashed.
+            <b>Odds extras</b>: 25% / 75% marks on the odds chart and the chance of closing below breakdown, inside the pin, between the pin top and the flip, or above the flip.
+            <b>Replay summary</b>: one line comparing the latest cone with the day's open, high and low, time spent in the pin, and whether support held.
+            <b>Status extras</b>: leveraged-ETF rebalancing at the current price, the date of the 1&ndash;7 day book, a <i>thin book</i> warning when little open interest sits near price, and for QQQ with Width = VIX the Nasdaq volatility index. Needs the vol poller running.</dd>
         </dl>
 
         <h3 class="pg" id="h-vix">VIX</h3>
@@ -1217,6 +1388,13 @@ body.phone .rkbig{font-size:52px}
           <dt>Implied variance</dt><dd>Whole-curve vol vs ATM vol for each expiry. The gap = the price of the wings (far strikes).</dd>
           <dt>Positions by strike</dt><dd>Open interest plus today&rsquo;s contracts bought and sold at each VIX strike. <b>Strike</b> / <b>From forward</b> = line months up by strike or by distance from their own forward. Not dealer inventory.</dd>
           <dt>Implied correlation, spot-vol beta, realized vs implied</dt><dd>Whether stocks are moving together, how much VIX moves per 1% SPX move, and whether options price more or less movement than SPX has delivered.</dd>
+          <dt>Options (all off by default)</dt><dd>Buttons at the top of the tab. Off = nothing is fetched or drawn for them.
+            <b>Regime gauge</b>: the VIXM / VIXY ratio's 8-day average against its 21-day average, confirmed by VIX9D above VIX and SPX below its 21-day average: <b>Calm</b>, <b>Unconfirmed</b>, <b>Mixed</b> or <b>Confirmed</b> volatility expansion, with a suggested way to trade each and the close-shorts / re-entry cues. <b>Untested predictor</b>: we have not tested it ourselves; read it as one opinion. Today's row is provisional until the close.
+            <b>Variance stack</b>: VIX² + DSPX² &asymp; VIXEQ² through the day. The share that is VIX² is how much single-stock volatility is reaching the index through correlation; rising with COR1M = the index is catching single-stock stress.
+            Both need the vol poller (free delayed index quotes, about 15 minutes late).</dd>
+          <dt>VIX map (option)</dt><dd>Dealer gamma (left) and vanna (right) in VIX options, by VIX level (up the side) and time of day (across), like the SPX Map. <b style="color:#7FB0FF">Blue</b> = dealers long: they sell VIX as it rises and buy as it falls, which leans against VIX moves. <b style="color:#FF8A7A">Red</b> = dealers short: they chase VIX moves. Each VIX expiry is priced on its own forward (where that expiry trades), and a VIX level moves every forward by the same amount.
+            <b>Expiries</b>: Front expiry (default) or All combined. <b>Positions from</b>: open interest or today's volume, one at a time. <b>Dealer side</b>: default = dealers <b>short</b> VIX calls and <b>long</b> VIX puts (customers buy VIX calls as crash hedges and sell VIX puts); SPX-style = the Map's simple rule (long calls, short puts), shown for comparison &mdash; it is exactly the opposite colour.
+            Marks: white = VIX, cyan dashed = front forward, yellow dotted = where the value flips sign (on the gamma map: the VIX level where dealer gamma flips), green / pink dashed = the biggest call / put open-interest strike, drawn at the VIX level where the front forward reaches it. Hover for the numbers. One column every 5 minutes plus the newest minute; written by the Orbs feed.</dd>
           <dt>Note</dt><dd>Index data runs about 15 minutes late: fine for the regime, not for timing.</dd>
         </dl>
 
@@ -1296,6 +1474,31 @@ body.phone .rkbig{font-size:52px}
           <dt>Live now</dt><dd>During the day the same score is worked out again from the live VIX and VIX&divide;VIX3M quotes (delayed), with financial conditions held at the last weekly reading. A guide only: the evening number is the official one, and it is what was tested.</dd>
           <dt>Our gamma tiles</dt><dd>Our own SPX and Mag7 dealer gamma only go back to May 2026, so they cannot be tested like the rest yet. Each keeps a running track record (drop odds below vs above the flip, and with 2+ Mag7 names negative vs fewer) that updates every evening. They count as tested once there are 20 drop days.</dd>
           <dt>Limits</dt><dd>Tested on end-of-day data. It ranks risk; it does not time the drop. A one-day VIX drop after a stressed week is not an all-clear.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-tenor">Tenor</h3>
+        <p class="what">Where dealer gamma and vega sit along the expiry curve, from the end-of-day option book, rebuilt every evening. Off by default; press <b>ON</b>. A positioning read, not a trade signal.</p>
+        <dl>
+          <dt>Buckets</dt><dd>Every expiry is put in one of four groups by trading days left: <b>1 day</b> (the next expiry), <b>2 days &ndash; 1 week</b>, <b>1 week &ndash; 1 month</b>, and <b>more than 1 month</b>. Weekends and market holidays are not counted.</dd>
+          <dt>Gamma chart</dt><dd>Each coloured line shows how much SPX delta dealers would have to trade for a 1% move, if SPX were at that level, for one bucket. The white filled line is all buckets together. Below zero = dealers would sell into a fall and buy into a rise (moves can stretch); above zero = the opposite (moves get damped). The red dashed line is today&rsquo;s close; the yellow dashed line is where the total crosses zero. Units: $ billions per 1% move.</dd>
+          <dt>Table</dt><dd>Each bucket at today&rsquo;s level, its share of the total, the SPX level where that bucket turns from negative to positive, and the change over the last 5 evenings.</dd>
+          <dt>Vega bars</dt><dd>How much the dealer book gains or loses for 1 vol point, by bucket, in $ millions. Nobody publishes who owns each option, so this needs an assumption. The buttons switch between three: dealers long calls and short puts (the standard reading), customers owning every option, and the reverse. The size of the bars is solid; the sign is the assumption.</dd>
+          <dt>History</dt><dd>Each bucket at that day&rsquo;s close, one point per evening, back to the oldest stored book. Move across the chart to read a day.</dd>
+          <dt>Factor cards</dt><dd>Six style factors as pairs: high vs low beta, the market vs low-volatility stocks, small vs large, quality vs the market, energy vs the market, and how stocks move with long Treasuries. The big number is the 50-day relative move as a z-score against its own last 3 years: beyond &plusmn;2 is unusual. &ldquo;2 weeks ago&rdquo; shows the direction. The chart is the last year of z with the &plusmn;2 zones shaded.</dd>
+          <dt>Record</dt><dd>Every past time the z entered the same zone, how often the pair rose over the next 20 trading days and by how much on average, next to the same numbers for any 20 days. <b>Weak record</b> = fewer than 30 cases, or less than 5 points better than any 20 days. Most are weak: read the zone as context, not as a call.</dd>
+          <dt>Limits</dt><dd>The book only holds expiries out to about six months, so far-dated options are missing. Gamma is recomputed with each strike&rsquo;s own vol held fixed as SPX moves. Dealer side is assumed, not measured.</dd>
+        </dl>
+
+        <h3 class="pg" id="h-levels">Levels</h3>
+        <p class="what">Price levels where several different ways of finding a level point at the same place, rebuilt every evening after the close. Off by default; press <b>ON</b>. A positioning read, not a trade signal: it shows where the views agree, not which way price will go or whether a level will hold.</p>
+        <dl>
+          <dt>The five views</dt><dd><b style="color:#FFB454">Greek peaks</b>: where the option book is most sensitive (largest vomma with open interest, where dealer gamma bends hardest, where dealer gamma crosses zero). <b style="color:#4EA1FF">Open interest</b>: strikes with the most open put and call contracts, up to 45 days. <b style="color:#D49BFF">VIX options</b>: the biggest VIX option strikes turned into SPX levels (about 2 VIX points per 1% SPX move; the recently measured figure is shown too). <b style="color:#3EE089">Price memory</b>: 20/50/100/200-day averages, recent swing highs and lows, last month&rsquo;s high and low, volume-weighted average price from a swing. <b style="color:#FF6B8B">Crowded strikes</b>: the 22- and 25-delta strikes of the next weekly and monthly expiries, and strikes of the largest index block trades.</dd>
+          <dt>Bands</dt><dd>A band is a zone where levels from different views fall within 25 SPX points of each other. <b>Yellow, bold</b> = 3 or more views agree (a key zone). <b>Grey, faint</b> = 2 views. Thin coloured ticks on the right edge = a level from one view only. The coloured dots in a band show which views agree.</dd>
+          <dt>Vol-shock peak</dt><dd>The hollow dashed ring. The strike where a single option&rsquo;s vega reacts most to a jump in volatility, at today&rsquo;s price, vol and time. It does not depend on anyone&rsquo;s position, so it is shown for reference and never counts toward a band.</dd>
+          <dt>Yesterday</dt><dd>A white hollow diamond with an arrow shows where a zone sat the previous evening and how far it moved.</dd>
+          <dt>Hover / tap</dt><dd>Point at (or tap) a band for a card with its middle and range, the distance from spot, each view and its exact number, what changed since the previous evening, and the track record so far. The chips under the chart pick out each key zone; tap one to light up its band.</dd>
+          <dt>Track record</dt><dd>Each stored zone is checked over the next 5 sessions: did SPX trade into it, and did it close back on the side it came from (held) or go through (broke). Key zones are compared with single-view levels. Under 30 cases the numbers mean very little.</dd>
+          <dt>Limits</dt><dd>Built from the end-of-day option book and daily prices. Dealer sides are assumed (calls +, puts &minus;), not measured. Levels further than 8% from spot are not drawn.</dd>
         </dl>
 
         <h3 class="pg" id="h-trust">What to trust, and when</h3>
@@ -1404,10 +1607,13 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk"].includes(st.tab)) st.tab="flow";
+if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1";   // 0dte | week | all — Map tab book switch
-st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
+st.weekSrc=load("weekSrc","convex");
+// 2026-11-09: Density options DN1-DN6 and VIX options VX1 / VX2 / VIX map - all OFF by default (moved from the test cockpit)
+st.dno=(()=>{ try{ const j=JSON.parse(load("dnOpt","{}"))||{}; return {dn1:!!j.dn1,dn2:!!j.dn2,dn3:!!j.dn3,dn5:!!j.dn5,dn6:!!j.dn6}; }catch(e){ return {dn1:false,dn2:false,dn3:false,dn5:false,dn6:false}; } })();
+st.vxo=(()=>{ try{ const j=JSON.parse(load("vxOpt","{}"))||{}; return {vx1:!!j.vx1,vx2:!!j.vx2,vmap:!!j.vmap}; }catch(e){ return {vx1:false,vx2:false,vmap:false}; } })(); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
 function saveSlots(){ try{ localStorage.setItem(NS+"slots", JSON.stringify(st.slots)); }catch(e){} }
 function load(k,d){ try{ return localStorage.getItem(NS+k) || d; }catch(e){ return d; } }
 function save(k,v){ try{ localStorage.setItem(NS+k, v); }catch(e){} }
@@ -2728,7 +2934,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -2750,6 +2956,9 @@ function render(){
   else if(st.tab==="straddle") renderStraddle();
   else if(st.tab==="constel") renderConstel();
   else if(st.tab==="risk") renderRisk();
+  else if(st.tab==="tenor") renderTenor();
+  else if(st.tab==="levels") renderLevels();
+  else if(st.tab==="orbs"){ if(typeof OR!=="undefined"&&OR) renderOrbs(); }
   else renderSkew(se,d);
 }
 
@@ -3679,7 +3888,7 @@ function renderYday(){
     `<div class="note">${esc(V.trade_date)} prints vs the ${esc(String(V.as_of).slice(0,10))} book. Opened = OI added ≥ half the print; closed/rolled = ≤ a fifth. Bought/sold from the strike's IV change minus its expiry's ATM move.</div>`;
 }
 /* ---- phone-width view */
-function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"){ st.tab="flow"; } }
+function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"&&st.tab!=="levels"&&st.tab!=="orbs"){ st.tab="flow"; } }
 window.addEventListener("resize",()=>{ phoneMode(); render(); }); phoneMode();
 document.getElementById("robBtn").addEventListener("click",()=>{ st.rob=!st.rob; save("rob",st.rob?"1":"0"); document.getElementById("robBtn").setAttribute("aria-pressed",st.rob); render(); });
 document.getElementById("robBtn").setAttribute("aria-pressed",st.rob);
@@ -3718,16 +3927,8 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["c2","IV path","C2","v0","IV at a map price moves along β from the anchor spot: σ(S) = σ₀ + ∫ β/x dx. Greeks are computed at that IV. Smile ON adds the slope terms on top. Needs the β file."],
   ["d4","Real 5-min charm","D4","v1","Charm = the actual change in delta over the next 5 minutes (instead of rate × 5 min, which overstates the last 10–30 minutes)."],
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
-  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
-  // 2026-11-08 evening (Mithil): Density = Derivatives Don's 11/06 version (claude/don-density-versions.md); VIX tab = claude/vol-regime-knowledge-20261108.md.
-  // Display / odds layers only (tg_den.js, tg_vix.js): none changes the Map or the base cone numbers, so none is in TG_CFGS (gamma read-outs).
-  ["dn1","Support + walls","DN1","v0","Density: call wall = largest 1–7 DTE call OI above spot (to +8%), put wall = largest 1–7 DTE put OI below (to −8%), round-number support = the 100-pt strike below spot with the most put OI (both books, to −8%). Lines on the cone and the odds chart, plus touch odds. Fade top (production) stays as it is."],
-  ["dn2","Split axis","DN2","v1","Density: board levels beyond the chart's price range (a far full-book trough, support, walls) are drawn in a strip under the cone instead of ▲/▼ edge labels, so the cone isn't squashed."],
-  ["dn3","Odds extras","DN3","v1","Odds chart: P25 / P75 marks and Don's buckets — below breakdown / in pin / pin top → flip / above flip (read off the close histogram, ± one bin)."],
-  ["dn5","Replay summary","DN5","v1","Density: one summary line — latest cone median / P10 / P90 / P(in pin) / P(above flip) next to the session open / high / low, time in pin, and whether round-number support held."],
-  ["dn6","Status extras","DN6","v0","Density: levered-ETF reset at the current mark in the status box (trades 15:00–16:00), the 1–7 DTE book's date, a 'thin book — levels soft' tag when OI within ±1.5% of spot is under 150k contracts, and QQQ with Width = VIX uses VXN (test server's Cboe quote)."],
-  ["vx1","Regime gauge","VX1","v0","VIX tab: Doublewide VIXM/VIXY gauge — ratio 8d vs 21d EMA, filters VIX9D/VIX > 1.00 and SPX < 21d EMA → CALM / UNCONFIRMED / MIXED / CONFIRMED, his playbook lines, VIX9D/VIX close-shorts (peak > 1.15 then ≤ 1.05) and re-entry (< 1.00 + SPX > 8d EMA) cues. Untested by us as a predictor. Data: test server, free Cboe."],
-  ["vx2","Variance stack","VX2","v1","VIX tab: VIX² + DSPX² ≈ VIXEQ² session to date (1-min Cboe quotes from the test server), transmission share = VIX² ÷ (VIX² + DSPX²) vs the prior close, COR1M / COR3M, identity check."]];
+  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."]];
+// 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
 const TG_SEL={b2:["","1600","1615"]};
 let TG={}; for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false;
 let TG_ANYG=false, TG_GEND=16*60;
@@ -3836,7 +4037,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 op
    Close / 1DTE / Friday prediction: zero line nearest spot on the profile at the target (target close − 10 min);
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
-const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-42db1e8c2c78";
+const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-f4d247901e38";
 const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
@@ -3899,177 +4100,6 @@ function tgReadoutMeta(){ const d=st.live&&st.live.SPX; if(!d||!d.rows||!(d.spot
 function tgReadoutAll(){ const m=tgReadoutMeta(); if(!m) return null; m.cfgs={}; for(const [name,cfg] of TG_CFGS) for(const sm of [false,true]) m.cfgs[name+(sm?"|S":"|P")]=tgReadoutCfg(cfg,sm); return m; }
 function tgRawP95(grid){ const all=[]; for(const col of grid) for(const v of col) all.push(Math.abs(v)); all.sort((a,b)=>a-b); return Math.max(1e-9, all[Math.floor(all.length*0.95)]||1e-9); }
 tgLoad();
-
-/* ---- TEST Density toggles (2026-11-08, Derivatives Don's 11/06 version; claude/don-density-versions.md v2026-11-06).
-   All OFF = production Density exactly. None of them changes the base cone (DEN.runs med/p10/p90); DN1 only adds touch
-   levels to the worker input, DN6 only changes the cone width when the symbol is QQQ and Width = VIX. */
-function tgDenKey(){ return (TG.dn1?"|dn1":"")+(TG.dn6&&st.sym==="QQQ"&&tgVxn()?"|vxn":""); }
-function tgVxn(){ const q=typeof VOLX!=="undefined"&&VOLX&&VOLX.q; return q&&q.VXN&&q.VXN.v>0?q.VXN.v:null; }
-function tgDenVol(){ return TG.dn6&&st.sym==="QQQ"&&tgVxn()?tgVxn():denVix(); }
-function tgDenVolName(){ return TG.dn6&&st.sym==="QQQ"&&tgVxn()?"VXN":"VIX"; }
-// DN1 walls + support. Fade top (production) = largest call OI to +5%, both books. Ours, so the lines differ:
-//   call wall = largest 1-7 DTE call OI above spot to +8% · put wall = largest 1-7 DTE put OI below to -8% ·
-//   support = the round strike (100 pts SPX, 10 SPY/QQQ) below spot with the most put OI, both books, to -8%.
-function tgDenWalls(B){ if(!B) return null; if(B._tgW) return B._tgW;
-  const d=st.live&&st.live[st.sym]; if(!d||!d.rows) return null; const S0=B.S0;
-  const add=(m,k,v)=>{ if(v>0) m.set(k,(m.get(k)||0)+v); }, c0=new Map(), p0=new Map(), cw=new Map(), pw=new Map();
-  for(const r of d.rows){ add(c0,r.k,r.cOI||0); add(p0,r.k,r.pOI||0); }
-  const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; for(const r of (nb&&nb.rows)||[]){ add(cw,r.k,r.cOI||0); add(pw,r.k,r.pOI||0); add(c0,r.k,r.cOI||0); add(p0,r.k,r.pOI||0); }
-  const best=(m,ok)=>{ let k0=null,v0=0; for(const [k,v] of m) if(ok(k)&&v>v0){ v0=v; k0=k; } return [k0,v0]; };
-  const unit=st.sym==="SPX"?100:10, rnd=k=>Math.abs(k/unit-Math.round(k/unit))<1e-9;
-  const [cwk,cwv]=best(cw,k=>k>S0&&k<=S0*1.08), [pwk,pwv]=best(pw,k=>k<S0&&k>=S0*0.92), [suk,suv]=best(p0,k=>k<S0&&k>=S0*0.92&&rnd(k));
-  let near=0; for(const m of [c0,p0]) for(const [k,v] of m) if(Math.abs(k-S0)<=S0*0.015) near+=v;
-  const out={cw:cwk,cwOI:cwv,pw:pwk,pwOI:pwv,support:suk,supOI:suv,nearOI:near,unit,week:!!(nb&&nb.rows&&nb.rows.length)};
-  if(DEN.board===B) B._tgW=out; return out; }
-function tgDenTouch(lv,B){ if(!TG.dn1||!lv) return; const W=tgDenWalls(B); if(W) lv.touch=lv.touch.concat([W.support,W.cw,W.pw]); }
-// DN2 split axis: board levels outside the chart's price range go into a strip under the cone
-function tgDenSplit(B,lo,hi){ if(!TG.dn2||!B) return null;
-  const L=[[B.trough,"#FF4D6A","FULL-BOOK TROUGH · short-gamma plateau"],[B.fade,"#F2B33D","FADE TOP"],[B.fullFlip,"#7FB8FF","FULL FLIP"],[B.breakdown,"#FF7A50","BREAKDOWN"]];
-  if(TG.dn1){ const W=tgDenWalls(B); if(W) L.push([W.support,"#FF5070","ROUND-NUMBER SUPPORT"],[W.cw,"#E07BFF","CALL WALL (1–7 DTE)"],[W.pw,"#FF9AC8","PUT WALL (1–7 DTE)"]); }
-  const off=L.filter(x=>x[0]!=null&&(x[0]<lo||x[0]>hi)); if(!off.length) return null;
-  return {h:Math.min(110,40+off.length*18),levels:off,vals:off.map(x=>x[0])}; }
-function tgDenDrawSplit(ctx,SP,padL,W,y0){ if(!SP) return; const top=y0+10, h=SP.h-14;
-  ctx.fillStyle="#0b101a"; ctx.fillRect(padL,top,W,h); ctx.strokeStyle="#ffffff22"; ctx.lineWidth=1; ctx.strokeRect(padL,top,W,h);
-  ctx.strokeStyle="#C9D3E0"; ctx.lineWidth=1.5; for(const x of [padL-6,padL+W-6]){ ctx.beginPath(); ctx.moveTo(x,top+2); ctx.lineTo(x+12,top-6); ctx.stroke(); }
-  const v=SP.levels.map(l=>l[0]), mn=Math.min(...v), mx=Math.max(...v), pad=Math.max(5,(mx-mn)*0.25), a=mn-pad, b=mx+pad, Y=p=>top+6+(h-12)*(1-(p-a)/(b-a||1));
-  ctx.font="12px system-ui"; ctx.fillStyle="#C9D3E0"; ctx.textAlign="right"; ctx.fillText(fmtN(Math.round(b)),padL-6,top+12); ctx.fillText(fmtN(Math.round(a)),padL-6,top+h-2); ctx.textAlign="left";
-  const lab=SP.levels.slice().sort((p,q)=>q[0]-p[0]).map(l=>[Y(l[0]),l]); for(let i=1;i<lab.length;i++) if(lab[i][0]-lab[i-1][0]<16) lab[i][0]=lab[i-1][0]+16;
-  ctx.font="bold 12px system-ui"; ctx.textAlign="right";
-  for(const [yl,[p,c,t]] of lab){ const y=Y(p); ctx.strokeStyle=c; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke();
-    const s=`${t} ${fmtN(p,0)}`, tw=ctx.measureText(s).width; ctx.fillStyle="#05080fd9"; ctx.fillRect(padL+W-tw-12,yl-12,tw+10,16); ctx.fillStyle=c; ctx.fillText(s,padL+W-7,yl); }
-  ctx.textAlign="left"; ctx.font="11px system-ui"; ctx.fillStyle="#8a97a8"; ctx.fillText("split axis — levels outside the chart's price range (TEST DN2)",padL+6,top+h-3); }
-// DN1 lines on the main chart (drawn with the production hl() helper)
-function tgDenLines(hl,B){ if(!TG.dn1||!B) return; const W=tgDenWalls(B); if(!W) return;
-  if(W.cw!=null&&W.cw!==B.fade) hl(W.cw,"#E07BFF",[4,3],`CALL WALL ${fmtN(W.cw,0)} (1–7 DTE)`);
-  if(W.pw!=null&&W.pw!==B.trough) hl(W.pw,"#FF9AC8",[4,3],`PUT WALL ${fmtN(W.pw,0)} (1–7 DTE)`);
-  if(W.support!=null) hl(W.support,"#FF5070",[1,3],`ROUND-NUMBER SUPPORT ${fmtN(W.support,0)}`); }
-// histogram helpers (odds chart): quantile and mass of the drawn closes
-function tgHq(H,q){ const tot=H.c.reduce((a,b)=>a+b,0)||1; let cum=0; for(let i=0;i<H.c.length;i++){ const c=H.c[i]/tot; if(cum+c>=q) return H.lo+(i+(q-cum)/(c||1))*H.w; cum+=c; } return H.lo+H.c.length*H.w; }
-function tgHm(H,a,b){ const tot=H.c.reduce((x,y)=>x+y,0)||1; let m=0; for(let i=0;i<H.c.length;i++){ const x0=H.lo+i*H.w, x1=x0+H.w, ov=Math.max(0,Math.min(b,x1)-Math.max(a,x0)); m+=H.c[i]*ov/H.w; } return m/tot; }
-function tgOddsLines(vl,B){ if(!TG.dn1) return; const W=tgDenWalls(B); if(!W) return; vl.push([W.support,"#FF5070","support"],[W.cw,"#E07BFF","call wall"],[W.pw,"#FF9AC8","put wall"]); }
-function tgOddsDraw(ctx,o,X,padT,H){ if(!TG.dn3||!o||!o.hist) return; const Hh=o.hist;
-  ctx.font="bold 11px system-ui"; ctx.textAlign="center";
-  for(const [q,t] of [[0.25,"P25"],[0.75,"P75"]]){ const v=tgHq(Hh,q), x=X(v); ctx.strokeStyle="#ffffffaa"; ctx.lineWidth=1; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(x,padT+H*0.25); ctx.lineTo(x,padT+H); ctx.stroke();
-    ctx.fillStyle="#fff"; ctx.fillText(`${t} ${fmtN(v,0)}`,x,padT+H*0.25-3); } ctx.textAlign="left"; }
-function tgOddsTxt(r,B){ if(!r||!r.odds||!r.odds.hist) return ""; const o=r.odds, Hh=o.hist, p=v=>v==null?"–":(v*100).toFixed(1)+"%", out=[];
-  if(TG.dn3){ out.push(`<div><b>TEST DN3</b> P25 <b>${fmtN(tgHq(Hh,0.25),0)}</b> · P75 <b>${fmtN(tgHq(Hh,0.75),0)}</b></div>`);
-    const bd=B&&B.breakdown, top=B&&B.pinHi, fl=B?(B.fullFlip!=null?B.fullFlip:B.frontFlip):null;
-    if(bd!=null&&top!=null&&fl!=null){ const hi=Math.max(top,fl);
-      out.push(`<div>Don's buckets: below breakdown <b>${p(tgHm(Hh,-1e9,bd))}</b> · in pin <b>${p(tgHm(Hh,bd,top))}</b> · pin top → flip <b>${p(fl>top?tgHm(Hh,top,fl):0)}</b> · above flip <b>${p(tgHm(Hh,hi,1e9))}</b> <span class="note">(from the close histogram, ±${Hh.w} pts)</span></div>`); } }
-  if(TG.dn1){ const T=o.touch||[], TL=o.touchLv||[]; const nm=["round-number support","call wall","put wall"], s=[];
-    for(let i=3;i<6;i++) if(TL[i]!=null) s.push(`${nm[i-3]} ${fmtN(TL[i],0)} <b>${p(T[i])}</b>`);
-    if(s.length) out.push(`<div class="note"><b>TEST DN1</b> touch before the close: ${s.join(" · ")}</div>`); }
-  return out.join(""); }
-// DN5 summary line + DN6 key-reading extras (appended to Key readings)
-function tgDenExtra(cur,B,S,d){ if(!TG.dn5&&!TG.dn6) return ""; const out=[], now=denNowMin();
-  if(TG.dn5&&cur&&cur.odds&&cur.odds.hist){ const M=denPull()&&cur.pull?cur.pull:cur, Hh=cur.odds.hist, fl=B?(B.fullFlip!=null?B.fullFlip:B.frontFlip):null;
-    const sn=denSnaps().filter(r=>r[1]>RTH_OPEN&&r[1]<=MAP_T1).map(r=>r[2].x).filter(x=>x>0);
-    const O=sn.length?sn[0]:null, Hi=sn.length?Math.max(...sn):null, Lo=sn.length?Math.min(...sn):null, pin=denPinShare(B), W=tgDenWalls(B);
-    const pp=v=>v==null?"–":Math.round(v*100)+"%";
-    out.push(`<div class="k" style="border:1px solid #d9a400;border-radius:6px;padding:6px 8px"><span class="lab">TEST DN5 · to ${tlabel(Math.min(now,MAP_T1))}</span>spot <b>${fmtN(S,2)}</b> · final cone (from ${fmtN(cur.spot,0)} @ ${cur.t}): median <b>${fmtN(M.med,0)}</b> · P10 ${fmtN(M.p10,0)} · P90 ${fmtN(M.p90,0)}`+
-      (B&&B.pinLo!=null?` · P(in pin) <b>${pp(tgHm(Hh,B.pinLo,B.pinHi))}</b>`:"")+(fl!=null?` · P(above flip) <b>${pp(tgHm(Hh,fl,1e9))}</b>`:"")+
-      `<br>Session O ${fmtN(O,2)} · H ${fmtN(Hi,2)} · L ${fmtN(Lo,2)} · time in pin ${pin!=null?Math.round(pin*100)+"%":"–"}`+
-      (W&&W.support!=null&&Lo!=null?` · round-number support ${fmtN(W.support,0)} <b class="${Lo>W.support?"up":"dn"}">${Lo>W.support?"held":"broken"}</b>`:"")+`</div>`); }
-  if(TG.dn6){ const W=tgDenWalls(B), LE=denLetf(S), nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym], day=liveClock().date;
-    const ob=nb&&(nb.as_of_date||nb.as_of||null);
-    out.push(`<div class="k"><span class="lab">TEST DN6</span>levered reset at the mark <b class="${LE&&LE.bn<0?"dn":"up"}">${LE?denBn(LE.bn):"–"}</b>${LE?` (builds 15:00–16:00, not charm)`:""} · 1–7 DTE OI book ${ob?esc(String(ob).slice(0,10))+(String(ob).slice(0,10)!==day?" <b class=\"dn\">not today's</b>":" (today)"):"<b class=\"dn\">missing</b>"}`+
-      (W?` · OI within ±1.5%: ${fmtN(Math.round(W.nearOI/1000),0)}k${W.nearOI<150000?` <b class="dn">thin book — levels soft</b>`:""}`:"")+
-      (st.sym==="QQQ"?` · width vol ${tgVxn()?`VXN <b>${tgVxn().toFixed(2)}</b>`:"VXN not loaded (VIX used)"}`:"")+`</div>`); }
-  return out.join(""); }
-// DN6 status-box line on the chart
-function tgDenStatus(ctx,padL,W,padT,S){ if(!TG.dn6) return; const LE=denLetf(S); if(!LE) return;
-  const s=`levered reset @ mark ${denBn(LE.bn)} (15:00–16:00)`; ctx.font="bold 13px system-ui"; const tw=ctx.measureText(s).width;
-  ctx.textAlign="right"; ctx.fillStyle="#05080fd0"; ctx.fillRect(padL+W-tw-16,padT+86,tw+12,20); ctx.fillStyle=LE.bn<0?"#FF7A6B":"#3FE0A0"; ctx.fillText(s,padL+W-10,padT+101); ctx.textAlign="left"; }
-
-/* ---- TEST VIX-tab toggles (2026-11-08; claude/vol-regime-knowledge-20261108.md). Data = test/volx.json, written by the
-   TEST server only (free Cboe delayed quotes + daily history, no Convex). Fetched only while VX1, VX2 or DN6 is on. */
-let VOLX=null;
-async function tgVolxPoll(){ if(!(TG.vx1||TG.vx2||TG.dn6)) return;
-  try{ const r=await fetch("test/volx.json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); VOLX=await r.json(); VOLX._err=null; }
-  catch(e){ VOLX=VOLX||{}; VOLX._err=String(e&&e.message||e); }
-  try{ if(st.tab==="vix") renderVix(); else if(st.tab==="density") renderDensity(series(st.sym)); }catch(e){} }
-setInterval(tgVolxPoll,60000); setTimeout(tgVolxPoll,1500);
-function tgVixKey(){ return (TG.vx1?"g":"")+(TG.vx2?"s":"")+(TG.vx1||TG.vx2?(VOLX&&(VOLX.asof||VOLX._err)||"none"):""); }
-const TGV_LAB={CALM:["#3FD0B0","CALM / CONTANGO","green"],"CALM*":["#9BD06A","CALM — but a filter is on","green*"],UNCONFIRMED:["#FFD23F","UNCONFIRMED CROSS-DOWN","yellow"],
-  MIXED:["#FF9A3D","MIXED / TRANSITIONING","orange"],CONFIRMED:["#E5484D","CONFIRMED VOL EXPANSION","red"]};
-const TGV_PLAY={CALM:["Buy dips / trend-follow long: ES/MES or ATM–slightly ITM calls 3–7 DTE; trail stops under higher lows, partials into resistance.",
-    "Full-size short premium: 0–7 DTE bull puts or iron condors at 15–20Δ; take 50–75% of credit, close before late-day pin risk."],
-  UNCONFIRMED:["Fade the fear (usually a trap for late bears): ES/MES or bull call debit spreads; tight stop under the swing low, target VWAP / prior high.",
-    "Opportunistic bull puts below support / VWAP while skew is bid; close on the snap-back; stop if SPX loses its 21d EMA."],
-  MIXED:["Two-way chop: cut size 50%, futures over options, take profits at fixed levels.",
-    "Half size; shorts at 8–12Δ, or bear calls if SPX is under its 8d EMA; 1.5–2× credit stop; nothing short-dated overnight."],
-  CONFIRMED:["Sell rips / momentum short: bear put debit spreads (0.60/0.30Δ), ITM puts or short ES/MES; scale out when VIX9D/VIX spikes over 1.15.",
-    "Pause short puts and condors; only bear calls well above resistance — until VIX9D/VIX has peaked and is back under 1.00 with SPX over its 8d EMA."]};
-function tgVixRender(){ const g=document.getElementById("vxGauge"), s=document.getElementById("vxStack"); if(!g||!s) return;
-  g.hidden=!TG.vx1; s.hidden=!TG.vx2; if(!TG.vx1&&!TG.vx2) return;
-  try{ if(TG.vx1) tgVixGauge(g); }catch(e){ g.innerHTML=`<div class="vxerr">VX1 error: ${esc(e.message||e)}</div>`; }
-  try{ if(TG.vx2) tgVixStack(s); }catch(e){ s.innerHTML=`<div class="vxerr">VX2 error: ${esc(e.message||e)}</div>`; } }
-function tgVixWait(el,head){ el.innerHTML=head+`<div class="vxnote">${VOLX&&VOLX._err?`Could not read test/volx.json (${esc(VOLX._err)}) — the TEST server writes it once a minute; is <code>cvxmap-test</code> running the new code?`:"Loading test/volx.json…"}</div>`; }
-function tgVixGauge(el){
-  const head=`<div class="vxh"><h2>Regime gauge — VIXM / VIXY</h2><span class="vxsub">TEST VX1 · Doublewide Capital (11/07) · ratio 8-day vs 21-day EMA, confirmed by VIX9D/VIX &gt; 1.00 and SPX &lt; its 21-day EMA · daily closes; today provisional until the cash close · not tested by us as a predictor</span></div>`;
-  const G=VOLX&&VOLX.gauge; if(!G||!G.length) return tgVixWait(el,head);
-  const x=G[G.length-1], L=TGV_LAB[x.lab]||["#9DB0CA",x.lab,""], P=TGV_PLAY[x.lab==="CALM*"?"CALM":x.lab]||["",""], cu=VOLX.cues||{};
-  const ck=b=>b?`<b style="color:#FF7A6B">✓ on</b>`:`<span style="color:#5FE0C0">✗ off</span>`;
-  const chip=(t,v,sub)=>`<span style="display:inline-block;margin:2px 10px 2px 0"><small style="color:var(--mute)">${t}</small> <b>${v}</b> ${sub||""}</span>`;
-  const cue=cu.close_shorts?`<b style="color:#FFD23F">Close-shorts cue ON</b>: VIX9D/VIX peaked ${vxN(cu.peak5,3)} (&gt; 1.15) and is back to ${vxN(x.v9r,3)} (≤ 1.05) — lock in short-side profits before the snap-back.`
-    :cu.reentry?`<b style="color:#3FD0B0">Re-entry cue ON</b>: VIX9D/VIX peaked ${vxN(cu.peak10,3)} and is under 1.00 with SPX over its 8d EMA — bull put spreads can resume (early, before the EMA re-cross).`
-    :(cu.peak10>1.15?`VIX9D/VIX peaked <b>${vxN(cu.peak10,3)}</b> in the last 10 sessions (over 1.15). Close-shorts cue needs ≤ 1.05 (now ${vxN(x.v9r,3)}); re-entry needs &lt; 1.00 ${cu.reentry_need&&cu.reentry_need.v9r_below_1?"✓":"✗"} and SPX over its 8d EMA ${vxN(x.s8,0)} ${cu.reentry_need&&cu.reentry_need.spx_above_8d?"✓":"✗"}.`
-    :`No VIX9D/VIX spike over 1.15 in the last 10 sessions.`);
-  const hist=G.slice(-10).map(r=>{ const l=TGV_LAB[r.lab]||["#9DB0CA"]; return `<span title="${r.d} · ratio ${r.r} · 8d ${r.e8} / 21d ${r.e21} · 9D/VIX ${r.v9r} · SPX ${r.spx} vs 21d ${r.s21}" style="display:inline-block;background:${l[0]};color:#000;border-radius:3px;padding:0 5px;margin:1px;font-size:11px;font-weight:700">${r.d.slice(5)}${r.prov?"*":""}</span>`; }).join("");
-  el.innerHTML=head+`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px">
-      <span class="vxtag" style="background:${L[0]};color:#000;font-size:15px;padding:3px 10px">${L[1]}${x.prov?" · provisional":""}</span>
-      ${chip("VIXM/VIXY",vxN(x.r,4),`· 8d <b>${vxN(x.e8,4)}</b> ${x.e8>x.e21?"&gt;":"&lt;"} 21d <b>${vxN(x.e21,4)}</b>`)}
-      ${chip("VIX9D/VIX",vxN(x.v9r,3),"&gt; 1.00 "+ck(x.f_v9))}
-      ${chip("SPX",vxN(x.spx,0),`vs 21d EMA ${vxN(x.s21,0)}: below ${ck(x.f_spx)} · 8d EMA ${vxN(x.s8,0)}`)}
-      <span style="color:var(--mute);font-size:12px">${esc(x.d)}</span></div>
-    <div class="vxnote" style="color:var(--ink)">${cue}</div>
-    <div class="vxnote" style="color:var(--ink)"><b>Directional:</b> ${esc(P[0])}<br><b>Credit spreads / condors:</b> ${esc(P[1])}${x.lab==="CALM*"?" <b>(a confirmation filter is on — he has no row for this; treat with care)</b>":""}</div>
-    <canvas id="tgGaugeC" style="width:100%;height:170px;display:block;margin-top:8px"></canvas>
-    <div class="vxnote">Last 10 sessions: ${hist} <span style="color:var(--faint)">(* = provisional) · history through ${esc(JSON.stringify(VOLX.hist_through||{}).replace(/[{}"]/g,"").replace(/,/g,", "))} · ${esc(VOLX.src||"")} · updated ${esc(String(VOLX.asof||"").slice(11,16))} ET</span></div>`;
-  const cv=document.getElementById("tgGaugeC"); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
-  const padL=46,padR=10,padT=8,padB=18,W=w-padL-padR,H=h-padT-padB, n=G.length; let lo=1e9,hi=-1e9; for(const r of G) for(const v of [r.r,r.e8,r.e21]){ lo=Math.min(lo,v); hi=Math.max(hi,v); }
-  const pd=(hi-lo)*0.08||0.01; lo-=pd; hi+=pd; const X=i=>padL+W*(i+0.5)/n, Y=v=>padT+H*(1-(v-lo)/(hi-lo));
-  G.forEach((r,i)=>{ const l=TGV_LAB[r.lab]||["#9DB0CA"]; ctx.fillStyle=l[0]+"26"; ctx.fillRect(padL+W*i/n,padT,W/n+0.5,H); });
-  for(const [k,c,lw] of [["r","#ffffff",1.4],["e8","#3FE0A0",2.2],["e21","#FF6B6B",2.2]]){ ctx.strokeStyle=c; ctx.lineWidth=lw; ctx.beginPath(); G.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r[k])):ctx.moveTo(X(i),Y(r[k]))); ctx.stroke(); }
-  ctx.fillStyle="#C9D3E0"; ctx.font="11px system-ui"; ctx.fillText(hi.toFixed(3),2,padT+10); ctx.fillText(lo.toFixed(3),2,padT+H);
-  ctx.textAlign="center"; for(let i=0;i<n;i+=Math.max(1,Math.round(n/6))) ctx.fillText(G[i].d.slice(5),X(i),h-4); ctx.textAlign="left";
-  ctx.fillStyle="#fff"; ctx.fillText("ratio",padL+6,padT+12); ctx.fillStyle="#3FE0A0"; ctx.fillText("8d EMA",padL+44,padT+12); ctx.fillStyle="#FF6B6B"; ctx.fillText("21d EMA",padL+96,padT+12); }
-function tgVixStack(el){
-  const head=`<div class="vxh"><h2>Variance stack — VIX² + DSPX² ≈ VIXEQ²</h2><span class="vxsub">TEST VX2 · vol doesn't add, variance does · VIX² = what correlation transmits to the index · DSPX² = dispersion, diversified away · transmission share = VIX² ÷ (VIX² + DSPX²), related to but not the same as COR1M · Cboe 1-min, ~15 min delayed</span></div>`;
-  if(!VOLX||!VOLX.q) return tgVixWait(el,head);
-  const Q=VOLX.q, N=VOLX.stack_now, Pv=VOLX.stack_prev, v=s=>Q[s]&&Q[s].v, pv=s=>Q[s]&&Q[s].prev;
-  const row=(t,a,b,d)=>`<span style="display:inline-block;margin:2px 14px 2px 0"><small style="color:var(--mute)">${t}</small> <b>${a}</b>${b!=null?` <span style="color:var(--mute)">prev ${b}</span>`:""}${d||""}</span>`;
-  const I=VOLX.intra||{t:[]}, has=I.t&&I.t.length>1;
-  el.innerHTML=head+`<div>${row("VIX",vxN(v("VIX")),vxN(pv("VIX")))}${row("DSPX",vxN(v("DSPX")),vxN(pv("DSPX")))}${row("VIXEQ",vxN(v("VIXEQ")),vxN(pv("VIXEQ")))}
-      ${N?row("√(VIX²+DSPX²)",vxN(N.sqrt),null,` vs VIXEQ ${vxN(v("VIXEQ"))} · gap ${vxSgn(N.gap,2)}`):""}
-      ${N?row("Transmission share",(N.share*100).toFixed(1)+"%",Pv?(Pv.share*100).toFixed(1)+"%":null,Pv?` · ${Math.abs(N.share-Pv.share)<0.002?"unchanged":N.share>Pv.share?"<b style='color:#FF9A6B'>thickening</b> (correlation carrying more)":"<b style='color:#5FE0C0'>thinning</b>"}`:""):""}
-      ${row("COR1M",vxN(v("COR1M")),vxN(pv("COR1M")))}${row("COR3M",vxN(v("COR3M")),vxN(pv("COR3M")))}</div>
-    ${has?`<canvas id="tgStackC" style="width:100%;height:190px;display:block;margin-top:6px"></canvas><canvas id="tgCorrC" style="width:100%;height:150px;display:block;margin-top:6px"></canvas>`
-      :`<div class="vxnote">The session-to-date charts fill from 09:30 while the test server runs (1-minute Cboe quotes). Numbers above are the latest quotes and the prior close.</div>`}
-    <div class="vxnote">Identity check = √(VIX² + DSPX²) − VIXEQ (async prints make it jump a few tenths in spikes). Read: share rising with COR1M = the index is catching single-name stress (correlation-led); VIXEQ up with the share flat = single-name demand, diversified away. Updated ${esc(String(VOLX.asof||"").slice(11,16))} ET.</div>`;
-  if(!has) return;
-  const T=I.t.map(tmin), t0=RTH_OPEN, t1=16*60;
-  { const cv=document.getElementById("tgStackC"), {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
-    const padL=46,padR=10,padT=8,padB=18,W=w-padL-padR,H=h-padT-padB, X=t=>padL+W*(t-t0)/(t1-t0);
-    const a=I.VIX.map(x=>x>0?x*x:null), b=I.DSPX.map(x=>x>0?x*x:null), e=I.VIXEQ.map(x=>x>0?x*x:null);
-    let hi=0; a.forEach((x,i)=>{ if(x!=null&&b[i]!=null) hi=Math.max(hi,x+b[i]); if(e[i]!=null) hi=Math.max(hi,e[i]); }); if(Pv) hi=Math.max(hi,Pv.tot); hi*=1.08; const Y=v=>padT+H*(1-v/(hi||1));
-    const area=(top,bot,col)=>{ ctx.fillStyle=col; ctx.beginPath(); let st0=false; const pts=[]; T.forEach((t,i)=>{ if(top[i]!=null&&bot[i]!=null) pts.push([X(t),Y(top[i]),Y(bot[i])]); });
-      if(!pts.length) return; ctx.moveTo(pts[0][0],pts[0][1]); pts.forEach(p=>ctx.lineTo(p[0],p[1])); for(let i=pts.length-1;i>=0;i--) ctx.lineTo(pts[i][0],pts[i][2]); ctx.closePath(); ctx.fill(); };
-    area(a,a.map(()=>0),"#B8485Acc"); area(a.map((x,i)=>x!=null&&b[i]!=null?x+b[i]:null),a,"#7468B8cc");
-    ctx.strokeStyle="#9FE3FF"; ctx.lineWidth=1.6; ctx.setLineDash([3,3]); ctx.beginPath(); let on=false; T.forEach((t,i)=>{ if(e[i]==null){ on=false; return; } on?ctx.lineTo(X(t),Y(e[i])):ctx.moveTo(X(t),Y(e[i])); on=true; }); ctx.stroke(); ctx.setLineDash([]);
-    if(Pv){ ctx.strokeStyle="#ffffff66"; ctx.setLineDash([6,4]); for(const v0 of [Pv.tot,Pv.vix2]){ ctx.beginPath(); ctx.moveTo(padL,Y(v0)); ctx.lineTo(padL+W,Y(v0)); ctx.stroke(); } ctx.setLineDash([]); }
-    ctx.fillStyle="#C9D3E0"; ctx.font="11px system-ui"; ctx.fillText(Math.round(hi),2,padT+10); ctx.fillText("0",2,padT+H);
-    for(const t of [570,630,690,750,810,870,930,960]){ ctx.textAlign=t===570?"left":t===960?"right":"center"; ctx.fillText(tlabel(t),X(t),h-4); } ctx.textAlign="left";
-    ctx.fillStyle="#FF8FA0"; ctx.fillText("VIX² (index variance)",padL+6,padT+H-6); ctx.fillStyle="#B9B0FF"; ctx.fillText("DSPX² (dispersion)",padL+6,padT+14); ctx.fillStyle="#9FE3FF"; ctx.fillText("dotted = VIXEQ² · dashed = prior close stack / VIX²",padL+150,padT+14); }
-  { const cv=document.getElementById("tgCorrC"), {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
-    const padL=46,padR=10,padT=8,padB=18,W=w-padL-padR,H=h-padT-padB, X=t=>padL+W*(t-t0)/(t1-t0);
-    const sh=I.VIX.map((x,i)=>x>0&&I.DSPX[i]>0?100*x*x/(x*x+I.DSPX[i]*I.DSPX[i]):null), S=[[sh,"#FFD23F","share %"],[I.COR1M,"#FF9A3D","COR1M"],[I.COR3M,"#3FD0B0","COR3M"]];
-    let lo=1e9,hi=-1e9; for(const [s] of S) for(const v of s) if(v!=null&&v>0){ lo=Math.min(lo,v); hi=Math.max(hi,v); } if(lo>hi){ lo=0; hi=1; } const pd=(hi-lo)*0.1||1; lo-=pd; hi+=pd; const Y=v=>padT+H*(1-(v-lo)/(hi-lo));
-    for(const [s,c] of S){ ctx.strokeStyle=c; ctx.lineWidth=1.8; ctx.beginPath(); let on=false; T.forEach((t,i)=>{ const v=s[i]; if(!(v>0)){ on=false; return; } on?ctx.lineTo(X(t),Y(v)):ctx.moveTo(X(t),Y(v)); on=true; }); ctx.stroke(); }
-    ctx.fillStyle="#C9D3E0"; ctx.font="11px system-ui"; ctx.fillText(hi.toFixed(1),2,padT+10); ctx.fillText(lo.toFixed(1),2,padT+H);
-    for(const t of [570,630,690,750,810,870,930,960]){ ctx.textAlign=t===570?"left":t===960?"right":"center"; ctx.fillText(tlabel(t),X(t),h-4); } ctx.textAlign="left";
-    let xo=padL+6; for(const [,c,n] of S){ ctx.fillStyle=c; ctx.fillText(n,xo,padT+12); xo+=ctx.measureText(n).width+14; } }
-}
 
 /* Phase 3 (2026-11-04), both OFF by default (Map tab buttons; scored nightly before they are trusted):
    Smile  = shadow greeks: the smile moves with spot (sticky moneyness), so dσ/dS = −(K/S)·dσ/dK per strike.
@@ -4995,7 +5025,7 @@ function denFail(where,e){ DEN.fails++; DEN.err=where+": "+(e&&e.message||e); tr
 function denStop(){ if(DEN.worker){ try{ DEN.worker.terminate(); }catch(e){} } DEN.worker=null; DEN.busy=null; }
 function denNowMin(){ const c=liveClock(); return c.h*60+c.m; }
 function denSnaps(){ const a=(st.flow&&st.flow[st.sym])||[], now=denNowMin(); const out=[]; a.forEach((s,j)=>{ const t=tmin(s.t); if(t<=now) out.push([j,t,s]); }); return out; }
-function denReset(){ const c=liveClock(); const key=c.date+"|"+st.sym+"|"+st.basis+"|"+(st.flowFromFile?st.flowFile:"live")+"|"+(denPull()?"pull":"")+"|"+denVol()+tgDenKey();   // TEST DN1/DN6 · the minute-log file arriving resets everything built from the live-only fallback
+function denReset(){ const c=liveClock(); const key=c.date+"|"+st.sym+"|"+st.basis+"|"+(st.flowFromFile?st.flowFile:"live")+"|"+(denPull()?"pull":"")+"|"+denVol()+dnoKey();   // options DN1/DN6 · the minute-log file arriving resets everything built from the live-only fallback
   if(DEN.key!==key){ denStop(); DEN.key=key; DEN.runs={}; DEN.dens={}; DEN.anchor=null; DEN.charm=[]; DEN.charmN=0; DEN.lines=null; DEN.linesKey=null;
     DEN.board=null; DEN.shelf=null; DEN.shelfKey=null; DEN.cm=null; DEN.cmKey=null; } }
 function denPrevClose(){ const a=(st.flow&&st.flow[st.sym])||[]; let p=null; for(const s of a){ const t=tmin(s.t); if(t>RTH_OPEN) break; if(s.x>0) p=s.x; } return p; }   // the 09:30 row is the pre-open print = prior close
@@ -5086,10 +5116,10 @@ function denInputs(k){
   if(DEN.anchor==null){ const f=sn.find(r=>r[1]>=RTH_OPEN+1); DEN.anchor=Math.round((f?f[2].x:S0)/step)*step; }
   const bdp=step/2, nb=161, b0=DEN.anchor-80*bdp;
   // width: the straddle (base) or, with Vol = VIX, the live VIX (1-day sigma = VIX/sqrt(252)) spread over the same clock
-  let sig=strad/0.7979/S0, src="straddle"; const vix=tgDenVol();   /* TEST DN6: VXN for QQQ */
-  if(denVol()==="vix"&&vix){ let all=0; for(let i=0;i<390;i++) all+=DEN_W[i]; sig=vix/100/Math.sqrt(252)*Math.sqrt(ws/(all||1)); src=tgDenVolName()+" "+vix.toFixed(2); }
+  let sig=strad/0.7979/S0, src="straddle"; const vix=dnoVol();   /* DN6: VXN for QQQ */
+  if(denVol()==="vix"&&vix){ let all=0; for(let i=0;i<390;i++) all+=DEN_W[i]; sig=vix/100/Math.sqrt(252)*Math.sqrt(ws/(all||1)); src=dnoVolName()+" "+vix.toFixed(2); }
   const B=denBoard(), SH=denShelfAt(hi); const bands=[]; if(B&&B.pinLo!=null) bands.push([B.pinLo,B.pinHi]); if(SH) bands.push([SH.lo,SH.hi]);
-  const lv=B?{bd:B.breakdown,flip:B.fullFlip!=null?B.fullFlip:B.frontFlip,top:B.pinHi,touch:[B.breakdown,B.trough,B.fade]}:null; tgDenTouch(lv,B);
+  const lv=B?{bd:B.breakdown,flip:B.fullFlip!=null?B.fullFlip:B.frontFlip,top:B.pinHi,touch:[B.breakdown,B.trough,B.fade]}:null; dnoTouch(lv,B);
   return {id:k,k0:k,N:DEN.N,seed:DEN.SEED+k,S0,sig,src,strad,w,G,gp0:prices[0],gdp:dp,gnp:prices.length,gt0:times[0],gdt:MAP_STEP,gnt:times.length,
           ref,beta:DEN.BETA,c0:DEN.CLIP[0],c1:DEN.CLIP[1],b0,bdp,nb,zoneW:step,gz,vt,vb,keep:(k===0),
           pull:denPull()&&bands.length?{k:DEN_PULL_K,bands}:null, lv, shelf:SH?[SH.lo,SH.hi]:null};
@@ -5182,6 +5212,7 @@ function denZone(z,w){ if(z==null) return "–"; if(w!==5) return fmtN(z,w<1?2:0
 function denPinShare(B){ if(!B||B.pinLo==null) return null; const p=denSnaps().filter(r=>r[1]>RTH_OPEN&&r[1]<MAP_T1); if(!p.length) return null; return p.filter(r=>r[2].x>=B.pinLo&&r[2].x<=B.pinHi).length/p.length; }
 function denBtns(){
   const on=denOn(), b=document.getElementById("denEngBtn"), p=document.getElementById("denPullBtn"), v=document.getElementById("denVolBtn");
+  try{ optRow("denOpts",DNO_DEF,st.dno); if(st.dno.dn6) volxDue(); }catch(e){}
   if(b){ b.setAttribute("aria-pressed",on); b.textContent=DEN.hard?"Engine OFF (address bar)":DEN.tripped?"Engine STOPPED":on?"Engine ON":"Engine OFF"; b.disabled=DEN.hard; }
   if(p){ p.setAttribute("aria-pressed",denPull()); p.textContent="Pull "+(denPull()?"ON":"OFF"); }
   if(v){ v.setAttribute("aria-pressed",denVol()==="vix"); v.textContent="Width: "+(denVol()==="vix"?"VIX":"Straddle"); } }
@@ -5214,7 +5245,7 @@ function renderDensity(se){
       (pin!=null?`<div class="k"><span class="lab">Pin ${fmtN(B.pinLo,0)}–${fmtN(B.pinHi,0)}</span>price spent <b>${Math.round(pin*100)}%</b> of the day inside it</div>`:"")+
       `<div class="k"><span class="lab">Put shelf</span>${SH?`<b>${fmtN(SH.lo,0)}–${fmtN(SH.hi,0)}</b> built by ${tlabel(SH.t)} (${fmtN(SH.vol/1000,0)}k puts, ${SH.rmin.toFixed(0)}–${SH.rmax.toFixed(0)}× OI) — ${esc(denSideTxt(SH.side))}`:"none yet"}</div>`+
       `<div class="k"><span class="lab">Into the close</span>charm left <b class="${left!=null&&left<0?"dn":"up"}">${denBn(left)}</b>${left!=null?(left<0?" (dealers sell)":" (dealers buy)"):""} · leveraged ETFs <b class="${LE&&LE.bn<0?"dn":"up"}">${LE?denBn(LE.bn):"–"}</b>${LE?` at ${(LE.r*100>=0?"+":"")+(LE.r*100).toFixed(2)}% on the day`:""}</div>`;
-    denDrawOdds(cur,B,S); denDrawCharm(CM,S); if(TG.dn5||TG.dn6) kEl.innerHTML+=tgDenExtra(cur,B,S,d);   // TEST DN5 / DN6
+    denDrawOdds(cur,B,S); denDrawCharm(CM,S); if(st.dno.dn5||st.dno.dn6) kEl.innerHTML+=dnoExtra(cur,B,S,d);   // DN5 / DN6
     // ---- more detail (folded)
     const inR=L?L.pts.filter(p=>p.vt!=null&&p.vb!=null&&p.S>p.vb&&p.S<p.vt).length/Math.max(1,L.pts.filter(p=>p.vt!=null).length):null;
     const lAbove=lp&&lp.gz!=null&&S>lp.gz; const ev=DEN_EVENTS[liveClock().date]; const RM=CM&&CM.remarks.length?CM.remarks[CM.remarks.length-1]:null;
@@ -5236,7 +5267,7 @@ function renderDensity(se){
 }
 function denDraw(cv,L,cur,g0,now,d,B,SH,X0){
   const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); ctx.fillStyle="#05080f"; ctx.fillRect(0,0,w,h);
-  const padL=70, padR=118, padT=22, padB=40, W=w-padL-padR; let H=h-padT-padB; if(W<50||H<50) return; let SPL=null;   // TEST DN2
+  const padL=70, padR=118, padT=22, padB=40, W=w-padL-padR; let H=h-padT-padB; if(W<50||H<50) return; let SPL=null;   // DN2
   const cursor=Math.max(0,Math.min(389,now-RTH_OPEN));
   const sn=denSnaps().filter(r=>r[1]>=RTH_OPEN&&r[1]<MAP_T1); const path=sn.map(r=>[r[1]-RTH_OPEN,r[2].x]);
   const ref=cur||g0; if(!ref&&!path.length) return;
@@ -5248,7 +5279,7 @@ function denDraw(cv,L,cur,g0,now,d,B,SH,X0){
   if(B&&path.length){ const pm=Math.min(...path.map(p=>p[1])), px=Math.max(...path.map(p=>p[1]));
     if(B.trough!=null&&pm-B.trough<B.S0*0.012) add(B.trough); if(B.fade!=null&&B.fade-px<B.S0*0.012) add(B.fade); }
   if(lo>hi){ lo=d.spot-50; hi=d.spot+50; } const mid=(lo+hi)/2, span=Math.max(110,(hi-lo)*1.15); lo=mid-span/2; hi=mid+span/2;
-  SPL=tgDenSplit(B,lo,hi); if(SPL) H-=SPL.h;   // TEST DN2: strip under the cone
+  SPL=dnoSplit(B,lo,hi); if(SPL) H-=SPL.h;   // DN2: strip under the cone
   const X=m=>padL+W*m/390, Y=p=>padT+H*(1-(p-lo)/(hi-lo));
   // heat: left of the cursor = the 09:30 cone (dimmed), right = the current cone; each minute scaled to its own peak
   if(ref){ const nb=ref.nb, b0=ref.b0, bdp=ref.bdp; const rowsPx=Math.max(2,Math.min(600,Math.round(H/2)));
@@ -5275,7 +5306,7 @@ function denDraw(cv,L,cur,g0,now,d,B,SH,X0){
     if(B.pinLo!=null) bl.push([Y(B.pinHi)+15,`PIN ${fmtN(B.pinLo,0)}–${fmtN(B.pinHi,0)}`,"#3FD0B0"]);
     hl(B.fullFlip,"#7FB8FF",[6,4],`FULL FLIP ${fmtN(B.fullFlip,0)}`);
     hl(B.breakdown,"#FF7A50",[2,4],`BREAKDOWN ${fmtN(B.breakdown,0)}`);
-    hl(B.trough,"#FF4D6A",[8,3],`FULL-BOOK TROUGH ${fmtN(B.trough,0)} · short-gamma floor`); tgDenLines(hl,B);
+    hl(B.trough,"#FF4D6A",[8,3],`FULL-BOOK TROUGH ${fmtN(B.trough,0)} · short-gamma floor`); dnoLines(hl,B);
     if(SH) bl.push([Y(SH.hi+2.5)+15,`PUT SHELF ${fmtN(SH.lo,0)}–${fmtN(SH.hi,0)} · built ${tlabel(SH.t)}`,"#FFA040"]);
     bl.sort((a,b)=>a[0]-b[0]); for(let i=1;i<bl.length;i++) if(bl[i][0]-bl[i-1][0]<16) bl[i][0]=bl[i-1][0]+16;
     ctx.font="bold 13px system-ui"; bl.forEach(([y,t,c])=>{ const tw=ctx.measureText(t).width; ctx.fillStyle="#05080fcc"; ctx.fillRect(padL+4,y-13,tw+8,17); ctx.fillStyle=c; ctx.fillText(t,padL+8,y); }); }
@@ -5302,7 +5333,7 @@ function denDraw(cv,L,cur,g0,now,d,B,SH,X0){
     ctx.font="bold 22px system-ui"; ctx.fillStyle="#fff"; ctx.fillText(l1,padL+W-12,by+26);
     ctx.font="bold 15px system-ui"; ctx.fillStyle="#DCE6F2"; ctx.fillText(l2,padL+W-12,by+48);
     if(l3){ ctx.fillStyle=X0.above?"#3FE0A0":"#FF7A6B"; ctx.fillText(l3,padL+W-12,by+68); } }
-  ctx.textAlign="left"; tgDenDrawSplit(ctx,SPL,padL,W,padT+H); tgDenStatus(ctx,padL,W,padT,X0&&X0.S);   // TEST DN2 / DN6
+  ctx.textAlign="left"; dnoDrawSplit(ctx,SPL,padL,W,padT+H); dnoStatus(ctx,padL,W,padT,X0&&X0.S);   // DN2 / DN6
   // the Map's gamma column now (right strip)
   if(L&&L.gcol){ const x0=padL+W+16, ww=padR-26, mx=Math.max(1e-9,...L.gcol.map(Math.abs)); ctx.fillStyle="#C9D3E0"; ctx.font="bold 12px system-ui"; ctx.fillText("Map γ now",x0,padT-2>8?padT-2:10);
     L.gprices.forEach((p,i)=>{ if(p<lo||p>hi) return; const v=L.gcol[i]/mx, y=Y(p), bh=Math.max(1.5,H*(L.gprices[1]-L.gprices[0])/(hi-lo)); ctx.fillStyle=v>=0?"#3FD0B0":"#FF6B5A"; const xm=x0+ww/2; ctx.fillRect(v>=0?xm:xm+v*ww/2,y-bh/2,Math.abs(v)*ww/2,bh); });
@@ -5317,15 +5348,15 @@ function denDrawOdds(r,B,S){
   const X=p=>padL+W*(p-xlo)/(xhi-xlo); const bw=Math.max(1,W/n-1);
   for(let i=0;i<n;i++){ const m=Hh.lo+(i+0.5)*Hh.w, up=prev?m>=prev:m>=r.spot, inPin=B&&B.pinLo!=null&&m>=B.pinLo&&m<=B.pinHi;
     ctx.fillStyle=up?(inPin?"#2EE07A":"#1E8F4E"):(inPin?"#FF5A5A":"#9B2F2F"); const bh=H*Hh.c[i]/mx; ctx.fillRect(X(Hh.lo+i*Hh.w),padT+H-bh,bw,bh); }
-  const vl=[[B&&B.breakdown,"#FF7A50","breakdown"],[B&&(B.fullFlip!=null?B.fullFlip:B.frontFlip),"#7FB8FF","flip"],[B&&B.pinHi,"#3FD0B0","pin top"],[B&&B.fade,"#F2B33D","fade"],[prev,"#FFD34D","prev close"],[S,"#ffffff","now"]]; tgOddsLines(vl,B);
+  const vl=[[B&&B.breakdown,"#FF7A50","breakdown"],[B&&(B.fullFlip!=null?B.fullFlip:B.frontFlip),"#7FB8FF","flip"],[B&&B.pinHi,"#3FD0B0","pin top"],[B&&B.fade,"#F2B33D","fade"],[prev,"#FFD34D","prev close"],[S,"#ffffff","now"]]; dnoOddsLines(vl,B);
   ctx.font="bold 12px system-ui"; let lane=0;
   for(const [v,c,t] of vl){ if(v==null||v<xlo||v>xhi) continue; const x=X(v); ctx.strokeStyle=c; ctx.lineWidth=1.5; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,padT-2); ctx.lineTo(x,padT+H); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle=c; ctx.textAlign=x>w-60?"right":"left"; ctx.fillText(t,x+(x>w-60?-3:3),12+(lane++%2)*12); }
-  tgOddsDraw(ctx,o,X,padT,H); ctx.textAlign="left"; ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText(fmtN(xlo,0),padL,h-6); ctx.textAlign="right"; ctx.fillText(fmtN(xhi,0),padL+W,h-6); ctx.textAlign="center"; ctx.fillText(fmtN((xlo+xhi)/2,0),padL+W/2,h-6); ctx.textAlign="left";
+  dnoOddsDraw(ctx,o,X,padT,H); ctx.textAlign="left"; ctx.fillStyle="#C9D3E0"; ctx.font="12px system-ui"; ctx.fillText(fmtN(xlo,0),padL,h-6); ctx.textAlign="right"; ctx.fillText(fmtN(xhi,0),padL+W,h-6); ctx.textAlign="center"; ctx.fillText(fmtN((xlo+xhi)/2,0),padL+W/2,h-6); ctx.textAlign="left";
   if(tx){ const p=v=>v==null?"–":Math.round(v*100)+"%", b=o.b, has=o.has||[], T=o.touch||[], TL=o.touchLv||[];
     tx.innerHTML=`<div><b>${r.t}</b> cone${denPull()&&r.pull?" (pull on)":""}: middle <b>${fmtN(M.med,0)}</b> · 8 in 10 between <b>${fmtN(M.p10,0)}–${fmtN(M.p90,0)}</b></div>`+
       (has[0]&&has[2]?`<div>Below breakdown <b>${p(b[0])}</b> · in pin, under flip <b>${p(b[1])}</b> · in pin, over flip <b>${p(b[2])}</b> · above pin top <b>${p(b[3])}</b></div>`:"")+
-      (TL.some(v=>v!=null)?`<div class="note">Chance price touches before the close: ${[["breakdown",0],["trough",1],["fade top",2]].filter(x=>TL[x[1]]!=null).map(x=>`${x[0]} ${fmtN(TL[x[1]],0)} <b>${p(T[x[1]])}</b>`).join(" · ")}</div>`:""); tx.innerHTML+=tgOddsTxt(r,B); }
+      (TL.some(v=>v!=null)?`<div class="note">Chance price touches before the close: ${[["breakdown",0],["trough",1],["fade top",2]].filter(x=>TL[x[1]]!=null).map(x=>`${x[0]} ${fmtN(TL[x[1]],0)} <b>${p(T[x[1]])}</b>`).join(" · ")}</div>`:""); tx.innerHTML+=dnoOddsTxt(r,B); }
 }
 // ---- charm hedge flow panel: morning curve, tomorrow's book (dashed), latest re-mark (dotted), leveraged ETFs into the close
 function denDrawCharm(CM,S){
@@ -5627,6 +5658,7 @@ function vxPickBar(exps,EV){
 }
 
 function renderVix(){
+  try{ vxoUpdate(); }catch(e){ try{ console.warn("[vix options]",e); }catch(_){} }
   try{ vxRender(); }
   catch(e){ st._vxKey=null; vxSet("vxRegime",`<div class="vxerr">VIX tab error: ${esc(e&&e.message||e)}. The rest of the cockpit is unaffected.</div>`); try{ console.warn("[vix]",e); }catch(_){} }
 }
@@ -5643,7 +5675,7 @@ function vxRender(){
   if(!pk.some(x=>x.e===st.vixExpE)){ const m=pk.find(x=>vxMonthly(x.e,EV)); st.vixExpE=m?m.e:(pk[0]?pk[0].e:""); }
   if(st.vxAllBasis==null) st.vxAllBasis=load("vxAllBasis","k");
   const XR=st.ti&&st.ti.ti&&st.ti.ti.vixread||null;
-  const key=[st.live.ts, R&&R.asof, exps.length, st.vixExpE, picks.join(","), st.vxAllBasis, st.ti&&st.ti.asof, (document.getElementById("tabVix")||{}).clientWidth, tgVixKey()].join("|");
+  const key=[st.live.ts, R&&R.asof, exps.length, st.vixExpE, picks.join(","), st.vxAllBasis, st.ti&&st.ti.asof, (document.getElementById("tabVix")||{}).clientWidth].join("|");
   if(key===st._vxKey) return;            // nothing new: keep the DOM (and its animations) as it is
   st._vxKey=key;
   const S=+V.spot||0, v9=+V.v9dq||(R&&R.idx&&R.idx.VIX9D)||0;
@@ -5654,7 +5686,6 @@ function vxRender(){
   vxRvIvBox(R);
   vxSvbGauge(R);
   vxICorrPanel(R);
-  tgVixRender();   // TEST VX1 / VX2
   vxTerm(R,exps,today,S);
   vxEvents(EV);
   vxSeg(pk,EV);
@@ -6565,6 +6596,831 @@ function renderRisk(){
       hov.innerHTML=`<b>${hh[0]}</b> · score <b style="color:${rkCol(hh[2])}">${rkPct(hh[2],1)}</b> (${rkLab(hh[2])}) · 10-session ${rkPct(hh[3],1)} · SPX ${hh[1]==null?"—":hh[1].toFixed(0)}${(D.drop_starts||[]).includes(hh[0])?' · <b style="color:#FF5C5C">a 3%+ drop began here</b>':""}${hh[4]?' · <b style="color:#FF9F43">false all-clear</b>':""}${hh[5]?' · <b style="color:#3FD0B0">fear release</b>':""}`; });
     svg.addEventListener("mouseleave",()=>{ cr.setAttribute("opacity","0"); }); }
 }
+/* ============================================================ Tenor tab (2026-11-09)
+   Reads tenor.json, written each evening by scripts/tenor_gamma_report.py (end-of-day book only).
+   Dealer gamma by tenor across spot, dealer vega by tenor, daily history, factor cards.
+   Never touches the map. Off by default. Positioning read, not a trade signal. */
+var tnData=null, tnBusy=false, tnLastKey="";
+st.tnOn=load("tnOn","0")==="1"; st.tnVega=load("tnVega","naive"); st.tnHist=load("tnHist","all");
+var TN_COL={"1d":"#FF9F43","2d_1w":"#F4D03F","1w_1m":"#3FD0B0","gt_1m":"#B79BFF",total:"#FFFFFF"};
+var TN_LAB={"1d":"1 day","2d_1w":"2 days – 1 week","1w_1m":"1 week – 1 month","gt_1m":"> 1 month",total:"Total"};
+var TN_KEYS=["1d","2d_1w","1w_1m","gt_1m"];
+function tnFetch(){
+  if(tnBusy) return; tnBusy=true;
+  fetch("tenor.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+    .then(d=>{ tnData=(d&&d.found!==false)?d:{err:"No tenor data yet. It is rebuilt every evening after the close."}; })
+    .catch(()=>{ tnData={err:"No tenor data yet. It is rebuilt every evening after the close."}; })
+    .then(()=>{ tnBusy=false; tnLastKey=""; if(st.tab==="tenor") renderTenor(); });
+}
+function tnEsc(x){ return String(x==null?"":x).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function tnTxt(x){ return tnEsc(pubTxt(x)); }
+function tnN(x,k){ if(x==null||!isFinite(x)) return "—"; const a=Math.abs(+x); return (x>0?"+":x<0?"−":"")+(a>=1000?Math.round(a).toLocaleString():a.toFixed(k==null?1:k)); }
+function tnLvl(x){ return x==null||!isFinite(x)?"none on the ladder":Math.round(x).toLocaleString(); }
+/* round 1/2/2.5/5 x 10^n step giving at most `want` lines over `span` */
+function tnStep(span,want){ if(!(span>0)) return 1; const e=Math.pow(10,Math.floor(Math.log10(span/want))); for(const m of [1,2,2.5,5,10]){ if(span/(m*e)<=want) return m*e; } return 10*e; }
+function tnFmt(v){ const a=Math.abs(v); if(a<1e-9) return "0"; return (v<0?"−":"")+(a>=1000?Math.round(a).toLocaleString():a>=10?a.toFixed(0):a>=1?a.toFixed(1):a.toFixed(2)); }
+/* generic line chart. xs numeric; lines=[{v,c,w,fill,dash}]; o={h,vx:[{x,c,label}],xfmt,ylab} */
+function tnLines(id,xs,lines,o){
+  o=o||{}; const W=1100,H=o.h||420,L=78,R=24,T=20,B=48,n=xs.length; if(n<2) return '<p class="veread">Not enough data yet.</p>';
+  let lo=0,hi=0; lines.forEach(l=>l.v.forEach(y=>{ if(y!=null&&isFinite(y)){ lo=Math.min(lo,y); hi=Math.max(hi,y); } }));
+  if(hi-lo<1e-9){ hi+=1; lo-=1; } const pad=(hi-lo)*.06; lo-=pad; hi+=pad;
+  const x0=xs[0],x1=xs[n-1], X=x=>L+(W-L-R)*(x-x0)/((x1-x0)||1), Y=y=>T+(H-T-B)*(1-(y-lo)/(hi-lo));
+  let g="";
+  const sy=tnStep(hi-lo,6); for(let j=Math.ceil(lo/sy);j*sy<=hi+1e-9;j++){ const k=j*sy; g+=`<line x1="${L}" x2="${W-R}" y1="${Y(k).toFixed(1)}" y2="${Y(k).toFixed(1)}" stroke="#ffffff38" stroke-dasharray="2 5"/><text x="${L-8}" y="${(Y(k)+5).toFixed(1)}" text-anchor="end">${tnFmt(k)}</text>`; }
+  const xf=o.xfmt||(v=>Math.round(v).toLocaleString()), sx=o.xstep||tnStep(x1-x0,8);
+  for(let j=Math.ceil(x0/sx);j*sx<=x1+1e-9;j++){ const k=j*sx; g+=`<line x1="${X(k).toFixed(1)}" x2="${X(k).toFixed(1)}" y1="${T}" y2="${H-B}" stroke="#ffffff38" stroke-dasharray="2 5"/><text x="${X(k).toFixed(1)}" y="${H-B+26}" text-anchor="middle">${xf(k)}</text>`; }
+  g+=`<line x1="${L}" x2="${W-R}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#DCE6F2" stroke-width="1.6"/>`;
+  lines.forEach(l=>{ let d="",pen=false,first=null,last=null;
+    l.v.forEach((y,i)=>{ if(y==null||!isFinite(y)){ pen=false; return; } const px=X(xs[i]).toFixed(1), py=Y(y).toFixed(1); d+=(pen?"L":"M")+px+" "+py; pen=true; if(first==null) first=px; last=px; });
+    if(l.fill&&first!=null) g+=`<path d="${d} L${last} ${Y(0).toFixed(1)} L${first} ${Y(0).toFixed(1)}Z" fill="${l.c}" fill-opacity=".16"/>`;
+    g+=`<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${l.w||3}"${l.dash?` stroke-dasharray="${l.dash}"`:""} stroke-linejoin="round"/>`; });
+  (o.vx||[]).forEach(v=>{ if(v.x==null||v.x<x0||v.x>x1) return; g+=`<line x1="${X(v.x).toFixed(1)}" x2="${X(v.x).toFixed(1)}" y1="${T}" y2="${H-B}" stroke="${v.c}" stroke-width="2.5" stroke-dasharray="7 5"/><text x="${(X(v.x)+8).toFixed(1)}" y="${T+18}" style="fill:${v.c};font-weight:700">${tnEsc(v.label)}</text>`; });
+  g+=`<line class="tncross" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="#fff" stroke-width="1" opacity="0"/>`;
+  return `<svg class="tnsvg" id="${id}" viewBox="0 0 ${W} ${H}" data-l="${L}" data-w="${W-L-R}" data-full="${W}" role="img">${g}</svg>`;
+}
+function tnHover(id,xs,fn){
+  const svg=document.getElementById(id), out=document.getElementById(id+"Read"); if(!svg||!out) return;
+  const L=+svg.dataset.l, Wd=+svg.dataset.w, full=+svg.dataset.full, cr=svg.querySelector(".tncross"), n=xs.length;
+  svg.addEventListener("mousemove",e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)*full/r.width;
+    const fx=xs[0]+(x-L)/Wd*(xs[n-1]-xs[0]); let i=0; for(let j=1;j<n;j++) if(Math.abs(xs[j]-fx)<Math.abs(xs[i]-fx)) i=j;
+    const xx=L+Wd*(xs[i]-xs[0])/((xs[n-1]-xs[0])||1); cr.setAttribute("x1",xx); cr.setAttribute("x2",xx); cr.setAttribute("opacity",".7"); out.innerHTML=fn(i); });
+  svg.addEventListener("mouseleave",()=>cr.setAttribute("opacity","0"));
+}
+function tnLegend(keys){ return '<div class="tnlegend">'+keys.map(k=>`<span><i style="background:${TN_COL[k]}"></i>${TN_LAB[k]}</span>`).join("")+'</div>'; }
+function tnBars(items,unit){
+  const mx=Math.max(1e-9,...items.map(x=>Math.abs(x.v||0)));
+  return '<div class="tnbars">'+items.map(x=>{ const w=50*Math.abs(x.v||0)/mx;
+    return `<div class="lab"><i style="background:${x.c}"></i>${x.l}</div><div class="bar"><b></b><span style="${(x.v||0)>=0?`left:50%;width:${w}%`:`left:${50-w}%;width:${w}%`};background:${x.c}"></span></div><div class="val">${tnN(x.v,0)}${unit}</div>`; }).join("")+'</div>';
+}
+function tnSpark(c){
+  const v=c.spark||[], n=v.length; if(n<3) return "";
+  const W=320,H=90,lo=Math.min(-2.6,...v),hi=Math.max(2.6,...v),X=i=>4+(W-8)*i/(n-1),Y=y=>4+(H-8)*(1-(y-lo)/(hi-lo));
+  let g=`<rect x="0" y="${Y(hi)}" width="${W}" height="${Y(2)-Y(hi)}" fill="#FF9F43" opacity=".18"/><rect x="0" y="${Y(-2)}" width="${W}" height="${Y(lo)-Y(-2)}" fill="#3FD0B0" opacity=".18"/>`;
+  [2,-2].forEach(z=>{ g+=`<line x1="0" x2="${W}" y1="${Y(z)}" y2="${Y(z)}" stroke="${z>0?"#FF9F43":"#3FD0B0"}" stroke-dasharray="4 4" stroke-width="1.5"/>`; });
+  g+=`<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#9DB0CA" stroke-width="1"/>`;
+  let d=""; v.forEach((y,i)=>{ d+=(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1); });
+  g+=`<path d="${d}" fill="none" stroke="#fff" stroke-width="2"/><circle cx="${X(n-1)}" cy="${Y(v[n-1])}" r="4.5" fill="#fff"/>`;
+  return `<svg class="tnspk" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="z-score, last year">${g}</svg>`;
+}
+function tnCard(c){
+  if(!c.found) return `<div class="tncard"><div class="tnch"><b>${tnTxt(c.name)}</b></div><p>No data yet (${tnTxt(c.reason||"missing")}).</p></div>`;
+  const zc={buy:"#3FD0B0",sell:"#FF9F43",nearing_buy:"#A8F0DF",nearing_sell:"#FFD3A6"}[c.zone]||"#9DB0CA";
+  const badge={buy:"Buy zone",sell:"Sell zone",nearing_buy:"Nearing",nearing_sell:"Nearing"}[c.zone]||"No signal";
+  const rec=c.record||{}, weak=rec.grade==="weak record";
+  return `<div class="tncard"><div class="tnch"><b>${tnTxt(c.name)}</b><span class="tnbadge" style="background:${zc}">${badge}</span></div>`+
+    `<div class="tnsub">${tnTxt(c.pair)} · ${tnTxt(c.value_label)} ${tnN(c.value,2)}</div>`+
+    `<div class="tnz">${tnN(c.z,1)}<small>z now</small><span class="tnz2">${tnN(c.z_2w,1)} <small>2 weeks ago</small></span></div>`+
+    tnSpark(c)+`<div class="tnml"><span>last year of z · shaded = beyond ±2σ</span></div>`+
+    `<div class="tngrade ${weak?"weak":"ok"}">${weak?"Weak record":"Stronger record"} · ${rec.n||0} past entries</div>`+
+    `<p class="tnsent">${tnTxt(c.sentence)}</p>`+(c.short_history?`<p class="tnsent">History only since ${tnTxt(c.since)} (${c.years} years).</p>`:"")+`</div>`;
+}
+function renderTenor(){
+  const head=document.getElementById("tnHead"), body=document.getElementById("tnBody"); if(!head||!body) return;
+  const D=tnData;
+  head.innerHTML=`<span class="big">Tenor</span><button class="sxbtn" id="tnOnBtn" aria-pressed="${!!st.tnOn}">${st.tnOn?"ON":"OFF"}</button>`+
+    (D&&!D.err?`<span><small>book</small>${tnEsc(D.asof)}</span><span><small>built</small>${tnEsc((D.generated||"").replace("T"," "))}</span><span>End of day · rebuilt each evening · positioning read, not a trade signal</span>`:"");
+  document.getElementById("tnOnBtn").onclick=()=>{ st.tnOn=!st.tnOn; save("tnOn",st.tnOn?"1":"0"); tnLastKey=""; if(st.tnOn&&!tnData) tnFetch(); renderTenor(); };
+  if(!st.tnOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load dealer gamma and vega by expiry bucket and the factor cards.</p>'; tnLastKey=""; return; }
+  if(!D){ tnFetch(); body.innerHTML='<p class="veread">Loading…</p>'; return; }
+  if(D.err){ body.innerHTML=`<p class="veread">${tnEsc(D.err)}</p>`; return; }
+  const key=[D.generated,st.tnVega,st.tnHist].join("|"); if(key===tnLastKey&&body.querySelector(".tnwrap")) return; tnLastKey=key;
+  const G=D.gamma||{}, V=D.vega||{}, Bk=G.buckets||{}, grid=G.grid||[];
+  let h='<div class="tnwrap">';
+  h+=`<div class="tnread">${(D.read||[]).slice(0,8).map(x=>`<p>${tnTxt(x)}</p>`).join("")}</div>`;
+  if(grid.length){
+    const lines=TN_KEYS.map(k=>({v:(Bk[k]||{}).curve||[],c:TN_COL[k],w:3})).concat([{v:(G.total||{}).curve||[],c:TN_COL.total,w:4,fill:true}]);
+    const zc=(G.total||{}).zero_cross;
+    const tbl=TN_KEYS.map(k=>{ const b=Bk[k]||{}; return `<tr><td><i style="background:${TN_COL[k]}"></i>${TN_LAB[k]}</td><td>${tnN(b.at_spot)}</td><td>${b.share_pct==null?"—":Math.round(b.share_pct)+"%"}</td><td>${tnLvl(b.zero_cross)}</td><td>${tnN((D.change_1w||{})[k])}</td></tr>`; }).join("")+
+      `<tr class="tot"><td><i style="background:#fff"></i>Total</td><td>${tnN((G.total||{}).at_spot)}</td><td>100%</td><td>${tnLvl(zc)}</td><td>${tnN((D.change_1w||{}).total)}</td></tr>`;
+    h+=veSec("tnGam","Dealer gamma by expiry bucket, across SPX levels",`$ billions of SPX delta per 1% move · each line = one bucket, white filled = total · red dashed = spot${zc?" · yellow dashed = total zero-cross":""}`,
+      tnLegend(TN_KEYS.concat(["total"]))+`<div class="tnhov" id="tnGamSvgRead">Move across the chart to read each bucket at a level.</div>`+
+      tnLines("tnGamSvg",grid,lines,{vx:[{x:D.spot,c:"#FF6B6B",label:"spot "+Math.round(D.spot).toLocaleString()}].concat(zc?[{x:zc,c:"#F4D03F",label:"zero "+Math.round(zc).toLocaleString()}]:[])})+
+      `<table class="tntbl"><tr><th>Bucket</th><th>At spot</th><th>Share</th><th>Zero-cross</th><th>vs 1 week ago</th></tr>${tbl}</table>`+
+      `<p class="tnnote">Buckets count trading days to expiry. Covers expiries out to ${tnEsc(G.max_expiry)} (${G.max_dte} days); later expiries are not stored.</p>`);
+  }
+  if(V.buckets){
+    const conv=st.tnVega, cl={naive:"Dealers long calls, short puts",short_all:"Customers own every option",flipped:"Customers long calls, short puts"};
+    const items=TN_KEYS.map(k=>({l:TN_LAB[k],v:(V.buckets[k]||{})[conv],c:TN_COL[k]})).concat([{l:"Total",v:(V.total||{})[conv],c:"#fff"}]);
+    h+=veSec("tnVeg","Dealer vega by expiry bucket","$ millions per 1 vol point · the sign depends on who is assumed to own the options — switch to see how much",
+      `<div class="tabs tnseg" id="tnVegSeg">${Object.keys(cl).map(k=>`<button data-v="${k}" aria-pressed="${conv===k}">${cl[k]}</button>`).join("")}</div>`+tnBars(items," $mn")+
+      `<p class="tnnote">Calls ${tnN((V.total||{}).call_vega,0)} · puts ${tnN((V.total||{}).put_vega,0)} $mn of gross vega. Same contracts, three readings: the size is solid, the sign is an assumption.</p>`);
+  }
+  const H0=D.history||[];
+  if(H0.length>=2){
+    const rng={"1m":21,"3m":63,all:99999}[st.tnHist]||99999, Hs=H0.slice(-rng), xs=Hs.map((_,i)=>i);
+    const lines=TN_KEYS.map(k=>({v:Hs.map(r=>r["g_"+k]),c:TN_COL[k],w:3})).concat([{v:Hs.map(r=>r.total),c:"#fff",w:4,fill:true}]);
+    const step=Math.max(1,Math.round(Hs.length/6));
+    h+=veSec("tnHis","History: each bucket at spot, day by day",`$ billions per 1% move · one point per evening book · since ${tnEsc(D.history_since)}`,
+      `<div class="tabs tnseg" id="tnHisSeg">${["1m","3m","all"].map(r=>`<button data-v="${r}" aria-pressed="${st.tnHist===r}">${r==="all"?"All":r.toUpperCase()}</button>`).join("")}</div>`+
+      tnLegend(TN_KEYS.concat(["total"]))+`<div class="tnhov" id="tnHisSvgRead">Move across the chart to read a day.</div>`+
+      tnLines("tnHisSvg",xs,lines,{h:340,xstep:step,xfmt:i=>{ const r=Hs[Math.round(i)]; return r?r.date.slice(5):""; }}));
+  }
+  const F=(D.factors||{}).cards||[];
+  if(F.length){
+    const M=(D.factors||{}).method||{};
+    h+=veSec("tnFac","Factor cards","50-day relative return as a z-score vs its own 3-year history · ±2σ zones · the record says how often a past zone entry was followed by a rise",
+      `<div class="tngrid">${F.map(tnCard).join("")}</div><p class="tnnote">${tnTxt(M.record||"")}. ${tnTxt(M.grade||"")}. Zone names are a reference wording; the record shows how much they meant here.</p>`);
+  }
+  h+=`<p class="tnnote" style="margin-top:14px"><b style="color:#fff">How it is built.</b> The stored end-of-day option book, every strike and expiry, priced with Black-Scholes at each strike's own implied vol (rates and dividends zero), recomputed at each SPX level on a 25-point ladder. Naive dealer book: long calls, short puts. Positioning read, not a trade signal.</p></div>`;
+  body.innerHTML=h;
+  body.querySelectorAll("#tnVegSeg button").forEach(b=>b.onclick=()=>{ st.tnVega=b.dataset.v; save("tnVega",st.tnVega); renderTenor(); });
+  body.querySelectorAll("#tnHisSeg button").forEach(b=>b.onclick=()=>{ st.tnHist=b.dataset.v; save("tnHist",st.tnHist); renderTenor(); });
+  if(grid.length) tnHover("tnGamSvg",grid,i=>`SPX <b>${Math.round(grid[i]).toLocaleString()}</b> · `+TN_KEYS.concat(["total"]).map(k=>{ const c=k==="total"?G.total:Bk[k]; return `<span style="color:${TN_COL[k]}">${TN_LAB[k]} <b>${tnN(((c||{}).curve||[])[i])}</b></span>`; }).join(" · "));
+  if(H0.length>=2){ const rng={"1m":21,"3m":63,all:99999}[st.tnHist]||99999, Hs=H0.slice(-rng);
+    tnHover("tnHisSvg",Hs.map((_,i)=>i),i=>{ const r=Hs[i]; return `<b>${tnEsc(r.date)}</b> · SPX ${Math.round(r.spot).toLocaleString()} · `+TN_KEYS.map(k=>`<span style="color:${TN_COL[k]}">${TN_LAB[k]} <b>${tnN(r["g_"+k])}</b></span>`).join(" · ")+` · total <b>${tnN(r.total)}</b>`; }); }
+}
+/* ============================================================ Levels tab (2026-11-09)
+   Reads confluence.json, written each evening by scripts/confluence_report.py.
+   Price levels where several independent views agree, drawn over the last 60 sessions.
+   Hover (or tap) a band for the details. Off by default. Positioning read, not a trade signal. */
+var lvData=null, lvBusy=false, lvLastKey="", lvSel=null;
+st.lvOn=load("lvOn","0")==="1"; st.lvDet=load("lvDet","0")==="1";
+var LV_COL={greeks:"#FFB454",oi:"#4EA1FF",vix:"#D49BFF",price:"#3EE089",crowd:"#FF6B8B"};
+var LV_LAB={greeks:"Greek peaks",oi:"Open interest",vix:"VIX options",price:"Price memory",crowd:"Crowded strikes"};
+var LV_KEYS=["greeks","oi","vix","price","crowd"];
+var LV_NONE="No levels yet. They are rebuilt every evening after the close.";
+function lvFetch(){
+  if(lvBusy) return; lvBusy=true;
+  fetch("confluence.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+    .then(d=>{ lvData=(d&&d.found!==false&&Array.isArray(d.zones))?d:{err:LV_NONE}; })
+    .catch(()=>{ lvData={err:LV_NONE}; })
+    .then(()=>{ lvBusy=false; lvLastKey=""; if(st.tab==="levels") renderLevels(); });
+}
+function lvEsc(x){ return String(x==null?"":x).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function lvTxt(x){ return lvEsc(pubTxt(x)); }
+function lvP(x){ return x==null||!isFinite(x)?"—":Math.round(x).toLocaleString(); }
+function lvS(x,d){ if(x==null||!isFinite(x)) return "—"; const a=Math.abs(+x); return (x>0?"+":x<0?"−":"")+(d?a.toFixed(d):Math.round(a).toLocaleString()); }
+function lvK(x){ if(x==null||!isFinite(x)) return "—"; const a=Math.abs(x); return a>=1e6?(a/1e6).toFixed(1)+"M":a>=1e3?(a/1e3).toFixed(1)+"k":String(Math.round(a)); }
+/* one line per agreeing level, in plain words with its exact numbers */
+function lvLevelLine(x,D){
+  let s=`<b>${lvP(x.level)}</b> · ${lvTxt(x.label)}`;
+  if(x.layer==="oi"&&x.oi!=null) s+=` · ${lvK(x.oi)} open`+(x.oi_change!=null?`, ${lvS(x.oi_change)} today`:"");
+  if(x.layer==="vix"&&x.vix_strike!=null){
+    s+=` · VIX ${x.vix_strike} → SPX ${lvP(x.level)} at ${(+D.beta_default||2).toFixed(1)} VIX pts per 1%`;
+    if(x.level_measured_beta!=null&&D.beta_measured) s+=`, ${lvP(x.level_measured_beta)} at the measured ${(+D.beta_measured).toFixed(2)}`;
+  }
+  if(x.iv!=null&&x.layer==="crowd") s+=` · implied vol ${(x.iv*100).toFixed(1)}%`;
+  if(x.premium!=null) s+=` · $${lvK(x.premium)} premium`;
+  return s;
+}
+function lvRoc(z){
+  const rc=z.roc; if(!rc) return "No earlier read-out to compare with.";
+  if(!rc.matched) return "New since the previous evening.";
+  const p=[`moved ${lvS(rc.centre_shift)} pts (was ${lvP(rc.prior_centre)})`];
+  if(rc.layer_change) p.push(`views ${lvS(rc.layer_change)}`);
+  if(rc.oi_change_delta!=null) p.push(`OI change ${lvS(rc.oi_change_delta)} vs the day before`);
+  if(rc.distance_prior!=null&&rc.distance_now!=null) p.push(`distance to spot ${lvS(rc.distance_prior)} → ${lvS(rc.distance_now)}`);
+  return p.join(" · ");
+}
+function lvTrack(D){
+  const sc=D.score; if(!sc||!sc.key) return "Track record: none yet. Scoring starts after the first evenings are stored.";
+  const k=sc.key, pct=v=>v==null?"n/a":Math.round(v*100)+"%";
+  let s=`Track record (${sc.horizon} sessions): key zones held ${pct(k.hold_rate)} of the times they were touched (${k.n} zones)`;
+  if(sc.single&&sc.single.hold_rate!=null) s+=`; single views ${pct(sc.single.hold_rate)} (${sc.single.n})`;
+  if((k.n||0)<(sc.min_sample||30)) s+=". Too few so far to mean much.";
+  return s+".";
+}
+function lvTipZone(z,D){
+  const pct=(z.centre-D.spot)/D.spot*100, side=z.centre>=D.spot?"above":"below";
+  const byL={}; (z.levels||[]).forEach(x=>{ (byL[x.layer]=byL[x.layer]||[]).push(x); });
+  let h=`<div class="lvth"><b>${lvP(z.centre)}</b><span>${lvP(z.low)} – ${lvP(z.high)}</span></div>`+
+    `<div class="lvtd">${lvS(z.centre-D.spot)} pts (${lvS(pct,1)}%) ${side} spot · <b>${z.n_layers} of 5 views agree</b>${z.key?" · KEY":""}</div>`;
+  LV_KEYS.forEach(k=>{ if(!byL[k]) return; h+=`<div class="lvtl"><i style="background:${LV_COL[k]}"></i><b style="color:${LV_COL[k]}">${LV_LAB[k]}</b></div>`+
+    byL[k].slice(0,4).map(x=>`<div class="lvtv">${lvLevelLine(x,D)}</div>`).join("")+(byL[k].length>4?`<div class="lvtv">+${byL[k].length-4} more</div>`:""); });
+  (z.info_levels||[]).forEach(x=>{ h+=`<div class="lvtl"><i class="ring"></i><b style="color:#FFCF8A">Vol-shock peak (info)</b></div><div class="lvtv">${lvP(x.level)} · not counted (spot, vol and time only, not positions)</div>`; });
+  if(z.oi_change!=null) h+=`<div class="lvtv">OI at these strikes changed <b>${lvS(z.oi_change)}</b> contracts on the day.</div>`;
+  h+=`<div class="lvtc"><b>Since the previous evening:</b> ${lvRoc(z)}</div><div class="lvtc">${lvTrack(D)}</div>`;
+  return h;
+}
+function lvTipInfo(x,D){
+  return `<div class="lvth"><b>${lvP(x.level)}</b><span>vol-shock peak (info)</span></div>`+
+    `<div class="lvtd">${lvS(x.level-D.spot)} pts (${lvS((x.level-D.spot)/D.spot*100,1)}%) from spot</div>`+
+    `<div class="lvtv">${lvTxt(x.label)}</div><div class="lvtc">${lvTxt(D.info_note||"")}</div>`;
+}
+function lvTipSingle(x,D){
+  return `<div class="lvth"><b>${lvP(x.level)}</b><span>one view only</span></div>`+
+    `<div class="lvtd">${lvS(x.level-D.spot)} pts from spot</div><div class="lvtl"><i style="background:${LV_COL[x.layer]}"></i><b style="color:${LV_COL[x.layer]}">${LV_LAB[x.layer]}</b></div><div class="lvtv">${lvLevelLine(x,D)}</div>`;
+}
+/* the tooltip is position:fixed and clamped to the window, so it can never leave the screen */
+function lvShowTip(html,cx,cy){
+  const t=document.getElementById("lvTip"); if(!t) return; t.innerHTML=html; t.hidden=false;
+  /* clamp to the VISIBLE area (visualViewport): on phones the page can be wider than the screen */
+  const vv=window.visualViewport, ox=vv?vv.offsetLeft:0, oy=vv?vv.offsetTop:0;
+  const vw=vv?vv.width:document.documentElement.clientWidth, vh=vv?vv.height:window.innerHeight;
+  t.style.maxWidth=Math.max(200,Math.min(460,vw-16))+"px";
+  const w=t.offsetWidth, hh=t.offsetHeight;
+  let x=cx+18, y=cy+14; if(x+w>ox+vw-8) x=cx-w-18; if(y+hh>oy+vh-8) y=cy-hh-14;
+  x=Math.max(ox+8,Math.min(x,ox+vw-w-8)); y=Math.max(oy+8,Math.min(y,oy+vh-hh-8));
+  t.style.left=x+"px"; t.style.top=y+"px";
+}
+function lvHideTip(){ const t=document.getElementById("lvTip"); if(t) t.hidden=true; }
+function lvChart(D,W){
+  const nar=W<560, H=nar?600:680, L=nar?52:74, Rr=W-8, LW=Math.min(nar?190:390,Math.round(W*0.46)), CX=Rr-LW, T=18, B=40;
+  const bars=D.bars||[], zs=D.zones||[], multi=zs.filter(z=>z.n_layers>=2), infos=D.info_levels||[];
+  let lo=Infinity,hi=-Infinity; bars.forEach(b=>{ lo=Math.min(lo,b.l); hi=Math.max(hi,b.h); });
+  multi.forEach(z=>{ lo=Math.min(lo,z.low); hi=Math.max(hi,z.high); }); lo=Math.min(lo,D.spot); hi=Math.max(hi,D.spot);
+  if(!isFinite(lo)){ lo=D.spot*0.95; hi=D.spot*1.05; }
+  const pad=(hi-lo)*0.04; lo-=pad; hi+=pad;
+  const Y=p=>T+(H-T-B)*(hi-p)/(hi-lo), inR=p=>p>=lo&&p<=hi;
+  let g=`<rect x="0" y="0" width="${W}" height="${H}" fill="#0E1B33"/>`;
+  const step=tnStep(hi-lo,nar?6:9);
+  for(let p=Math.ceil(lo/step)*step;p<=hi;p+=step){ const y=Y(p).toFixed(1);
+    g+=`<line x1="${L}" x2="${Rr}" y1="${y}" y2="${y}" stroke="#ffffff22"/><text class="ax" x="${L-6}" y="${(+y+5).toFixed(1)}" text-anchor="end">${Math.round(p).toLocaleString()}</text>`; }
+  g+=`<line x1="${CX}" x2="${CX}" y1="${T}" y2="${H-B}" stroke="#ffffff40"/>`;
+  /* zone bands across the whole chart: thickness = range, opacity by how many views agree */
+  multi.forEach((z,i)=>{ const zi=zs.indexOf(z), y1=Y(z.high), y2=Y(z.low), hh=Math.max(y2-y1,z.key?8:5), yc=(y1+y2)/2;
+    const op=z.key?Math.min(0.62,0.22+0.1*(z.n_layers-2)):0.16, col=z.key?"#FFD54A":"#9DB0CA";
+    g+=`<rect class="lvband${z.key?" key":""}${lvSel===zi?" sel":""}" data-z="${zi}" x="${L}" y="${(yc-hh/2).toFixed(1)}" width="${Rr-L}" height="${hh.toFixed(1)}" fill="${col}" fill-opacity="${op}"${z.key?` stroke="#FFE27A" stroke-width="1.6"`:""}/>`; });
+  /* candles */
+  const n=bars.length, sp=(CX-L-8)/Math.max(n,1), bw=Math.max(2,sp*0.62), every=Math.max(5,Math.ceil(64/sp/5)*5);
+  g+='<g pointer-events="none">';
+  bars.forEach((b,i)=>{ const x=L+4+sp*(i+0.5), up=b.c>=b.o, c=up?"#3FD0B0":"#FF6B5A";
+    g+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${Y(b.h).toFixed(1)}" y2="${Y(b.l).toFixed(1)}" stroke="${c}" stroke-width="1.4"/>`+
+       `<rect x="${(x-bw/2).toFixed(1)}" y="${Y(Math.max(b.o,b.c)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5,Math.abs(Y(b.o)-Y(b.c))).toFixed(1)}" fill="${c}"/>`;
+    if(i%every===0) g+=`<text class="ax" x="${x.toFixed(1)}" y="${H-B+24}" text-anchor="middle">${lvEsc(b.d.slice(5).replace("-","/"))}</text>`; });
+  g+='</g>';
+  /* invisible touch targets: at least 22 px tall, so a thin band is easy to tap */
+  multi.forEach(z=>{ const zi=zs.indexOf(z), yc=Y(z.centre), hh=Math.max(Y(z.low)-Y(z.high),22);
+    g+=`<rect class="lvhit lvzone" data-z="${zi}" x="${L}" y="${(yc-hh/2).toFixed(1)}" width="${Rr-L}" height="${hh.toFixed(1)}" fill="#000" fill-opacity="0"/>`; });
+  /* single views: faint thin ticks on the ladder edge */
+  zs.filter(z=>z.n_layers<2).forEach(z=>{ (z.levels||[]).forEach(x=>{ if(!inR(x.level)) return; const y=Y(x.level).toFixed(1);
+    g+=`<line x1="${CX}" x2="${CX+16}" y1="${y}" y2="${y}" stroke="${LV_COL[x.layer]}" stroke-width="1.6" opacity=".55"/>`+
+       `<rect class="lvhit lvsingle" data-l="${lvEsc(JSON.stringify({level:x.level,layer:x.layer,label:x.label,oi:x.oi,oi_change:x.oi_change,vix_strike:x.vix_strike,level_measured_beta:x.level_measured_beta,iv:x.iv,premium:x.premium}))}" x="${CX}" y="${(+y-4).toFixed(1)}" width="22" height="8" fill="transparent"/>`; }); });
+  /* where each zone sat the previous evening: hollow diamond + arrow to today */
+  const gx=CX+(nar?8:12);
+  multi.forEach(z=>{ const rc=z.roc; if(!rc||!rc.matched||Math.abs(rc.centre_shift||0)<2||!inR(rc.prior_centre)) return;
+    const y0=Y(rc.prior_centre), y1=Y(z.centre), d=7;
+    g+=`<path d="M${gx} ${(y0-d).toFixed(1)} L${gx+d} ${y0.toFixed(1)} L${gx} ${(y0+d).toFixed(1)} L${gx-d} ${y0.toFixed(1)}Z" fill="none" stroke="#fff" stroke-width="1.8" opacity=".85"/>`+
+       `<line x1="${gx}" x2="${gx}" y1="${y0.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="#fff" stroke-width="1.6" marker-end="url(#lvArr)" opacity=".85"/>`; });
+  /* which views agree: coloured dots inside each band */
+  const dg=nar?12:18, dx0=CX+(nar?22:30), lx=dx0+4*dg+(nar?12:16);
+  multi.forEach(z=>{ const yc=Y(z.centre).toFixed(1);
+    LV_KEYS.forEach((k,j)=>{ if(z.layers.includes(k)) g+=`<circle cx="${dx0+j*dg}" cy="${yc}" r="${z.key?(nar?5.5:7):(nar?4:5)}" fill="${LV_COL[k]}" stroke="#0E1B33" stroke-width="1.2" pointer-events="none"/>`; }); });
+  /* info-only vol-shock peak: hollow dashed ring, never a band */
+  infos.forEach((x,i)=>{ if(!inR(x.level)) return; const y=Y(x.level).toFixed(1);
+    g+=`<circle class="lvhit lvinfo" data-i="${i}" cx="${dx0}" cy="${y}" r="${nar?8:10}" fill="#0E1B33" fill-opacity=".01" stroke="#FFCF8A" stroke-width="2.6" stroke-dasharray="4 3"/>`; });
+  /* labels on key zones only (distance to spot), pushed apart so they never overlap */
+  const keys=multi.filter(z=>z.key).sort((a,b)=>b.centre-a.centre); let last=-1e9;
+  const room=Rr-lx, gap=nar?20:24, ys0=keys.map(z=>Y(z.centre)+6), yy=ys0.slice();
+  for(let i=1;i<yy.length;i++) yy[i]=Math.max(yy[i],yy[i-1]+gap);            // push down
+  for(let i=yy.length-1;i>=0;i--) yy[i]=Math.min(yy[i],H-B-4-(yy.length-1-i)*gap); // keep inside the plot
+  for(let i=yy.length-2;i>=0;i--) yy[i]=Math.min(yy[i],yy[i+1]-gap);
+  keys.forEach((z,i)=>{ const yc=Y(z.centre), y=yy[i], d=z.centre-D.spot;
+    const t=room<150?`${lvP(z.centre)} ${lvS(d)}`:room<250?`${lvP(z.centre)}  ${lvS(d)} pts`:`${lvP(z.centre)}  ${z.n_layers} views  ${lvS(d)} (${lvS(d/D.spot*100,1)}%)`;
+    if(Math.abs(y-6-yc)>2) g+=`<line x1="${lx-10}" x2="${lx-1}" y1="${yc.toFixed(1)}" y2="${(y-6).toFixed(1)}" stroke="#fff" stroke-width="1.4" opacity=".75"/>`;
+    const tw=t.length*(nar?8.6:9.4)+12;
+    g+=`<rect x="${lx-6}" y="${(y-17).toFixed(1)}" width="${Math.min(tw,Rr-lx+4).toFixed(0)}" height="22" rx="5" fill="#0A1426" fill-opacity=".92" stroke="#FFE27A" stroke-width="1" pointer-events="none"/>`+
+       `<text class="lvzl${d>=0?" up":" dn"}" x="${lx}" y="${y.toFixed(1)}" pointer-events="none">${t}</text>`; });
+  const ys=Y(D.spot).toFixed(1);
+  g+=`<line x1="${L}" x2="${Rr}" y1="${ys}" y2="${ys}" stroke="#fff" stroke-width="2.6" stroke-dasharray="9 5" pointer-events="none"/>`+
+     `<rect x="${L+6}" y="${(+ys-27).toFixed(1)}" width="${nar?118:150}" height="24" rx="4" fill="#fff"/><text class="lvspot" x="${L+12}" y="${(+ys-9).toFixed(1)}">SPX ${(+D.spot).toLocaleString(undefined,{maximumFractionDigits:2})}</text>`;
+  return `<svg class="lvsvg" id="lvSvg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Price levels where several views agree, over the last 60 sessions">`+
+    `<defs><marker id="lvArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#fff"/></marker></defs>${g}</svg>`;
+}
+function lvLegend(){
+  return '<div class="lvlegend">'+LV_KEYS.map(k=>`<span><i style="background:${LV_COL[k]}"></i>${LV_LAB[k]}</span>`).join("")+
+    '<span><i class="band key"></i>3+ views agree (key)</span><span><i class="band"></i>2 views</span><span><i class="ring"></i>vol-shock peak (info, not counted)</span><span><i class="dia"></i>previous evening</span></div>';
+}
+function lvDetails(D){
+  const rows=(D.zones||[]).filter(z=>z.n_layers>=2).sort((a,b)=>b.centre-a.centre).map(z=>
+    `<tr class="${z.key?"key":""}"><td><b>${lvP(z.centre)}</b></td><td>${lvP(z.low)}–${lvP(z.high)}</td><td>${z.layers.map(k=>`<span class="lvchipl" style="background:${LV_COL[k]}">${LV_LAB[k]}</span>`).join(" ")}</td><td>${lvS(z.centre-D.spot)}</td><td>${lvRoc(z)}</td></tr>`).join("");
+  return `<p class="lvnote">${lvTxt(D.info_note||"")}</p>`+
+    `<table class="lvtbl"><tr><th>Centre</th><th>Range</th><th>Views that agree</th><th>To spot</th><th>Since the previous evening</th></tr>${rows}</table>`+
+    `<p class="lvnote"><b>${lvTxt(lvTrack(D))}</b></p>`+
+    ((D.gaps||[]).length?`<p class="lvnote"><b>Missing or limited data:</b></p><ul class="lvgaps">${D.gaps.map(x=>`<li>${lvTxt(x)}</li>`).join("")}</ul>`:"");
+}
+function renderLevels(){
+  const head=document.getElementById("lvHead"), body=document.getElementById("lvBody"); if(!head||!body) return;
+  const D=lvData;
+  head.innerHTML=`<span class="big">Levels</span><button class="sxbtn" id="lvOnBtn" aria-pressed="${!!st.lvOn}">${st.lvOn?"ON":"OFF"}</button>`+
+    (D&&!D.err?`<span><small>book</small>${lvEsc(D.asof)}</span><span>Rebuilt each evening · positioning read, not a trade signal</span>`:"");
+  document.getElementById("lvOnBtn").onclick=()=>{ st.lvOn=!st.lvOn; save("lvOn",st.lvOn?"1":"0"); lvLastKey=""; if(st.lvOn&&!lvData) lvFetch(); renderLevels(); };
+  if(!st.lvOn){ lvHideTip(); body.innerHTML='<p class="veread">Off. Press <b>ON</b> to see the price levels where several independent views agree.</p>'; lvLastKey=""; return; }
+  if(!D){ lvFetch(); body.innerHTML='<p class="veread">Loading…</p>'; return; }
+  if(D.err){ body.innerHTML=`<p class="veread">${lvEsc(D.err)}</p>`; return; }
+  const W=Math.max(320,Math.min(1500,(body.clientWidth||document.documentElement.clientWidth||1000)-4));
+  const key=[D.generated,D.asof,W,lvSel].join("|"); if(key===lvLastKey&&body.querySelector(".lvwrap")) return; lvLastKey=key;
+  const keys=(D.zones||[]).filter(z=>z.key).sort((a,b)=>b.centre-a.centre);
+  let h='<div class="lvwrap">'+lvLegend()+`<div class="lvchart" id="lvChart">${lvChart(D,W)}</div>`;
+  h+=`<div class="lvchips">${keys.length?keys.map(z=>{ const zi=D.zones.indexOf(z), d=z.centre-D.spot;
+    return `<button class="lvchip${lvSel===zi?" on":""}" data-z="${zi}"><b>${lvP(z.centre)}</b><span>${z.n_layers} views</span><span class="${d>=0?"up":"dn"}">${lvS(d)}</span></button>`; }).join(""):'<span class="lvnote">No level where 3 or more views agree today.</span>'}</div>`;
+  h+=`<details class="lvdet" id="lvDet"${st.lvDet?" open":""}><summary>Details: every zone, the numbers behind it, missing data</summary>${lvDetails(D)}</details>`;
+  h+=`<p class="lvnote">Hover or tap a band for the details. ${lvTxt(D.disclaimer||"Positioning read, not a trade signal.")} A level says where views agree, not which way price goes.</p></div>`;
+  body.innerHTML=h;
+  const det=document.getElementById("lvDet"); det.addEventListener("toggle",()=>{ st.lvDet=det.open; save("lvDet",det.open?"1":"0"); });
+  const svg=document.getElementById("lvSvg");
+  const tipFor=el=>{ if(el.classList.contains("lvband")||el.classList.contains("lvzone")) return lvTipZone(D.zones[+el.dataset.z],D);
+    if(el.classList.contains("lvinfo")) return lvTipInfo((D.info_levels||[])[+el.dataset.i],D);
+    if(el.classList.contains("lvsingle")){ try{ return lvTipSingle(JSON.parse(el.dataset.l),D); }catch(e){ return ""; } } return ""; };
+  const hitOf=e=>e.target.closest&&e.target.closest(".lvinfo,.lvsingle,.lvzone,.lvband");
+  const hl=zi=>svg.querySelectorAll(".lvband").forEach(r=>r.classList.toggle("hov",+r.dataset.z===zi));
+  svg.addEventListener("mousemove",e=>{ const el=hitOf(e); hl(el&&el.dataset.z!=null?+el.dataset.z:-1); if(el){ const t=tipFor(el); if(t) lvShowTip(t,e.clientX,e.clientY); } else if(lvSel==null) lvHideTip(); });
+  svg.addEventListener("mouseleave",()=>{ hl(-1); if(lvSel==null) lvHideTip(); });
+  svg.addEventListener("click",e=>{ const el=hitOf(e); if(!el){ lvSel=null; lvHideTip(); svg.querySelectorAll(".lvband.sel").forEach(b=>b.classList.remove("sel")); return; }
+    hl(el.dataset.z!=null?+el.dataset.z:-1); const t=tipFor(el); if(t) lvShowTip(t,e.clientX,e.clientY); e.stopPropagation(); });
+  body.querySelectorAll(".lvchip").forEach(b=>b.onclick=e=>{ const zi=+b.dataset.z; lvSel=lvSel===zi?null:zi;
+    body.querySelectorAll(".lvchip").forEach(c=>c.classList.toggle("on",+c.dataset.z===lvSel));
+    svg.querySelectorAll(".lvband").forEach(r=>r.classList.toggle("sel",+r.dataset.z===lvSel));
+    if(lvSel==null){ lvHideTip(); return; }
+    const band=svg.querySelector(`.lvband[data-z="${zi}"]`); band&&band.scrollIntoView({block:"nearest"});
+    const r=(band||b).getBoundingClientRect(); lvShowTip(lvTipZone(D.zones[zi],D),r.left+Math.min(r.width*0.35,260),r.top+r.height/2); e.stopPropagation(); });
+}
+window.addEventListener("scroll",()=>{ if(lvSel==null) lvHideTip(); },{passive:true});
+document.addEventListener("click",e=>{ if(st.tab!=="levels") return; const t=document.getElementById("lvTip"); if(t&&!t.hidden&&!e.target.closest("#lvTip,#lvChart,.lvchip")){ lvSel=null; lvHideTip(); } });
+/* ---- Density options DN1-DN6 (2026-11-09: moved from the TEST cockpit, where they were built 2026-11-08 from
+   claude/don-density-versions.md v2026-11-06). All OFF (the default) = the Density tab exactly as before. None of them changes the base cone (DEN.runs med/p10/p90); DN1 only adds touch
+   levels to the worker input, DN6 only changes the cone width when the symbol is QQQ and Width = VIX. */
+function dnoKey(){ return (st.dno.dn1?"|dn1":"")+(st.dno.dn6&&st.sym==="QQQ"&&dnoVxn()?"|vxn":""); }
+function dnoVxn(){ const q=typeof VOLX!=="undefined"&&VOLX&&VOLX.q; return q&&q.VXN&&q.VXN.v>0?q.VXN.v:null; }
+function dnoVol(){ return st.dno.dn6&&st.sym==="QQQ"&&dnoVxn()?dnoVxn():denVix(); }
+function dnoVolName(){ return st.dno.dn6&&st.sym==="QQQ"&&dnoVxn()?"VXN":"VIX"; }
+// DN1 walls + support. Fade top (production) = largest call OI to +5%, both books. Ours, so the lines differ:
+//   call wall = largest 1-7 DTE call OI above spot to +8% · put wall = largest 1-7 DTE put OI below to -8% ·
+//   support = the round strike (100 pts SPX, 10 SPY/QQQ) below spot with the most put OI, both books, to -8%.
+function dnoWalls(B){ if(!B) return null; if(B._dnoW) return B._dnoW;
+  const d=st.live&&st.live[st.sym]; if(!d||!d.rows) return null; const S0=B.S0;
+  const add=(m,k,v)=>{ if(v>0) m.set(k,(m.get(k)||0)+v); }, c0=new Map(), p0=new Map(), cw=new Map(), pw=new Map();
+  for(const r of d.rows){ add(c0,r.k,r.cOI||0); add(p0,r.k,r.pOI||0); }
+  const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; for(const r of (nb&&nb.rows)||[]){ add(cw,r.k,r.cOI||0); add(pw,r.k,r.pOI||0); add(c0,r.k,r.cOI||0); add(p0,r.k,r.pOI||0); }
+  const best=(m,ok)=>{ let k0=null,v0=0; for(const [k,v] of m) if(ok(k)&&v>v0){ v0=v; k0=k; } return [k0,v0]; };
+  const unit=st.sym==="SPX"?100:10, rnd=k=>Math.abs(k/unit-Math.round(k/unit))<1e-9;
+  const [cwk,cwv]=best(cw,k=>k>S0&&k<=S0*1.08), [pwk,pwv]=best(pw,k=>k<S0&&k>=S0*0.92), [suk,suv]=best(p0,k=>k<S0&&k>=S0*0.92&&rnd(k));
+  let near=0; for(const m of [c0,p0]) for(const [k,v] of m) if(Math.abs(k-S0)<=S0*0.015) near+=v;
+  const out={cw:cwk,cwOI:cwv,pw:pwk,pwOI:pwv,support:suk,supOI:suv,nearOI:near,unit,week:!!(nb&&nb.rows&&nb.rows.length)};
+  if(DEN.board===B) B._dnoW=out; return out; }
+function dnoTouch(lv,B){ if(!st.dno.dn1||!lv) return; const W=dnoWalls(B); if(W) lv.touch=lv.touch.concat([W.support,W.cw,W.pw]); }
+// DN2 split axis: board levels outside the chart's price range go into a strip under the cone
+function dnoSplit(B,lo,hi){ if(!st.dno.dn2||!B) return null;
+  const L=[[B.trough,"#FF4D6A","FULL-BOOK TROUGH · short-gamma plateau"],[B.fade,"#F2B33D","FADE TOP"],[B.fullFlip,"#7FB8FF","FULL FLIP"],[B.breakdown,"#FF7A50","BREAKDOWN"]];
+  if(st.dno.dn1){ const W=dnoWalls(B); if(W) L.push([W.support,"#FF5070","ROUND-NUMBER SUPPORT"],[W.cw,"#E07BFF","CALL WALL (1–7 DTE)"],[W.pw,"#FF9AC8","PUT WALL (1–7 DTE)"]); }
+  const off=L.filter(x=>x[0]!=null&&(x[0]<lo||x[0]>hi)); if(!off.length) return null;
+  return {h:Math.min(110,40+off.length*18),levels:off,vals:off.map(x=>x[0])}; }
+function dnoDrawSplit(ctx,SP,padL,W,y0){ if(!SP) return; const top=y0+10, h=SP.h-14;
+  ctx.fillStyle="#0b101a"; ctx.fillRect(padL,top,W,h); ctx.strokeStyle="#ffffff22"; ctx.lineWidth=1; ctx.strokeRect(padL,top,W,h);
+  ctx.strokeStyle="#C9D3E0"; ctx.lineWidth=1.5; for(const x of [padL-6,padL+W-6]){ ctx.beginPath(); ctx.moveTo(x,top+2); ctx.lineTo(x+12,top-6); ctx.stroke(); }
+  const v=SP.levels.map(l=>l[0]), mn=Math.min(...v), mx=Math.max(...v), pad=Math.max(5,(mx-mn)*0.25), a=mn-pad, b=mx+pad, Y=p=>top+6+(h-12)*(1-(p-a)/(b-a||1));
+  ctx.font="12px system-ui"; ctx.fillStyle="#C9D3E0"; ctx.textAlign="right"; ctx.fillText(fmtN(Math.round(b)),padL-6,top+12); ctx.fillText(fmtN(Math.round(a)),padL-6,top+h-2); ctx.textAlign="left";
+  const lab=SP.levels.slice().sort((p,q)=>q[0]-p[0]).map(l=>[Y(l[0]),l]); for(let i=1;i<lab.length;i++) if(lab[i][0]-lab[i-1][0]<16) lab[i][0]=lab[i-1][0]+16;
+  ctx.font="bold 12px system-ui"; ctx.textAlign="right";
+  for(const [yl,[p,c,t]] of lab){ const y=Y(p); ctx.strokeStyle=c; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke();
+    const s=`${t} ${fmtN(p,0)}`, tw=ctx.measureText(s).width; ctx.fillStyle="#05080fd9"; ctx.fillRect(padL+W-tw-12,yl-12,tw+10,16); ctx.fillStyle=c; ctx.fillText(s,padL+W-7,yl); }
+  ctx.textAlign="left"; ctx.font="11px system-ui"; ctx.fillStyle="#8a97a8"; ctx.fillText("split axis — levels outside the chart's price range (option: Split axis)",padL+6,top+h-3); }
+// DN1 lines on the main chart (drawn with the production hl() helper)
+function dnoLines(hl,B){ if(!st.dno.dn1||!B) return; const W=dnoWalls(B); if(!W) return;
+  if(W.cw!=null&&W.cw!==B.fade) hl(W.cw,"#E07BFF",[4,3],`CALL WALL ${fmtN(W.cw,0)} (1–7 DTE)`);
+  if(W.pw!=null&&W.pw!==B.trough) hl(W.pw,"#FF9AC8",[4,3],`PUT WALL ${fmtN(W.pw,0)} (1–7 DTE)`);
+  if(W.support!=null) hl(W.support,"#FF5070",[1,3],`ROUND-NUMBER SUPPORT ${fmtN(W.support,0)}`); }
+// histogram helpers (odds chart): quantile and mass of the drawn closes
+function dnoHq(H,q){ const tot=H.c.reduce((a,b)=>a+b,0)||1; let cum=0; for(let i=0;i<H.c.length;i++){ const c=H.c[i]/tot; if(cum+c>=q) return H.lo+(i+(q-cum)/(c||1))*H.w; cum+=c; } return H.lo+H.c.length*H.w; }
+function dnoHm(H,a,b){ const tot=H.c.reduce((x,y)=>x+y,0)||1; let m=0; for(let i=0;i<H.c.length;i++){ const x0=H.lo+i*H.w, x1=x0+H.w, ov=Math.max(0,Math.min(b,x1)-Math.max(a,x0)); m+=H.c[i]*ov/H.w; } return m/tot; }
+function dnoOddsLines(vl,B){ if(!st.dno.dn1) return; const W=dnoWalls(B); if(!W) return; vl.push([W.support,"#FF5070","support"],[W.cw,"#E07BFF","call wall"],[W.pw,"#FF9AC8","put wall"]); }
+function dnoOddsDraw(ctx,o,X,padT,H){ if(!st.dno.dn3||!o||!o.hist) return; const Hh=o.hist;
+  ctx.font="bold 11px system-ui"; ctx.textAlign="center";
+  for(const [q,t] of [[0.25,"P25"],[0.75,"P75"]]){ const v=dnoHq(Hh,q), x=X(v); ctx.strokeStyle="#ffffffaa"; ctx.lineWidth=1; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(x,padT+H*0.25); ctx.lineTo(x,padT+H); ctx.stroke();
+    ctx.fillStyle="#fff"; ctx.fillText(`${t} ${fmtN(v,0)}`,x,padT+H*0.25-3); } ctx.textAlign="left"; }
+function dnoOddsTxt(r,B){ if(!r||!r.odds||!r.odds.hist) return ""; const o=r.odds, Hh=o.hist, p=v=>v==null?"–":(v*100).toFixed(1)+"%", out=[];
+  if(st.dno.dn3){ out.push(`<div><b>Odds extras</b> P25 <b>${fmtN(dnoHq(Hh,0.25),0)}</b> · P75 <b>${fmtN(dnoHq(Hh,0.75),0)}</b></div>`);
+    const bd=B&&B.breakdown, top=B&&B.pinHi, fl=B?(B.fullFlip!=null?B.fullFlip:B.frontFlip):null;
+    if(bd!=null&&top!=null&&fl!=null){ const hi=Math.max(top,fl);
+      out.push(`<div>Buckets: below breakdown <b>${p(dnoHm(Hh,-1e9,bd))}</b> · in pin <b>${p(dnoHm(Hh,bd,top))}</b> · pin top → flip <b>${p(fl>top?dnoHm(Hh,top,fl):0)}</b> · above flip <b>${p(dnoHm(Hh,hi,1e9))}</b> <span class="note">(from the close histogram, ±${Hh.w} pts)</span></div>`); } }
+  if(st.dno.dn1){ const T=o.touch||[], TL=o.touchLv||[]; const nm=["round-number support","call wall","put wall"], s=[];
+    for(let i=3;i<6;i++) if(TL[i]!=null) s.push(`${nm[i-3]} ${fmtN(TL[i],0)} <b>${p(T[i])}</b>`);
+    if(s.length) out.push(`<div class="note"><b>Support + walls</b> touch before the close: ${s.join(" · ")}</div>`); }
+  return out.join(""); }
+// DN5 summary line + DN6 key-reading extras (appended to Key readings)
+function dnoExtra(cur,B,S,d){ if(!st.dno.dn5&&!st.dno.dn6) return ""; const out=[], now=denNowMin();
+  if(st.dno.dn5&&cur&&cur.odds&&cur.odds.hist){ const M=denPull()&&cur.pull?cur.pull:cur, Hh=cur.odds.hist, fl=B?(B.fullFlip!=null?B.fullFlip:B.frontFlip):null;
+    const sn=denSnaps().filter(r=>r[1]>RTH_OPEN&&r[1]<=MAP_T1).map(r=>r[2].x).filter(x=>x>0);
+    const O=sn.length?sn[0]:null, Hi=sn.length?Math.max(...sn):null, Lo=sn.length?Math.min(...sn):null, pin=denPinShare(B), W=dnoWalls(B);
+    const pp=v=>v==null?"–":Math.round(v*100)+"%";
+    out.push(`<div class="k" style="border:1px solid #d9a400;border-radius:6px;padding:6px 8px"><span class="lab">Replay summary · to ${tlabel(Math.min(now,MAP_T1))}</span>spot <b>${fmtN(S,2)}</b> · final cone (from ${fmtN(cur.spot,0)} @ ${cur.t}): median <b>${fmtN(M.med,0)}</b> · P10 ${fmtN(M.p10,0)} · P90 ${fmtN(M.p90,0)}`+
+      (B&&B.pinLo!=null?` · P(in pin) <b>${pp(dnoHm(Hh,B.pinLo,B.pinHi))}</b>`:"")+(fl!=null?` · P(above flip) <b>${pp(dnoHm(Hh,fl,1e9))}</b>`:"")+
+      `<br>Session O ${fmtN(O,2)} · H ${fmtN(Hi,2)} · L ${fmtN(Lo,2)} · time in pin ${pin!=null?Math.round(pin*100)+"%":"–"}`+
+      (W&&W.support!=null&&Lo!=null?` · round-number support ${fmtN(W.support,0)} <b class="${Lo>W.support?"up":"dn"}">${Lo>W.support?"held":"broken"}</b>`:"")+`</div>`); }
+  if(st.dno.dn6){ const W=dnoWalls(B), LE=denLetf(S), nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym], day=liveClock().date;
+    const ob=nb&&(nb.as_of_date||nb.as_of||null);
+    out.push(`<div class="k"><span class="lab">Status extras</span>levered reset at the mark <b class="${LE&&LE.bn<0?"dn":"up"}">${LE?denBn(LE.bn):"–"}</b>${LE?` (builds 15:00–16:00, not charm)`:""} · 1–7 DTE OI book ${ob?esc(String(ob).slice(0,10))+(String(ob).slice(0,10)!==day?" <b class=\"dn\">not today's</b>":" (today)"):"<b class=\"dn\">missing</b>"}`+
+      (W?` · OI within ±1.5%: ${fmtN(Math.round(W.nearOI/1000),0)}k${W.nearOI<150000?` <b class="dn">thin book — levels soft</b>`:""}`:"")+
+      (st.sym==="QQQ"?` · width vol ${dnoVxn()?`VXN <b>${dnoVxn().toFixed(2)}</b>`:"VXN not loaded (VIX used)"}`:"")+`</div>`); }
+  return out.join(""); }
+// DN6 status-box line on the chart
+function dnoStatus(ctx,padL,W,padT,S){ if(!st.dno.dn6) return; const LE=denLetf(S); if(!LE) return;
+  const s=`levered reset @ mark ${denBn(LE.bn)} (15:00–16:00)`; ctx.font="bold 13px system-ui"; const tw=ctx.measureText(s).width;
+  ctx.textAlign="right"; ctx.fillStyle="#05080fd0"; ctx.fillRect(padL+W-tw-16,padT+86,tw+12,20); ctx.fillStyle=LE.bn<0?"#FF7A6B":"#3FE0A0"; ctx.fillText(s,padL+W-10,padT+101); ctx.textAlign="left"; }
+
+/* ---- VIX-tab options VX1 / VX2 (2026-11-09: moved from the TEST cockpit; claude/vol-regime-knowledge-20261108.md).
+   Data = volx.json, written by volx.py in its own container cvxmap-volx (free delayed index quotes + daily history, no
+   options-vendor calls). Fetched only while VX1 or VX2 is on with the VIX tab open, or DN6 with the Density tab open. */
+var VOLX=null, VOLX_AT=0;
+async function volxPoll(){ if(!(((st.vxo.vx1||st.vxo.vx2)&&st.tab==="vix")||(st.dno.dn6&&st.tab==="density"))) return; VOLX_AT=Date.now();
+  try{ const r=await fetch("volx.json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); VOLX=await r.json(); VOLX._err=null; }
+  catch(e){ VOLX=VOLX||{}; VOLX._err=String(e&&e.message||e); }
+  try{ if(st.tab==="vix") renderVix(); else if(st.tab==="density") renderDensity(series(st.sym)); }catch(e){} }
+setInterval(volxPoll,60000); setTimeout(volxPoll,1500);
+function vxoKey(){ return (st.vxo.vx1?"g":"")+(st.vxo.vx2?"s":"")+(st.vxo.vx1||st.vxo.vx2?(VOLX&&(VOLX.asof||VOLX._err)||"none"):""); }
+const VXO_LAB={CALM:["#3FD0B0","CALM / CONTANGO","green"],"CALM*":["#9BD06A","CALM — but a filter is on","green*"],UNCONFIRMED:["#FFD23F","UNCONFIRMED CROSS-DOWN","yellow"],
+  MIXED:["#FF9A3D","MIXED / TRANSITIONING","orange"],CONFIRMED:["#E5484D","CONFIRMED VOL EXPANSION","red"]};
+const VXO_PLAY={CALM:["Buy dips / trend-follow long: ES/MES or ATM–slightly ITM calls 3–7 DTE; trail stops under higher lows, partials into resistance.",
+    "Full-size short premium: 0–7 DTE bull puts or iron condors at 15–20Δ; take 50–75% of credit, close before late-day pin risk."],
+  UNCONFIRMED:["Fade the fear (usually a trap for late bears): ES/MES or bull call debit spreads; tight stop under the swing low, target VWAP / prior high.",
+    "Opportunistic bull puts below support / VWAP while skew is bid; close on the snap-back; stop if SPX loses its 21d EMA."],
+  MIXED:["Two-way chop: cut size 50%, futures over options, take profits at fixed levels.",
+    "Half size; shorts at 8–12Δ, or bear calls if SPX is under its 8d EMA; 1.5–2× credit stop; nothing short-dated overnight."],
+  CONFIRMED:["Sell rips / momentum short: bear put debit spreads (0.60/0.30Δ), ITM puts or short ES/MES; scale out when VIX9D/VIX spikes over 1.15.",
+    "Pause short puts and condors; only bear calls well above resistance — until VIX9D/VIX has peaked and is back under 1.00 with SPX over its 8d EMA."]};
+function vxoRender(){ const g=document.getElementById("vxGauge"), s=document.getElementById("vxStack"); if(!g||!s) return;
+  g.hidden=!st.vxo.vx1; s.hidden=!st.vxo.vx2; if(!st.vxo.vx1&&!st.vxo.vx2) return;
+  try{ if(st.vxo.vx1) vxoGauge(g); }catch(e){ g.innerHTML=`<div class="vxerr">VX1 error: ${esc(e.message||e)}</div>`; }
+  try{ if(st.vxo.vx2) vxoStack(s); }catch(e){ s.innerHTML=`<div class="vxerr">VX2 error: ${esc(e.message||e)}</div>`; } }
+function vxoWait(el,head){ el.innerHTML=head+`<div class="vxnote">${VOLX&&VOLX._err?`Could not read volx.json (${esc(VOLX._err)}). The vol poller writes it once a minute from 09:25 ET; is <code>cvxmap-volx</code> running?`:"Loading volx.json…"}</div>`; }
+function vxoGauge(el){
+  const head=`<div class="vxh"><h2>Regime gauge — VIXM / VIXY</h2><span class="vxsub">ratio 8-day vs 21-day EMA, confirmed by VIX9D/VIX &gt; 1.00 and SPX &lt; its 21-day EMA · daily closes; today provisional until the cash close</span><div class="vxwarn">Untested predictor: we have not tested this gauge ourselves. Read it as one opinion, not a signal.</div></div>`;
+  const G=VOLX&&VOLX.gauge; if(!G||!G.length) return vxoWait(el,head);
+  const x=G[G.length-1], L=VXO_LAB[x.lab]||["#9DB0CA",x.lab,""], P=VXO_PLAY[x.lab==="CALM*"?"CALM":x.lab]||["",""], cu=VOLX.cues||{};
+  const ck=b=>b?`<b style="color:#FF7A6B">✓ on</b>`:`<span style="color:#5FE0C0">✗ off</span>`;
+  const chip=(t,v,sub)=>`<span style="display:inline-block;margin:2px 10px 2px 0"><small style="color:var(--mute)">${t}</small> <b>${v}</b> ${sub||""}</span>`;
+  const cue=cu.close_shorts?`<b style="color:#FFD23F">Close-shorts cue ON</b>: VIX9D/VIX peaked ${vxN(cu.peak5,3)} (&gt; 1.15) and is back to ${vxN(x.v9r,3)} (≤ 1.05) — lock in short-side profits before the snap-back.`
+    :cu.reentry?`<b style="color:#3FD0B0">Re-entry cue ON</b>: VIX9D/VIX peaked ${vxN(cu.peak10,3)} and is under 1.00 with SPX over its 8d EMA — bull put spreads can resume (early, before the EMA re-cross).`
+    :(cu.peak10>1.15?`VIX9D/VIX peaked <b>${vxN(cu.peak10,3)}</b> in the last 10 sessions (over 1.15). Close-shorts cue needs ≤ 1.05 (now ${vxN(x.v9r,3)}); re-entry needs &lt; 1.00 ${cu.reentry_need&&cu.reentry_need.v9r_below_1?"✓":"✗"} and SPX over its 8d EMA ${vxN(x.s8,0)} ${cu.reentry_need&&cu.reentry_need.spx_above_8d?"✓":"✗"}.`
+    :`No VIX9D/VIX spike over 1.15 in the last 10 sessions.`);
+  const hist=G.slice(-10).map(r=>{ const l=VXO_LAB[r.lab]||["#9DB0CA"]; return `<span title="${r.d} · ratio ${r.r} · 8d ${r.e8} / 21d ${r.e21} · 9D/VIX ${r.v9r} · SPX ${r.spx} vs 21d ${r.s21}" style="display:inline-block;background:${l[0]};color:#000;border-radius:3px;padding:0 5px;margin:1px;font-size:11px;font-weight:700">${r.d.slice(5)}${r.prov?"*":""}</span>`; }).join("");
+  el.innerHTML=head+`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px">
+      <span class="vxtag" style="background:${L[0]};color:#000;font-size:15px;padding:3px 10px">${L[1]}${x.prov?" · provisional":""}</span>
+      ${chip("VIXM/VIXY",vxN(x.r,4),`· 8d <b>${vxN(x.e8,4)}</b> ${x.e8>x.e21?"&gt;":"&lt;"} 21d <b>${vxN(x.e21,4)}</b>`)}
+      ${chip("VIX9D/VIX",vxN(x.v9r,3),"&gt; 1.00 "+ck(x.f_v9))}
+      ${chip("SPX",vxN(x.spx,0),`vs 21d EMA ${vxN(x.s21,0)}: below ${ck(x.f_spx)} · 8d EMA ${vxN(x.s8,0)}`)}
+      <span style="color:var(--mute);font-size:12px">${esc(x.d)}</span></div>
+    <div class="vxnote" style="color:var(--ink)">${cue}</div>
+    <div class="vxnote" style="color:var(--ink)"><b>Directional:</b> ${esc(P[0])}<br><b>Credit spreads / condors:</b> ${esc(P[1])}${x.lab==="CALM*"?" <b>(a confirmation filter is on — the source table has no row for this; treat with care)</b>":""}</div>
+    <canvas id="vxoGaugeC" style="width:100%;height:170px;display:block;margin-top:8px"></canvas>
+    <div class="vxnote">Last 10 sessions: ${hist} <span style="color:var(--faint)">(* = provisional) · history through ${esc(JSON.stringify(VOLX.hist_through||{}).replace(/[{}"]/g,"").replace(/,/g,", "))} · updated ${esc(String(VOLX.asof||"").slice(11,16))} ET</span></div>`;
+  const cv=document.getElementById("vxoGaugeC"); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+  const padL=46,padR=10,padT=8,padB=18,W=w-padL-padR,H=h-padT-padB, n=G.length; let lo=1e9,hi=-1e9; for(const r of G) for(const v of [r.r,r.e8,r.e21]){ lo=Math.min(lo,v); hi=Math.max(hi,v); }
+  const pd=(hi-lo)*0.08||0.01; lo-=pd; hi+=pd; const X=i=>padL+W*(i+0.5)/n, Y=v=>padT+H*(1-(v-lo)/(hi-lo));
+  G.forEach((r,i)=>{ const l=VXO_LAB[r.lab]||["#9DB0CA"]; ctx.fillStyle=l[0]+"26"; ctx.fillRect(padL+W*i/n,padT,W/n+0.5,H); });
+  for(const [k,c,lw] of [["r","#ffffff",1.4],["e8","#3FE0A0",2.2],["e21","#FF6B6B",2.2]]){ ctx.strokeStyle=c; ctx.lineWidth=lw; ctx.beginPath(); G.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r[k])):ctx.moveTo(X(i),Y(r[k]))); ctx.stroke(); }
+  ctx.fillStyle="#C9D3E0"; ctx.font="11px system-ui"; ctx.fillText(hi.toFixed(3),2,padT+10); ctx.fillText(lo.toFixed(3),2,padT+H);
+  ctx.textAlign="center"; for(let i=0;i<n;i+=Math.max(1,Math.round(n/6))) ctx.fillText(G[i].d.slice(5),X(i),h-4); ctx.textAlign="left";
+  ctx.fillStyle="#fff"; ctx.fillText("ratio",padL+6,padT+12); ctx.fillStyle="#3FE0A0"; ctx.fillText("8d EMA",padL+44,padT+12); ctx.fillStyle="#FF6B6B"; ctx.fillText("21d EMA",padL+96,padT+12); }
+function vxoStack(el){
+  const head=`<div class="vxh"><h2>Variance stack — VIX² + DSPX² ≈ VIXEQ²</h2><span class="vxsub">vol doesn't add, variance does · VIX² = what correlation transmits to the index · DSPX² = dispersion, diversified away · transmission share = VIX² ÷ (VIX² + DSPX²), related to but not the same as COR1M · 1-minute index quotes, ~15 min delayed</span></div>`;
+  if(!VOLX||!VOLX.q) return vxoWait(el,head);
+  const Q=VOLX.q, N=VOLX.stack_now, Pv=VOLX.stack_prev, v=s=>Q[s]&&Q[s].v, pv=s=>Q[s]&&Q[s].prev;
+  const row=(t,a,b,d)=>`<span style="display:inline-block;margin:2px 14px 2px 0"><small style="color:var(--mute)">${t}</small> <b>${a}</b>${b!=null?` <span style="color:var(--mute)">prev ${b}</span>`:""}${d||""}</span>`;
+  const I=VOLX.intra||{t:[]}, has=I.t&&I.t.length>1;
+  el.innerHTML=head+`<div>${row("VIX",vxN(v("VIX")),vxN(pv("VIX")))}${row("DSPX",vxN(v("DSPX")),vxN(pv("DSPX")))}${row("VIXEQ",vxN(v("VIXEQ")),vxN(pv("VIXEQ")))}
+      ${N?row("√(VIX²+DSPX²)",vxN(N.sqrt),null,` vs VIXEQ ${vxN(v("VIXEQ"))} · gap ${vxSgn(N.gap,2)}`):""}
+      ${N?row("Transmission share",(N.share*100).toFixed(1)+"%",Pv?(Pv.share*100).toFixed(1)+"%":null,Pv?` · ${Math.abs(N.share-Pv.share)<0.002?"unchanged":N.share>Pv.share?"<b style='color:#FF9A6B'>thickening</b> (correlation carrying more)":"<b style='color:#5FE0C0'>thinning</b>"}`:""):""}
+      ${row("COR1M",vxN(v("COR1M")),vxN(pv("COR1M")))}${row("COR3M",vxN(v("COR3M")),vxN(pv("COR3M")))}</div>
+    ${has?`<canvas id="vxoStackC" style="width:100%;height:190px;display:block;margin-top:6px"></canvas><canvas id="vxoCorrC" style="width:100%;height:150px;display:block;margin-top:6px"></canvas>`
+      :`<div class="vxnote">The session-to-date charts fill from 09:30 while the vol poller runs (1-minute index quotes). Numbers above are the latest quotes and the prior close.</div>`}
+    <div class="vxnote">Identity check = √(VIX² + DSPX²) − VIXEQ (async prints make it jump a few tenths in spikes). Read: share rising with COR1M = the index is catching single-name stress (correlation-led); VIXEQ up with the share flat = single-name demand, diversified away. Updated ${esc(String(VOLX.asof||"").slice(11,16))} ET.</div>`;
+  if(!has) return;
+  const T=I.t.map(tmin), t0=RTH_OPEN, t1=16*60;
+  { const cv=document.getElementById("vxoStackC"), {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+    const padL=46,padR=10,padT=8,padB=18,W=w-padL-padR,H=h-padT-padB, X=t=>padL+W*(t-t0)/(t1-t0);
+    const a=I.VIX.map(x=>x>0?x*x:null), b=I.DSPX.map(x=>x>0?x*x:null), e=I.VIXEQ.map(x=>x>0?x*x:null);
+    let hi=0; a.forEach((x,i)=>{ if(x!=null&&b[i]!=null) hi=Math.max(hi,x+b[i]); if(e[i]!=null) hi=Math.max(hi,e[i]); }); if(Pv) hi=Math.max(hi,Pv.tot); hi*=1.08; const Y=v=>padT+H*(1-v/(hi||1));
+    const area=(top,bot,col)=>{ ctx.fillStyle=col; ctx.beginPath(); let st0=false; const pts=[]; T.forEach((t,i)=>{ if(top[i]!=null&&bot[i]!=null) pts.push([X(t),Y(top[i]),Y(bot[i])]); });
+      if(!pts.length) return; ctx.moveTo(pts[0][0],pts[0][1]); pts.forEach(p=>ctx.lineTo(p[0],p[1])); for(let i=pts.length-1;i>=0;i--) ctx.lineTo(pts[i][0],pts[i][2]); ctx.closePath(); ctx.fill(); };
+    area(a,a.map(()=>0),"#B8485Acc"); area(a.map((x,i)=>x!=null&&b[i]!=null?x+b[i]:null),a,"#7468B8cc");
+    ctx.strokeStyle="#9FE3FF"; ctx.lineWidth=1.6; ctx.setLineDash([3,3]); ctx.beginPath(); let on=false; T.forEach((t,i)=>{ if(e[i]==null){ on=false; return; } on?ctx.lineTo(X(t),Y(e[i])):ctx.moveTo(X(t),Y(e[i])); on=true; }); ctx.stroke(); ctx.setLineDash([]);
+    if(Pv){ ctx.strokeStyle="#ffffff66"; ctx.setLineDash([6,4]); for(const v0 of [Pv.tot,Pv.vix2]){ ctx.beginPath(); ctx.moveTo(padL,Y(v0)); ctx.lineTo(padL+W,Y(v0)); ctx.stroke(); } ctx.setLineDash([]); }
+    ctx.fillStyle="#C9D3E0"; ctx.font="11px system-ui"; ctx.fillText(Math.round(hi),2,padT+10); ctx.fillText("0",2,padT+H);
+    for(const t of [570,630,690,750,810,870,930,960]){ ctx.textAlign=t===570?"left":t===960?"right":"center"; ctx.fillText(tlabel(t),X(t),h-4); } ctx.textAlign="left";
+    ctx.fillStyle="#FF8FA0"; ctx.fillText("VIX² (index variance)",padL+6,padT+H-6); ctx.fillStyle="#B9B0FF"; ctx.fillText("DSPX² (dispersion)",padL+6,padT+14); ctx.fillStyle="#9FE3FF"; ctx.fillText("dotted = VIXEQ² · dashed = prior close stack / VIX²",padL+150,padT+14); }
+  { const cv=document.getElementById("vxoCorrC"), {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+    const padL=46,padR=10,padT=8,padB=18,W=w-padL-padR,H=h-padT-padB, X=t=>padL+W*(t-t0)/(t1-t0);
+    const sh=I.VIX.map((x,i)=>x>0&&I.DSPX[i]>0?100*x*x/(x*x+I.DSPX[i]*I.DSPX[i]):null), S=[[sh,"#FFD23F","share %"],[I.COR1M,"#FF9A3D","COR1M"],[I.COR3M,"#3FD0B0","COR3M"]];
+    let lo=1e9,hi=-1e9; for(const [s] of S) for(const v of s) if(v!=null&&v>0){ lo=Math.min(lo,v); hi=Math.max(hi,v); } if(lo>hi){ lo=0; hi=1; } const pd=(hi-lo)*0.1||1; lo-=pd; hi+=pd; const Y=v=>padT+H*(1-(v-lo)/(hi-lo));
+    for(const [s,c] of S){ ctx.strokeStyle=c; ctx.lineWidth=1.8; ctx.beginPath(); let on=false; T.forEach((t,i)=>{ const v=s[i]; if(!(v>0)){ on=false; return; } on?ctx.lineTo(X(t),Y(v)):ctx.moveTo(X(t),Y(v)); on=true; }); ctx.stroke(); }
+    ctx.fillStyle="#C9D3E0"; ctx.font="11px system-ui"; ctx.fillText(hi.toFixed(1),2,padT+10); ctx.fillText(lo.toFixed(1),2,padT+H);
+    for(const t of [570,630,690,750,810,870,930,960]){ ctx.textAlign=t===570?"left":t===960?"right":"center"; ctx.fillText(tlabel(t),X(t),h-4); } ctx.textAlign="left";
+    let xo=padL+6; for(const [,c,n] of S){ ctx.fillStyle=c; ctx.fillText(n,xo,padT+12); xo+=ctx.measureText(n).width+14; } }
+}
+
+/* ---- Density + VIX option buttons (2026-11-09). Each is OFF by default and remembered per browser. OFF = nothing drawn
+   or fetched for it. The buttons live in #denOpts (Density tab) and #vxOpts (VIX tab). */
+var DNO_DEF=[["dn1","Support + walls","Call wall = largest 1–7 DTE call open interest above price (to +8%), put wall = largest 1–7 DTE put open interest below (to −8%), round-number support = the round strike below price with the most put open interest (to −8%). Lines on the cone and the odds chart, plus the chance of touching each before the close."],
+  ["dn2","Split axis","Levels far outside the chart's price range are drawn in a strip under the cone instead of squashing it."],
+  ["dn3","Odds extras","Odds chart: 25th / 75th percentile marks, and the chance of closing below breakdown / in the pin / between pin top and flip / above the flip."],
+  ["dn5","Replay summary","One line: the latest cone's middle and 10–90% range, chance of closing in the pin or above the flip, next to the day's open / high / low, time in the pin, and whether round-number support held."],
+  ["dn6","Status extras","Leveraged-ETF rebalancing at the current price in the chart's status box, the date of the 1–7 DTE book, a 'thin book' warning when open interest near price is small, and for QQQ with Width = VIX the Nasdaq volatility index instead of VIX. Needs the vol poller (cvxmap-volx)."]];
+var VXO_DEF=[["vx1","Regime gauge","VIXM / VIXY ratio, 8-day vs 21-day average, with two confirmations (VIX9D above VIX, SPX below its 21-day average). Untested predictor. Needs the vol poller (cvxmap-volx)."],
+  ["vx2","Variance stack","VIX² + DSPX² ≈ VIXEQ² through the day: how much of single-stock volatility is reaching the index. Needs the vol poller (cvxmap-volx)."],
+  ["vmap","VIX map","Dealer gamma and vanna in VIX options by VIX level and time of day, like the SPX Map. Written by the Orbs feed (cvxmap-wide)."]];
+function optRow(id,defs,obj){ const el=document.getElementById(id); if(!el) return; const sig=defs.map(([k])=>k+(obj[k]?1:0)).join("");
+  if(el.dataset.sig===sig) return; el.dataset.sig=sig;
+  el.innerHTML=`<span class="optlab">Options</span>`+defs.map(([k,t,tt])=>`<button class="btn optb" data-o="${k}" aria-pressed="${!!obj[k]}" title="${esc(tt)}">${esc(t)}</button>`).join("");
+  el.querySelectorAll("button[data-o]").forEach(b=>b.onclick=()=>{ const k=b.dataset.o; obj[k]=!obj[k]; save(id==="denOpts"?"dnOpt":"vxOpt",JSON.stringify(obj)); el.dataset.sig="";
+    if(id==="denOpts"){ try{ denStop(); }catch(e){} } st._vxKey=null; st._vxoKey=null; VXM.key=""; if(k==="vmap"&&obj.vmap) vxmFetch(true);
+    try{ volxPoll(); }catch(e){} render(); if(id==="denOpts"){ try{ denTick(); }catch(e){} } }); }
+function volxDue(){ if(Date.now()-VOLX_AT>60000) volxPoll(); }   // first open of the tab with an option already on
+function vxoUpdate(){ optRow("vxOpts",VXO_DEF,st.vxo); if(st.vxo.vx1||st.vxo.vx2) volxDue();
+  const key=[st.vxo.vx1,st.vxo.vx2,VOLX&&(VOLX.asof||VOLX._err),(document.getElementById("tabVix")||{}).clientWidth].join("|");
+  if(key!==st._vxoKey){ st._vxoKey=key; vxoRender(); }
+  vxmRender(); }
+
+/* ---- VIX map option (2026-11-09): VIX dealer gamma + vanna by VIX level and time of day, same look as the SPX Map.
+   Data = vixmap_YYYYMMDD.json written by wide_feed.py / vix_map.py (container cvxmap-wide) from the collector's
+   minute VIX chain pull - no extra vendor calls. One column per 5 minutes + the newest minute.
+   Maths (vix_map.py, unit-tested): Black-76 on each expiry's forward, r = 0, calendar time, each strike's own IV; a VIX
+   level moves every expiry's forward by the same amount. Default sign = dealers SHORT VIX calls, LONG VIX puts; the
+   switch flips to the SPX-style naive sign (exactly the negative). Fetched only while the option is on and the VIX tab
+   is open. */
+var VXM={J:null, busy:false, at:0, err:null, key:"", book:load("vxmBook","f"), basis:load("vxmBasis","o"), sign:load("vxmSign","dealer"), geo:null};
+if(!["f","a"].includes(VXM.book)) VXM.book="f"; if(!["o","v"].includes(VXM.basis)) VXM.basis="o"; if(!["dealer","naive"].includes(VXM.sign)) VXM.sign="dealer";
+async function vxmFetch(force){
+  if(!st.vxo.vmap||st.tab!=="vix"||VXM.busy) return; if(!force&&Date.now()-VXM.at<25000) return;
+  VXM.busy=true; VXM.at=Date.now(); const ymd=String(liveClock().date||"").replace(/-/g,"");
+  try{ const r=await fetch("vixmap_"+ymd+".json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status);
+    const j=await r.json(); if(!j||!Array.isArray(j.cols)||!Array.isArray(j.levels)) throw new Error("bad file"); VXM.J=j; VXM.err=null; }
+  catch(e){ VXM.err=String(e&&e.message||e); if(VXM.J&&VXM.J.day!==liveClock().date) VXM.J=null; }
+  VXM.busy=false; VXM.key=""; if(st.tab==="vix") vxmRender(); }
+setInterval(()=>vxmFetch(false),30000);
+function vxmZero(lv,v,ref){ let best=null; for(let i=1;i<lv.length;i++){ const a=v[i-1], b=v[i]; if((a<0&&b>=0)||(a>0&&b<=0)){ if(b===a) continue; const x=lv[i-1]+(lv[i]-lv[i-1])*(0-a)/(b-a); if(best==null||Math.abs(x-ref)<Math.abs(best-ref)) best=x; } } return best; }
+function vxmK(v){ const a=Math.abs(v), s=v<0?"−":"+"; return a>=1000?s+"$"+(a/1000).toFixed(a>=10000?0:1)+"M":s+"$"+a.toFixed(a>=10?0:1)+"k"; }
+function vxmSeg(id,key,opts){ return `<span class="orgrp"><span class="orlab">${opts.lab}</span><span class="orseg" id="${id}">`+opts.v.map(([v,t,tt])=>`<button data-m="${key}" data-v="${v}" aria-pressed="${VXM[key]===v}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`).join("")+`</span></span>`; }
+function vxmRender(){
+  const el=document.getElementById("vxMap"); if(!el) return; el.hidden=!st.vxo.vmap; if(!st.vxo.vmap){ el.innerHTML=""; VXM.key=""; return; }
+  vxmFetch(false); const J=VXM.J, W=el.clientWidth||900;
+  const key=[J&&J.cols.length,J&&J.cols.length&&J.cols[J.cols.length-1].t,J&&J.cols.length&&J.cols[J.cols.length-1].x,VXM.book,VXM.basis,VXM.sign,W,VXM.err].join("|");
+  if(key===VXM.key&&el.querySelector(".vxmgrid,.vxnote")) return; VXM.key=key;
+  const head=`<div class="vxh"><h2>VIX map — dealer gamma and vanna by VIX level</h2><span class="vxsub">time of day across, VIX level up the side · every expiry's forward moves with VIX · positioning read, not a signal</span></div>`+
+    `<div class="vxmctl">`+vxmSeg("vxmBookSeg","book",{lab:"Expiries",v:[["f","Front expiry","The nearest VIX expiry only"],["a","All combined","Every listed VIX expiry, each forward moved by the same VIX change"]]})+
+    vxmSeg("vxmBasisSeg","basis",{lab:"Positions from",v:[["o","Open interest"],["v","Today's volume"]]})+
+    vxmSeg("vxmSignSeg","sign",{lab:"Dealer side",v:[["dealer","Short calls, long puts","Default: customers buy VIX calls as hedges and sell VIX puts, so dealers hold the other side"],["naive","SPX-style: long calls, short puts","The simple rule the SPX Map uses, for comparison. It is exactly the opposite sign."]]})+`</div>`;
+  if(!J||!J.cols.length){ el.innerHTML=head+`<div class="vxnote">${VXM.err?`No VIX map for today yet (${esc(VXM.err)}). It is written from 09:30 by the Orbs feed (container <code>cvxmap-wide</code>).`:"Loading the VIX map…"}</div>`; vxmBind(el); return; }
+  const sg=VXM.sign==="dealer"?1:-1, kG="g"+VXM.book+VXM.basis, kV="v"+VXM.book+VXM.basis, lv=J.levels;
+  const sc=k=>{ const a=[]; for(const c of J.cols) for(const v of c[k]||[]) a.push(Math.abs(v)); a.sort((p,q)=>p-q); return a.length?Math.max(1e-9,a[Math.floor(0.98*(a.length-1))]):1; };
+  const limG=sc(kG), limV=sc(kV);
+  const leg=lim=>`<div class="vxmleg"><span>${vxmK(-lim)}</span><i></i><span>${vxmK(lim)}</span></div>`;
+  el.innerHTML=head+`<div class="vxmgrid"><div class="vxmbox"><div class="vxmt">Dealer gamma <span>$ per VIX point, per 1-point move</span></div><canvas id="vxmGC"></canvas>${leg(limG)}</div>`+
+    `<div class="vxmbox"><div class="vxmt">Dealer vanna <span>$ per VIX point, per +1 vol point</span></div><canvas id="vxmVC"></canvas>${leg(limV)}</div></div>`+
+    `<div class="vxmkey"><b class="vxmup">Blue</b> = dealers long (they lean against VIX moves) · <b class="vxmdn">red</b> = dealers short (they chase VIX moves) · white line = VIX · cyan dashed = front forward · yellow dotted = where the value flips sign · green / pink dashed = biggest call / put open-interest strike, drawn where the front forward reaches it · colour is full at the edges of the scale bar</div>`+
+    `<div class="vxmhov" id="vxmHov">Hover the map for the numbers.</div><div class="vxmread" id="vxmRead"></div>`;
+  vxmBind(el);
+  const geoG=vxmDraw(document.getElementById("vxmGC"),J,kG,sg,limG,true), geoV=vxmDraw(document.getElementById("vxmVC"),J,kV,sg,limV,false);
+  VXM.geo={G:geoG,V:geoV};
+  const last=J.cols[J.cols.length-1], gl=(last[kG]||[]).map(v=>v*sg), z=vxmZero(lv,gl,last.x), top=last.top&&last.top[VXM.book==="f"?"front":"all"]||{}, basis=last.fF-last.x;
+  const i0=lv.reduce((b,y,i)=>Math.abs(y-last.x)<Math.abs(lv[b]-last.x)?i:b,0), gNow=gl[i0];
+  const m=s=>s==null?"–":vxN(s,2);
+  document.getElementById("vxmRead").innerHTML=`<div><b>VIX ${vxN(last.x,2)}</b> at ${esc(last.t)}${last.live?" (newest minute)":""} · front forward <b>${vxN(last.fF,2)}</b> (${esc(last.fe)}) · ${VXM.book==="f"?"front expiry":"all "+last.ne+" expiries"} · ${VXM.basis==="o"?"open interest":"today's volume"} · ${VXM.sign==="dealer"?"dealers short calls, long puts":"SPX-style sign (long calls, short puts)"}.</div>`+
+    `<div>Dealer gamma at today's VIX: <b class="${gNow>=0?"vxmup":"vxmdn"}">${vxmK(gNow)}</b> per point — ${gNow>=0?"dealers <b>sell VIX as it rises</b> and buy it as it falls (they lean against VIX moves)":"dealers <b>buy VIX as it rises</b> (they chase VIX moves)"}.</div>`+
+    `<div>Gamma flips sign at <b>VIX ${z==null?"– (no flip on the map)":vxN(z,2)}</b>${z!=null?` (${z>last.x?"+":""}${vxN(z-last.x,2)} from now)`:""}. Biggest call open interest at strike <b>${m(top.call)}</b>${top.call!=null?` (front forward there = VIX ≈ ${vxN(top.call-basis,2)})`:""}; biggest put open interest at strike <b>${m(top.put)}</b>${top.put!=null?` (VIX ≈ ${vxN(top.put-basis,2)})`:""}.</div>`;
+}
+function vxmBind(el){ el.querySelectorAll(".orseg button[data-m]").forEach(b=>b.onclick=()=>{ VXM[b.dataset.m]=b.dataset.v; save("vxm"+b.dataset.m[0].toUpperCase()+b.dataset.m.slice(1),b.dataset.v); VXM.key=""; vxmRender(); }); }
+function vxmDraw(cv,J,k,sg,lim,isG){
+  const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const padL=62,padR=86,padT=10,padB=34, W=w-padL-padR, H=h-padT-padB, lv=J.levels, t0=570, t1=975;
+  const X=t=>padL+W*(t-t0)/(t1-t0), lo=lv[0], hi=lv[lv.length-1], Y=v=>padT+H*(1-(v-lo)/((hi-lo)||1)), rh=Math.max(1,H/lv.length+0.6);
+  const POS=[76,141,255], NEG=[255,107,90], BASE=[14,27,51];
+  const col=v=>{ const u=Math.max(-1,Math.min(1,v/lim)), c=u>=0?POS:NEG, a=Math.pow(Math.abs(u),0.75); return `rgb(${BASE.map((b,j)=>Math.round(b+(c[j]-b)*a)).join(",")})`; };
+  const cols=J.cols;
+  for(let q=0;q<cols.length;q++){ const c=cols[q], ta=tmin(c.t), tb=q<cols.length-1?tmin(cols[q+1].t):ta+(c.live?1:(J.col_min||5)); const xa=X(ta), xb=Math.max(xa+1,X(tb)); const a=c[k]||[];
+    for(let i=0;i<lv.length;i++){ ctx.fillStyle=col((a[i]||0)*sg); ctx.fillRect(xa,Y(lv[i])-rh/2,xb-xa+0.5,rh); } }
+  ctx.font="15px "+C("--font"); ctx.fillStyle="#F2F6FC"; ctx.strokeStyle="#ffffff1c"; ctx.lineWidth=1;
+  const st0=orNice(hi-lo,7); for(let v=Math.ceil(lo/st0)*st0; v<=hi; v+=st0){ const y=Y(v); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.textAlign="right"; ctx.fillText(vxN(v,v%1?1:0),padL-6,y+5); }
+  ctx.textAlign="center"; for(let hh=10;hh<=16;hh++) ctx.fillText(String(hh>12?hh-12:hh)+(hh>=12?" pm":" am"),X(hh*60),h-12); ctx.textAlign="left";
+  // zero line of each column (gamma or vanna), nearest to that minute's VIX
+  ctx.save(); ctx.strokeStyle="#FFE27A"; ctx.lineWidth=2; ctx.setLineDash([2,3]); ctx.beginPath(); let on=false;
+  for(const c of cols){ const z=vxmZero(lv,(c[k]||[]).map(v=>v*sg),c.x); const x=X(tmin(c.t)); if(z==null){ on=false; continue; } if(on) ctx.lineTo(x,Y(z)); else { ctx.moveTo(x,Y(z)); on=true; } } ctx.stroke(); ctx.restore();
+  // VIX path (white) and the front forward path (cyan dashed)
+  const path=(f,colr,dash,lw)=>{ ctx.save(); ctx.strokeStyle=colr; ctx.lineWidth=lw; ctx.setLineDash(dash); ctx.beginPath(); cols.forEach((c,q)=>{ const v=f(c), x=X(tmin(c.t)); if(v<lo||v>hi) return; q?ctx.lineTo(x,Y(v)):ctx.moveTo(x,Y(v)); }); ctx.stroke(); ctx.restore(); };
+  path(c=>c.x,"#ffffff",[],2.4); path(c=>c.fF,"#7FE7FF",[6,4],1.8);
+  const last=cols[cols.length-1], xr=padL+W+4, lab=(v,txt,colr)=>{ if(v==null||v<lo||v>hi) return; const y=Y(v); ctx.font="bold 14px "+C("--font"); const tw=ctx.measureText(txt).width; ctx.fillStyle="#0A1426e6"; ctx.fillRect(xr-2,y-11,Math.min(tw+6,padR+2),18); ctx.fillStyle=colr; ctx.fillText(txt,xr+1,y+4); };
+  const marks=[];
+  marks.push([last.x,"VIX "+vxN(last.x,2),"#fff"]); marks.push([last.fF,"fwd "+vxN(last.fF,2),"#7FE7FF"]);
+  if(isG){ const z=vxmZero(lv,(last[k]||[]).map(v=>v*sg),last.x); if(z!=null) marks.push([z,"flip "+vxN(z,1),"#FFE27A"]);
+    const top=last.top&&last.top[VXM.book==="f"?"front":"all"]||{}, basis=last.fF-last.x;
+    for(const [s,t,colr] of [[top.call,"call OI","#58D68D"],[top.put,"put OI","#FF9AC8"]]) if(s!=null){ const yv=s-basis; marks.push([yv,t+" "+vxN(s,0),colr]);
+      if(yv>=lo&&yv<=hi){ ctx.save(); ctx.strokeStyle=colr; ctx.setLineDash([8,4]); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(padL,Y(yv)); ctx.lineTo(padL+W,Y(yv)); ctx.stroke(); ctx.restore(); } } }
+  marks.sort((a,b)=>b[0]-a[0]); let prevY=-1e9; for(const m of marks){ let y=m[0]; const py=Y(y); const yy=Math.max(py,prevY+18); prevY=yy; lab(lo+(hi-lo)*(1-(yy-padT)/H),m[1],m[2]); }
+  return {X,Y,padL,padT,W,H,lo,hi,lv,t0,t1,k,sg,lim,isG}; }
+function vxmHover(e){ const g=VXM.geo, J=VXM.J; if(!g||!J) return; const cv=e.target, G=cv.id==="vxmGC"?g.G:g.V; if(!G) return;
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top; const t=G.t0+(x-G.padL)/G.W*(G.t1-G.t0), v=G.lo+(G.hi-G.lo)*(1-(y-G.padT)/G.H);
+  let q=-1; for(let j=0;j<J.cols.length;j++) if(tmin(J.cols[j].t)<=t+0.01) q=j; const hv=document.getElementById("vxmHov"); if(!hv) return;
+  if(q<0||v<G.lo||v>G.hi){ hv.textContent="Hover the map for the numbers."; return; }
+  const c=J.cols[q], i=J.levels.reduce((b,l,ii)=>Math.abs(l-v)<Math.abs(J.levels[b]-v)?ii:b,0), lvl=J.levels[i], sg=G.sg;
+  const gk="g"+VXM.book+VXM.basis, vk="v"+VXM.book+VXM.basis;
+  hv.innerHTML=`<b>${esc(c.t)}</b> · VIX level <b>${vxN(lvl,2)}</b> (VIX then ${vxN(c.x,2)}, front forward there ${vxN(c.fF+lvl-c.x,2)}) · dealer gamma <b>${vxmK((c[gk]||[])[i]*sg||0)}</b> per point · dealer vanna <b>${vxmK((c[vk]||[])[i]*sg||0)}</b> per vol point`; }
+document.addEventListener("mousemove",e=>{ if(e.target&&(e.target.id==="vxmGC"||e.target.id==="vxmVC")) vxmHover(e); });
+
+/* ============================================================ Orbs tab (2026-11-09)
+   The Orbs + Volume profile page (flow_orbs.html, which stays as a stand-alone backup) as a cockpit tab.
+   Data: wide_feed.py (container cvxmap-wide) from the collector's raw file - no extra vendor calls.
+     wide_YYYYMMDD.json      the whole day, one block per pull (1 minute), compact "dz" coding - loaded ONCE
+     wide_live_<SYM>.json    the newest minute only (~10 KB) - polled every 3 s while this tab is open and ON
+   The collector pulls every 60 s, so a new minute appears here about 1-7 s after its pull is written.
+   OFF (default) = nothing is fetched or drawn. Follows the SPX / SPY / QQQ buttons.
+   Profile modes follow the Volume ladder's rules (trade tags): Bull = calls bought + puts sold, Bear = puts bought +
+   calls sold, Net = Bull - Bear. Positions basis: open interest OR today's volume, never both.
+   Positioning read, not a trade signal. */
+var OR={on:load("orOn","0")==="1", meas:load("orMeas","g"), basis:load("orBasis","oi"), book:load("orBook","all"),
+  prof:load("orProf","cp"), blk:+load("orBlk","1")||1, day:null, J:null, loading:false, err:null, i:-1, follow:true,
+  play:null, timer:null, liveBusy:false, liveAt:0, liveT:null, P:null, key:"", reloadAt:0, g:null};
+if(!["g","va","both"].includes(OR.meas)) OR.meas="g"; if(!["oi","vol"].includes(OR.basis)) OR.basis="oi";
+if(!["0","7","all"].includes(OR.book)) OR.book="all"; if(!["c","p","bull","bear","net"].includes(OR.prof)) OR.prof="c";
+if(![1,3,5].includes(OR.blk)) OR.blk=1;
+const OR_CUM=["c","p","cb","cs","pb","ps","cP","pP"], OR_SNAP=["g","gv","gt","va"], OR_GQ=1e-5;
+const OR_COL={call:"#3FC1E8",put:"#FF5FA2",pos:"#FFD23F",neg:"#B26BFF",poc:"#FF8A3D",up:"#58D68D",dn:"#FF7B72"};
+/* day file v2 -> full blocks (inverse of wide_feed.encode_slots); v1 blocks pass through */
+function orDecode(S){ const out=[], prev={}; const step=S.step||1;
+  for(const e of S.slots||[]){ if(!e.dz){ out.push(e); continue; }
+    const ks=[]; for(let i=0;i<e.n;i++) ks.push(+(e.k0+step*i).toFixed(6));
+    const b={t:e.t,x:e.x,k:ks}; if(e.ex) b.ex=e.ex;
+    for(const g of ["0","7"]){ for(const f of OR_SNAP) b[f+g]=(e[f+g]||[]).map(v=>v*OR_GQ);
+      for(const f of OR_CUM){ const pm=prev[f+g]||new Map(), nm=new Map(), d=e[f+g]||[], cur=ks.map((k,i)=>{ const v=(pm.get(k)||0)+(d[i]||0); nm.set(k,v); return v; });
+        prev[f+g]=nm; b[f+g]=(f==="cP"||f==="pP")?cur.map(v=>v/1000):cur; } }
+    out.push(b); }
+  return out; }
+function orYmd(){ return String(liveClock().date||"").replace(/-/g,""); }
+function orLiveDay(){ const c=liveClock(); const hm=c.h*60+c.m; return !!(OR.day&&OR.day===c.date.replace(/-/g,"")&&hm>=565&&hm<=980); }
+async function orGet(u){ const r=await fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(u+" "+r.status); return r.json(); }
+async function orLoadDay(){
+  if(OR.loading) return; OR.loading=true; OR.err=null;
+  try{ let ymd=orYmd(), J=null;
+    try{ J=await orGet("wide_"+ymd+".json"); }catch(e){ J=null; }
+    if(!J){ let days=[]; try{ days=(await orGet("wide_index.json")).days||[]; }catch(e){ days=[]; }
+      ymd=days[0]||null; if(ymd){ try{ J=await orGet("wide_"+ymd+".json"); }catch(e){ J=null; } } }
+    if(!J||!J.syms){ OR.J=null; OR.day=null; OR.err="No Orbs data yet. The feed writes its first file a minute after the open (container cvxmap-wide)."; }
+    else { const D={}; for(const [s,v] of Object.entries(J.syms)) D[s]={step:v.step||1,slots:orDecode(v),px:v.px||[]};
+      OR.J={day:J.day,slot_min:J.slot_min||5,syms:D}; OR.day=ymd; }
+  }catch(e){ OR.err="Could not read the Orbs data ("+(e&&e.message||e)+")."; }
+  OR.loading=false; OR.P=null; OR.key=""; if(st.tab==="orbs") renderOrbs(); }
+function orSym(){ return OR.J&&OR.J.syms&&OR.J.syms[st.sym]||null; }
+async function orPollLive(){
+  if(!OR.on||st.tab!=="orbs"||OR.liveBusy||!OR.J||!orLiveDay()) return; OR.liveBusy=true;
+  try{ const L=await orGet("wide_live_"+st.sym+".json"); OR.liveAt=Date.now();
+    const S=orSym(); if(L&&L.slot&&S&&String(L.day||"").replace(/-/g,"")===OR.day){
+      const sl=S.slots, last=sl[sl.length-1], t=L.slot.t; let changed=false;
+      if(last&&last.t===t){ if(OR.liveT!==L.gen){ sl[sl.length-1]=L.slot; changed=true; } }
+      else if(!last||t>last.t){ if(L.n!=null&&L.n>sl.length+1&&Date.now()-OR.reloadAt>20000){ OR.reloadAt=Date.now(); OR.liveBusy=false; orLoadDay(); return; }
+        sl.push(L.slot); changed=true; }
+      for(const p of L.px||[]){ const px=S.px, lp=px[px.length-1]; if(!lp||p[0]>lp[0]) px.push(p); else if(p[0]===lp[0]) lp[1]=p[1]; }
+      OR.liveT=L.gen; if(changed){ OR.P=null; OR.key=""; renderOrbs(); } } }
+  catch(e){ /* live file missing: keep the day as loaded */ }
+  OR.liveBusy=false; }
+function orTimer(){ const want=OR.on&&st.tab==="orbs"; if(want&&!OR.timer) OR.timer=setInterval(orPollLive,3000); if(!want&&OR.timer){ clearInterval(OR.timer); OR.timer=null; } }
+/* the chosen expiries */
+function orArr(s,f){ const a=s[f+"0"]||[], b=s[f+"7"]||[]; if(OR.book==="0") return a; if(OR.book==="7") return b; return a.map((v,i)=>(v||0)+(b[i]||0)); }
+function orGF(){ return OR.basis==="vol"?"gv":"g"; }
+/* 1 / 3 / 5-minute blocks from the 1-minute slots: the LAST minute of each block carries the block (greeks are that
+   minute's snapshot, volumes are cumulative for the day); candles = OHLC of spot over the block's minutes. */
+function orPrep(){
+  const S=orSym(); if(!S||!S.slots.length) return null; const B=OR.blk, sl=S.slots;
+  const bk=[], idx=new Map();
+  for(let j=0;j<sl.length;j++){ const m=tmin(sl[j].t), b0=Math.floor(m/B)*B; let o=idx.get(b0); if(o==null){ o=bk.length; idx.set(b0,o); bk.push({t0:b0,j:j,n:0}); } bk[o].j=j; bk[o].n++; bk[o].tl=m; }
+  const cd=new Map(); for(const [t,x] of S.px){ const b0=Math.floor(tmin(t)/B)*B; let c=cd.get(b0); if(!c){ c={t:b0,o:x,h:x,l:x,c:x}; cd.set(b0,c); } c.h=Math.max(c.h,x); c.l=Math.min(c.l,x); c.c=x; }
+  const live=orLiveDay(); bk.forEach((b,q)=>{ b.s=sl[b.j]; b.cd=cd.get(b.t0)||{t:b.t0,o:b.s.x,h:b.s.x,l:b.s.x,c:b.s.x};
+    b.building=live&&q===bk.length-1&&B>1&&b.tl<b.t0+B-1; });
+  const allK=new Set(); for(const b of bk) for(const k of b.s.k) allK.add(k); const ks=[...allK].sort((a,b)=>a-b);
+  const mx={}; for(const f of ["g","gv","va"]){ let m=0; mx[f]=bk.map(b=>{ for(const v of orArr(b.s,f)) m=Math.max(m,Math.abs(v||0)); return m||1; }); }
+  const poc=bk.map(b=>orProfile(b.s).poc);
+  return {bk,ks,mx,poc,lo:ks[0],hi:ks[ks.length-1],step:S.step||1}; }
+/* volume profile for the chosen mode; POC / value area on the series shown (Net: |net|) */
+function orProfile(s){
+  const c=orArr(s,"c"), p=orArr(s,"p"), cb=orArr(s,"cb"), cs=orArr(s,"cs"), pb=orArr(s,"pb"), ps=orArr(s,"ps");
+  const bull=c.map((_,i)=>(cb[i]||0)+(ps[i]||0)), bear=c.map((_,i)=>(pb[i]||0)+(cs[i]||0)), net=bull.map((v,i)=>v-bear[i]);
+  const m=OR.prof, ser=m==="c"?c:m==="p"?p:m==="bull"?bull:m==="bear"?bear:net.map(Math.abs);
+  let pi=0; for(let i=1;i<ser.length;i++) if((ser[i]||0)>(ser[pi]||0)) pi=i;
+  const sum=ser.reduce((a,b)=>a+(b||0),0); let lo=pi,hi=pi,acc=ser[pi]||0;
+  while(sum>0&&acc<0.7*sum&&(lo>0||hi<ser.length-1)){ const a=lo>0?ser[lo-1]||0:-1, b=hi<ser.length-1?ser[hi+1]||0:-1; if(a>=b){ lo--; acc+=a; } else { hi++; acc+=b; } }
+  return {k:s.k,c,p,cb,cs,pb,ps,bull,bear,net,ser,sum,poc:sum>0?s.k[pi]:null,vah:sum>0?s.k[hi]:null,val:sum>0?s.k[lo]:null}; }
+function orMoney(v){ const a=Math.abs(v), s=v<0?"−":"+"; if(a>=1) return s+"$"+a.toFixed(a>=10?0:1)+"B"; if(a>=0.001) return s+"$"+(a*1000).toFixed(a*1000>=10?0:1)+"M"; return s+"$"+Math.round(a*1e6)+"K"; }
+function orK(v){ v=Math.abs(v); return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).toFixed(v>=1e4?0:1)+"K":String(Math.round(v)); }
+function orFk(v){ return Number.isInteger(v)?String(v):(+v).toFixed(1); }
+function orNice(span,n){ const raw=span/(n||8), p=Math.pow(10,Math.floor(Math.log10(raw||1))); for(const m of [1,2,2.5,5,10]) if(raw<=m*p) return m*p; return 10*p; }
+function orA(a){ return Math.round(Math.max(0,Math.min(1,a))*255).toString(16).padStart(2,"0"); }
+const OR_PAD={t:12,b:34};
+function orY(h){ const P=OR.P, b=P.bk[OR.i]; let lo=Infinity,hi=-Infinity; for(let q=0;q<=OR.i;q++){ const c=P.bk[q].cd; lo=Math.min(lo,c.l); hi=Math.max(hi,c.h); }
+  if(!isFinite(lo)){ lo=hi=b.s.x; } const span=Math.max((hi-lo)*0.6,b.s.x*0.006); lo=Math.max(P.lo,lo-span); hi=Math.min(P.hi,hi+span);
+  const H=h-OR_PAD.t-OR_PAD.b; return {lo,hi,H,Y:v=>OR_PAD.t+H*(1-(v-lo)/((hi-lo)||1))}; }
+function orHatch(ctx,x,y,w,h,col){ if(!(w>0)) return; ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip(); ctx.strokeStyle=col; ctx.lineWidth=1.2; for(let q=x-h;q<x+w+h;q+=4){ ctx.beginPath(); ctx.moveTo(q,y+h); ctx.lineTo(q+h,y); ctx.stroke(); } ctx.restore(); }
+function orDrawMain(cv){
+  const P=OR.P, {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const y=orY(h), b=P.bk[OR.i], AXL=66, t0=570, t1=975, W=w-AXL-10;
+  const X=t=>AXL+W*(t-t0)/(t1-t0), colW=Math.max(2,W*OR.blk/(t1-t0)), step=P.step, rowH=Math.abs(y.Y(0)-y.Y(step));
+  ctx.font="15px "+C("--font"); ctx.fillStyle="#DCE6F2"; ctx.strokeStyle="#ffffff14"; ctx.lineWidth=1;
+  const lab=orNice(y.hi-y.lo,8); for(let v=Math.ceil(y.lo/lab)*lab; v<=y.hi; v+=lab){ const yy=y.Y(v); ctx.beginPath(); ctx.moveTo(AXL,yy); ctx.lineTo(w,yy); ctx.stroke(); ctx.fillText(orFk(v),4,yy+5); }
+  for(let hh=10;hh<=16;hh++){ const x=X(hh*60); ctx.beginPath(); ctx.moveTo(x,OR_PAD.t); ctx.lineTo(x,h-OR_PAD.b); ctx.stroke(); ctx.fillText(String(hh>12?hh-12:hh)+(hh>=12?" pm":" am"),x-14,h-10); }
+  const gf=orGF(), mf=OR.meas==="va"?"va":gf, ring=OR.meas==="both";
+  for(let q=0;q<=OR.i;q++){ const bb=P.bk[q], sl=bb.s, xc=X(bb.t0+OR.blk/2), a=orArr(sl,mf), m=P.mx[mf][OR.i], rv=ring?orArr(sl,"va"):null, mv=P.mx.va[OR.i];
+    for(let i=0;i<sl.k.length;i++){ const k=sl.k[i]; if(k<y.lo-step||k>y.hi+step) continue; const yy=y.Y(k), v=a[i]||0, f=Math.sqrt(Math.abs(v)/m);
+      if(f>0.04){ ctx.fillStyle=(v>=0?OR_COL.pos:OR_COL.neg)+orA(0.25+0.7*f); ctx.beginPath(); ctx.ellipse(xc,yy,Math.max(1,Math.min(colW*0.62,colW*0.62*f+0.6)),Math.max(1,rowH*0.48*Math.max(f,0.35)),0,0,7); ctx.fill(); }
+      if(rv){ const u=rv[i]||0, r=Math.sqrt(Math.abs(u)/mv); if(r>0.08){ ctx.strokeStyle=(u>=0?"#7FE7FF":"#FF9AC8")+orA(0.35+0.6*r); ctx.lineWidth=1.3; ctx.beginPath(); ctx.ellipse(xc,yy,Math.max(1.5,colW*0.55*r),Math.max(1.5,rowH*0.42*Math.max(r,0.35)),0,0,7); ctx.stroke(); } } }
+    if(bb.building){ ctx.save(); ctx.strokeStyle="#FFD23F"; ctx.setLineDash([4,3]); ctx.lineWidth=1.5; ctx.strokeRect(X(bb.t0),OR_PAD.t,colW,h-OR_PAD.t-OR_PAD.b); ctx.restore();
+      ctx.font="bold 15px "+C("--font"); ctx.fillStyle="#FFD23F"; ctx.textAlign="right"; ctx.fillText("building",Math.min(w-4,X(bb.t0)+colW),OR_PAD.t+16); ctx.textAlign="left"; } }
+  ctx.save(); ctx.strokeStyle=OR_COL.poc; ctx.lineWidth=2.2; ctx.setLineDash([2,4]); ctx.beginPath(); let on=false;
+  for(let q=0;q<=OR.i;q++){ const k=P.poc[q]; if(k==null){ on=false; continue; } const xx=X(P.bk[q].t0+OR.blk/2), yy=y.Y(k); if(!on){ ctx.moveTo(xx,yy); on=true; } else ctx.lineTo(xx,yy); } ctx.stroke(); ctx.restore();
+  for(let q=0;q<=OR.i;q++){ const c=P.bk[q].cd, x=X(c.t+OR.blk/2), up=c.c>=c.o, bw=Math.max(1.5,colW*0.6); ctx.strokeStyle=up?"#F1F5FB":"#9FB2CC"; ctx.fillStyle=up?"#0A1426":"#9FB2CC"; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(x,y.Y(c.h)); ctx.lineTo(x,y.Y(c.l)); ctx.stroke(); const yo=y.Y(Math.max(c.o,c.c)), yc=y.Y(Math.min(c.o,c.c)); ctx.fillRect(x-bw/2,yo,bw,Math.max(1,yc-yo)); ctx.strokeRect(x-bw/2,yo,bw,Math.max(1,yc-yo)); }
+  const ys=y.Y(b.s.x); ctx.save(); ctx.strokeStyle="#ffffffbb"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(AXL,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
+  ctx.font="bold 16px "+C("--font"); const st0=b.s.x.toFixed(2), tw=ctx.measureText(st0).width; ctx.fillStyle="#0A1426d9"; ctx.fillRect(w-tw-12,ys-21,tw+8,18); ctx.fillStyle="#fff"; ctx.fillText(st0,w-tw-8,ys-7);
+  OR.g={X,y,AXL,W,t0,t1,w,h}; }
+function orDrawLadder(cv){
+  const P=OR.P, b=P.bk[OR.i], s=b.s, {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const y=orY(h);
+  const mf=OR.meas==="va"?"va":orGF(), a=orArr(s,mf), rowH=Math.max(2,Math.abs(y.Y(0)-y.Y(P.step))-1);
+  let m=0; for(let i=0;i<s.k.length;i++) if(s.k[i]>=y.lo&&s.k[i]<=y.hi) m=Math.max(m,Math.abs(a[i]||0)); m=m||1;
+  const mid=w/2; ctx.strokeStyle="#ffffff40"; ctx.beginPath(); ctx.moveTo(mid,OR_PAD.t); ctx.lineTo(mid,h-OR_PAD.b); ctx.stroke();
+  const ord=s.k.map((k,i)=>i).filter(i=>s.k[i]>=y.lo&&s.k[i]<=y.hi);
+  for(const i of ord){ const v=a[i]||0, L=(w/2-6)*Math.abs(v)/m, yy=y.Y(s.k[i]); ctx.fillStyle=v>=0?OR_COL.pos:OR_COL.neg; ctx.fillRect(v>=0?mid:mid-L,yy-rowH/2,L,rowH); }
+  const top=[...ord].sort((p,q)=>(a[q]||0)-(a[p]||0)).slice(0,3).filter(i=>(a[i]||0)>0), bot=[...ord].sort((p,q)=>(a[p]||0)-(a[q]||0)).slice(0,3).filter(i=>(a[i]||0)<0);
+  ctx.font="bold 15px "+C("--font");
+  for(const grp of [top,bot]){ const L=grp.map(i=>({i,y:y.Y(s.k[i])})).sort((p,q)=>p.y-q.y); for(let q=1;q<L.length;q++) if(L[q].y-L[q-1].y<19) L[q].y=L[q-1].y+19;   // labels never overlap
+    for(const {i,y:yy} of L){ const v=a[i], t=orFk(s.k[i])+" "+orMoney(v), tw=ctx.measureText(t).width, tx=v>=0?Math.max(2,mid-tw-6):Math.min(w-tw-2,mid+6);
+      ctx.fillStyle="#0A1426e0"; ctx.fillRect(tx-3,yy-12,tw+6,17); ctx.fillStyle="#fff"; ctx.fillText(t,tx,yy+3); } }
+  const ys=y.Y(s.x); ctx.save(); ctx.strokeStyle="#ffffffbb"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(0,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
+  ctx.font="15px "+C("--font"); ctx.fillStyle="#DCE6F2"; ctx.fillText(OR.meas==="va"?"vanna, $ per vol point":"gamma, $ per 1% move",4,h-10); }
+function orDrawProfile(cv){
+  const P=OR.P, b=P.bk[OR.i], s=b.s, {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const y=orY(h), pr=orProfile(s), rowH=Math.max(2,Math.abs(y.Y(0)-y.Y(P.step))-1), M=OR.prof;
+  let m=0; for(let i=0;i<s.k.length;i++) if(s.k[i]>=y.lo&&s.k[i]<=y.hi) m=Math.max(m,M==="net"?Math.abs(pr.net[i]):M==="c"?pr.c[i]:M==="p"?pr.p[i]:pr.ser[i]); m=m||1;
+  const net=M==="net", mid=net?w/2:6, W=net?w/2-8:w-12;
+  if(net){ ctx.strokeStyle="#ffffff40"; ctx.beginPath(); ctx.moveTo(mid,OR_PAD.t); ctx.lineTo(mid,h-OR_PAD.b); ctx.stroke(); }
+  for(let i=0;i<s.k.length;i++){ const k=s.k[i]; if(k<y.lo||k>y.hi) continue; const yy=y.Y(k)-rowH/2, f=W/m;
+    if(M==="c"||M==="p"){ const tot=(M==="c"?pr.c:pr.p)[i]||0, B_=(M==="c"?pr.cb:pr.pb)[i]||0, S_=(M==="c"?pr.cs:pr.ps)[i]||0, col=M==="c"?OR_COL.call:OR_COL.put;
+      ctx.fillStyle=col+"40"; ctx.fillRect(mid,yy,tot*f,rowH); ctx.fillStyle=col; ctx.fillRect(mid,yy,B_*f,rowH); orHatch(ctx,mid+B_*f,yy,S_*f,rowH,col); }
+    else if(M==="bull"){ ctx.fillStyle=OR_COL.up; ctx.fillRect(mid,yy,(pr.cb[i]||0)*f,rowH); orHatch(ctx,mid+(pr.cb[i]||0)*f,yy,(pr.ps[i]||0)*f,rowH,OR_COL.up); }
+    else if(M==="bear"){ ctx.fillStyle=OR_COL.dn; ctx.fillRect(mid,yy,(pr.pb[i]||0)*f,rowH); orHatch(ctx,mid+(pr.pb[i]||0)*f,yy,(pr.cs[i]||0)*f,rowH,OR_COL.dn); }
+    else { const v=pr.net[i]||0, L=Math.abs(v)*f; ctx.fillStyle=v>=0?OR_COL.up:OR_COL.dn; ctx.fillRect(v>=0?mid:mid-L,yy,L,rowH); } }
+  const line=(k,dash,col,txt)=>{ if(k==null) return; const yy=y.Y(k); ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(w,yy); ctx.stroke(); ctx.restore();
+    ctx.font="bold 15px "+C("--font"); const tt=txt+" "+orFk(k), tw=ctx.measureText(tt).width; ctx.fillStyle="#0A1426e0"; ctx.fillRect(w-tw-10,yy-20,tw+8,18); ctx.fillStyle=col; ctx.fillText(tt,w-tw-6,yy-6); };
+  line(pr.vah,[5,4],"#FFB07A","VAH"); line(pr.val,[5,4],"#FFB07A","VAL"); line(pr.poc,[],OR_COL.poc,"POC");
+  const ys=y.Y(s.x); ctx.save(); ctx.strokeStyle="#ffffffbb"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(0,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
+  ctx.font="15px "+C("--font"); ctx.fillStyle="#DCE6F2";
+  ctx.fillText({c:"calls: solid bought · striped sold",p:"puts: solid bought · striped sold",bull:"calls bought + puts sold (striped)",bear:"puts bought + calls sold (striped)",net:"◂ bearish   net   bullish ▸"}[M],4,h-10);
+  return pr; }
+function orRead(pr){
+  const P=OR.P, b=P.bk[OR.i], s=b.s, a=orArr(s,orGF()); let ip=-1,ineg=-1;
+  for(let i=0;i<s.k.length;i++){ const v=a[i]||0; if(v>0&&(ip<0||v>a[ip])) ip=i; if(v<0&&(ineg<0||v<a[ineg])) ineg=i; }
+  const near=k=>{ const d=k-s.x; return (d>=0?"+":"−")+Math.abs(d).toFixed(P.step>=5?0:2)+" ("+Math.abs(d/s.x*100).toFixed(2)+"%) from price"; };
+  const bt={oi:"open interest",vol:"today's volume"}[OR.basis], ex={"0":"today's expiry","7":"the next 7 days' expiries",all:"all expiries to 7 days"}[OR.book];
+  const pn={c:"calls",p:"puts",bull:"bullish contracts",bear:"bearish contracts",net:"net (bullish − bearish) contracts"}[OR.prof];
+  let t=`<b>${esc(st.sym)} ${s.x.toFixed(2)}</b> at ${esc(s.t)}${b.building?" (block still building)":""} · gamma from ${bt}, ${ex}. `;
+  if(ip>=0) t+=`Biggest <b class="orpos">positive gamma ${orFk(s.k[ip])}</b> ${orMoney(a[ip])} (${near(s.k[ip])}): price tends to slow or stick there. `;
+  if(ineg>=0) t+=`Biggest <b class="orneg">negative gamma ${orFk(s.k[ineg])}</b> ${orMoney(a[ineg])} (${near(s.k[ineg])}): price can speed up through it. `;
+  if(pr&&pr.poc!=null){ const inVA=s.x>=pr.val&&s.x<=pr.vah; t+=`Busiest strike for ${pn} (<b class="orpoc">POC</b>) <b class="orpoc">${orFk(pr.poc)}</b>; 70% between ${orFk(pr.val)} and ${orFk(pr.vah)}. Price is ${inVA?"<b>inside</b> that range":"<b>outside</b> that range"}.`;
+    const j0=Math.max(0,OR.i-Math.round(30/OR.blk)), p0=P.poc[j0]; if(p0!=null&&p0!==pr.poc&&OR.i>0) t+=` The POC moved ${p0<pr.poc?"up":"down"} from ${orFk(p0)} over the last half hour.`; }
+  if(OR.basis==="vol"&&OR.meas!=="g") t+=` <span class="ornote">Vanna is always from open interest.</span>`;
+  return t+` <span class="ornote">Positioning read, not a trade signal.</span>`; }
+function orSeg(id,key,opts){ return `<span class="orgrp"><span class="orlab">${opts.lab}</span><span class="orseg" id="${id}">`+opts.v.map(([v,t,tt])=>`<button data-k="${key}" data-v="${v}" aria-pressed="${String(OR[key])===String(v)}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`).join("")+`</span></span>`; }
+function renderOrbs(){
+  const head=document.getElementById("orHead"), body=document.getElementById("orBody"); if(!head||!body) return; orTimer();
+  const hk=[OR.on,OR.meas,OR.basis,OR.book,OR.prof,OR.blk].join("|");
+  if(head.dataset.k!==hk){ head.dataset.k=hk;
+    head.innerHTML=`<span class="big">Orbs</span><button class="sxbtn" id="orOnBtn" aria-pressed="${OR.on}">${OR.on?"ON":"OFF"}</button>`+(OR.on?
+      orSeg("orMeasSeg","meas",{lab:"Show",v:[["g","Gamma","How much dealers must buy or sell per 1% move"],["va","Vanna","How dealer hedges change when volatility moves 1 point"],["both","Both","Gamma filled, vanna as rings"]]})+
+      orSeg("orBasisSeg","basis",{lab:"Positions from",v:[["oi","Open interest","Contracts open at the start of the day, simple rule: dealers long calls, short puts"],["vol","Today's volume","Today's contracts, same simple rule"]]})+
+      orSeg("orBookSeg","book",{lab:"Expiries",v:[["0","Today"],["7","Next 7 days"],["all","All"]]})+
+      orSeg("orProfSeg","prof",{lab:"Volume",v:[["c","Calls"],["p","Puts"],["bull","Bull","Calls bought + puts sold (by trade tag)"],["bear","Bear","Puts bought + calls sold (by trade tag)"],["net","Net","Bull minus Bear per strike"]]})+
+      orSeg("orBlkSeg","blk",{lab:"Block",v:[["1","1 min"],["3","3 min"],["5","5 min"]]}):`<span>Off: nothing is fetched or drawn.</span>`);
+    document.getElementById("orOnBtn").onclick=()=>{ OR.on=!OR.on; save("orOn",OR.on?"1":"0"); OR.key=""; if(!OR.on){ orStop(); OR.J=null; OR.P=null; } renderOrbs(); };
+    head.querySelectorAll(".orseg button").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; OR[k]=k==="blk"?+b.dataset.v:b.dataset.v; save("or"+k[0].toUpperCase()+k.slice(1),String(OR[k])); OR.P=null; OR.key=""; head.dataset.k=""; renderOrbs(); }); }
+  if(!OR.on){ orStop(); body.innerHTML='<p class="veread">Off. Press <b>ON</b> to see dealer gamma by strike through the day as orbs, with the volume profile beside it.</p>'; OR.key=""; return; }
+  if(!OR.J){ if(!OR.loading&&(!OR.err||Date.now()-OR.reloadAt>60000)){ OR.reloadAt=Date.now(); orLoadDay(); }
+    body.innerHTML=`<p class="veread">${OR.err?esc(OR.err):"Loading…"}</p>`; return; }
+  if(OR.day!==orYmd()&&!OR.loading&&Date.now()-OR.reloadAt>60000){ OR.reloadAt=Date.now(); orLoadDay(); }   // a new session started while open
+  const S=orSym(); if(!S||!S.slots.length){ body.innerHTML=`<p class="veread">${esc(st.sym)} has no Orbs data for ${esc(OR.J.day||"")}.</p>`; return; }
+  if(!OR.P||OR.P.sym!==st.sym){ OR.P=orPrep(); if(!OR.P) return; OR.P.sym=st.sym; }
+  const n=OR.P.bk.length; if(OR.follow||OR.i<0||OR.i>n-1) OR.i=n-1;
+  const W=(body.clientWidth||900); const key=[st.sym,OR.day,n,OR.i,OR.P.bk[n-1].s.t,OR.blk,OR.meas,OR.basis,OR.book,OR.prof,W].join("|");
+  if(key===OR.key&&body.querySelector("#orMainC")) return; OR.key=key;
+  if(!body.querySelector("#orMainC")){
+    body.innerHTML=`<div class="ortime"><button class="sxbtn" id="orPlay">▶ Play</button><input type="range" id="orSlider" min="0" max="0" value="0" aria-label="Time"><span class="ort" id="orT">--:--</span><button class="sxbtn" id="orNow">Now</button><span class="orbadge" id="orBadge"></span></div>
+      <div class="orgrid"><section class="orpane"><div class="orph">Orbs <span id="orSub"></span></div><canvas id="orMainC"></canvas></section>
+      <section class="orpane"><div class="orph">At <span id="orLadT">--:--</span></div><canvas id="orLadC"></canvas></section>
+      <section class="orpane"><div class="orph">Volume <span id="orProfT"></span></div><canvas id="orProfC"></canvas></section></div>
+      <div class="orread" id="orRead"></div>`;
+    const sl=document.getElementById("orSlider");
+    sl.addEventListener("input",()=>{ OR.i=+sl.value; OR.follow=OR.i===+sl.max; orStopPlay(); OR.key=""; renderOrbs(); });
+    document.getElementById("orNow").onclick=()=>{ OR.follow=true; orStopPlay(); OR.key=""; renderOrbs(); };
+    document.getElementById("orPlay").onclick=()=>{ if(OR.play){ orStopPlay(); return; } if(OR.i>=OR.P.bk.length-1) OR.i=0; OR.follow=false; document.getElementById("orPlay").textContent="❚❚ Pause";
+      OR.play=setInterval(()=>{ if(!OR.P||st.tab!=="orbs"){ orStopPlay(); return; } if(OR.i>=OR.P.bk.length-1){ orStopPlay(); OR.follow=true; OR.key=""; renderOrbs(); return; } OR.i++; OR.key=""; renderOrbs(); },350); };
+    const mc=document.getElementById("orMainC"), pc=document.getElementById("orProfC");
+    mc.addEventListener("mousemove",e=>orHover(e,"main")); mc.addEventListener("mouseleave",orHideTip);
+    pc.addEventListener("mousemove",e=>orHover(e,"prof")); pc.addEventListener("mouseleave",orHideTip);
+    mc.addEventListener("click",e=>{ const q=orAt(e); if(q==null) return; OR.i=q; OR.follow=q===OR.P.bk.length-1; orStopPlay(); OR.key=""; renderOrbs(); }); }
+  const sl=document.getElementById("orSlider"); sl.max=String(n-1); sl.value=String(OR.i);
+  const b=OR.P.bk[OR.i], live=orLiveDay();
+  document.getElementById("orT").textContent=tlabel(b.t0)+(OR.blk>1?"–"+tlabel(Math.min(b.t0+OR.blk,976)):"");
+  const bd=document.getElementById("orBadge"); bd.className="orbadge"+(live&&OR.follow?" live":""); bd.textContent=live?(OR.follow?"LIVE · new minute every 60 s":"REPLAY · live day"):"REPLAY · "+(OR.J.day||"");
+  document.getElementById("orSub").textContent=(OR.meas==="va"?"vanna":"gamma")+(OR.meas==="both"?" + vanna rings":"")+" · size = how big · yellow + / purple −";
+  document.getElementById("orLadT").textContent=b.s.t+" · "+(OR.meas==="va"?"Vanna":"Gamma");
+  orDrawMain(document.getElementById("orMainC")); orDrawLadder(document.getElementById("orLadC")); const pr=orDrawProfile(document.getElementById("orProfC"));
+  document.getElementById("orProfT").textContent=orK(pr.sum)+" contracts to "+b.s.t;
+  document.getElementById("orRead").innerHTML=orRead(pr); }
+function orStopPlay(){ if(OR.play){ clearInterval(OR.play); OR.play=null; const p=document.getElementById("orPlay"); if(p) p.textContent="▶ Play"; } }
+function orStop(){ orStopPlay(); if(OR.timer){ clearInterval(OR.timer); OR.timer=null; } orHideTip(); }
+function orAt(e){ const g=OR.g, P=OR.P; if(!g||!P) return null; const r=e.target.getBoundingClientRect(), t=g.t0+(e.clientX-r.left-g.AXL)/g.W*(g.t1-g.t0);
+  let q=-1,best=1e9; for(let j=0;j<=OR.i;j++){ const d=Math.abs(P.bk[j].t0+OR.blk/2-t); if(d<best){ best=d; q=j; } } return q>=0&&best<=Math.max(3,OR.blk)?q:null; }
+function orHover(e,which){ const P=OR.P, g=OR.g; if(!P||!g) return; const r=e.target.getBoundingClientRect(), yy=e.clientY-r.top, y=orY(r.height);
+  const k=Math.round((y.lo+(y.hi-y.lo)*(1-(yy-OR_PAD.t)/y.H))/P.step)*P.step; let q=OR.i;
+  if(which==="main"){ q=orAt(e); if(q==null){ orHideTip(); return; } }
+  const s=P.bk[q].s, i=s.k.findIndex(x=>Math.abs(x-k)<1e-6); if(i<0){ orHideTip(); return; }
+  const gv=orArr(s,orGF())[i]||0, va=orArr(s,"va")[i]||0, pr=orProfile(s);
+  const html=`<b>${orFk(k)}</b> at ${esc(s.t)}<br>gamma ${orMoney(gv)} · vanna ${orMoney(va)}<br>calls ${orK(pr.c[i]||0)} · puts ${orK(pr.p[i]||0)} contracts<br><span style="color:${OR_COL.up}">bull ${orK(pr.bull[i]||0)}</span> · <span style="color:${OR_COL.dn}">bear ${orK(pr.bear[i]||0)}</span> · net ${(pr.net[i]>=0?"+":"−")+orK(pr.net[i]||0)}`;
+  const t=document.getElementById("orTip"); if(!t) return; t.innerHTML=html; t.hidden=false; const vw=document.documentElement.clientWidth, w=t.offsetWidth, h=t.offsetHeight;
+  let x=e.clientX+16, Y=e.clientY+12; if(x+w>vw-8) x=e.clientX-w-16; if(Y+h>window.innerHeight-8) Y=e.clientY-h-12; t.style.left=Math.max(8,x)+"px"; t.style.top=Math.max(8,Y)+"px"; }
+function orHideTip(){ const t=document.getElementById("orTip"); if(t) t.hidden=true; }
+
 /* TEST COCKPIT bar (2026-11-08): toggles, ALL OFF, link back to production, live stats, "My read" notes,
    and the 15-minute read-outs (proof test + per-toggle forward scoring). Everything posts to the TEST server only. */
 (function(){
@@ -6573,7 +7429,7 @@ const prodURL=location.protocol+"//"+location.hostname+":8899/cvx_cockpit.html";
 function post(path,obj){ try{ fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(obj)}).catch(()=>{}); }catch(e){} }
 function ctx(){ const d=st.live&&st.live[st.sym]; return {live_ts:st.live&&st.live.ts||null,sym:st.sym,spot:d&&d.spot||null,smile:!!st.smileOn,basis:st.basis,book:st.mapBook||"all",toggles:Object.assign({},TG),page:"test-v1"}; }
 function clearCaches(){ try{ _mapCaches.clear(); }catch(e){} try{ WK_CACHE.clear(); }catch(e){} }
-function setTG(id,v){ TG[id]=v; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"toggle",id,value:v},ctx())); if(/^(dn|vx)/.test(id)){ st._vxKey=null; try{ tgVolxPoll(); }catch(e){} } render(); draw(); }
+function setTG(id,v){ TG[id]=v; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"toggle",id,value:v},ctx())); render(); draw(); }
 function allOff(){ for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"all_off"},ctx())); render(); draw(); }
 function btn(id,lb,tid,ver,help){ const v=TG[id]; const on=!!v; const sel=TG_SEL[id];
   const val=sel?(v?(v.slice(0,2)+":"+v.slice(2)):"off"):(on?"ON":"off");

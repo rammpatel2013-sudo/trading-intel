@@ -4,6 +4,8 @@
 # It only READS raw_YYYYMMDD.ndjson.gz (the collector's file) and writes wide_*.json + flow_orbs.html into
 # scripts/cvxmap/data/, which the existing cvxmap-serve already serves:
 #     http://192.168.1.211:8899/flow_orbs.html
+# 2026-11-09: one block per pull (1 minute), looks for a new pull every 3 s and writes wide_live_<SYM>.json (newest
+# minute only) for the cockpit's Orbs tab, plus vixmap_YYYYMMDD.json for the VIX tab's map (from the same raw file).
 #
 #   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_wide.sh start            # live loop (DSM task Mon-Fri 09:26 ET); exits by itself 16:20
 #   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_wide.sh stop
@@ -36,7 +38,7 @@ case "${1:-}" in
   status)
     "$DOCKER" ps --filter "name=${NAME}" --format '{{.Names}}  {{.Status}}' | sed 's/^/  /'
     "$DOCKER" logs --tail 5 "$NAME" 2>/dev/null | sed 's/^/  log: /'
-    ls -la "$DATA_DIR"/wide_*.json "$DATA_DIR"/flow_orbs.html 2>/dev/null | tail -8 | sed 's/^/  /'
+    ls -la "$DATA_DIR"/wide_*.json "$DATA_DIR"/vixmap_*.json "$DATA_DIR"/flow_orbs.html 2>/dev/null | tail -10 | sed 's/^/  /'
     ;;
   days)
     shift

@@ -6,7 +6,7 @@ const prodURL=location.protocol+"//"+location.hostname+":8899/cvx_cockpit.html";
 function post(path,obj){ try{ fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(obj)}).catch(()=>{}); }catch(e){} }
 function ctx(){ const d=st.live&&st.live[st.sym]; return {live_ts:st.live&&st.live.ts||null,sym:st.sym,spot:d&&d.spot||null,smile:!!st.smileOn,basis:st.basis,book:st.mapBook||"all",toggles:Object.assign({},TG),page:"test-v1"}; }
 function clearCaches(){ try{ _mapCaches.clear(); }catch(e){} try{ WK_CACHE.clear(); }catch(e){} }
-function setTG(id,v){ TG[id]=v; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"toggle",id,value:v},ctx())); if(/^(dn|vx)/.test(id)){ st._vxKey=null; try{ tgVolxPoll(); }catch(e){} } render(); draw(); }
+function setTG(id,v){ TG[id]=v; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"toggle",id,value:v},ctx())); render(); draw(); }
 function allOff(){ for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"all_off"},ctx())); render(); draw(); }
 function btn(id,lb,tid,ver,help){ const v=TG[id]; const on=!!v; const sel=TG_SEL[id];
   const val=sel?(v?(v.slice(0,2)+":"+v.slice(2)):"off"):(on?"ON":"off");
