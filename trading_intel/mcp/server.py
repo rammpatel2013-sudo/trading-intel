@@ -727,6 +727,9 @@ def build_server(
         with session_factory() as session:
             return vt.get_color_at_spot(session, symbol, hours_ahead=hours_ahead)
 
+    from trading_intel.mcp import tenor_tools  # Tenor tab tools (2026-11-09)
+    tenor_tools.register(mcp, settings, session_factory)
+
     # ── Ship 2: exposure board (#88) ─────────────────────────────────────
 
     @mcp.tool()

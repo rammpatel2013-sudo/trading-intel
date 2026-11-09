@@ -677,6 +677,46 @@ body.phone .rkbig{font-size:52px}
 #rkModal p{font-size:17px;line-height:1.5;color:#fff;margin:8px 0}
 #rkModal .rkmeter{height:14px;margin:10px 0 4px}
 #rkModal .rng{display:inline-flex;gap:4px;margin:6px 0}
+/* --- Tenor tab (2026-11-09): gamma/vega by expiry bucket + factor cards, big high-contrast text --- */
+#tabTenor{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+.tnwrap{font-size:17px;color:#fff}
+#tabTenor .vxsub{font-size:16px;color:#F2F6FC;opacity:1}
+#tabTenor .vxhead small{font-size:14px;color:#DCE6F2}
+#tabTenor .vxhead span:not(.big){font-size:16px;color:#fff}
+.tnread{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:10px 16px;margin:6px 0 10px}
+.tnread p{margin:4px 0;font-size:17px;line-height:1.5;color:#fff}
+.tnsvg{width:100%;height:auto;display:block}
+.tnsvg text{fill:#F2F6FC;font-size:16px;font-family:var(--font)}
+.tnlegend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:16px;color:#fff;margin:4px 0}
+.tnlegend i{display:inline-block;width:22px;height:5px;border-radius:2px;vertical-align:middle;margin-right:7px}
+.tnhov{font-size:16px;color:#fff;min-height:24px;margin:2px 0 4px}
+.tntbl{width:100%;border-collapse:collapse;font-size:17px;margin:10px 0 4px}
+.tntbl th{color:#DCE6F2;font-weight:600;text-align:right;padding:5px 8px;border-bottom:1px solid var(--rule)}
+.tntbl td{color:#fff;text-align:right;padding:6px 8px;border-bottom:1px solid var(--rule)}
+.tntbl th:first-child,.tntbl td:first-child{text-align:left}
+.tntbl tr.tot td{font-weight:800}
+.tntbl i,.tnbars i{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:8px;vertical-align:-2px}
+.tnnote{font-size:16px;color:#DCE6F2;line-height:1.45;margin:8px 0 2px}
+.tnseg{margin:4px 0 10px}.tnseg button{font-size:16px;color:#DCE6F2}
+.tnbars{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,2.2fr) 110px;gap:8px 12px;align-items:center;font-size:17px;color:#fff}
+.tnbars .bar{position:relative;height:24px;background:#0F1D36;border-radius:4px}
+.tnbars .bar span{position:absolute;top:0;bottom:0;border-radius:4px}
+.tnbars .bar b{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:#DCE6F2}
+.tnbars .val{text-align:right;font-weight:700}
+.tngrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.tncard{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.tnch{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:18px;color:#fff}
+.tnbadge{font-size:15px;font-weight:800;border-radius:5px;padding:3px 9px;color:#0A1426;white-space:nowrap}
+.tnsub{font-size:16px;color:#DCE6F2}
+.tnz{font-size:34px;font-weight:800;color:#fff;line-height:1.1;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.tnz small{font-size:16px;font-weight:600;color:#DCE6F2}
+.tnz2{font-size:22px;font-weight:700;margin-left:auto}
+.tnspk{width:100%;height:90px;display:block}
+.tnml{font-size:15px;color:#DCE6F2}
+.tngrade{font-size:16px;font-weight:800;border-radius:6px;padding:3px 8px;align-self:flex-start}
+.tngrade.weak{background:#3A2A12;color:#FFD3A6}.tngrade.ok{background:#0F3A33;color:#A8F0DF}
+.tnsent{font-size:16px;line-height:1.45;color:#fff;margin:4px 0 0}
+@media (max-width:980px){.tnbars{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) 90px}}
 </style>
 </head>
 <body>
@@ -704,6 +744,7 @@ body.phone .rkbig{font-size:52px}
       <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
       <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
       <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
+      <button data-tab="tenor" aria-pressed="false" title="Dealer gamma and vega split by expiry bucket (1 day, up to 1 week, up to 1 month, longer) across SPX levels, its daily history, and six factor cards with their past record. Built each evening.">Tenor</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
@@ -952,6 +993,12 @@ body.phone .rkbig{font-size:52px}
       <div id="rkBody"></div>
     </div>
   </main>
+  <main id="tabTenor" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="tnHead"></section>
+      <div id="tnBody"></div>
+    </div>
+  </main>
   <main id="tabLedger" class="tab" hidden>
     <div id="ledgerHeader">
       <div class="tabs" role="group" aria-label="Ledger variant" id="ledgerVarSeg">
@@ -984,7 +1031,7 @@ body.phone .rkbig{font-size:52px}
 
         <p class="hintro">This cockpit shows how options traders, and the dealers who take the other side of their trades, are positioned in SPX (and SPY, QQQ) through the day. Every page is explained below: what it shows, how to read it, and what each button does. <b>Nothing here is a trade signal</b> &mdash; it describes positioning so you can make your own call.</p>
         <nav class="hjump">
-          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
+          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
         </nav>
 
         <h3 class="pg" id="h-words">Words used on this page</h3>
@@ -1277,6 +1324,19 @@ body.phone .rkbig{font-size:52px}
           <dt>Limits</dt><dd>Tested on end-of-day data. It ranks risk; it does not time the drop. A one-day VIX drop after a stressed week is not an all-clear.</dd>
         </dl>
 
+        <h3 class="pg" id="h-tenor">Tenor</h3>
+        <p class="what">Where dealer gamma and vega sit along the expiry curve, from the end-of-day option book, rebuilt every evening. Off by default; press <b>ON</b>. A positioning read, not a trade signal.</p>
+        <dl>
+          <dt>Buckets</dt><dd>Every expiry is put in one of four groups by trading days left: <b>1 day</b> (the next expiry), <b>2 days &ndash; 1 week</b>, <b>1 week &ndash; 1 month</b>, and <b>more than 1 month</b>. Weekends and market holidays are not counted.</dd>
+          <dt>Gamma chart</dt><dd>Each coloured line shows how much SPX delta dealers would have to trade for a 1% move, if SPX were at that level, for one bucket. The white filled line is all buckets together. Below zero = dealers would sell into a fall and buy into a rise (moves can stretch); above zero = the opposite (moves get damped). The red dashed line is today&rsquo;s close; the yellow dashed line is where the total crosses zero. Units: $ billions per 1% move.</dd>
+          <dt>Table</dt><dd>Each bucket at today&rsquo;s level, its share of the total, the SPX level where that bucket turns from negative to positive, and the change over the last 5 evenings.</dd>
+          <dt>Vega bars</dt><dd>How much the dealer book gains or loses for 1 vol point, by bucket, in $ millions. Nobody publishes who owns each option, so this needs an assumption. The buttons switch between three: dealers long calls and short puts (the standard reading), customers owning every option, and the reverse. The size of the bars is solid; the sign is the assumption.</dd>
+          <dt>History</dt><dd>Each bucket at that day&rsquo;s close, one point per evening, back to the oldest stored book. Move across the chart to read a day.</dd>
+          <dt>Factor cards</dt><dd>Six style factors as pairs: high vs low beta, the market vs low-volatility stocks, small vs large, quality vs the market, energy vs the market, and how stocks move with long Treasuries. The big number is the 50-day relative move as a z-score against its own last 3 years: beyond &plusmn;2 is unusual. &ldquo;2 weeks ago&rdquo; shows the direction. The chart is the last year of z with the &plusmn;2 zones shaded.</dd>
+          <dt>Record</dt><dd>Every past time the z entered the same zone, how often the pair rose over the next 20 trading days and by how much on average, next to the same numbers for any 20 days. <b>Weak record</b> = fewer than 30 cases, or less than 5 points better than any 20 days. Most are weak: read the zone as context, not as a call.</dd>
+          <dt>Limits</dt><dd>The book only holds expiries out to about six months, so far-dated options are missing. Gamma is recomputed with each strike&rsquo;s own vol held fixed as SPX moves. Dealer side is assumed, not measured.</dd>
+        </dl>
+
         <h3 class="pg" id="h-trust">What to trust, and when</h3>
         <ol class="caveats">
           <li><b>Delta beats premium for direction.</b> On a falling day, puts sold to close (people cashing in protection) count as &ldquo;bullish&rdquo; dollars and can tilt the Premium slider. The Delta slider weights each trade by its market exposure, so it is less affected. If both read balanced on a big move, the options tape was two-sided and the move is coming from elsewhere.</li>
@@ -1383,7 +1443,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -2707,7 +2767,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor";
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -2729,6 +2789,7 @@ function render(){
   else if(st.tab==="straddle") renderStraddle();
   else if(st.tab==="constel") renderConstel();
   else if(st.tab==="risk") renderRisk();
+  else if(st.tab==="tenor") renderTenor();
   else renderSkew(se,d);
 }
 
@@ -6142,6 +6203,139 @@ function renderRisk(){
       const xx=L+Wd*i/(n-1); cr.setAttribute("x1",xx); cr.setAttribute("x2",xx); cr.setAttribute("opacity",".6");
       hov.innerHTML=`<b>${hh[0]}</b> · score <b style="color:${rkCol(hh[2])}">${rkPct(hh[2],1)}</b> (${rkLab(hh[2])}) · 10-session ${rkPct(hh[3],1)} · SPX ${hh[1]==null?"—":hh[1].toFixed(0)}${(D.drop_starts||[]).includes(hh[0])?' · <b style="color:#FF5C5C">a 3%+ drop began here</b>':""}${hh[4]?' · <b style="color:#FF9F43">false all-clear</b>':""}${hh[5]?' · <b style="color:#3FD0B0">fear release</b>':""}`; });
     svg.addEventListener("mouseleave",()=>{ cr.setAttribute("opacity","0"); }); }
+}
+/* ============================================================ Tenor tab (2026-11-09)
+   Reads tenor.json, written each evening by scripts/tenor_gamma_report.py (end-of-day book only).
+   Dealer gamma by tenor across spot, dealer vega by tenor, daily history, factor cards.
+   Never touches the map. Off by default. Positioning read, not a trade signal. */
+var tnData=null, tnBusy=false, tnLastKey="";
+st.tnOn=load("tnOn","0")==="1"; st.tnVega=load("tnVega","naive"); st.tnHist=load("tnHist","all");
+var TN_COL={"1d":"#FF9F43","2d_1w":"#F4D03F","1w_1m":"#3FD0B0","gt_1m":"#B79BFF",total:"#FFFFFF"};
+var TN_LAB={"1d":"1 day","2d_1w":"2 days – 1 week","1w_1m":"1 week – 1 month","gt_1m":"> 1 month",total:"Total"};
+var TN_KEYS=["1d","2d_1w","1w_1m","gt_1m"];
+function tnFetch(){
+  if(tnBusy) return; tnBusy=true;
+  fetch("tenor.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+    .then(d=>{ tnData=(d&&d.found!==false)?d:{err:"No tenor data yet. It is rebuilt every evening after the close."}; })
+    .catch(()=>{ tnData={err:"No tenor data yet. It is rebuilt every evening after the close."}; })
+    .then(()=>{ tnBusy=false; tnLastKey=""; if(st.tab==="tenor") renderTenor(); });
+}
+function tnEsc(x){ return String(x==null?"":x).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function tnTxt(x){ return tnEsc(pubTxt(x)); }
+function tnN(x,k){ if(x==null||!isFinite(x)) return "—"; const a=Math.abs(+x); return (x>0?"+":x<0?"−":"")+(a>=1000?Math.round(a).toLocaleString():a.toFixed(k==null?1:k)); }
+function tnLvl(x){ return x==null||!isFinite(x)?"none on the ladder":Math.round(x).toLocaleString(); }
+/* round 1/2/2.5/5 x 10^n step giving at most `want` lines over `span` */
+function tnStep(span,want){ if(!(span>0)) return 1; const e=Math.pow(10,Math.floor(Math.log10(span/want))); for(const m of [1,2,2.5,5,10]){ if(span/(m*e)<=want) return m*e; } return 10*e; }
+function tnFmt(v){ const a=Math.abs(v); if(a<1e-9) return "0"; return (v<0?"−":"")+(a>=1000?Math.round(a).toLocaleString():a>=10?a.toFixed(0):a>=1?a.toFixed(1):a.toFixed(2)); }
+/* generic line chart. xs numeric; lines=[{v,c,w,fill,dash}]; o={h,vx:[{x,c,label}],xfmt,ylab} */
+function tnLines(id,xs,lines,o){
+  o=o||{}; const W=1100,H=o.h||420,L=78,R=24,T=20,B=48,n=xs.length; if(n<2) return '<p class="veread">Not enough data yet.</p>';
+  let lo=0,hi=0; lines.forEach(l=>l.v.forEach(y=>{ if(y!=null&&isFinite(y)){ lo=Math.min(lo,y); hi=Math.max(hi,y); } }));
+  if(hi-lo<1e-9){ hi+=1; lo-=1; } const pad=(hi-lo)*.06; lo-=pad; hi+=pad;
+  const x0=xs[0],x1=xs[n-1], X=x=>L+(W-L-R)*(x-x0)/((x1-x0)||1), Y=y=>T+(H-T-B)*(1-(y-lo)/(hi-lo));
+  let g="";
+  const sy=tnStep(hi-lo,6); for(let j=Math.ceil(lo/sy);j*sy<=hi+1e-9;j++){ const k=j*sy; g+=`<line x1="${L}" x2="${W-R}" y1="${Y(k).toFixed(1)}" y2="${Y(k).toFixed(1)}" stroke="#ffffff38" stroke-dasharray="2 5"/><text x="${L-8}" y="${(Y(k)+5).toFixed(1)}" text-anchor="end">${tnFmt(k)}</text>`; }
+  const xf=o.xfmt||(v=>Math.round(v).toLocaleString()), sx=o.xstep||tnStep(x1-x0,8);
+  for(let j=Math.ceil(x0/sx);j*sx<=x1+1e-9;j++){ const k=j*sx; g+=`<line x1="${X(k).toFixed(1)}" x2="${X(k).toFixed(1)}" y1="${T}" y2="${H-B}" stroke="#ffffff38" stroke-dasharray="2 5"/><text x="${X(k).toFixed(1)}" y="${H-B+26}" text-anchor="middle">${xf(k)}</text>`; }
+  g+=`<line x1="${L}" x2="${W-R}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#DCE6F2" stroke-width="1.6"/>`;
+  lines.forEach(l=>{ let d="",pen=false,first=null,last=null;
+    l.v.forEach((y,i)=>{ if(y==null||!isFinite(y)){ pen=false; return; } const px=X(xs[i]).toFixed(1), py=Y(y).toFixed(1); d+=(pen?"L":"M")+px+" "+py; pen=true; if(first==null) first=px; last=px; });
+    if(l.fill&&first!=null) g+=`<path d="${d} L${last} ${Y(0).toFixed(1)} L${first} ${Y(0).toFixed(1)}Z" fill="${l.c}" fill-opacity=".16"/>`;
+    g+=`<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${l.w||3}"${l.dash?` stroke-dasharray="${l.dash}"`:""} stroke-linejoin="round"/>`; });
+  (o.vx||[]).forEach(v=>{ if(v.x==null||v.x<x0||v.x>x1) return; g+=`<line x1="${X(v.x).toFixed(1)}" x2="${X(v.x).toFixed(1)}" y1="${T}" y2="${H-B}" stroke="${v.c}" stroke-width="2.5" stroke-dasharray="7 5"/><text x="${(X(v.x)+8).toFixed(1)}" y="${T+18}" style="fill:${v.c};font-weight:700">${tnEsc(v.label)}</text>`; });
+  g+=`<line class="tncross" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="#fff" stroke-width="1" opacity="0"/>`;
+  return `<svg class="tnsvg" id="${id}" viewBox="0 0 ${W} ${H}" data-l="${L}" data-w="${W-L-R}" data-full="${W}" role="img">${g}</svg>`;
+}
+function tnHover(id,xs,fn){
+  const svg=document.getElementById(id), out=document.getElementById(id+"Read"); if(!svg||!out) return;
+  const L=+svg.dataset.l, Wd=+svg.dataset.w, full=+svg.dataset.full, cr=svg.querySelector(".tncross"), n=xs.length;
+  svg.addEventListener("mousemove",e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)*full/r.width;
+    const fx=xs[0]+(x-L)/Wd*(xs[n-1]-xs[0]); let i=0; for(let j=1;j<n;j++) if(Math.abs(xs[j]-fx)<Math.abs(xs[i]-fx)) i=j;
+    const xx=L+Wd*(xs[i]-xs[0])/((xs[n-1]-xs[0])||1); cr.setAttribute("x1",xx); cr.setAttribute("x2",xx); cr.setAttribute("opacity",".7"); out.innerHTML=fn(i); });
+  svg.addEventListener("mouseleave",()=>cr.setAttribute("opacity","0"));
+}
+function tnLegend(keys){ return '<div class="tnlegend">'+keys.map(k=>`<span><i style="background:${TN_COL[k]}"></i>${TN_LAB[k]}</span>`).join("")+'</div>'; }
+function tnBars(items,unit){
+  const mx=Math.max(1e-9,...items.map(x=>Math.abs(x.v||0)));
+  return '<div class="tnbars">'+items.map(x=>{ const w=50*Math.abs(x.v||0)/mx;
+    return `<div class="lab"><i style="background:${x.c}"></i>${x.l}</div><div class="bar"><b></b><span style="${(x.v||0)>=0?`left:50%;width:${w}%`:`left:${50-w}%;width:${w}%`};background:${x.c}"></span></div><div class="val">${tnN(x.v,0)}${unit}</div>`; }).join("")+'</div>';
+}
+function tnSpark(c){
+  const v=c.spark||[], n=v.length; if(n<3) return "";
+  const W=320,H=90,lo=Math.min(-2.6,...v),hi=Math.max(2.6,...v),X=i=>4+(W-8)*i/(n-1),Y=y=>4+(H-8)*(1-(y-lo)/(hi-lo));
+  let g=`<rect x="0" y="${Y(hi)}" width="${W}" height="${Y(2)-Y(hi)}" fill="#FF9F43" opacity=".18"/><rect x="0" y="${Y(-2)}" width="${W}" height="${Y(lo)-Y(-2)}" fill="#3FD0B0" opacity=".18"/>`;
+  [2,-2].forEach(z=>{ g+=`<line x1="0" x2="${W}" y1="${Y(z)}" y2="${Y(z)}" stroke="${z>0?"#FF9F43":"#3FD0B0"}" stroke-dasharray="4 4" stroke-width="1.5"/>`; });
+  g+=`<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#9DB0CA" stroke-width="1"/>`;
+  let d=""; v.forEach((y,i)=>{ d+=(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1); });
+  g+=`<path d="${d}" fill="none" stroke="#fff" stroke-width="2"/><circle cx="${X(n-1)}" cy="${Y(v[n-1])}" r="4.5" fill="#fff"/>`;
+  return `<svg class="tnspk" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="z-score, last year">${g}</svg>`;
+}
+function tnCard(c){
+  if(!c.found) return `<div class="tncard"><div class="tnch"><b>${tnTxt(c.name)}</b></div><p>No data yet (${tnTxt(c.reason||"missing")}).</p></div>`;
+  const zc={buy:"#3FD0B0",sell:"#FF9F43",nearing_buy:"#A8F0DF",nearing_sell:"#FFD3A6"}[c.zone]||"#9DB0CA";
+  const badge={buy:"Buy zone",sell:"Sell zone",nearing_buy:"Nearing",nearing_sell:"Nearing"}[c.zone]||"No signal";
+  const rec=c.record||{}, weak=rec.grade==="weak record";
+  return `<div class="tncard"><div class="tnch"><b>${tnTxt(c.name)}</b><span class="tnbadge" style="background:${zc}">${badge}</span></div>`+
+    `<div class="tnsub">${tnTxt(c.pair)} · ${tnTxt(c.value_label)} ${tnN(c.value,2)}</div>`+
+    `<div class="tnz">${tnN(c.z,1)}<small>z now</small><span class="tnz2">${tnN(c.z_2w,1)} <small>2 weeks ago</small></span></div>`+
+    tnSpark(c)+`<div class="tnml"><span>last year of z · shaded = beyond ±2σ</span></div>`+
+    `<div class="tngrade ${weak?"weak":"ok"}">${weak?"Weak record":"Stronger record"} · ${rec.n||0} past entries</div>`+
+    `<p class="tnsent">${tnTxt(c.sentence)}</p>`+(c.short_history?`<p class="tnsent">History only since ${tnTxt(c.since)} (${c.years} years).</p>`:"")+`</div>`;
+}
+function renderTenor(){
+  const head=document.getElementById("tnHead"), body=document.getElementById("tnBody"); if(!head||!body) return;
+  const D=tnData;
+  head.innerHTML=`<span class="big">Tenor</span><button class="sxbtn" id="tnOnBtn" aria-pressed="${!!st.tnOn}">${st.tnOn?"ON":"OFF"}</button>`+
+    (D&&!D.err?`<span><small>book</small>${tnEsc(D.asof)}</span><span><small>built</small>${tnEsc((D.generated||"").replace("T"," "))}</span><span>End of day · rebuilt each evening · positioning read, not a trade signal</span>`:"");
+  document.getElementById("tnOnBtn").onclick=()=>{ st.tnOn=!st.tnOn; save("tnOn",st.tnOn?"1":"0"); tnLastKey=""; if(st.tnOn&&!tnData) tnFetch(); renderTenor(); };
+  if(!st.tnOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load dealer gamma and vega by expiry bucket and the factor cards.</p>'; tnLastKey=""; return; }
+  if(!D){ tnFetch(); body.innerHTML='<p class="veread">Loading…</p>'; return; }
+  if(D.err){ body.innerHTML=`<p class="veread">${tnEsc(D.err)}</p>`; return; }
+  const key=[D.generated,st.tnVega,st.tnHist].join("|"); if(key===tnLastKey&&body.querySelector(".tnwrap")) return; tnLastKey=key;
+  const G=D.gamma||{}, V=D.vega||{}, Bk=G.buckets||{}, grid=G.grid||[];
+  let h='<div class="tnwrap">';
+  h+=`<div class="tnread">${(D.read||[]).slice(0,8).map(x=>`<p>${tnTxt(x)}</p>`).join("")}</div>`;
+  if(grid.length){
+    const lines=TN_KEYS.map(k=>({v:(Bk[k]||{}).curve||[],c:TN_COL[k],w:3})).concat([{v:(G.total||{}).curve||[],c:TN_COL.total,w:4,fill:true}]);
+    const zc=(G.total||{}).zero_cross;
+    const tbl=TN_KEYS.map(k=>{ const b=Bk[k]||{}; return `<tr><td><i style="background:${TN_COL[k]}"></i>${TN_LAB[k]}</td><td>${tnN(b.at_spot)}</td><td>${b.share_pct==null?"—":Math.round(b.share_pct)+"%"}</td><td>${tnLvl(b.zero_cross)}</td><td>${tnN((D.change_1w||{})[k])}</td></tr>`; }).join("")+
+      `<tr class="tot"><td><i style="background:#fff"></i>Total</td><td>${tnN((G.total||{}).at_spot)}</td><td>100%</td><td>${tnLvl(zc)}</td><td>${tnN((D.change_1w||{}).total)}</td></tr>`;
+    h+=veSec("tnGam","Dealer gamma by expiry bucket, across SPX levels",`$ billions of SPX delta per 1% move · each line = one bucket, white filled = total · red dashed = spot${zc?" · yellow dashed = total zero-cross":""}`,
+      tnLegend(TN_KEYS.concat(["total"]))+`<div class="tnhov" id="tnGamSvgRead">Move across the chart to read each bucket at a level.</div>`+
+      tnLines("tnGamSvg",grid,lines,{vx:[{x:D.spot,c:"#FF6B6B",label:"spot "+Math.round(D.spot).toLocaleString()}].concat(zc?[{x:zc,c:"#F4D03F",label:"zero "+Math.round(zc).toLocaleString()}]:[])})+
+      `<table class="tntbl"><tr><th>Bucket</th><th>At spot</th><th>Share</th><th>Zero-cross</th><th>vs 1 week ago</th></tr>${tbl}</table>`+
+      `<p class="tnnote">Buckets count trading days to expiry. Covers expiries out to ${tnEsc(G.max_expiry)} (${G.max_dte} days); later expiries are not stored.</p>`);
+  }
+  if(V.buckets){
+    const conv=st.tnVega, cl={naive:"Dealers long calls, short puts",short_all:"Customers own every option",flipped:"Customers long calls, short puts"};
+    const items=TN_KEYS.map(k=>({l:TN_LAB[k],v:(V.buckets[k]||{})[conv],c:TN_COL[k]})).concat([{l:"Total",v:(V.total||{})[conv],c:"#fff"}]);
+    h+=veSec("tnVeg","Dealer vega by expiry bucket","$ millions per 1 vol point · the sign depends on who is assumed to own the options — switch to see how much",
+      `<div class="tabs tnseg" id="tnVegSeg">${Object.keys(cl).map(k=>`<button data-v="${k}" aria-pressed="${conv===k}">${cl[k]}</button>`).join("")}</div>`+tnBars(items," $mn")+
+      `<p class="tnnote">Calls ${tnN((V.total||{}).call_vega,0)} · puts ${tnN((V.total||{}).put_vega,0)} $mn of gross vega. Same contracts, three readings: the size is solid, the sign is an assumption.</p>`);
+  }
+  const H0=D.history||[];
+  if(H0.length>=2){
+    const rng={"1m":21,"3m":63,all:99999}[st.tnHist]||99999, Hs=H0.slice(-rng), xs=Hs.map((_,i)=>i);
+    const lines=TN_KEYS.map(k=>({v:Hs.map(r=>r["g_"+k]),c:TN_COL[k],w:3})).concat([{v:Hs.map(r=>r.total),c:"#fff",w:4,fill:true}]);
+    const step=Math.max(1,Math.round(Hs.length/6));
+    h+=veSec("tnHis","History: each bucket at spot, day by day",`$ billions per 1% move · one point per evening book · since ${tnEsc(D.history_since)}`,
+      `<div class="tabs tnseg" id="tnHisSeg">${["1m","3m","all"].map(r=>`<button data-v="${r}" aria-pressed="${st.tnHist===r}">${r==="all"?"All":r.toUpperCase()}</button>`).join("")}</div>`+
+      tnLegend(TN_KEYS.concat(["total"]))+`<div class="tnhov" id="tnHisSvgRead">Move across the chart to read a day.</div>`+
+      tnLines("tnHisSvg",xs,lines,{h:340,xstep:step,xfmt:i=>{ const r=Hs[Math.round(i)]; return r?r.date.slice(5):""; }}));
+  }
+  const F=(D.factors||{}).cards||[];
+  if(F.length){
+    const M=(D.factors||{}).method||{};
+    h+=veSec("tnFac","Factor cards","50-day relative return as a z-score vs its own 3-year history · ±2σ zones · the record says how often a past zone entry was followed by a rise",
+      `<div class="tngrid">${F.map(tnCard).join("")}</div><p class="tnnote">${tnTxt(M.record||"")}. ${tnTxt(M.grade||"")}. Zone names are a reference wording; the record shows how much they meant here.</p>`);
+  }
+  h+=`<p class="tnnote" style="margin-top:14px"><b style="color:#fff">How it is built.</b> The stored end-of-day option book, every strike and expiry, priced with Black-Scholes at each strike's own implied vol (rates and dividends zero), recomputed at each SPX level on a 25-point ladder. Naive dealer book: long calls, short puts. Positioning read, not a trade signal.</p></div>`;
+  body.innerHTML=h;
+  body.querySelectorAll("#tnVegSeg button").forEach(b=>b.onclick=()=>{ st.tnVega=b.dataset.v; save("tnVega",st.tnVega); renderTenor(); });
+  body.querySelectorAll("#tnHisSeg button").forEach(b=>b.onclick=()=>{ st.tnHist=b.dataset.v; save("tnHist",st.tnHist); renderTenor(); });
+  if(grid.length) tnHover("tnGamSvg",grid,i=>`SPX <b>${Math.round(grid[i]).toLocaleString()}</b> · `+TN_KEYS.concat(["total"]).map(k=>{ const c=k==="total"?G.total:Bk[k]; return `<span style="color:${TN_COL[k]}">${TN_LAB[k]} <b>${tnN(((c||{}).curve||[])[i])}</b></span>`; }).join(" · "));
+  if(H0.length>=2){ const rng={"1m":21,"3m":63,all:99999}[st.tnHist]||99999, Hs=H0.slice(-rng);
+    tnHover("tnHisSvg",Hs.map((_,i)=>i),i=>{ const r=Hs[i]; return `<b>${tnEsc(r.date)}</b> · SPX ${Math.round(r.spot).toLocaleString()} · `+TN_KEYS.map(k=>`<span style="color:${TN_COL[k]}">${TN_LAB[k]} <b>${tnN(r["g_"+k])}</b></span>`).join(" · ")+` · total <b>${tnN(r.total)}</b>`; }); }
 }
 })();
 </script>
