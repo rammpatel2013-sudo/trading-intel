@@ -1,9 +1,9 @@
 {
- "locked": "2026-11-08",
+ "locked": "2026-11-09",
  "commit": "824a06c",
- "note": "production MAP files; sha256 after CRLF->LF",
+ "note": "production MAP files; sha256 after CRLF->LF; 2026-11-09 cvx_cockpit.html re-locked after Tenor + Levels tabs (Map code unchanged)",
  "files": {
-  "scripts/cvxmap/cvx_cockpit.html": "d1486e1d6497d4ad4f6ad469040823ad22422586c015649a20c0abf75471b120",
+  "scripts/cvxmap/cvx_cockpit.html": "6ec416f336202cc7c379c5ec909cc5eb3e6c5c14f4c66b1b8b269138a315f190",
   "scripts/cvxmap/cvx_live.py": "91c8f98ad3559ea715087755d0f84462181f7ff6d8493c1da099014647bd3ec4",
   "scripts/cvxmap/am_feed.py": "08b3c2338c92606d81dad75167da1c3d3faa0da5d861920b6b8fe6d97a72bd66",
   "scripts/cvxmap/market_cal.py": "9936736054ed3e166c6e7ca99d559014c87548e61f30c77e65b478d804bc182b",
