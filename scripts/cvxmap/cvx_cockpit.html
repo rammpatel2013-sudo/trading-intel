@@ -677,6 +677,48 @@ body.phone .rkbig{font-size:52px}
 #rkModal p{font-size:17px;line-height:1.5;color:#fff;margin:8px 0}
 #rkModal .rkmeter{height:14px;margin:10px 0 4px}
 #rkModal .rng{display:inline-flex;gap:4px;margin:6px 0}
+/* --- Levels tab (2026-11-09): where several independent views agree; chart first, details on hover/tap --- */
+#tabLevels{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+#tabLevels .vxhead small{font-size:16px;color:#fff}
+#tabLevels .vxhead span:not(.big){font-size:16px;color:#fff}
+.lvwrap{font-size:17px;color:#fff}
+.lvlegend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:16px;color:#fff;margin:6px 0 8px}
+.lvlegend i{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:7px}
+.lvlegend i.band{width:26px;height:10px;border-radius:2px;background:#9DB0CA;opacity:.5}
+.lvlegend i.band.key{background:#FFD54A;opacity:.8;outline:1.5px solid #FFE27A}
+.lvlegend i.ring,.lvtl i.ring{background:none;border:2.5px dashed #FFCF8A;box-sizing:border-box}
+.lvlegend i.dia{width:11px;height:11px;border-radius:0;border:2px solid #fff;transform:rotate(45deg);box-sizing:border-box}
+.lvchart{width:100%;overflow:hidden}
+.lvsvg{display:block;max-width:100%;height:auto;touch-action:manipulation}
+.lvsvg text{font-family:var(--font)}
+.lvsvg .ax{fill:#F2F6FC;font-size:16px}
+.lvsvg .lvzl{fill:#fff;font-size:17px;font-weight:700}
+.lvsvg .lvspot{fill:#0A1426;font-size:16px;font-weight:800}
+.lvsvg .lvband,.lvsvg .lvhit{cursor:pointer}
+.lvsvg .lvband.hov{fill-opacity:.75;stroke:#fff;stroke-width:2}
+.lvsvg .lvband.sel{fill-opacity:.85;stroke:#fff;stroke-width:3}
+.lvchips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
+.lvchip{display:flex;align-items:baseline;gap:10px;background:var(--pane2);border:2px solid #FFD54A88;color:#fff;border-radius:10px;padding:8px 14px;font-size:17px;cursor:pointer;font-family:var(--font)}
+.lvchip b{font-size:22px}.lvchip .up{color:#3FD0B0;font-weight:700}.lvchip .dn{color:#FF8A7A;font-weight:700}
+.lvchip.on{background:#3a3216;border-color:#FFE27A}
+#lvTip{position:fixed;z-index:9999;max-width:min(460px,calc(100vw - 16px));background:#0A1426;border:2px solid #FFD54A;border-radius:12px;padding:12px 16px;color:#fff;font-size:17px;line-height:1.45;box-shadow:0 14px 40px rgba(0,0,0,.75);pointer-events:none}
+#lvTip .lvth{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+#lvTip .lvth b{font-size:30px;font-weight:800}#lvTip .lvth span{font-size:18px;color:#fff}
+#lvTip .lvtd{font-size:17px;margin:2px 0 6px;color:#fff}
+#lvTip .lvtl{margin-top:8px;font-size:17px}
+#lvTip .lvtl i{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:8px;vertical-align:-2px}
+#lvTip .lvtv{font-size:16px;color:#fff;margin:2px 0 0 22px}
+#lvTip .lvtc{font-size:16px;color:#fff;margin-top:8px;border-top:1px solid #ffffff33;padding-top:6px}
+.lvdet{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:8px 14px;margin:10px 0}
+.lvdet summary{font-size:18px;font-weight:700;color:#fff;cursor:pointer}
+.lvtbl{width:100%;border-collapse:collapse;font-size:16px;margin:8px 0}
+.lvtbl th{color:#fff;text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule)}
+.lvtbl td{color:#fff;padding:6px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+.lvtbl tr.key td{background:#2a2614}
+.lvchipl{display:inline-block;color:#0A1426;font-weight:800;font-size:16px;border-radius:5px;padding:1px 7px;margin:1px}
+.lvnote{font-size:16px;color:#fff;line-height:1.5;margin:8px 0}
+.lvgaps li{font-size:16px;color:#fff}
+body.phone #tabLevels .vxwrap{padding:8px 8px 40px}
 /* --- Tenor tab (2026-11-09): gamma/vega by expiry bucket + factor cards, big high-contrast text --- */
 #tabTenor{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
 .tnwrap{font-size:17px;color:#fff}
@@ -745,6 +787,7 @@ body.phone .rkbig{font-size:52px}
       <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
       <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
       <button data-tab="tenor" aria-pressed="false" title="Dealer gamma and vega split by expiry bucket (1 day, up to 1 week, up to 1 month, longer) across SPX levels, its daily history, and six factor cards with their past record. Built each evening.">Tenor</button>
+      <button data-tab="levels" aria-pressed="false" title="Price levels where several independent views agree (options positioning, open interest, VIX options, price history, crowded strikes), drawn over the last 60 sessions. Hover or tap a band for the details. Built each evening.">Levels</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
@@ -993,6 +1036,13 @@ body.phone .rkbig{font-size:52px}
       <div id="rkBody"></div>
     </div>
   </main>
+  <main id="tabLevels" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="lvHead"></section>
+      <div id="lvBody"></div>
+    </div>
+    <div id="lvTip" role="tooltip" hidden></div>
+  </main>
   <main id="tabTenor" class="tab" hidden>
     <div class="vxwrap vewrap">
       <section class="vxhead" id="tnHead"></section>
@@ -1031,7 +1081,7 @@ body.phone .rkbig{font-size:52px}
 
         <p class="hintro">This cockpit shows how options traders, and the dealers who take the other side of their trades, are positioned in SPX (and SPY, QQQ) through the day. Every page is explained below: what it shows, how to read it, and what each button does. <b>Nothing here is a trade signal</b> &mdash; it describes positioning so you can make your own call.</p>
         <nav class="hjump">
-          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
+          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-levels">Levels</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
         </nav>
 
         <h3 class="pg" id="h-words">Words used on this page</h3>
@@ -1337,6 +1387,18 @@ body.phone .rkbig{font-size:52px}
           <dt>Limits</dt><dd>The book only holds expiries out to about six months, so far-dated options are missing. Gamma is recomputed with each strike&rsquo;s own vol held fixed as SPX moves. Dealer side is assumed, not measured.</dd>
         </dl>
 
+        <h3 class="pg" id="h-levels">Levels</h3>
+        <p class="what">Price levels where several different ways of finding a level point at the same place, rebuilt every evening after the close. Off by default; press <b>ON</b>. A positioning read, not a trade signal: it shows where the views agree, not which way price will go or whether a level will hold.</p>
+        <dl>
+          <dt>The five views</dt><dd><b style="color:#FFB454">Greek peaks</b>: where the option book is most sensitive (largest vomma with open interest, where dealer gamma bends hardest, where dealer gamma crosses zero). <b style="color:#4EA1FF">Open interest</b>: strikes with the most open put and call contracts, up to 45 days. <b style="color:#D49BFF">VIX options</b>: the biggest VIX option strikes turned into SPX levels (about 2 VIX points per 1% SPX move; the recently measured figure is shown too). <b style="color:#3EE089">Price memory</b>: 20/50/100/200-day averages, recent swing highs and lows, last month&rsquo;s high and low, volume-weighted average price from a swing. <b style="color:#FF6B8B">Crowded strikes</b>: the 22- and 25-delta strikes of the next weekly and monthly expiries, and strikes of the largest index block trades.</dd>
+          <dt>Bands</dt><dd>A band is a zone where levels from different views fall within 25 SPX points of each other. <b>Yellow, bold</b> = 3 or more views agree (a key zone). <b>Grey, faint</b> = 2 views. Thin coloured ticks on the right edge = a level from one view only. The coloured dots in a band show which views agree.</dd>
+          <dt>Vol-shock peak</dt><dd>The hollow dashed ring. The strike where a single option&rsquo;s vega reacts most to a jump in volatility, at today&rsquo;s price, vol and time. It does not depend on anyone&rsquo;s position, so it is shown for reference and never counts toward a band.</dd>
+          <dt>Yesterday</dt><dd>A white hollow diamond with an arrow shows where a zone sat the previous evening and how far it moved.</dd>
+          <dt>Hover / tap</dt><dd>Point at (or tap) a band for a card with its middle and range, the distance from spot, each view and its exact number, what changed since the previous evening, and the track record so far. The chips under the chart pick out each key zone; tap one to light up its band.</dd>
+          <dt>Track record</dt><dd>Each stored zone is checked over the next 5 sessions: did SPX trade into it, and did it close back on the side it came from (held) or go through (broke). Key zones are compared with single-view levels. Under 30 cases the numbers mean very little.</dd>
+          <dt>Limits</dt><dd>Built from the end-of-day option book and daily prices. Dealer sides are assumed (calls +, puts &minus;), not measured. Levels further than 8% from spot are not drawn.</dd>
+        </dl>
+
         <h3 class="pg" id="h-trust">What to trust, and when</h3>
         <ol class="caveats">
           <li><b>Delta beats premium for direction.</b> On a falling day, puts sold to close (people cashing in protection) count as &ldquo;bullish&rdquo; dollars and can tilt the Premium slider. The Delta slider weights each trade by its market exposure, so it is less affected. If both read balanced on a big move, the options tape was two-sided and the move is coming from elsewhere.</li>
@@ -1443,7 +1505,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor"].includes(st.tab)) st.tab="flow";
+if(!["flow","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex"); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -2767,7 +2829,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor";
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -2790,6 +2852,7 @@ function render(){
   else if(st.tab==="constel") renderConstel();
   else if(st.tab==="risk") renderRisk();
   else if(st.tab==="tenor") renderTenor();
+  else if(st.tab==="levels") renderLevels();
   else renderSkew(se,d);
 }
 
@@ -3719,7 +3782,7 @@ function renderYday(){
     `<div class="note">${esc(V.trade_date)} prints vs the ${esc(String(V.as_of).slice(0,10))} book. Opened = OI added ≥ half the print; closed/rolled = ≤ a fifth. Bought/sold from the strike's IV change minus its expiry's ATM move.</div>`;
 }
 /* ---- phone-width view */
-function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"){ st.tab="flow"; } }
+function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"&&st.tab!=="levels"){ st.tab="flow"; } }
 window.addEventListener("resize",()=>{ phoneMode(); render(); }); phoneMode();
 document.getElementById("robBtn").addEventListener("click",()=>{ st.rob=!st.rob; save("rob",st.rob?"1":"0"); document.getElementById("robBtn").setAttribute("aria-pressed",st.rob); render(); });
 document.getElementById("robBtn").setAttribute("aria-pressed",st.rob);
@@ -6337,6 +6400,204 @@ function renderTenor(){
   if(H0.length>=2){ const rng={"1m":21,"3m":63,all:99999}[st.tnHist]||99999, Hs=H0.slice(-rng);
     tnHover("tnHisSvg",Hs.map((_,i)=>i),i=>{ const r=Hs[i]; return `<b>${tnEsc(r.date)}</b> · SPX ${Math.round(r.spot).toLocaleString()} · `+TN_KEYS.map(k=>`<span style="color:${TN_COL[k]}">${TN_LAB[k]} <b>${tnN(r["g_"+k])}</b></span>`).join(" · ")+` · total <b>${tnN(r.total)}</b>`; }); }
 }
+/* ============================================================ Levels tab (2026-11-09)
+   Reads confluence.json, written each evening by scripts/confluence_report.py.
+   Price levels where several independent views agree, drawn over the last 60 sessions.
+   Hover (or tap) a band for the details. Off by default. Positioning read, not a trade signal. */
+var lvData=null, lvBusy=false, lvLastKey="", lvSel=null;
+st.lvOn=load("lvOn","0")==="1"; st.lvDet=load("lvDet","0")==="1";
+var LV_COL={greeks:"#FFB454",oi:"#4EA1FF",vix:"#D49BFF",price:"#3EE089",crowd:"#FF6B8B"};
+var LV_LAB={greeks:"Greek peaks",oi:"Open interest",vix:"VIX options",price:"Price memory",crowd:"Crowded strikes"};
+var LV_KEYS=["greeks","oi","vix","price","crowd"];
+var LV_NONE="No levels yet. They are rebuilt every evening after the close.";
+function lvFetch(){
+  if(lvBusy) return; lvBusy=true;
+  fetch("confluence.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+    .then(d=>{ lvData=(d&&d.found!==false&&Array.isArray(d.zones))?d:{err:LV_NONE}; })
+    .catch(()=>{ lvData={err:LV_NONE}; })
+    .then(()=>{ lvBusy=false; lvLastKey=""; if(st.tab==="levels") renderLevels(); });
+}
+function lvEsc(x){ return String(x==null?"":x).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function lvTxt(x){ return lvEsc(pubTxt(x)); }
+function lvP(x){ return x==null||!isFinite(x)?"—":Math.round(x).toLocaleString(); }
+function lvS(x,d){ if(x==null||!isFinite(x)) return "—"; const a=Math.abs(+x); return (x>0?"+":x<0?"−":"")+(d?a.toFixed(d):Math.round(a).toLocaleString()); }
+function lvK(x){ if(x==null||!isFinite(x)) return "—"; const a=Math.abs(x); return a>=1e6?(a/1e6).toFixed(1)+"M":a>=1e3?(a/1e3).toFixed(1)+"k":String(Math.round(a)); }
+/* one line per agreeing level, in plain words with its exact numbers */
+function lvLevelLine(x,D){
+  let s=`<b>${lvP(x.level)}</b> · ${lvTxt(x.label)}`;
+  if(x.layer==="oi"&&x.oi!=null) s+=` · ${lvK(x.oi)} open`+(x.oi_change!=null?`, ${lvS(x.oi_change)} today`:"");
+  if(x.layer==="vix"&&x.vix_strike!=null){
+    s+=` · VIX ${x.vix_strike} → SPX ${lvP(x.level)} at ${(+D.beta_default||2).toFixed(1)} VIX pts per 1%`;
+    if(x.level_measured_beta!=null&&D.beta_measured) s+=`, ${lvP(x.level_measured_beta)} at the measured ${(+D.beta_measured).toFixed(2)}`;
+  }
+  if(x.iv!=null&&x.layer==="crowd") s+=` · implied vol ${(x.iv*100).toFixed(1)}%`;
+  if(x.premium!=null) s+=` · $${lvK(x.premium)} premium`;
+  return s;
+}
+function lvRoc(z){
+  const rc=z.roc; if(!rc) return "No earlier read-out to compare with.";
+  if(!rc.matched) return "New since the previous evening.";
+  const p=[`moved ${lvS(rc.centre_shift)} pts (was ${lvP(rc.prior_centre)})`];
+  if(rc.layer_change) p.push(`views ${lvS(rc.layer_change)}`);
+  if(rc.oi_change_delta!=null) p.push(`OI change ${lvS(rc.oi_change_delta)} vs the day before`);
+  if(rc.distance_prior!=null&&rc.distance_now!=null) p.push(`distance to spot ${lvS(rc.distance_prior)} → ${lvS(rc.distance_now)}`);
+  return p.join(" · ");
+}
+function lvTrack(D){
+  const sc=D.score; if(!sc||!sc.key) return "Track record: none yet. Scoring starts after the first evenings are stored.";
+  const k=sc.key, pct=v=>v==null?"n/a":Math.round(v*100)+"%";
+  let s=`Track record (${sc.horizon} sessions): key zones held ${pct(k.hold_rate)} of the times they were touched (${k.n} zones)`;
+  if(sc.single&&sc.single.hold_rate!=null) s+=`; single views ${pct(sc.single.hold_rate)} (${sc.single.n})`;
+  if((k.n||0)<(sc.min_sample||30)) s+=". Too few so far to mean much.";
+  return s+".";
+}
+function lvTipZone(z,D){
+  const pct=(z.centre-D.spot)/D.spot*100, side=z.centre>=D.spot?"above":"below";
+  const byL={}; (z.levels||[]).forEach(x=>{ (byL[x.layer]=byL[x.layer]||[]).push(x); });
+  let h=`<div class="lvth"><b>${lvP(z.centre)}</b><span>${lvP(z.low)} – ${lvP(z.high)}</span></div>`+
+    `<div class="lvtd">${lvS(z.centre-D.spot)} pts (${lvS(pct,1)}%) ${side} spot · <b>${z.n_layers} of 5 views agree</b>${z.key?" · KEY":""}</div>`;
+  LV_KEYS.forEach(k=>{ if(!byL[k]) return; h+=`<div class="lvtl"><i style="background:${LV_COL[k]}"></i><b style="color:${LV_COL[k]}">${LV_LAB[k]}</b></div>`+
+    byL[k].slice(0,4).map(x=>`<div class="lvtv">${lvLevelLine(x,D)}</div>`).join("")+(byL[k].length>4?`<div class="lvtv">+${byL[k].length-4} more</div>`:""); });
+  (z.info_levels||[]).forEach(x=>{ h+=`<div class="lvtl"><i class="ring"></i><b style="color:#FFCF8A">Vol-shock peak (info)</b></div><div class="lvtv">${lvP(x.level)} · not counted (spot, vol and time only, not positions)</div>`; });
+  if(z.oi_change!=null) h+=`<div class="lvtv">OI at these strikes changed <b>${lvS(z.oi_change)}</b> contracts on the day.</div>`;
+  h+=`<div class="lvtc"><b>Since the previous evening:</b> ${lvRoc(z)}</div><div class="lvtc">${lvTrack(D)}</div>`;
+  return h;
+}
+function lvTipInfo(x,D){
+  return `<div class="lvth"><b>${lvP(x.level)}</b><span>vol-shock peak (info)</span></div>`+
+    `<div class="lvtd">${lvS(x.level-D.spot)} pts (${lvS((x.level-D.spot)/D.spot*100,1)}%) from spot</div>`+
+    `<div class="lvtv">${lvTxt(x.label)}</div><div class="lvtc">${lvTxt(D.info_note||"")}</div>`;
+}
+function lvTipSingle(x,D){
+  return `<div class="lvth"><b>${lvP(x.level)}</b><span>one view only</span></div>`+
+    `<div class="lvtd">${lvS(x.level-D.spot)} pts from spot</div><div class="lvtl"><i style="background:${LV_COL[x.layer]}"></i><b style="color:${LV_COL[x.layer]}">${LV_LAB[x.layer]}</b></div><div class="lvtv">${lvLevelLine(x,D)}</div>`;
+}
+/* the tooltip is position:fixed and clamped to the window, so it can never leave the screen */
+function lvShowTip(html,cx,cy){
+  const t=document.getElementById("lvTip"); if(!t) return; t.innerHTML=html; t.hidden=false;
+  /* clamp to the VISIBLE area (visualViewport): on phones the page can be wider than the screen */
+  const vv=window.visualViewport, ox=vv?vv.offsetLeft:0, oy=vv?vv.offsetTop:0;
+  const vw=vv?vv.width:document.documentElement.clientWidth, vh=vv?vv.height:window.innerHeight;
+  t.style.maxWidth=Math.max(200,Math.min(460,vw-16))+"px";
+  const w=t.offsetWidth, hh=t.offsetHeight;
+  let x=cx+18, y=cy+14; if(x+w>ox+vw-8) x=cx-w-18; if(y+hh>oy+vh-8) y=cy-hh-14;
+  x=Math.max(ox+8,Math.min(x,ox+vw-w-8)); y=Math.max(oy+8,Math.min(y,oy+vh-hh-8));
+  t.style.left=x+"px"; t.style.top=y+"px";
+}
+function lvHideTip(){ const t=document.getElementById("lvTip"); if(t) t.hidden=true; }
+function lvChart(D,W){
+  const nar=W<560, H=nar?600:680, L=nar?52:74, Rr=W-8, LW=Math.min(nar?190:390,Math.round(W*0.46)), CX=Rr-LW, T=18, B=40;
+  const bars=D.bars||[], zs=D.zones||[], multi=zs.filter(z=>z.n_layers>=2), infos=D.info_levels||[];
+  let lo=Infinity,hi=-Infinity; bars.forEach(b=>{ lo=Math.min(lo,b.l); hi=Math.max(hi,b.h); });
+  multi.forEach(z=>{ lo=Math.min(lo,z.low); hi=Math.max(hi,z.high); }); lo=Math.min(lo,D.spot); hi=Math.max(hi,D.spot);
+  if(!isFinite(lo)){ lo=D.spot*0.95; hi=D.spot*1.05; }
+  const pad=(hi-lo)*0.04; lo-=pad; hi+=pad;
+  const Y=p=>T+(H-T-B)*(hi-p)/(hi-lo), inR=p=>p>=lo&&p<=hi;
+  let g=`<rect x="0" y="0" width="${W}" height="${H}" fill="#0E1B33"/>`;
+  const step=tnStep(hi-lo,nar?6:9);
+  for(let p=Math.ceil(lo/step)*step;p<=hi;p+=step){ const y=Y(p).toFixed(1);
+    g+=`<line x1="${L}" x2="${Rr}" y1="${y}" y2="${y}" stroke="#ffffff22"/><text class="ax" x="${L-6}" y="${(+y+5).toFixed(1)}" text-anchor="end">${Math.round(p).toLocaleString()}</text>`; }
+  g+=`<line x1="${CX}" x2="${CX}" y1="${T}" y2="${H-B}" stroke="#ffffff40"/>`;
+  /* zone bands across the whole chart: thickness = range, opacity by how many views agree */
+  multi.forEach((z,i)=>{ const zi=zs.indexOf(z), y1=Y(z.high), y2=Y(z.low), hh=Math.max(y2-y1,z.key?8:5), yc=(y1+y2)/2;
+    const op=z.key?Math.min(0.62,0.22+0.1*(z.n_layers-2)):0.16, col=z.key?"#FFD54A":"#9DB0CA";
+    g+=`<rect class="lvband${z.key?" key":""}${lvSel===zi?" sel":""}" data-z="${zi}" x="${L}" y="${(yc-hh/2).toFixed(1)}" width="${Rr-L}" height="${hh.toFixed(1)}" fill="${col}" fill-opacity="${op}"${z.key?` stroke="#FFE27A" stroke-width="1.6"`:""}/>`; });
+  /* candles */
+  const n=bars.length, sp=(CX-L-8)/Math.max(n,1), bw=Math.max(2,sp*0.62), every=Math.max(5,Math.ceil(64/sp/5)*5);
+  g+='<g pointer-events="none">';
+  bars.forEach((b,i)=>{ const x=L+4+sp*(i+0.5), up=b.c>=b.o, c=up?"#3FD0B0":"#FF6B5A";
+    g+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${Y(b.h).toFixed(1)}" y2="${Y(b.l).toFixed(1)}" stroke="${c}" stroke-width="1.4"/>`+
+       `<rect x="${(x-bw/2).toFixed(1)}" y="${Y(Math.max(b.o,b.c)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5,Math.abs(Y(b.o)-Y(b.c))).toFixed(1)}" fill="${c}"/>`;
+    if(i%every===0) g+=`<text class="ax" x="${x.toFixed(1)}" y="${H-B+24}" text-anchor="middle">${lvEsc(b.d.slice(5).replace("-","/"))}</text>`; });
+  g+='</g>';
+  /* invisible touch targets: at least 22 px tall, so a thin band is easy to tap */
+  multi.forEach(z=>{ const zi=zs.indexOf(z), yc=Y(z.centre), hh=Math.max(Y(z.low)-Y(z.high),22);
+    g+=`<rect class="lvhit lvzone" data-z="${zi}" x="${L}" y="${(yc-hh/2).toFixed(1)}" width="${Rr-L}" height="${hh.toFixed(1)}" fill="#000" fill-opacity="0"/>`; });
+  /* single views: faint thin ticks on the ladder edge */
+  zs.filter(z=>z.n_layers<2).forEach(z=>{ (z.levels||[]).forEach(x=>{ if(!inR(x.level)) return; const y=Y(x.level).toFixed(1);
+    g+=`<line x1="${CX}" x2="${CX+16}" y1="${y}" y2="${y}" stroke="${LV_COL[x.layer]}" stroke-width="1.6" opacity=".55"/>`+
+       `<rect class="lvhit lvsingle" data-l="${lvEsc(JSON.stringify({level:x.level,layer:x.layer,label:x.label,oi:x.oi,oi_change:x.oi_change,vix_strike:x.vix_strike,level_measured_beta:x.level_measured_beta,iv:x.iv,premium:x.premium}))}" x="${CX}" y="${(+y-4).toFixed(1)}" width="22" height="8" fill="transparent"/>`; }); });
+  /* where each zone sat the previous evening: hollow diamond + arrow to today */
+  const gx=CX+(nar?8:12);
+  multi.forEach(z=>{ const rc=z.roc; if(!rc||!rc.matched||Math.abs(rc.centre_shift||0)<2||!inR(rc.prior_centre)) return;
+    const y0=Y(rc.prior_centre), y1=Y(z.centre), d=7;
+    g+=`<path d="M${gx} ${(y0-d).toFixed(1)} L${gx+d} ${y0.toFixed(1)} L${gx} ${(y0+d).toFixed(1)} L${gx-d} ${y0.toFixed(1)}Z" fill="none" stroke="#fff" stroke-width="1.8" opacity=".85"/>`+
+       `<line x1="${gx}" x2="${gx}" y1="${y0.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="#fff" stroke-width="1.6" marker-end="url(#lvArr)" opacity=".85"/>`; });
+  /* which views agree: coloured dots inside each band */
+  const dg=nar?12:18, dx0=CX+(nar?22:30), lx=dx0+4*dg+(nar?12:16);
+  multi.forEach(z=>{ const yc=Y(z.centre).toFixed(1);
+    LV_KEYS.forEach((k,j)=>{ if(z.layers.includes(k)) g+=`<circle cx="${dx0+j*dg}" cy="${yc}" r="${z.key?(nar?5.5:7):(nar?4:5)}" fill="${LV_COL[k]}" stroke="#0E1B33" stroke-width="1.2" pointer-events="none"/>`; }); });
+  /* info-only vol-shock peak: hollow dashed ring, never a band */
+  infos.forEach((x,i)=>{ if(!inR(x.level)) return; const y=Y(x.level).toFixed(1);
+    g+=`<circle class="lvhit lvinfo" data-i="${i}" cx="${dx0}" cy="${y}" r="${nar?8:10}" fill="#0E1B33" fill-opacity=".01" stroke="#FFCF8A" stroke-width="2.6" stroke-dasharray="4 3"/>`; });
+  /* labels on key zones only (distance to spot), pushed apart so they never overlap */
+  const keys=multi.filter(z=>z.key).sort((a,b)=>b.centre-a.centre); let last=-1e9;
+  const room=Rr-lx, gap=nar?20:24, ys0=keys.map(z=>Y(z.centre)+6), yy=ys0.slice();
+  for(let i=1;i<yy.length;i++) yy[i]=Math.max(yy[i],yy[i-1]+gap);            // push down
+  for(let i=yy.length-1;i>=0;i--) yy[i]=Math.min(yy[i],H-B-4-(yy.length-1-i)*gap); // keep inside the plot
+  for(let i=yy.length-2;i>=0;i--) yy[i]=Math.min(yy[i],yy[i+1]-gap);
+  keys.forEach((z,i)=>{ const yc=Y(z.centre), y=yy[i], d=z.centre-D.spot;
+    const t=room<150?`${lvP(z.centre)} ${lvS(d)}`:room<250?`${lvP(z.centre)}  ${lvS(d)} pts`:`${lvP(z.centre)}  ${z.n_layers} views  ${lvS(d)} (${lvS(d/D.spot*100,1)}%)`;
+    if(Math.abs(y-6-yc)>2) g+=`<line x1="${lx-10}" x2="${lx-1}" y1="${yc.toFixed(1)}" y2="${(y-6).toFixed(1)}" stroke="#fff" stroke-width="1.4" opacity=".75"/>`;
+    const tw=t.length*(nar?8.6:9.4)+12;
+    g+=`<rect x="${lx-6}" y="${(y-17).toFixed(1)}" width="${Math.min(tw,Rr-lx+4).toFixed(0)}" height="22" rx="5" fill="#0A1426" fill-opacity=".92" stroke="#FFE27A" stroke-width="1" pointer-events="none"/>`+
+       `<text class="lvzl${d>=0?" up":" dn"}" x="${lx}" y="${y.toFixed(1)}" pointer-events="none">${t}</text>`; });
+  const ys=Y(D.spot).toFixed(1);
+  g+=`<line x1="${L}" x2="${Rr}" y1="${ys}" y2="${ys}" stroke="#fff" stroke-width="2.6" stroke-dasharray="9 5" pointer-events="none"/>`+
+     `<rect x="${L+6}" y="${(+ys-27).toFixed(1)}" width="${nar?118:150}" height="24" rx="4" fill="#fff"/><text class="lvspot" x="${L+12}" y="${(+ys-9).toFixed(1)}">SPX ${(+D.spot).toLocaleString(undefined,{maximumFractionDigits:2})}</text>`;
+  return `<svg class="lvsvg" id="lvSvg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Price levels where several views agree, over the last 60 sessions">`+
+    `<defs><marker id="lvArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#fff"/></marker></defs>${g}</svg>`;
+}
+function lvLegend(){
+  return '<div class="lvlegend">'+LV_KEYS.map(k=>`<span><i style="background:${LV_COL[k]}"></i>${LV_LAB[k]}</span>`).join("")+
+    '<span><i class="band key"></i>3+ views agree (key)</span><span><i class="band"></i>2 views</span><span><i class="ring"></i>vol-shock peak (info, not counted)</span><span><i class="dia"></i>previous evening</span></div>';
+}
+function lvDetails(D){
+  const rows=(D.zones||[]).filter(z=>z.n_layers>=2).sort((a,b)=>b.centre-a.centre).map(z=>
+    `<tr class="${z.key?"key":""}"><td><b>${lvP(z.centre)}</b></td><td>${lvP(z.low)}–${lvP(z.high)}</td><td>${z.layers.map(k=>`<span class="lvchipl" style="background:${LV_COL[k]}">${LV_LAB[k]}</span>`).join(" ")}</td><td>${lvS(z.centre-D.spot)}</td><td>${lvRoc(z)}</td></tr>`).join("");
+  return `<p class="lvnote">${lvTxt(D.info_note||"")}</p>`+
+    `<table class="lvtbl"><tr><th>Centre</th><th>Range</th><th>Views that agree</th><th>To spot</th><th>Since the previous evening</th></tr>${rows}</table>`+
+    `<p class="lvnote"><b>${lvTxt(lvTrack(D))}</b></p>`+
+    ((D.gaps||[]).length?`<p class="lvnote"><b>Missing or limited data:</b></p><ul class="lvgaps">${D.gaps.map(x=>`<li>${lvTxt(x)}</li>`).join("")}</ul>`:"");
+}
+function renderLevels(){
+  const head=document.getElementById("lvHead"), body=document.getElementById("lvBody"); if(!head||!body) return;
+  const D=lvData;
+  head.innerHTML=`<span class="big">Levels</span><button class="sxbtn" id="lvOnBtn" aria-pressed="${!!st.lvOn}">${st.lvOn?"ON":"OFF"}</button>`+
+    (D&&!D.err?`<span><small>book</small>${lvEsc(D.asof)}</span><span>Rebuilt each evening · positioning read, not a trade signal</span>`:"");
+  document.getElementById("lvOnBtn").onclick=()=>{ st.lvOn=!st.lvOn; save("lvOn",st.lvOn?"1":"0"); lvLastKey=""; if(st.lvOn&&!lvData) lvFetch(); renderLevels(); };
+  if(!st.lvOn){ lvHideTip(); body.innerHTML='<p class="veread">Off. Press <b>ON</b> to see the price levels where several independent views agree.</p>'; lvLastKey=""; return; }
+  if(!D){ lvFetch(); body.innerHTML='<p class="veread">Loading…</p>'; return; }
+  if(D.err){ body.innerHTML=`<p class="veread">${lvEsc(D.err)}</p>`; return; }
+  const W=Math.max(320,Math.min(1500,(body.clientWidth||document.documentElement.clientWidth||1000)-4));
+  const key=[D.generated,D.asof,W,lvSel].join("|"); if(key===lvLastKey&&body.querySelector(".lvwrap")) return; lvLastKey=key;
+  const keys=(D.zones||[]).filter(z=>z.key).sort((a,b)=>b.centre-a.centre);
+  let h='<div class="lvwrap">'+lvLegend()+`<div class="lvchart" id="lvChart">${lvChart(D,W)}</div>`;
+  h+=`<div class="lvchips">${keys.length?keys.map(z=>{ const zi=D.zones.indexOf(z), d=z.centre-D.spot;
+    return `<button class="lvchip${lvSel===zi?" on":""}" data-z="${zi}"><b>${lvP(z.centre)}</b><span>${z.n_layers} views</span><span class="${d>=0?"up":"dn"}">${lvS(d)}</span></button>`; }).join(""):'<span class="lvnote">No level where 3 or more views agree today.</span>'}</div>`;
+  h+=`<details class="lvdet" id="lvDet"${st.lvDet?" open":""}><summary>Details: every zone, the numbers behind it, missing data</summary>${lvDetails(D)}</details>`;
+  h+=`<p class="lvnote">Hover or tap a band for the details. ${lvTxt(D.disclaimer||"Positioning read, not a trade signal.")} A level says where views agree, not which way price goes.</p></div>`;
+  body.innerHTML=h;
+  const det=document.getElementById("lvDet"); det.addEventListener("toggle",()=>{ st.lvDet=det.open; save("lvDet",det.open?"1":"0"); });
+  const svg=document.getElementById("lvSvg");
+  const tipFor=el=>{ if(el.classList.contains("lvband")||el.classList.contains("lvzone")) return lvTipZone(D.zones[+el.dataset.z],D);
+    if(el.classList.contains("lvinfo")) return lvTipInfo((D.info_levels||[])[+el.dataset.i],D);
+    if(el.classList.contains("lvsingle")){ try{ return lvTipSingle(JSON.parse(el.dataset.l),D); }catch(e){ return ""; } } return ""; };
+  const hitOf=e=>e.target.closest&&e.target.closest(".lvinfo,.lvsingle,.lvzone,.lvband");
+  const hl=zi=>svg.querySelectorAll(".lvband").forEach(r=>r.classList.toggle("hov",+r.dataset.z===zi));
+  svg.addEventListener("mousemove",e=>{ const el=hitOf(e); hl(el&&el.dataset.z!=null?+el.dataset.z:-1); if(el){ const t=tipFor(el); if(t) lvShowTip(t,e.clientX,e.clientY); } else if(lvSel==null) lvHideTip(); });
+  svg.addEventListener("mouseleave",()=>{ hl(-1); if(lvSel==null) lvHideTip(); });
+  svg.addEventListener("click",e=>{ const el=hitOf(e); if(!el){ lvSel=null; lvHideTip(); svg.querySelectorAll(".lvband.sel").forEach(b=>b.classList.remove("sel")); return; }
+    hl(el.dataset.z!=null?+el.dataset.z:-1); const t=tipFor(el); if(t) lvShowTip(t,e.clientX,e.clientY); e.stopPropagation(); });
+  body.querySelectorAll(".lvchip").forEach(b=>b.onclick=e=>{ const zi=+b.dataset.z; lvSel=lvSel===zi?null:zi;
+    body.querySelectorAll(".lvchip").forEach(c=>c.classList.toggle("on",+c.dataset.z===lvSel));
+    svg.querySelectorAll(".lvband").forEach(r=>r.classList.toggle("sel",+r.dataset.z===lvSel));
+    if(lvSel==null){ lvHideTip(); return; }
+    const band=svg.querySelector(`.lvband[data-z="${zi}"]`); band&&band.scrollIntoView({block:"nearest"});
+    const r=(band||b).getBoundingClientRect(); lvShowTip(lvTipZone(D.zones[zi],D),r.left+Math.min(r.width*0.35,260),r.top+r.height/2); e.stopPropagation(); });
+}
+window.addEventListener("scroll",()=>{ if(lvSel==null) lvHideTip(); },{passive:true});
+document.addEventListener("click",e=>{ if(st.tab!=="levels") return; const t=document.getElementById("lvTip"); if(t&&!t.hidden&&!e.target.closest("#lvTip,#lvChart,.lvchip")){ lvSel=null; lvHideTip(); } });
 })();
 </script>
 </body>

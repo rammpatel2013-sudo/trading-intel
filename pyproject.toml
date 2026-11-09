@@ -135,6 +135,10 @@ ignore = ["ANN101", "ANN102", "S101"]   # missing self/cls, asserts in tests
 "trading_intel/jaguar/brief.py" = ["E501", "ANN401", "RUF001", "RUF002", "RUF003"]
 "trading_intel/jaguar/render.py" = ["E501", "N806", "ANN401", "RUF001", "RUF002", "RUF003"]
 "trading_intel/market/breadth.py" = ["E501", "RUF001", "RUF002", "RUF003"]
+# Confluence read-out: Greek-letter maths in docstrings/labels (σ Γ Δ −) and the inline-HTML
+# report generator, same posture as the report generators above.
+"trading_intel/market/confluence_*.py" = ["RUF001", "RUF002", "RUF003"]
+"scripts/confluence_report.py" = ["ANN", "E501", "N806", "RUF001", "RUF002", "RUF003"]
 "trading_intel/scheduler/jobs/jaguar_brief.py" = ["E501", "RUF001", "RUF002", "RUF003"]
 "scripts/probe_fmp_13f.py" = ["E501", "BLE001", "RUF100"]
 "scripts/probe_fmp_fundamentals.py" = ["E501", "BLE001", "RUF100"]

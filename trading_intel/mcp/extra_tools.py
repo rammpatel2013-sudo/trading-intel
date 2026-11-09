@@ -23,6 +23,7 @@ Coverage (table -> tool):
     surface_reports  -> get_surface_report
     watchlist_entries-> get_research_watchlist
     signals          -> get_signals
+    confluence files -> get_confluence (reports/confluence/*.json; computes when missing)
 """
 
 from __future__ import annotations
@@ -1242,3 +1243,33 @@ def get_squeezemetrics(session: Session, *, days: int = 60, window: int = 252) -
         },
         "note": "Their GEX model; use percentile vs trailing year, not sign.",
     }
+
+
+# ── confluence read-out (reports/confluence/*.json) ───────────────────
+
+
+def get_confluence(
+    session: Session,
+    *,
+    symbol: str = "SPX",
+    day: str | None = None,
+    window: float = 25.0,
+    out_dir: object = None,
+) -> dict[str, Any]:
+    """SPX confluence read-out: zones where 3+ of 5 level layers agree.
+
+    Returns the stored ``confluence_YYYYMMDD.json`` for ``day`` (latest when None), or
+    computes it on the fly from banked tables when the file is missing or was built with
+    a different ``window``. Never writes. Positioning read, not a trade signal (rule 4).
+    """
+    from pathlib import Path
+
+    from trading_intel.api.confluence import get_confluence as _get
+
+    try:
+        d = date.fromisoformat(day) if day else None
+    except ValueError:
+        return {"found": False, "reason": f"bad date {day!r}; use YYYY-MM-DD"}
+    w = max(5.0, min(float(window), 100.0))
+    return _get(session, symbol=symbol, day=d, window=w,
+                out_dir=Path(out_dir) if out_dir is not None else None)

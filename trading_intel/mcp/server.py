@@ -327,6 +327,23 @@ def build_server(
             return et.get_vol_surface_cm(session, symbol=symbol, compare_sessions=compare_sessions)
 
     @mcp.tool()
+    def get_confluence(
+        symbol: str = "SPX", date: str | None = None, window: float = 25.0
+    ) -> dict[str, Any]:
+        """SPX confluence read-out: price zones where several independent level layers agree.
+
+        Five layers — greek peaks (vomma / speed / dealer gamma zero), OI clusters,
+        VIX-option strikes mapped to SPX, price memory (SMAs, swings, prior month,
+        anchored VWAP), crowded strikes (22/25-delta + big index structures) — merged
+        within ``window`` SPX points. KEY = 3+ layers. Includes change since the prior
+        read-out and a data-gaps list. ``date`` = YYYY-MM-DD (latest when omitted).
+        Reads the stored nightly JSON, computing from banked tables if missing. Read-only.
+        Positioning read, not a trade signal.
+        """
+        with session_factory() as session:
+            return et.get_confluence(session, symbol=symbol, day=date, window=window)
+
+    @mcp.tool()
     def get_rv_rolloff(
         symbol: str = "SPY",
         window: int = 21,
