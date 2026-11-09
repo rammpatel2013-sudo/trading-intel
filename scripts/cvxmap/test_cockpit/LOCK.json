@@ -1,0 +1,14 @@
+{
+ "locked": "2026-11-08",
+ "commit": "824a06c",
+ "note": "production MAP files; sha256 after CRLF->LF",
+ "files": {
+  "scripts/cvxmap/cvx_cockpit.html": "d1486e1d6497d4ad4f6ad469040823ad22422586c015649a20c0abf75471b120",
+  "scripts/cvxmap/cvx_live.py": "91c8f98ad3559ea715087755d0f84462181f7ff6d8493c1da099014647bd3ec4",
+  "scripts/cvxmap/am_feed.py": "08b3c2338c92606d81dad75167da1c3d3faa0da5d861920b6b8fe6d97a72bd66",
+  "scripts/cvxmap/market_cal.py": "9936736054ed3e166c6e7ca99d559014c87548e61f30c77e65b478d804bc182b",
+  "scripts/cvxmap/serve_cvx.py": "fe932aa6cea1e3649701eb3f0c42bcee45443bbe948e8aad6a800d30f8c58b6b",
+  "scripts/cvxmap/cvx_collect.py": "02e326b0f83a57191a64d0b3b0db78e3765ea65bafe2945d19a9df406ed5a270",
+  "scripts/nas/run_cvxmap.sh": "ad252966986792a5d08e132f0270d53286039b761b453e836e48a34751122046"
+ }
+}
