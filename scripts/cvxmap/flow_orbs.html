@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbs &amp; Profile</title>
+<link rel="icon" href="data:,">
+<!-- flow_orbs.html - created 2026-11-09. Orbs view + volume profile, fed by wide_feed.py (data/wide_YYYYMMDD.json).
+     Standalone page beside the cockpit: it reads only wide_index.json and wide_*.json and changes nothing else. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#0A1426; --pane:#0E1B33; --pane2:#112141; --rule:#1B2C4C;
+  --ink:#E8EFF8; --mute:#B9C8DC; --faint:#93A7C3;
+  --call:#3FC1E8; --put:#FF5FA2; --pos:#FFD23F; --neg:#B26BFF; --poc:#FF8A3D; --up:#58D68D; --dn:#FF7B72;
+  --font:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--night);color:var(--ink);font-family:var(--font);font-size:15px;font-variant-numeric:tabular-nums}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 16px;border-bottom:1px solid var(--rule)}
+h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.01em}
+.seg{display:inline-flex;gap:2px;background:var(--pane);padding:2px;border-radius:7px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:5px;cursor:pointer;color:var(--mute);font-weight:600}
+.seg button[aria-pressed=true]{background:var(--pane2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--pos)}
+.lab{color:var(--faint);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
+select{background:var(--pane);border:1px solid var(--rule);border-radius:6px;padding:5px 8px}
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:8px 16px;border-bottom:1px solid var(--rule)}
+.ctl .grp{display:flex;align-items:center;gap:4px}
+.spot{font-size:22px;font-weight:700}
+.badge{font-size:13px;font-weight:700;padding:2px 8px;border-radius:5px;background:#7c3aed;color:#fff}
+.badge.live{background:#1f9d55}
+.time{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--rule)}
+.time input[type=range]{flex:1;accent-color:var(--pos);height:28px}
+.time .t{font-size:20px;font-weight:700;min-width:64px}
+.btn{border:1px solid var(--rule);background:var(--pane);border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:700}
+main{display:grid;grid-template-columns:minmax(0,1fr) 210px 210px;gap:0;border-bottom:1px solid var(--rule)}
+.pane{position:relative;border-right:1px solid var(--rule);min-width:0}
+.pane:last-child{border-right:0}
+.ph{display:flex;align-items:baseline;gap:8px;padding:8px 10px 4px;font-weight:700;font-size:15px}
+.ph span{color:var(--mute);font-weight:500;font-size:13px}
+canvas{display:block;width:100%}
+#mainC{height:620px} #ladC,#profC{height:620px}
+.read{padding:10px 16px;font-size:16px;line-height:1.5;border-bottom:1px solid var(--rule)}
+.read b.pos{color:var(--pos)} .read b.neg{color:var(--neg)} .read b.poc{color:var(--poc)}
+.how{padding:10px 16px 24px;font-size:15px;line-height:1.55;color:var(--ink)}
+.how h2{font-size:16px;margin:10px 0 4px}
+.how p{margin:4px 0}
+.how .k{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:4px}
+.tip{position:fixed;pointer-events:none;background:#0b1730ee;border:1px solid var(--rule);border-radius:6px;padding:6px 9px;font-size:14px;line-height:1.4;display:none;z-index:9}
+.msg{padding:40px 16px;font-size:17px;color:var(--mute)}
+@media (max-width:900px){
+  main{grid-template-columns:1fr 1fr}
+  main .pane:first-child{grid-column:1 / -1;border-right:0;border-bottom:1px solid var(--rule)}
+  #mainC{height:520px} #ladC,#profC{height:520px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Orbs &amp; Volume Profile</h1>
+  <div class="seg" id="symSeg"><button data-v="SPX" aria-pressed="true">SPX</button><button data-v="SPY" aria-pressed="false">SPY</button><button data-v="QQQ" aria-pressed="false">QQQ</button></div>
+  <select id="daySel" aria-label="Session"></select>
+  <span class="spot" id="spotTxt"></span>
+  <span class="badge" id="modeBadge"></span>
+</header>
+<div class="ctl">
+  <div class="grp"><span class="lab">Show</span><div class="seg" id="measSeg"><button data-v="g" aria-pressed="true" title="Dealer gamma: how much dealers must buy or sell per 1% move">Gamma</button><button data-v="va" aria-pressed="false" title="Dealer vanna: how dealer hedges change when volatility moves 1 point">Vanna</button><button data-v="both" aria-pressed="false" title="Gamma orbs filled, vanna as rings">Both</button></div></div>
+  <div class="grp"><span class="lab">Positions from</span><div class="seg" id="basisSeg"><button data-v="oi" aria-pressed="true" title="Open interest at the open, simple rule: dealers long calls, short puts">Open interest</button><button data-v="vol" aria-pressed="false" title="Today's volume, same simple rule">Today's volume</button><button data-v="trd" aria-pressed="false" title="Today's trades by their buy/sell tag: whoever bought, the dealer sold">Trades</button></div></div>
+  <div class="grp"><span class="lab">Expiries</span><div class="seg" id="bookSeg"><button data-v="0" aria-pressed="false">Today</button><button data-v="7" aria-pressed="false">Next 7 days</button><button data-v="all" aria-pressed="true">All</button></div></div>
+  <div class="grp"><span class="lab">Profile</span><div class="seg" id="profSeg"><button data-v="cp" aria-pressed="true">Calls | Puts</button><button data-v="bb" aria-pressed="false">Bull | Bear</button></div></div>
+</div>
+<div class="time"><button class="btn" id="playBtn" aria-label="Play">▶ Play</button><input type="range" id="slider" min="0" max="0" value="0" aria-label="Time"><span class="t" id="tTxt">--:--</span><button class="btn" id="nowBtn">Now</button></div>
+<main id="mainEl">
+  <section class="pane"><div class="ph">Orbs <span id="mainSub">size = how big, colour = sign</span></div><canvas id="mainC"></canvas></section>
+  <section class="pane"><div class="ph">At <span id="ladT">--:--</span></div><canvas id="ladC"></canvas></section>
+  <section class="pane"><div class="ph">Volume <span id="profT">today so far</span></div><canvas id="profC"></canvas></section>
+</main>
+<div class="read" id="readEl"></div>
+<div class="how">
+  <h2>How to read this page</h2>
+  <p><b>Each orb</b> is one strike at one 5-minute moment. <b>Bigger orb = more dealer hedging tied to that strike.</b> <span class="k" style="background:var(--pos)"></span><b>Yellow = positive</b> (with Gamma: dealers trade against the move there, so price tends to slow, stall or pin). <span class="k" style="background:var(--neg)"></span><b>Purple = negative</b> (dealers trade with the move, so price can speed up through it). Candles are 5-minute SPX (or SPY / QQQ) price.</p>
+  <p><b>Gamma</b> = dollars dealers must buy or sell for each 1% move. <b>Vanna</b> = how those hedges change when volatility moves 1 point (a big vanna strike matters on volatility crush or spikes). <b>Both</b> = gamma filled, vanna as rings.</p>
+  <p><b>Positions from</b>: <b>Open interest</b> = contracts open at the start of the day, read with the simple rule that dealers are long calls and short puts (the same rule the cockpit's Map uses). <b>Today's volume</b> = today's contracts with the same rule. <b>Trades</b> = today's trades by their buy/sell tag: when a customer bought, the dealer sold, so the dealer is short. These three often disagree; when they agree, the level is more trustworthy.</p>
+  <p><b>Expiries</b>: <b>Today</b> = same-day options only. <b>Next 7 days</b> = everything expiring tomorrow through 7 days out. <b>All</b> = both. Strikes cover about ±200 SPX points (±2.7% for SPY / QQQ).</p>
+  <p><b>Volume profile</b> (right) = contracts traded today at each strike, up to the time on the slider. <b class="poc" style="color:var(--poc)">Orange line = POC</b> (point of control: the busiest strike). Dashed lines = <b>value area</b> (the strikes that hold 70% of the volume). The orange dotted line on the orbs chart = where the POC sat through the day: when it moves, the fight moved. <b>Calls | Puts</b> = blue calls, pink puts. <b>Bull | Bear</b> = green = calls bought + puts sold, red = puts bought + calls sold (by trade tag).</p>
+  <p><b>Play</b> replays the day; nothing to the right of the slider is shown, so the replay never peeks ahead. <b>Now</b> jumps to the latest minute (the page refreshes every minute while the market is open).</p>
+  <p>This is a positioning read, not a trade signal. The simple dealer rule is an assumption; real dealer books are not public.</p>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const CS=getComputedStyle(document.documentElement), C=v=>CS.getPropertyValue(v).trim();
+const st={sym:"SPX",day:null,J:null,meas:"g",basis:"oi",book:"all",prof:"cp",i:0,follow:true,play:null,days:[]};
+try{ for(const k of ["sym","meas","basis","book","prof"]){ const v=localStorage.getItem("orbs."+k); if(v) st[k]=v; } }catch(e){}
+const save=k=>{ try{ localStorage.setItem("orbs."+k,st[k]); }catch(e){} };
+
+/* ---------- data ---------- */
+async function getJSON(u){ const r=await fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(u+" "+r.status); return r.json(); }
+async function loadIndex(){
+  try{ const j=await getJSON("wide_index.json"); st.days=j.days||[]; }catch(e){ st.days=[]; }
+  const sel=$("daySel"); sel.innerHTML=st.days.map(d=>`<option value="${d}">${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)}</option>`).join("");
+  const q=new URLSearchParams(location.search).get("day");
+  st.day=(q&&st.days.includes(q))?q:(st.days[0]||null); if(st.day) sel.value=st.day;
+}
+async function loadDay(keepPos){
+  if(!st.day){ msg("No sessions yet. The feed writes its first file a few minutes after the open."); return; }
+  try{ st.J=await getJSON("wide_"+st.day+".json"); }catch(e){ msg("Could not load "+st.day+"."); return; }
+  const S=sym(); if(!S){ msg(st.sym+" has no data for this session."); return; }
+  const n=S.slots.length; const sl=$("slider"); sl.max=String(Math.max(0,n-1));
+  if(!keepPos||st.follow) st.i=n-1; st.i=Math.min(st.i,n-1); sl.value=String(st.i);
+  prep(); draw();
+}
+const sym=()=>st.J&&st.J.syms&&st.J.syms[st.sym];
+function msg(t){ $("readEl").textContent=t; for(const id of ["mainC","ladC","profC"]){ const g=fit($(id)); g.ctx.clearRect(0,0,g.w,g.h); } }
+function isLive(){ if(!st.J||st.day!==st.days[0]) return false; const n=new Date(), et=new Date(n.toLocaleString("en-US",{timeZone:"America/New_York"})); const d=et.getFullYear()*10000+(et.getMonth()+1)*100+et.getDate(); const hm=et.getHours()*60+et.getMinutes(); return String(d)===st.day&&hm>=565&&hm<=980; }
+
+/* value of one field for the chosen expiries */
+function arr(s,f){ const a=s[f+"0"], b=s[f+"7"]; if(st.book==="0") return a; if(st.book==="7") return b; return a.map((v,i)=>(v||0)+(b[i]||0)); }
+function measField(m){ if(m==="va") return "va"; return st.basis==="oi"?"g":st.basis==="vol"?"gv":"gt"; }
+const tmin=t=>{ const [h,m]=t.split(":").map(Number); return h*60+m; };
+
+/* per-symbol derived series (candles, POC per slot, scale) */
+let P=null;
+function prep(){
+  const S=sym(); if(!S) return;
+  const candles=new Map(); for(const [t,x] of S.px){ const b=Math.floor(tmin(t)/5)*5; let c=candles.get(b); if(!c){ c={t:b,o:x,h:x,l:x,c:x}; candles.set(b,c); } c.h=Math.max(c.h,x); c.l=Math.min(c.l,x); c.c=x; }
+  const allK=new Set(); for(const s of S.slots) for(const k of s.k) allK.add(k);
+  const ks=[...allK].sort((a,b)=>a-b);
+  // running largest size per field, so a replay never scales today's orbs by a later, bigger number
+  const mx={}; for(const f of ["g","gv","gt","va"]){ let m=0; mx[f]=S.slots.map(s=>{ for(const v of arr(s,f)) m=Math.max(m,Math.abs(v||0)); return m||1; }); }
+  const poc=S.slots.map(s=>profileOf(s).poc);
+  P={candles:[...candles.values()].sort((a,b)=>a.t-b.t),ks,mx,poc,lo:ks[0],hi:ks[ks.length-1]};
+}
+function profileOf(s){
+  const c=arr(s,"c"), p=arr(s,"p"), cb=arr(s,"cb"), cs=arr(s,"cs"), pb=arr(s,"pb"), ps=arr(s,"ps");
+  const tot=c.map((v,i)=>(v||0)+(p[i]||0)); let pi=0; for(let i=1;i<tot.length;i++) if(tot[i]>tot[pi]) pi=i;
+  const sum=tot.reduce((a,b)=>a+b,0); let lo=pi,hi=pi,acc=tot[pi]||0;
+  while(sum>0&&acc<0.7*sum&&(lo>0||hi<tot.length-1)){ const a=lo>0?tot[lo-1]:-1, b=hi<tot.length-1?tot[hi+1]:-1; if(a>=b){ lo--; acc+=a; } else { hi++; acc+=b; } }
+  const bull=c.map((_,i)=>(cb[i]||0)+(ps[i]||0)), bear=c.map((_,i)=>(pb[i]||0)+(cs[i]||0));
+  return {k:s.k,c,p,tot,bull,bear,poc:sum>0?s.k[pi]:null,vah:sum>0?s.k[hi]:null,val:sum>0?s.k[lo]:null,sum};
+}
+
+/* ---------- drawing ---------- */
+function fit(cv){ const r=cv.getBoundingClientRect(), d=window.devicePixelRatio||1; const w=Math.max(10,Math.round(r.width)), h=Math.max(10,Math.round(r.height));
+  if(cv.width!==w*d||cv.height!==h*d){ cv.width=w*d; cv.height=h*d; } const ctx=cv.getContext("2d"); ctx.setTransform(d,0,0,d,0,0); return {ctx,w,h}; }
+const PAD={t:10,b:30}, AXL=58;
+function yScale(h){ const S=sym(), s=S.slots[st.i];
+  // price range of the day so far, padded, kept inside the strikes we have
+  let lo=Infinity,hi=-Infinity; for(const c of P.candles){ if(c.t>tmin(s.t)) break; lo=Math.min(lo,c.l); hi=Math.max(hi,c.h); }
+  if(!isFinite(lo)){ lo=s.x; hi=s.x; }
+  const span=Math.max((hi-lo)*0.6, s.x*0.006); lo=Math.max(P.lo,lo-span); hi=Math.min(P.hi,hi+span);
+  const H=h-PAD.t-PAD.b; return {lo,hi,Y:v=>PAD.t+H*(1-(v-lo)/((hi-lo)||1)),H};
+}
+function money(v){ const a=Math.abs(v); const s=v<0?"−":"+"; if(a>=1) return s+"$"+a.toFixed(a>=10?0:1)+"B"; if(a>=0.001) return s+"$"+(a*1000).toFixed(a*1000>=10?0:1)+"M"; return s+"$"+(a*1e6).toFixed(0)+"K"; }
+function kfmt(v){ return v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?(v/1e3).toFixed(v>=1e4?0:1)+"K":String(Math.round(v)); }
+function stepOf(){ const S=sym(); return S.step||1; }
+
+function drawMain(){
+  const S=sym(), g=fit($("mainC")), {ctx,w,h}=g; ctx.clearRect(0,0,w,h);
+  const y=yScale(h), s=S.slots[st.i]; const t0=570, t1=960, W=w-AXL-8;
+  const X=t=>AXL+W*(t-t0)/(t1-t0), colW=W/((t1-t0)/5), step=stepOf();
+  const rowH=Math.abs(y.Y(0)-y.Y(step));
+  // grid + strike axis
+  ctx.font="13px "+C("--font"); ctx.fillStyle=C("--mute"); ctx.strokeStyle="#ffffff12";
+  const lab=niceStep(y.hi-y.lo); for(let v=Math.ceil(y.lo/lab)*lab; v<=y.hi; v+=lab){ const yy=y.Y(v); ctx.beginPath(); ctx.moveTo(AXL,yy); ctx.lineTo(w,yy); ctx.stroke(); ctx.fillText(fmtK(v),4,yy+4); }
+  for(let hh=10;hh<=16;hh++){ const x=X(hh*60); ctx.beginPath(); ctx.moveTo(x,PAD.t); ctx.lineTo(x,h-PAD.b); ctx.stroke(); ctx.fillText(String(hh>12?hh-12:hh),x-4,h-10); }
+  // orbs
+  const mf=st.meas==="both"?measField("g"):measField(st.meas), m=P.mx[mf][st.i];
+  const drawRing=st.meas==="both", mv=P.mx.va[st.i];
+  for(let j=0;j<=st.i;j++){ const sl=S.slots[j]; const xc=X(Math.floor(tmin(sl.t)/5)*5+2.5); const a=arr(sl,mf), b=drawRing?arr(sl,"va"):null;
+    for(let i=0;i<sl.k.length;i++){ const k=sl.k[i]; if(k<y.lo-step||k>y.hi+step) continue; const yy=y.Y(k);
+      const v=a[i]||0, f=Math.sqrt(Math.abs(v)/m); if(f>0.04){ ctx.fillStyle=(v>=0?C("--pos"):C("--neg"))+alpha(0.25+0.7*f); ctx.beginPath(); ctx.ellipse(xc,yy,Math.max(1,colW*0.62*f),Math.max(1,rowH*0.48*Math.max(f,0.35)),0,0,7); ctx.fill(); }
+      if(b){ const u=b[i]||0, q=Math.sqrt(Math.abs(u)/mv); if(q>0.08){ ctx.strokeStyle=(u>=0?"#7FE7FF":"#FF9AC8")+alpha(0.35+0.6*q); ctx.lineWidth=1.3; ctx.beginPath(); ctx.ellipse(xc,yy,Math.max(1.5,colW*0.55*q),Math.max(1.5,rowH*0.42*Math.max(q,0.35)),0,0,7); ctx.stroke(); } } } }
+  // POC drift
+  ctx.save(); ctx.strokeStyle=C("--poc"); ctx.lineWidth=2; ctx.setLineDash([2,4]); ctx.beginPath(); let on=false;
+  for(let j=0;j<=st.i;j++){ const k=P.poc[j]; if(k==null){ on=false; continue; } const xx=X(Math.floor(tmin(S.slots[j].t)/5)*5+2.5), yy=y.Y(k); if(!on){ ctx.moveTo(xx,yy); on=true; } else ctx.lineTo(xx,yy); }
+  ctx.stroke(); ctx.restore();
+  // candles
+  const tEnd=tmin(s.t);
+  for(const c of P.candles){ if(c.t>tEnd) break; const x=X(c.t+2.5), up=c.c>=c.o; ctx.strokeStyle=up?"#F1F5FB":"#9FB2CC"; ctx.fillStyle=up?"#0A1426":"#9FB2CC"; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(x,y.Y(c.h)); ctx.lineTo(x,y.Y(c.l)); ctx.stroke(); const bw=Math.max(2,colW*0.55), yo=y.Y(Math.max(c.o,c.c)), yc=y.Y(Math.min(c.o,c.c)); ctx.fillRect(x-bw/2,yo,bw,Math.max(1,yc-yo)); ctx.strokeRect(x-bw/2,yo,bw,Math.max(1,yc-yo)); }
+  // spot now
+  const ys=y.Y(s.x); ctx.save(); ctx.strokeStyle="#ffffffaa"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(AXL,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
+  ctx.font="bold 13px "+C("--font"); ctx.fillStyle="#fff"; ctx.fillText(s.x.toFixed(2),w-62,ys-4);
+  g.X=X; g.y=y; g.colW=colW; st.mainG=g;
+}
+function alpha(a){ return Math.round(Math.max(0,Math.min(1,a))*255).toString(16).padStart(2,"0"); }
+function niceStep(span){ const raw=span/8, p=Math.pow(10,Math.floor(Math.log10(raw))); for(const m of [1,2,2.5,5,10]) if(raw<=m*p) return m*p; return 10*p; }
+function fmtK(v){ return Number.isInteger(v)?String(v):v.toFixed(1); }
+
+function drawLadder(){
+  const S=sym(), s=S.slots[st.i], g=fit($("ladC")), {ctx,w,h}=g; ctx.clearRect(0,0,w,h); const y=yScale(h);
+  const mf=st.meas==="va"?"va":measField("g"), a=arr(s,mf), step=stepOf(), rowH=Math.max(2,Math.abs(y.Y(0)-y.Y(step))-1);
+  let m=0; for(let i=0;i<s.k.length;i++) if(s.k[i]>=y.lo&&s.k[i]<=y.hi) m=Math.max(m,Math.abs(a[i]||0)); m=m||1;
+  const mid=w/2; ctx.strokeStyle="#ffffff30"; ctx.beginPath(); ctx.moveTo(mid,PAD.t); ctx.lineTo(mid,h-PAD.b); ctx.stroke();
+  const order=s.k.map((k,i)=>i).filter(i=>s.k[i]>=y.lo&&s.k[i]<=y.hi); const top=[...order].sort((p,q)=>(a[q]||0)-(a[p]||0)).slice(0,3), bot=[...order].sort((p,q)=>(a[p]||0)-(a[q]||0)).slice(0,3);
+  for(const i of order){ const v=a[i]||0, L=(w/2-6)*Math.abs(v)/m, yy=y.Y(s.k[i]); ctx.fillStyle=v>=0?C("--pos"):C("--neg"); ctx.fillRect(v>=0?mid:mid-L,yy-rowH/2,L,rowH); }
+  ctx.font="bold 13px "+C("--font");
+  for(const i of [...top.filter(i=>(a[i]||0)>0),...bot.filter(i=>(a[i]||0)<0)]){ const v=a[i], yy=y.Y(s.k[i]); ctx.fillStyle="#fff"; const t=fmtK(s.k[i])+" "+money(v); const tw=ctx.measureText(t).width; const tx=v>=0?Math.max(2,mid-tw-4):Math.min(w-tw-2,mid+4); ctx.fillStyle="#0A1426d9"; ctx.fillRect(tx-2,yy-10,tw+4,15); ctx.fillStyle="#fff"; ctx.fillText(t,v>=0?Math.max(2,mid-tw-4):Math.min(w-tw-2,mid+4),yy+4); }
+  const ys=y.Y(s.x); ctx.save(); ctx.strokeStyle="#ffffffaa"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(0,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
+  ctx.font="13px "+C("--font"); ctx.fillStyle=C("--mute"); ctx.fillText(st.meas==="va"?"vanna $ per vol pt":"gamma $ per 1% move",4,h-10);
+  $("ladT").textContent=s.t+" · "+(st.meas==="va"?"Vanna":"Gamma");
+}
+function drawProfile(){
+  const S=sym(), s=S.slots[st.i], g=fit($("profC")), {ctx,w,h}=g; ctx.clearRect(0,0,w,h); const y=yScale(h);
+  const pr=profileOf(s), step=stepOf(), rowH=Math.max(2,Math.abs(y.Y(0)-y.Y(step))-1);
+  let m=0; for(let i=0;i<s.k.length;i++) if(s.k[i]>=y.lo&&s.k[i]<=y.hi) m=Math.max(m,pr.tot[i]); m=m||1; const W=w-8;
+  for(let i=0;i<s.k.length;i++){ const k=s.k[i]; if(k<y.lo||k>y.hi) continue; const yy=y.Y(k)-rowH/2;
+    const A=st.prof==="cp"?[pr.c[i],C("--call")]:[pr.bull[i],C("--up")], B=st.prof==="cp"?[pr.p[i],C("--put")]:[pr.bear[i],C("--dn")];
+    const la=W*(A[0]||0)/m, lb=W*(B[0]||0)/m; ctx.fillStyle=A[1]; ctx.fillRect(4,yy,la,rowH); ctx.fillStyle=B[1]; ctx.fillRect(4+la,yy,lb,rowH); }
+  const line=(k,dash,col,txt)=>{ if(k==null) return; const yy=y.Y(k); ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(w,yy); ctx.stroke(); ctx.restore(); ctx.font="bold 13px "+C("--font"); const tt=txt+" "+fmtK(k), tw=ctx.measureText(tt).width; ctx.fillStyle="#0A1426d9"; ctx.fillRect(w-tw-8,yy-18,tw+6,16); ctx.fillStyle=col; ctx.fillText(tt,w-tw-5,yy-5); };
+  line(pr.vah,[5,4],"#FFB07A","VAH"); line(pr.val,[5,4],"#FFB07A","VAL"); line(pr.poc,[],C("--poc"),"POC");
+  const ys=y.Y(s.x); ctx.save(); ctx.strokeStyle="#ffffffaa"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(0,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
+  ctx.font="13px "+C("--font"); ctx.fillStyle=C("--mute"); ctx.fillText(st.prof==="cp"?"blue calls · pink puts":"green bull · red bear",4,h-10);
+  $("profT").textContent=kfmt(pr.sum)+" contracts to "+s.t;
+  return pr;
+}
+function drawRead(pr){
+  const S=sym(), s=S.slots[st.i]; const mf=measField("g"), a=arr(s,mf); let ip=-1,ineg=-1;
+  for(let i=0;i<s.k.length;i++){ const v=a[i]||0; if(v>0&&(ip<0||v>a[ip])) ip=i; if(v<0&&(ineg<0||v<a[ineg])) ineg=i; }
+  const near=(k)=>{ const d=k-s.x, pct=Math.abs(d/s.x*100); return (d>=0?"+":"−")+Math.abs(d).toFixed(S.step>=5?0:2)+" ("+pct.toFixed(2)+"%) from price"; };
+  const basisTxt={oi:"open interest",vol:"today's volume",trd:"today's trades"}[st.basis], bookTxt={"0":"today's expiry","7":"the next 7 days' expiries",all:"all expiries to 7 days"}[st.book];
+  let t=`<b>${st.sym} ${s.x.toFixed(2)}</b> at ${s.t} · gamma from ${basisTxt}, ${bookTxt}. `;
+  if(ip>=0) t+=`Biggest <b class="pos">positive gamma ${fmtK(s.k[ip])}</b> ${money(a[ip])} (${near(s.k[ip])}) &mdash; price tends to slow or stick there. `;
+  if(ineg>=0) t+=`Biggest <b class="neg">negative gamma ${fmtK(s.k[ineg])}</b> ${money(a[ineg])} (${near(s.k[ineg])}) &mdash; price can speed up through it. `;
+  if(pr&&pr.poc!=null){ const inVA=s.x>=pr.val&&s.x<=pr.vah; t+=`Busiest strike today (<b class="poc">POC</b>) <b class="poc">${fmtK(pr.poc)}</b>; 70% of volume between ${fmtK(pr.val)} and ${fmtK(pr.vah)}. Price is ${inVA?"<b>inside</b> that range (balanced trade)":"<b>outside</b> that range (trade has moved away from where most contracts changed hands)"}.`;
+    const j0=Math.max(0,st.i-6), p0=P.poc[j0]; if(p0!=null&&p0!==pr.poc&&st.i>0) t+=` The POC moved ${p0<pr.poc?"up":"down"} from ${fmtK(p0)} over the last half hour.`; }
+  t+=` <span style="color:var(--mute)">Positioning read, not a signal.</span>`;
+  $("readEl").innerHTML=t;
+}
+function draw(){
+  if(!P||!sym()) return; const S=sym(), s=S.slots[st.i];
+  $("tTxt").textContent=s.t; $("spotTxt").textContent=st.sym+" "+s.x.toFixed(2);
+  const live=isLive(); const b=$("modeBadge"); b.className="badge"+(live&&st.follow?" live":""); b.textContent=live?(st.follow?"LIVE":"REPLAY · live day"):"REPLAY · "+st.day.slice(4,6)+"/"+st.day.slice(6);
+  $("mainSub").textContent=(st.meas==="va"?"vanna":"gamma")+(st.meas==="both"?" + vanna rings":"")+" · size = how big, yellow + / purple −";
+  drawMain(); drawLadder(); const pr=drawProfile(); drawRead(pr);
+}
+
+/* ---------- controls ---------- */
+function bindSeg(id,key,after){ const el=$(id); const sync=()=>el.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===st[key])));
+  sync(); el.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; st[key]=b.dataset.v; save(key); sync(); after&&after(); }); }
+bindSeg("symSeg","sym",()=>{ prep(); const S=sym(); if(!S){ msg(st.sym+" has no data for this session."); return; } $("slider").max=String(S.slots.length-1); st.i=Math.min(st.i,S.slots.length-1); if(st.follow) st.i=S.slots.length-1; $("slider").value=String(st.i); draw(); });
+bindSeg("measSeg","meas",draw); bindSeg("basisSeg","basis",()=>{ prep(); draw(); }); bindSeg("bookSeg","book",()=>{ prep(); draw(); }); bindSeg("profSeg","prof",draw);
+$("slider").addEventListener("input",e=>{ st.i=+e.target.value; st.follow=st.i===+$("slider").max; draw(); });
+$("nowBtn").addEventListener("click",()=>{ st.follow=true; stopPlay(); const S=sym(); if(!S) return; st.i=S.slots.length-1; $("slider").value=String(st.i); draw(); });
+function stopPlay(){ if(st.play){ clearInterval(st.play); st.play=null; $("playBtn").textContent="▶ Play"; } }
+$("playBtn").addEventListener("click",()=>{ if(st.play){ stopPlay(); return; } const S=sym(); if(!S) return; if(st.i>=S.slots.length-1) st.i=0; st.follow=false; $("playBtn").textContent="❚❚ Pause";
+  st.play=setInterval(()=>{ const n=sym().slots.length; if(st.i>=n-1){ stopPlay(); st.follow=true; draw(); return; } st.i++; $("slider").value=String(st.i); draw(); },350); });
+$("daySel").addEventListener("change",e=>{ st.day=e.target.value; st.follow=true; stopPlay(); loadDay(false); });
+document.addEventListener("keydown",e=>{ if(e.target.tagName==="SELECT") return; const S=sym(); if(!S) return;
+  if(e.key==="ArrowRight"||e.key==="ArrowLeft"){ st.i=Math.max(0,Math.min(S.slots.length-1,st.i+(e.key==="ArrowRight"?1:-1))); st.follow=st.i===S.slots.length-1; $("slider").value=String(st.i); draw(); e.preventDefault(); } });
+// tap / hover on the orbs chart: strike, time, value; click jumps the slider there
+const tip=$("tip");
+$("mainC").addEventListener("mousemove",e=>{ const g=st.mainG, S=sym(); if(!g||!S) return; const r=e.target.getBoundingClientRect(), x=e.clientX-r.left, yy=e.clientY-r.top;
+  const t=570+(x-AXL)/(g.w-AXL-8)*390; let j=-1,best=1e9; for(let q=0;q<=st.i;q++){ const d=Math.abs(tmin(S.slots[q].t)+2.5-t); if(d<best){ best=d; j=q; } } if(j<0||best>6){ tip.style.display="none"; return; }
+  const sl=S.slots[j], step=stepOf(); const k=g.y.lo+(g.y.hi-g.y.lo)*(1-(yy-PAD.t)/g.y.H); const kk=Math.round(k/step)*step; const i=sl.k.indexOf(kk); if(i<0){ tip.style.display="none"; return; }
+  const gv=arr(sl,measField("g"))[i]||0, vv=arr(sl,"va")[i]||0, c=arr(sl,"c")[i]||0, p=arr(sl,"p")[i]||0;
+  tip.innerHTML=`<b>${fmtK(kk)}</b> at ${sl.t}<br>gamma ${money(gv)} · vanna ${money(vv)}<br>calls ${kfmt(c)} · puts ${kfmt(p)} contracts`; tip.style.display="block"; tip.style.left=(e.clientX+14)+"px"; tip.style.top=(e.clientY+10)+"px"; });
+$("mainC").addEventListener("mouseleave",()=>tip.style.display="none");
+$("mainC").addEventListener("click",e=>{ const g=st.mainG, S=sym(); if(!g||!S) return; const r=e.target.getBoundingClientRect(); const t=570+(e.clientX-r.left-AXL)/(g.w-AXL-8)*390;
+  let j=0,best=1e9; for(let q=0;q<S.slots.length;q++){ const d=Math.abs(tmin(S.slots[q].t)+2.5-t); if(d<best){ best=d; j=q; } } st.i=j; st.follow=j===S.slots.length-1; stopPlay(); $("slider").value=String(j); draw(); });
+window.addEventListener("resize",()=>draw());
+
+(async()=>{ await loadIndex(); await loadDay(false);
+  setInterval(async()=>{ if(!isLive()||st.play) return; await loadDay(true); },60000); })();
+window.__orbs={st,profileOf,arr};
+</script>
+</body>
+</html>
