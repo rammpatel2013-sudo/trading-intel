@@ -177,35 +177,42 @@ class RawReader:
     CHUNK = 1 << 18
 
     def new_records(self):
+        return list(self.iter_records())
+
+    def iter_records(self, want=None):
+        """Stream the file member by member (2026-11-09: the old version read the whole day into one buffer
+        and kept every record of every symbol, which pushed the NAS into swap - ~25 min per day).
+        `want` = bytes that must appear in a line before it is JSON-parsed (cheap pre-filter)."""
         if not os.path.exists(self.path):
-            return []
+            return
         with open(self.path, "rb") as fh:
             fh.seek(self.off)
-            buf = fh.read()
-        mv, out = memoryview(buf), []
-        i = done = 0
-        dz, parts = zlib.decompressobj(31), []
-        while i < len(buf):
-            piece = mv[i:i + self.CHUNK]
-            try:
-                parts.append(dz.decompress(piece))
-            except zlib.error:
-                break
-            if dz.eof:                         # one member (= one collector write) complete
-                i += len(piece) - len(dz.unused_data)
-                done = i
-                for line in b"".join(parts).decode("utf-8", "replace").splitlines():
-                    line = line.strip()
-                    if line:
-                        try:
-                            out.append(json.loads(line))
-                        except Exception:
-                            pass
-                dz, parts = zlib.decompressobj(31), []
-            else:
-                i += len(piece)
-        self.off += done                       # a half-written member is read again next pass
-        return out
+            dz, parts, pending = zlib.decompressobj(31), [], 0
+            while True:
+                data = fh.read(self.CHUNK)
+                if not data:
+                    break
+                while data:
+                    try:
+                        parts.append(dz.decompress(data))
+                    except zlib.error:
+                        return
+                    if dz.eof:                 # one member (= one collector write) complete
+                        rest = dz.unused_data
+                        self.off += pending + len(data) - len(rest)
+                        pending = 0
+                        for line in b"".join(parts).splitlines():
+                            if not line.strip() or (want and want not in line):
+                                continue
+                            try:
+                                yield json.loads(line)
+                            except Exception:
+                                pass
+                        dz, parts, data = zlib.decompressobj(31), [], rest
+                    else:
+                        pending += len(data)
+                        data = b""
+        # a half-written member at the end is left (offset not advanced) and read again next pass
 
 
 # ---------------------------------------------------------------- day state
@@ -254,7 +261,7 @@ class Day:
 
     def pump(self):
         n = 0
-        for rec in self.reader.new_records():
+        for rec in self.reader.iter_records(want=b'"idx"'):
             if self.feed(rec):
                 n += 1
         return n
