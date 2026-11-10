@@ -1,9 +1,9 @@
 {
  "locked": "2026-11-09",
  "commit": "824a06c",
- "note": "production MAP files; sha256 after CRLF->LF; 2026-11-09 cvx_cockpit.html re-locked after Tenor + Levels tabs (Map code unchanged); 2026-11-09 (later) cvx_cockpit.html re-locked again after the Orbs tab, Density DN1-DN6 + VIX VX1/VX2 options moved from the test page, and the VIX gamma/vanna map option (Map code unchanged; all new options OFF by default)",
+ "note": "production MAP files; sha256 after CRLF->LF; 2026-11-09 cvx_cockpit.html re-locked after Tenor + Levels tabs (Map code unchanged); 2026-11-09 (later) cvx_cockpit.html re-locked again after the Orbs tab, Density DN1-DN6 + VIX VX1/VX2 options moved from the test page, and the VIX gamma/vanna map option (Map code unchanged; all new options OFF by default); 2026-11-09 (follow-ups) cvx_cockpit.html re-locked after the Orbs zoom / Calls-Puts / Bull-Bear / Charm / MAP-basis set, Flow bars off by default, Volume last 5/15/30 min, VIX map bases + range + per-minute line, Tenor live, Levels zoom and the top-bar SPX-SPY calculator (Map code unchanged)",
  "files": {
-  "scripts/cvxmap/cvx_cockpit.html": "5a5edb9c224f1259667cecb2f1525ccfdfb59d03425dbf74ccc03dfd6b319eca",
+  "scripts/cvxmap/cvx_cockpit.html": "d6c72f15dc2d542f0ae40c36da7a7fec78a5c2a18fcc6ae54045bf132230a836",
   "scripts/cvxmap/cvx_live.py": "91c8f98ad3559ea715087755d0f84462181f7ff6d8493c1da099014647bd3ec4",
   "scripts/cvxmap/am_feed.py": "08b3c2338c92606d81dad75167da1c3d3faa0da5d861920b6b8fe6d97a72bd66",
   "scripts/cvxmap/market_cal.py": "9936736054ed3e166c6e7ca99d559014c87548e61f30c77e65b478d804bc182b",

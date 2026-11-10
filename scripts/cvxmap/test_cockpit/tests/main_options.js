@@ -54,16 +54,15 @@ async function colours(o,id,x0,x1){ return o.p.evaluate(([id,x0,x1])=>{ const c=
    ok(await X(o,'OR.i===120&&OR.follow===false')&&/11:/.test(await o.p.innerText('#orT')),'Orbs slider moves the time ('+await o.p.innerText('#orT')+')');
    await o.p.click('#orNow'); ok(await X(o,'OR.i===OR.P.bk.length-1'),'Now returns to the latest block');
    // modes
-   for(const [v,lab] of [['c','Calls'],['p','Puts'],['bull','Bull'],['bear','Bear'],['net','Net']]){ await o.p.click(`#orProfSeg button[data-v="${v}"]`); await o.p.waitForTimeout(150);
+   for(const [v,lab] of [['cp','Calls/Puts'],['bb','Bull/Bear'],['net','Net']]){ /* 2026-11-09 follow-ups: 3 modes */ await o.p.click(`#orProfSeg button[data-v="${v}"]`); await o.p.waitForTimeout(150);
      ok(await o.p.$$eval('#orProfSeg button[aria-pressed=true]',bs=>bs.map(b=>b.dataset.v).join())===v,`Volume mode ${lab}: single-select`); }
-   await o.p.click('#orProfSeg button[data-v="bull"]'); await o.p.waitForTimeout(200);
-   const bc=await colours(o,'orProfC',0,1); ok(bc.gr>20&&bc.rd<5,`Bull mode draws green only (${bc.gr}/${bc.rd})`);
+   await o.p.click('#orProfSeg button[data-v="bb"]'); await o.p.waitForTimeout(200);
+   const bl=await colours(o,'orProfC',0,0.5), br=await colours(o,'orProfC',0.5,1); ok(br.gr>20&&bl.rd>20&&br.rd<5&&bl.gr<5,`Bull/Bear: bull green right (${br.gr}), bear red left (${bl.rd})`);
    await o.p.locator('#tabOrbs').screenshot({path:OUT+'cockpit_orbs_bullbear.png'});
-   await o.p.click('#orProfSeg button[data-v="bear"]'); await o.p.waitForTimeout(200); const be=await colours(o,'orProfC',0,1); ok(be.rd>20&&be.gr<5,`Bear mode draws red only (${be.rd}/${be.gr})`);
-   const pocBull=await X(o,'(OR.prof="bull",orProfile(OR.P.bk[OR.i].s).poc)'), pocNet=await X(o,'(OR.prof="net",orProfile(OR.P.bk[OR.i].s).poc)'), maxNet=await X(o,'(()=>{ OR.prof="net"; const p=orProfile(OR.P.bk[OR.i].s); let b=0; p.net.forEach((v,i)=>{ if(Math.abs(v)>Math.abs(p.net[b])) b=i; }); return p.k[b]; })()');
+   const pocBull=await X(o,'(OR.prof="bb",orProfile(OR.P.bk[OR.i].s).poc)'), pocNet=await X(o,'(OR.prof="net",orProfile(OR.P.bk[OR.i].s).poc)'), maxNet=await X(o,'(()=>{ OR.prof="net"; const p=orProfile(OR.P.bk[OR.i].s); let b=0; p.net.forEach((v,i)=>{ if(Math.abs(v)>Math.abs(p.net[b])) b=i; }); return p.k[b]; })()');
    ok(pocNet===maxNet,`Net POC = strike with the biggest |net| (${pocNet}); Bull POC ${pocBull}`);
-   for(const v of ['oi','vol']){ await o.p.click(`#orBasisSeg button[data-v="${v}"]`); await o.p.waitForTimeout(150); ok(await o.p.$$eval('#orBasisSeg button[aria-pressed=true]',bs=>bs.length)===1&&await X(o,'OR.basis')===v,`Basis ${v}: one at a time`); }
-   ok(await o.p.$$eval('#orBasisSeg button',bs=>bs.map(b=>b.dataset.v).join())==='oi,vol','Basis buttons = Open interest | Today\'s volume (no Trades, no combined)');
+   for(const v of ['oi','vol','oiv','ois']){ await o.p.click(`#orBasisSeg button[data-v="${v}"]`); await o.p.waitForTimeout(150); ok(await o.p.$$eval('#orBasisSeg button[aria-pressed=true]',bs=>bs.length)===1&&await X(o,'OR.basis')===v,`Basis ${v}: one at a time`); }
+   ok(await o.p.$$eval('#orBasisSeg button',bs=>bs.map(b=>b.dataset.v+'='+b.textContent).join())==='oi=OI,vol=Vol,oiv=OI + vol,ois=OI + signed','Basis buttons = the MAP\'s set OI | Vol | OI + vol | OI + signed');
    await o.p.click('#orBlkSeg button[data-v="5"]'); await o.p.waitForTimeout(300);
    const n5=await X(o,'OR.P.bk.length'); ok(n5>=Math.floor(nb/5)&&n5<=Math.ceil(nb/5)+1,`5-min blocks: ${n5} from ${nb} minutes`);
    ok(await X(o,'(()=>{ const b=OR.P.bk[10]; return b.s===orSym().slots[b.j]&&b.cd.h>=b.cd.l&&tmin(b.s.t)===b.t0+4; })()'),'5-min block = its last minute; candle OHLC over the block');
@@ -117,8 +116,8 @@ async function colours(o,id,x0,x1){ return o.p.evaluate(([id,x0,x1])=>{ const c=
    ok(/SPX-style/.test(await o.p.innerText('#vxmRead')),'naive sign named in the read-out');
    await o.p.click('#vxmSignSeg button[data-v="dealer"]'); await o.p.waitForTimeout(300);
    await o.p.click('#vxmBookSeg button[data-v="a"]'); await o.p.waitForTimeout(300); ok(/all \d+ expiries/.test(await o.p.innerText('#vxmRead')),'All expiries combined');
-   await o.p.click('#vxmBookSeg button[data-v="f"]'); await o.p.click('#vxmBasisSeg button[data-v="v"]'); await o.p.waitForTimeout(300); ok(/today's volume/.test(await o.p.innerText('#vxmRead')),'basis: today\'s volume');
-   await o.p.click('#vxmBasisSeg button[data-v="o"]'); await o.p.waitForTimeout(300);
+   await o.p.click('#vxmBookSeg button[data-v="f"]'); await o.p.click('#vxmBasisSeg button[data-v="vol"]'); await o.p.waitForTimeout(300); ok(/today's volume/.test(await o.p.innerText('#vxmRead')),'basis: today\'s volume');
+   await o.p.click('#vxmBasisSeg button[data-v="oi"]'); await o.p.waitForTimeout(300);
    const mb=await o.p.locator('#vxmGC').boundingBox(); await o.p.mouse.move(mb.x+mb.width*0.4,mb.y+mb.height*0.45); await o.p.waitForTimeout(200);
    ok(/dealer gamma/.test(await o.p.innerText('#vxmHov')),'VIX map hover: '+(await o.p.innerText('#vxmHov')).slice(0,100));
    await o.p.locator('#vxMap').screenshot({path:OUT+'cockpit_vix_map.png'});
@@ -128,7 +127,7 @@ async function colours(o,id,x0,x1){ return o.p.evaluate(([id,x0,x1])=>{ const c=
    await tab(o,'orbs'); await o.p.waitForTimeout(2500); ok(/No Orbs data yet/.test(await o.p.innerText('#orBody')),'Orbs with no files: plain message');
    await tab(o,'density'); await o.p.waitForTimeout(3000); await tab(o,'vix'); await o.p.waitForTimeout(3000);
    ok(/Could not read volx\.json/.test(await o.p.innerText('#vxGauge')),'VX1 with no volx.json: plain message');
-   ok(/No VIX map for today yet/.test(await o.p.innerText('#vxMap')),'VIX map with no file: plain message');
+   ok(/Waiting for vixmap_\d{8}\.json/.test(await o.p.innerText('#vxMap')),'VIX map with no file: says which file it is waiting for');
    for(const t of ['flow','map','levels','tenor','risk','help']) await tab(o,t);
    ok(o.errs.length===0,'missing data files: 0 JS errors '+JSON.stringify(o.errs.slice(0,3))); await o.ctx.close(); }
  // ---------------- 6. phone width

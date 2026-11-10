@@ -38,6 +38,26 @@ THE MATHS (same per-strike formulas as cvx_live.tos_rows - checked by tests/cvxm
       Trades  = - gamma x (calls bought - calls sold + puts bought - puts sold)
                                                       measured: whoever bought, the dealer sold (Convex trade tags)
   Vanna $bn per 1 vol point = vanna x (call OI - put OI) (writer's sign).
+
+BASES (2026-11-09: Orbs "Positions from" = the MAP's set OI | Vol | OI + vol | OI + signed)
+  Every greek is stored on three dealer books, per strike and minute (snapshot fields, $bn):
+      N_oi  = call OI - put OI                                       -> g   va   ch
+      N_vol = call volume - put volume                               -> gv  vav  chv
+      N_sig = (calls sold - calls bought) + (puts sold - puts bought) -> gt  vat  cht
+              (trade tags: a customer buy leaves the dealer short, a sell leaves it long)
+  The page adds them as the MAP's bookCP() builds its books (greeks are linear in position):
+      OI = g · Vol = gv · OI + vol = g + gv · OI + signed = g + gt   (same for va / ch).
+  OI + signed check: MAP call book = cOI + (cs - cb), put book = pOI + (pb - ps);
+  dealer gamma = gamma x (call book - put book) = gamma x (cOI - pOI) + gamma x N_sig = g + gt.
+  One difference: the MAP falls back to OI + vol for a strike with no buy/sell split;
+  here a missing split counts as 0 (= OI only).
+  CHARM ch / chv / cht = dealer delta change per calendar HOUR from time passing alone, $bn:
+      charm_u = phi(d1) d2 / (2 T)   Black-Scholes, r = q = 0, T = calendar time
+      (real minutes to 16:15 + whole days), the strike's own IV (out-of-the-money side vs the
+      parity forward; the expiry's flat IV when missing);
+      ch = charm_u x N x 100 x spot / 8760 / 1e9  (r = q = 0: call and put charm are equal).
+      Positive = the dealer book gets LONGER delta each hour (their hedge is to sell that much).
+  (The raw rows also carry the vendor's own per-contract "charm"; it is not used.)
   Volume profile = today's cumulative contracts per strike (calls / puts, bought / sold by trade tag).
 
 RUN
@@ -62,7 +82,11 @@ START_HM, END_HM = (9, 25), (16, 20)
 POLL_S = 3                      # 2026-11-09: look for a new pull every 3 s (reads only new gzip members)
 CUM_INT = ("c", "p", "cb", "cs", "pb", "ps")     # cumulative contracts
 CUM_PREM = ("cP", "pP")                         # cumulative premium, $M (stored as whole $k in the day file)
-SNAP = ("g", "gv", "gt", "va")                  # per-minute snapshot greeks
+# 2026-11-09 follow-ups: premium is no longer written to the DAY file (no page reads it; the
+# live file keeps it) - room for vanna + charm on all three bases under the ~8 MB limit.
+DAY_PREM = False
+# per-minute snapshot greeks; 2026-11-09: vanna + charm on all three bases ("BASES" above)
+SNAP = ("g", "gv", "gt", "va", "vav", "vat", "ch", "chv", "cht")
 LIVE_MAX_AGE_S = 150            # a pull older than this (catch-up after a late start) does not write live files
 WANT = (b'"idx"', b'"vix"')     # cheap pre-filter; feed() checks the pull name
 try:
@@ -116,8 +140,43 @@ def greeks_u(spot, k, T, sigma):
     return gamma_u, vanna_u
 
 
+def charm_u(spot: float, k: float, t: float, sigma: float | None) -> float:
+    """Black-Scholes charm, r = q = 0: d(delta)/dt as calendar time passes, per YEAR.
+    Same for calls and puts when r = q = 0:  charm = phi(d1) d2 / (2 T)  (= -d(delta)/dT;
+    checked against a finite difference in time in tests/cvxmap/test_wide_feed.py)."""
+    if not (sigma and sigma > 0 and t > 0 and k > 0 and spot > 0):
+        return 0.0
+    sq = sigma * math.sqrt(t)
+    d1 = (math.log(spot / k) + 0.5 * sigma * sigma * t) / sq
+    d2 = d1 - sq
+    return math.exp(-d1 * d1 / 2.0) / L.SQ2PI * d2 / (2.0 * t)
+
+
+def bs_delta0(spot: float, k: float, t: float, sigma: float, kind: str) -> float:
+    """Black-Scholes delta, r = q = 0 (only used by the charm test)."""
+    sq = sigma * math.sqrt(t)
+    d1 = (math.log(spot / k) + 0.5 * sigma * sigma * t) / sq
+    nd1 = 0.5 * math.erfc(-d1 / math.sqrt(2.0))
+    return nd1 if kind == "C" else nd1 - 1.0
+
+
+def strike_iv(k: float, fwd: float, c: dict, p: dict, fallback: float) -> float:
+    """The strike's own IV: out-of-the-money side vs the forward, the other side if that one is
+    missing, else the expiry's flat IV. Values outside 1%..500% count as missing."""
+    def ok(x: object) -> float | None:
+        try:
+            x = float(x)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+        return x if 0.01 < x < 5.0 else None
+    a, b = (c, p) if k >= fwd else (p, c)
+    return ok(a.get("volatility")) or ok(b.get("volatility")) or fallback
+
+
 def expiry_books(sym, d, today, now):
-    """[(group, dte, T_greeks, sigma, book)] for every expiry <= MAX_DTE. group '0' = today's PM expiry, '7' = the rest."""
+    """[(group, dte, T_greeks, sigma, book, expiry, forward, T_calendar)], every expiry <= MAX_DTE.
+    group '0' = today's PM expiry, '7' = the rest. T_calendar (charm) = real minutes to the
+    16:15 settlement plus whole days, / 525600."""
     out = []
     spot = d["spot"]
     sym_groups = [("PM", g) for g in L.pm_groups(d)] + [("AM", g) for g in L.am_groups(d)]
@@ -140,11 +199,12 @@ def expiry_books(sym, d, today, now):
         grp = "0" if (fam == "PM" and dte == 0 and first_pm) else "7"
         if fam == "PM" and dte == 0:
             first_pm = False
-        out.append((grp, dte, T, sigma, bk, ed))
+        t_cal = (mins + 1440.0 * dte) / 525600.0
+        out.append((grp, dte, T, sigma, bk, ed, F or spot, t_cal))
     return out
 
 
-FIELDS = ("g", "gv", "gt", "va", "c", "p", "cb", "cs", "pb", "ps", "cP", "pP")
+FIELDS = (*SNAP, "c", "p", "cb", "cs", "pb", "ps", "cP", "pP")
 
 
 def build_slot(sym, d, today, now):
@@ -153,7 +213,10 @@ def build_slot(sym, d, today, now):
     ks = strikes(sym, spot)
     acc = {g: {f: [0.0] * len(ks) for f in FIELDS} for g in ("0", "7")}
     seen = {"0": [], "7": []}
-    for grp, dte, T, sigma, bk, ed in expiry_books(sym, d, today, now):
+    gk = 100.0 * spot * spot * 0.01 / L.B          # gamma: $bn per 1% move
+    vk = 100.0 * spot * 0.01 / L.B                 # vanna: $bn of delta per 1 vol point
+    hk = 100.0 * spot / L.B / 8760.0               # charm: $bn of delta per calendar HOUR
+    for grp, dte, t_g, sigma, bk, ed, fwd, t_cal in expiry_books(sym, d, today, now):
         seen[grp].append({"e": ed, "dte": dte, "iv": _r(sigma, 4)})
         A = acc[grp]
         for i, k in enumerate(ks):
@@ -161,16 +224,18 @@ def build_slot(sym, d, today, now):
             if not cp:
                 continue
             c, p = cp
-            gu, vu = greeks_u(spot, k, T, sigma)
-            gk = 100.0 * spot * spot * 0.01 / L.B
+            gu, vu = greeks_u(spot, k, t_g, sigma)
+            hu = charm_u(spot, k, t_cal, strike_iv(k, fwd, c, p, sigma))
             cOI, pOI = L._n(c.get("oi")), L._n(p.get("oi"))
             cV, pV = L._n(c.get("volm")), L._n(p.get("volm"))
             cb, cs = L._n(c.get("volm_buy")), L._n(c.get("volm_sell"))
             pb, ps = L._n(p.get("volm_buy")), L._n(p.get("volm_sell"))
-            A["g"][i] += gu * (cOI - pOI) * gk
-            A["gv"][i] += gu * (cV - pV) * gk
-            A["gt"][i] += -gu * ((cb - cs) + (pb - ps)) * gk
-            A["va"][i] += vu * (cOI - pOI) * 100.0 * spot * 0.01 / L.B
+            # dealer books: OI, volume, signed trades (customer buy -> dealer short)
+            n_oi, n_vol, n_sig = cOI - pOI, cV - pV, (cs - cb) + (ps - pb)
+            for f, u, kk in (("g", gu, gk), ("va", vu, vk), ("ch", hu, hk)):
+                A[f][i] += u * n_oi * kk
+                A[f + "v"][i] += u * n_vol * kk
+                A[f + "t"][i] += u * n_sig * kk
             A["c"][i] += cV
             A["p"][i] += pV
             A["cb"][i] += cb
@@ -183,7 +248,7 @@ def build_slot(sym, d, today, now):
     blk = {"t": _hm(now.isoformat()), "x": round(spot, 2), "k": ks, "ex": seen}
     for g in ("0", "7"):
         for f in FIELDS:
-            dp = 6 if f in ("g", "gv", "gt", "va") else (3 if f in ("cP", "pP") else 0)
+            dp = 6 if f in SNAP else (3 if f in ("cP", "pP") else 0)
             blk[f + g] = [(_r(v, dp) if dp else int(round(v))) for v in acc[g][f]]
     return blk
 
@@ -241,27 +306,44 @@ class RawReader:
 
 # ---------------------------------------------------------------- day file v2 coding
 GQ = 1e-5                       # day file: greeks stored as whole units of 1e-5 $bn ($10k)
+SQ_MAX = 999                    # 2026-11-09: ... or max|value| / 999 when coarser (snap_scale)
+
+
+def snap_scale(vals: list) -> float:
+    """Unit of one stored snapshot array. 2026-11-09 follow-ups: nine greek arrays per group made
+    the day file ~45% bigger, so each array is stored in units of max(|value|) / 999 (three digits)
+    whenever that is coarser than $10k; error <= half a unit = 0.05% of the array's largest value.
+    Rounded to 4 significant digits, so the stored unit is exactly the one used to encode."""
+    m = max((abs(v or 0) for v in vals), default=0.0)
+    return GQ if m <= GQ * SQ_MAX else float(f"{m / SQ_MAX:.4g}")
 
 
 def encode_slots(slots):
-    """Full blocks -> day-file v2 blocks: strikes as k0 + n (step = the symbol's), greeks as whole $10k,
-    cumulative fields as per-strike changes since the previous slot (premium in whole $k)."""
+    """Full blocks -> day-file v2 blocks: strikes as k0 + n (step = the symbol's), greeks as whole
+    $10k (or, per array, in units of "sc"[field] $bn when coarser - snap_scale), cumulative fields
+    as per-strike changes since the previous slot (premium in whole $k)."""
     out, prev = [], {}
     for j, blk in enumerate(slots):
         ks = blk["k"]
         e = {"t": blk["t"], "x": blk["x"], "k0": ks[0], "n": len(ks), "dz": 1}
         if j == len(slots) - 1 and "ex" in blk:
             e["ex"] = blk["ex"]
+        sc = {}
         for g in ("0", "7"):
             for f in SNAP:
-                e[f + g] = [int(round((v or 0) / GQ)) for v in blk[f + g]]
-            for f in CUM_INT + CUM_PREM:
+                q = snap_scale(blk[f + g])
+                if q != GQ:
+                    sc[f + g] = q
+                e[f + g] = [round((v or 0) / q) for v in blk[f + g]]
+            for f in CUM_INT + (CUM_PREM if DAY_PREM else ()):
                 cur = blk[f + g]
                 if f in CUM_PREM:
                     cur = [int(round((v or 0) * 1000)) for v in cur]
                 pm = prev.get(f + g, {})
                 e[f + g] = [int(v) - pm.get(k, 0) for k, v in zip(ks, cur, strict=False)]
                 prev[f + g] = dict(zip(ks, (int(v) for v in cur), strict=False))
+        if sc:
+            e["sc"] = sc
         out.append(e)
     return out
 
@@ -274,12 +356,16 @@ def decode_slots(slots, step):
             out.append(e)
             continue
         ks = [e["k0"] + step * i for i in range(e["n"])]
-        blk = {k: v for k, v in e.items() if k not in ("dz", "k0", "n")}
+        blk = {k: v for k, v in e.items() if k not in ("dz", "k0", "n", "sc")}
         blk["k"] = ks
+        sc = e.get("sc") or {}
         for g in ("0", "7"):
             for f in SNAP:
-                blk[f + g] = [v * GQ for v in e[f + g]]
+                q = sc.get(f + g, GQ)
+                blk[f + g] = [v * q for v in e.get(f + g, [])]
             for f in CUM_INT + CUM_PREM:
+                if f + g not in e:          # premium: not in day files written since 2026-11-09
+                    continue
                 pm = prev.get(f + g, {})
                 cur = [pm.get(k, 0) + d for k, d in zip(ks, e[f + g], strict=False)]
                 prev[f + g] = dict(zip(ks, cur, strict=False))
@@ -384,7 +470,8 @@ class Day:
         asof = max((v[-1][0] for v in self.px.values() if v), default="")
         return {"v": 2, "day": self.today.isoformat(), "asof": asof,
                 "gen": L.now_et().isoformat(timespec="seconds"), "max_dte": MAX_DTE, "slot_min": SLOT_MIN,
-                "enc": "dz1: c p cb cs pb ps cP($k) pP($k) as per-strike change since the previous slot",
+                "enc": "dz1: c p cb cs pb ps as per-strike change since the previous slot; "
+                       "greeks in $10k units or sc[field] $bn; premium not stored (live file only)",
                 "width": {"SPX": "+-%d pts" % WIDE_PTS_SPX, "other": "+-%.1f%%" % (WIDE_FRAC * 100)},
                 "syms": syms}
 
@@ -394,13 +481,25 @@ class Day:
             L.atomic_write(os.path.join(DATA, "wide_%s.json" % self.ymd), self.payload())
             write_index()
         if self.vix is not None and self.vix.changed:
-            L.atomic_write(os.path.join(DATA, "vixmap_%s.json" % self.ymd), self.vix.payload())
+            vpath = os.path.join(DATA, f"vixmap_{self.ymd}.json")
+            new = not os.path.exists(vpath)
+            L.atomic_write(vpath, self.vix.payload())
             self.vix.changed = False
+            if new:
+                write_index()          # the VIX map's day list (vix_days) for the page's fallback
 
 
 def write_index():
-    days = sorted((f[5:13] for f in os.listdir(DATA) if f.startswith("wide_2") and f.endswith(".json")), reverse=True)
-    L.atomic_write(os.path.join(DATA, "wide_index.json"), {"days": days, "gen": L.now_et().isoformat(timespec="seconds")})
+    fs = os.listdir(DATA)
+    def ymds(pre: str) -> list[str]:
+        n = len(pre)
+        return sorted((f[n:n + 8] for f in fs if f.startswith(pre + "2") and f.endswith(".json")),
+                      reverse=True)
+    days = ymds("wide_")
+    vix_days = ymds("vixmap_")   # 2026-11-09: the VIX map falls back to the newest stored day
+    L.atomic_write(os.path.join(DATA, "wide_index.json"),
+                   {"days": days, "vix_days": vix_days,
+                    "gen": L.now_et().isoformat(timespec="seconds")})
 
 
 def copy_page():

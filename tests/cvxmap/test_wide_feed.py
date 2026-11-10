@@ -1,5 +1,6 @@
 """wide_feed (2026-11-09): the Orbs / Volume profile feed. Built on a synthetic raw pull (no NAS data needed)."""
 import gzip, json, math, sys, datetime
+import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "cvxmap"))
@@ -33,11 +34,12 @@ def make_rec(ts="2026-11-06T10:35:00", spot=7400.0, n_exp=6):
             k = spot + 5 * i
             sig = 0.16 + 0.0002 * abs(i)
             cpx, ppx = _bs(spot, k, T, sig, "C"), _bs(spot, k, T, sig, "P")
-            def contract(px, cp):
+            def contract(px, cp, i=i, sig=sig):
                 v = {p: 0.0 for p in eff}
                 v.update(bid_price=max(px - 0.05, 0.0), ask_price=px + 0.05, price=px,
                          oi=1000 + 37 * abs(i) + (300 if cp == "C" else 0), volm=500 + 11 * abs(i),
-                         volm_buy=300 + 3 * abs(i), volm_sell=200 + 8 * abs(i), delta=0.5)
+                         volm_buy=300 + 3 * abs(i), volm_sell=200 + 8 * abs(i), delta=0.5,
+                         volatility=sig + (0.03 if (cp == "P") == (i < 0) else 0.0))
                 sym = ".SPXW%s%s%d" % (d.strftime("%y%m%d"), cp, int(k))
                 return [sym] + [v[p] for p in eff]
             rows.append([k, contract(cpx, "C"), contract(ppx, "P")])
@@ -132,9 +134,14 @@ def test_day_file_coding_round_trip_exact_for_cumulative_fields():
             for f in W.CUM_INT:
                 assert b[f + g] == a[f + g]                       # contracts: exact
             for f in W.CUM_PREM:
-                assert all(abs(x - y) <= 0.0005 + 1e-12 for x, y in zip(a[f + g], b[f + g]))
+                assert f + g not in b                               # 2026-11-09: premium not in the day file
+                assert f + g in a and len(a[f + g]) == len(a["k"])  # ... the live block keeps it
             for f in W.SNAP:
-                assert all(abs(x - y) <= W.GQ / 2 + 1e-12 for x, y in zip(a[f + g], b[f + g]))
+                q = W.snap_scale(a[f + g])
+                m = max(abs(x) for x in a[f + g])
+                assert q == W.GQ or q <= m / W.SQ_MAX * 1.001        # 3 digits of the array's largest value
+                assert all(abs(x - y) <= q / 2 * 1.0001 + 1e-12
+                           for x, y in zip(a[f + g], b[f + g], strict=True))
     # cumulative changes are small numbers after the first slot
     assert max(abs(v) for v in enc[1]["c0"]) == 7 < max(abs(v) for v in enc[0]["c0"])
 
@@ -163,3 +170,47 @@ def test_vix_pull_feeds_the_vix_map(tmp_path, monkeypatch):
     j = json.loads((tmp_path / "vixmap_20261106.json").read_text())
     assert [c["t"] for c in j["cols"]] == ["10:35", "10:36"] and j["cols"][-1]["live"] == 1
     assert not (tmp_path / "wide_20261106.json").exists()        # no idx pull yet -> no Orbs day file
+
+
+def test_charm_matches_a_finite_difference_in_time():
+    """2026-11-09 follow-ups: charm_u = d(delta)/dt with calendar time passing (r = q = 0), per year."""
+    for s, k, t, sig in ((7400.0, 7400.0, 3 / 24 / 365, 0.14), (7400.0, 7350.0, 2 / 365, 0.18),
+                         (7400.0, 7480.0, 0.5 / 365, 0.12), (612.0, 600.0, 6 / 365, 0.22)):
+        h = t * 1e-4
+        for kind in ("C", "P"):
+            fd = (W.bs_delta0(s, k, t - h, sig, kind) - W.bs_delta0(s, k, t, sig, kind)) / h
+            assert W.charm_u(s, k, t, sig) == pytest.approx(fd, rel=2e-3, abs=1e-6)
+    assert W.charm_u(7400.0, 7400.0, 0.0, 0.2) == 0.0 and W.charm_u(7400.0, 7400.0, 0.01, None) == 0.0
+
+
+def test_basis_fields_rebuild_the_map_books():
+    """OI + vol = g + gv and OI + signed = g + gt, exactly the MAP's bookCP() books; vanna and charm the same way.
+    Checked strike by strike on the 0DTE group against a direct sum over the raw contracts."""
+    rec = make_rec()
+    now = datetime.datetime.fromisoformat(rec["ts"])
+    d = L.decode(rec)["SPX"]
+    blk = W.build_slot("SPX", d, now.date(), now)
+    grp, dte, t_g, sigma, bk, _ed, fwd, t_cal = W.expiry_books("SPX", d, now.date(), now)[0]
+    assert grp == "0" and dte == 0 and t_cal == pytest.approx(L.minutes_to_close(now) / 525600.0)
+    spot = d["spot"]
+    for i, k in enumerate(blk["k"]):
+        c, p = bk[k]
+        gu, vu = W.greeks_u(spot, k, t_g, sigma)
+        hu = W.charm_u(spot, k, t_cal, W.strike_iv(k, fwd, c, p, sigma))
+        coi, poi, cv, pv = c["oi"], p["oi"], c["volm"], p["volm"]
+        cb, cs, pb, ps = c["volm_buy"], c["volm_sell"], p["volm_buy"], p["volm_sell"]
+        # the MAP's OI + signed book: call book cOI + (cs - cb), put book pOI + (pb - ps); dealer = calls - puts
+        ois = (coi + cs - cb) - (poi + pb - ps)
+        oiv = (coi + cv) - (poi + pv)
+        gk, vk, hk = 100 * spot * spot * 0.01 / L.B, 100 * spot * 0.01 / L.B, 100 * spot / L.B / 8760
+        assert blk["g0"][i] + blk["gt0"][i] == pytest.approx(gu * ois * gk, rel=1e-4, abs=2e-6)
+        assert blk["g0"][i] + blk["gv0"][i] == pytest.approx(gu * oiv * gk, rel=1e-4, abs=2e-6)
+        assert blk["va0"][i] + blk["vat0"][i] == pytest.approx(vu * ois * vk, rel=1e-4, abs=2e-6)
+        assert blk["ch0"][i] == pytest.approx(hu * (coi - poi) * hk, rel=1e-4, abs=2e-6)
+        assert blk["ch0"][i] + blk["chv0"][i] == pytest.approx(hu * oiv * hk, rel=1e-4, abs=2e-6)
+        assert blk["ch0"][i] + blk["cht0"][i] == pytest.approx(hu * ois * hk, rel=1e-4, abs=2e-6)
+    # per-strike IV: the synthetic smile rises away from the money, so the wing uses more than the flat ATM IV
+    c, p = bk[blk["k"][0]]
+    assert W.strike_iv(blk["k"][0], fwd, c, p, sigma) == pytest.approx(p["volatility"])
+    # charm sign: an out-of-the-money call (strike above spot) loses delta as time passes; in-the-money gains
+    assert W.charm_u(7400.0, 7500.0, 1 / 365, 0.15) < 0 < W.charm_u(7400.0, 7300.0, 1 / 365, 0.15)

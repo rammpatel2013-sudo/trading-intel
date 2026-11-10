@@ -25,7 +25,7 @@ button,select{font:inherit;color:inherit}
 .app{display:grid;grid-template-rows:auto auto 1fr;height:100vh;min-height:900px}   /* short windows / browser zoom: scroll instead of squashing the charts */
 
 /* header */
-header{display:flex;align-items:center;gap:22px;padding:10px 16px 8px;border-bottom:1px solid var(--rule)}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:22px;row-gap:6px;padding:10px 16px 8px;border-bottom:1px solid var(--rule)}   /* 2026-11-09: wraps to a second row instead of scrolling sideways (the tab row alone was ~1870 px) */
 .tabs{display:flex;gap:2px;background:var(--pane);padding:2px;border-radius:7px}
 .tabs button{border:0;background:transparent;padding:5px 14px;border-radius:5px;cursor:pointer;color:var(--mute);font-weight:600;letter-spacing:.02em}
 .tabs button[aria-pressed=true]{background:var(--pane2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--r4)}
@@ -35,6 +35,16 @@ header{display:flex;align-items:center;gap:22px;padding:10px 16px 8px;border-bot
 .up{color:#58D68D}.dn{color:#FF7B72}
 .clock{color:var(--mute);font-size:13px;line-height:1.3}
 .clock b{color:var(--ink);font-weight:500}
+.xcalc{position:relative;display:flex;align-items:center;gap:6px;font-size:16px;color:#fff;background:var(--pane);border:1px solid var(--rule);border-radius:8px;padding:3px 8px}
+.xclab{font-size:14px;font-weight:700;color:#DCE6F2;letter-spacing:.03em}
+.xcalc input{width:84px;font:700 17px var(--font);background:#0A1426;color:#fff;border:1px solid #3a4a66;border-radius:5px;padding:3px 6px}
+.xcseg{display:inline-flex;gap:1px}.xcseg button{border:0;background:transparent;color:#B9C6D8;font:600 13px var(--font);padding:3px 5px;border-radius:4px;cursor:pointer}.xcseg button[aria-pressed=true]{background:#1F8FC4;color:#fff}
+.xcout{font-size:17px;white-space:nowrap}.xcout b{color:#FFD23F}.xcout small{font-size:14px;color:#B9C6D8}
+.xcpop{position:absolute;top:100%;left:0;z-index:9998;margin-top:6px;min-width:560px;max-width:92vw;background:#0A1426;border:2px solid #FFD23F;border-radius:10px;padding:10px 12px;font-size:16px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.7)}
+.xcpop table{border-collapse:collapse;width:100%}.xcpop th,.xcpop td{padding:3px 8px;text-align:left;font-size:16px;vertical-align:top}.xcpop th{color:#DCE6F2;font-weight:700;border-bottom:1px solid var(--rule)}
+.xcpop button.xck{font:700 16px var(--font);background:#1F2E4A;color:#FFD23F;border:1px solid #3a4a66;border-radius:5px;padding:1px 7px;cursor:pointer;margin:1px 2px}
+.xcpop .nd{color:#B9C6D8}.xcpop .up{color:#58D68D}.xcpop .dn{color:#FF7B72}.xcpop .ca{color:#5fd4f0}.xcpop .pu{color:#ff8fc7}
+body.phone .xcalc{flex-basis:100%;flex-wrap:wrap}body.phone .xcpop{min-width:0;width:92vw}
 .fresh{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--mute)}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
 .dot.ok{background:#3FD07A;box-shadow:0 0 0 3px #3FD07A22}.dot.warn{background:var(--warn)}.dot.bad{background:var(--shortg)}
@@ -779,6 +789,9 @@ body.phone #tabLevels .vxwrap{padding:8px 8px 40px}
 .orpane canvas{display:block;width:100%;height:620px}
 .orread{font-size:17px;line-height:1.55;color:#fff;margin:10px 2px}
 .orread .orpos{color:#FFD23F}.orread .orneg{color:#C99BFF}.orread .orpoc{color:#FF8A3D}.orread .ornote{color:#DCE6F2}
+.volwin{font-size:17px;line-height:1.5;color:#fff;padding:8px 12px;border-bottom:1px solid var(--rule);background:#1a2a12}.volwin b{color:#FFD23F}
+#volTip{position:fixed;z-index:9999;pointer-events:none;background:#0A1426;border:2px solid #FFD23F;border-radius:10px;padding:8px 12px;color:#fff;font-size:16px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.7)}
+#volTip .ca{color:#5fd4f0}#volTip .pu{color:#ff8fc7}#volTip .mu{color:#B9C6D8}
 #orTip{position:fixed;z-index:9999;pointer-events:none;background:#0A1426;border:2px solid #FFD23F;border-radius:10px;padding:8px 12px;color:#fff;font-size:16px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.7)}
 body.phone .orgrid{grid-template-columns:1fr}
 body.phone .orpane{border-right:0;border-bottom:1px solid var(--rule)}
@@ -796,12 +809,17 @@ body.phone .orpane canvas{height:460px}
 .vxmgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .vxmbox{min-width:0}.vxmbox canvas{display:block;width:100%;height:440px;background:#0E1B33;border-radius:6px}
 .vxmt{font-size:17px;font-weight:700;color:#fff;margin:2px 0 4px}.vxmt span{font-weight:500;font-size:15px;color:#DCE6F2;margin-left:6px}
-.vxmleg{display:flex;align-items:center;gap:8px;font-size:15px;color:#fff;margin:4px 0 0}
+.vxmleg{display:flex;align-items:center;gap:8px;font-size:15px;color:#fff;margin:4px 0 0;flex-wrap:wrap}.vxmlegn{color:#B9C6D8}
+.vxmcus label{font-size:16px;color:#fff;display:inline-flex;align-items:center;gap:4px}.vxmcus input{width:70px;font:600 16px var(--font);background:var(--pane);color:#fff;border:1px solid var(--rule);border-radius:5px;padding:3px 6px}
+.vxmwait{font-size:17px;color:#fff;background:#3a2a08;border:1px solid #FFD23F;border-radius:6px;padding:8px 12px;margin:6px 0}
 .vxmleg i{flex:0 1 240px;height:12px;border-radius:3px;background:linear-gradient(90deg,#FF6B5A,#0E1B33,#4C8DFF)}
 .vxmkey{font-size:16px;color:#fff;line-height:1.5;margin:8px 0}
 .vxmhov{font-size:16px;color:#fff;min-height:24px;margin:4px 0;padding:6px 10px;background:var(--pane2);border-radius:6px}
 .vxmread{font-size:17px;line-height:1.55;color:#fff}.vxmread div{margin:4px 0}
 .vxmup{color:#7FB0FF}.vxmdn{color:#FF8A7A}
+.tnlivebox{margin:6px 0 10px}.tnlivehd{font-size:17px;color:#fff;margin:4px 0 6px;line-height:1.5}.tnlivehd .tnbadge{margin-right:8px}
+.tnlivetbl td,.tnlivetbl th{font-size:16px}
+.lvzoom{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:6px 0}.lvzoom .hint{font-size:15px;color:#B9C6D8}
 body.phone .vxmgrid{grid-template-columns:1fr}
 @media (max-width:900px){.vxmgrid{grid-template-columns:1fr}}
 </style>
@@ -816,7 +834,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
     </div>
     <div class="tabs" role="tablist" aria-label="View" id="pageTabs">
       <button data-tab="flow" aria-pressed="true">Flow</button>
-      <button data-tab="orbs" aria-pressed="false" title="Dealer gamma by strike through the day as orbs, with the volume profile beside it (calls / puts / bull / bear / net). Off until you press ON.">Orbs</button>
+      <button data-tab="orbs" aria-pressed="false" title="Dealer gamma, vanna or charm by strike through the day as orbs, with the volume profile beside it (calls/puts, bull/bear, net). Off until you press ON.">Orbs</button>
       <button data-tab="strikes" aria-pressed="false">Strikes</button>
       <button data-tab="skew" aria-pressed="false">Skew</button>
       <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
@@ -836,6 +854,12 @@ body.phone .vxmgrid{grid-template-columns:1fr}
       <button data-tab="levels" aria-pressed="false" title="Price levels where several independent views agree (options positioning, open interest, VIX options, price history, crowded strikes), drawn over the last 60 sessions. Hover or tap a band for the details. Built each evening.">Levels</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
+    <div class="xcalc" id="xcalc" title="SPX ↔ SPY level: type a level (above 2000 = SPX, else SPY), converted with the live SPX / SPY ratio. Hover for the strikes and their activity; click a strike to jump to it.">
+      <label class="xclab" for="xcIn">SPX↔SPY</label><input id="xcIn" type="text" inputmode="decimal" autocomplete="off" placeholder="level" aria-label="SPX or SPY level">
+      <span class="xcseg" id="xcMode" role="group" aria-label="Which index the level is"><button data-v="auto" aria-pressed="true" title="Above 2000 = SPX, else SPY">Auto</button><button data-v="SPX" aria-pressed="false">SPX</button><button data-v="SPY" aria-pressed="false">SPY</button></span>
+      <span class="xcout" id="xcOut"></span>
+      <div class="xcpop" id="xcPop" hidden></div>
+    </div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
     <span class="demo-flag">Demo data</span>
     <button class="btn" id="screenshotBtn" title="Save a screenshot of the current view" style="font-size:11px;padding:2px 8px;margin-right:6px">📷</button><div class="fresh"><span class="dot" id="fdot"></span><span id="ftxt">connecting…</span></div>
@@ -883,7 +907,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
         <button class="btn live" id="liveBtn" hidden title="Return to the latest minute, centred on spot (or double-click the map)">Back to live</button>
         <span class="sp"></span>
         <span class="legend" id="mapLegend"></span>
-        <button class="btn" id="fbBtn" aria-pressed="true" title="Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides whether each trade was a buy or a sell (used by flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders). Quote = each minute's last price compared with the bid and ask (at the middle = grey; can mislabel in very fast markets). Trade tag = each trade's own buy/sell tag. Older minutes without tags always use Quote. Per trade = each trade on its own: at the ask = buy, at the bid = sell (its own quote at that moment); anything in between decided by the tick rule (direction of that contract's last price change)."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button><button data-v="trade" aria-pressed="false">Per trade</button></div>
+        <button class="btn" id="fbBtn" aria-pressed="false" title="Off by default (2026-11-09). Colour each minute of the spot path by signed premium (bullish green / bearish red, strikes |Δ| 0.3–0.7) and draw W / M arrows only where the pattern and a flow flip agree">Flow bars</button><div class="seg" role="group" id="sideSrcSeg" title="Who decides whether each trade was a buy or a sell (used by flow bars, W/M arrows, bubbles, sequence bubbles and the volume ladders). Quote = each minute's last price compared with the bid and ask (at the middle = grey; can mislabel in very fast markets). Trade tag = each trade's own buy/sell tag. Older minutes without tags always use Quote. Per trade = each trade on its own: at the ask = buy, at the bid = sell (its own quote at that moment); anything in between decided by the tick rule (direction of that contract's last price change)."><button data-v="cockpit" aria-pressed="true">Side: Quote</button><button data-v="convex" aria-pressed="false">Trade tag</button><button data-v="trade" aria-pressed="false">Per trade</button></div>
         <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128277; off</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <button class="btn" id="amSrcBtn" title="Which morning levels to draw: Report → Ours → Both. If the morning report is missing today, our own levels step in on their own.">Src: Report</button>
@@ -998,8 +1022,9 @@ body.phone .vxmgrid{grid-template-columns:1fr}
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
-    <section class="pane"><div class="phead"><h2>Today</h2><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side setting (Quote or Trade tag)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> = bought · <b>striped</b> = sold. <b>Calls|Puts</b>: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span> · %B = share bought (40–60% = no signal). <b>Bull|Bear</b>: <span class="gr">right = bullish</span> (calls bought + puts sold) · <span class="rd">left = bearish</span> (puts bought + calls sold). <b>Net</b>: one bar = bullish minus bearish. Dotted vertical lines = size guides. <b>CW / PW</b> = call / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip · white dotted = price now. <b>This panel = where the money went today.</b></div><div class="body"><canvas id="volDayC"></canvas></div></section>
+    <section class="pane"><div class="phead"><h2 id="volDayH">Today</h2><div class="seg" role="group" id="volWinSeg" title="Recent activity (2026-11-09): show only the contracts added in the last 5 / 15 / 30 minutes at each strike, from the minute log (now minus then), split bought / sold by the Flow tab's Side setting. Day = everything traded today (default)."><button data-v="5" aria-pressed="false">Last 5 min</button><button data-v="15" aria-pressed="false">15 min</button><button data-v="30" aria-pressed="false">30 min</button><button data-v="day" aria-pressed="true">Day</button></div><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side setting (Quote or Trade tag)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> = bought · <b>striped</b> = sold. <b>Calls|Puts</b>: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span> · %B = share bought (40–60% = no signal). <b>Bull|Bear</b>: <span class="gr">right = bullish</span> (calls bought + puts sold) · <span class="rd">left = bearish</span> (puts bought + calls sold). <b>Net</b>: one bar = bullish minus bearish. Dotted vertical lines = size guides. <b>CW / PW</b> = call / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip · white dotted = price now. <b>This panel = where the money went today.</b> <b>Last 5 / 15 / 30 min</b>: only the contracts added in that window; the 3 strikes with the most new contracts get a yellow frame.</div><div class="volwin" id="volWinLine" hidden></div><div class="body"><canvas id="volDayC"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 min</h2><div class="seg" role="group" id="volCol30Seg"><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">own scale</span></div><div class="volhow">Same bars, but <b>only the last 30 minutes</b>. Own scale: compare strikes <b>inside this panel only</b>, not with Today. <b>This panel = where trading is happening now.</b></div><div class="body"><canvas id="vol30C"></canvas></div></section>
+    <div id="volTip" role="tooltip" hidden></div>
     <section class="pane"><div class="phead"><h2>Last 30 vs prior 30</h2><div class="seg" role="group" id="volColDSeg"><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">bright = heating up · dark = cooling off</span></div><div class="volhow">Last 30 min <b>compared with the 30 before</b>. <b>Bright</b> bar = heating up · <b>dark</b> bar = cooling off (Calls|Puts: <span class="pu">coral = puts</span>, <span class="ca">teal = calls</span>; Bull|Bear: <span class="gr">green = bullish</span>, <span class="rd">red = bearish</span>; Net: change in bullish minus bearish). <b>+13K</b> = 13,000 more contracts than before · <b>×9+</b> = 9× the earlier volume (strike just woke up) · <b>×0.3</b> = only 30% of before (dying). <b>This panel = where the tape is heading.</b></div><div class="body"><canvas id="volDC"></canvas></div></section>
   </main>
   <main id="tabPremium" class="tab" hidden>
@@ -1168,6 +1193,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>SPX / SPY / QQQ</dt><dd>Picks the symbol for every page.</dd>
           <dt>Tabs</dt><dd>Each tab opens one page, explained below.</dd>
           <dt>Price and time</dt><dd>Live price, change since the open, time, and time left to the close.</dd>
+          <dt>SPX&harr;SPY box</dt><dd>Type a level and see the same level on the other index. Above 2000 is read as SPX, anything lower as SPY; the small <b>SPX</b> / <b>SPY</b> buttons force it (<b>Auto</b> = by size). It converts with the <b>live</b> ratio SPX price &divide; SPY price, recomputed every live update; the ratio (3 decimals) and its time are shown. Hover the box for the details: the nearest listed strikes on both (SPX every 5 points, SPY every 1), how far each is from the current price in points and %, today&rsquo;s same-day volume there (calls and puts, bought / sold by the feed&rsquo;s trade tags when it has them), open interest, and dealer gamma at that strike ($ per 1% move, same-day book, the Map&rsquo;s current basis). &ldquo;no data&rdquo; = that number is not in the live feed. Click a strike to jump to it (symbol and selected strike; on Orbs the chart centres on it). The last level you typed is remembered. Nothing extra is downloaded.</dd>
           <dt>&#128247; (camera)</dt><dd>Takes a picture of the page you are on. It copies to the clipboard where the browser allows it, otherwise it downloads a PNG.</dd>
           <dt>Status dot</dt><dd>Green = live. The text says when the feed last updated. &ldquo;Not updating&rdquo; means the numbers are frozen.</dd>
           <dt>Gamma box</dt><dd><b>Long gamma</b> or <b>Short gamma</b> at the current price, with one sentence on what dealers are likely doing, and the morning-report line underneath.</dd>
@@ -1211,7 +1237,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Time: Fit / 2h / 1h / 30m / 15m / &#xFF0B; / &minus;</dt><dd>How much time the map shows. Fit = the whole day.</dd>
           <dt>Strikes: 21 / 31 / 51 / &#xFF0B; / &minus;</dt><dd>How many strikes the map shows.</dd>
           <dt>Back to live</dt><dd>Return to the latest minute, centred on price (or double-click the map).</dd>
-          <dt>Flow bars</dt><dd>Colours each minute of the price line by that minute&rsquo;s near-the-money flow: green = bullish, red = bearish, grey = mixed. <b>W / M arrows</b> mark a double bottom / double top that broke out <i>and</i> where the flow flipped the same way.</dd>
+          <dt>Flow bars</dt><dd><b>Off to start</b> (your own choice is remembered). Colours each minute of the price line by that minute&rsquo;s near-the-money flow: green = bullish, red = bearish, grey = mixed. <b>W / M arrows</b> mark a double bottom / double top that broke out <i>and</i> where the flow flipped the same way.</dd>
           <dt>Side: Quote / Trade tag</dt><dd>How each trade is called a buy or a sell. <b>Quote</b> = the minute&rsquo;s last price compared with the bid and ask. <b>Trade tag</b> = each trade&rsquo;s own buy/sell tag. In Quote, a trade that printed outside that minute&rsquo;s bid/ask (the quote moved after it, common in fast markets) is left <b>unsigned</b> rather than guessed. Changes the bubbles, flow bars, sliders, volume ladders and the Premium tab&rsquo;s Through the day charts. Also switchable on the Premium tab (same setting). <b>Per trade</b> = every trade judged on its own: at the ask = buy, at the bid = sell (against its own quote at that moment); anything in between decided by the <i>tick rule</i> (the direction of that contract&rsquo;s last price change). Spread legs and trades too small for the tape stay unsigned. The footer says how much was decided each way.</dd>
           <dt>Seq</dt><dd>Sequence bubbles. <b>Small grey</b> = after a big move, calls sold then puts bought at a top (or the reverse at a bottom). <b>Big coloured &ldquo;Reversal&rdquo;</b> = the same at a key level, with dealers short gamma and the flow flipping. Each is scored 30 minutes later: &#10003; worked, &#10007; failed.</dd>
           <dt>&#128277; / &#128276;</dt><dd>Beep and flash the tab when a new sequence bubble appears. Off by default.</dd>
@@ -1238,10 +1264,11 @@ body.phone .vxmgrid{grid-template-columns:1fr}
         <p class="what">Dealer gamma at every strike through the day, drawn as orbs, with the volume profile beside it. Off by default; press <b>ON</b> (nothing is fetched or drawn while it is off). Follows the SPX / SPY / QQQ buttons. A positioning read, not a trade signal.</p>
         <dl>
           <dt>Orbs</dt><dd>Each orb is one strike in one time block. <b>Bigger orb = more dealer hedging tied to that strike.</b> <b style="color:#FFD23F">Yellow = positive</b> (dealers trade against the move there, so price tends to slow, stall or pin). <b style="color:#C99BFF">Purple = negative</b> (dealers trade with the move, so price can speed up through it). Candles = price in the same blocks. Orb size is scaled to the biggest value so far, so a replay never uses a later, bigger number.</dd>
-          <dt>Show</dt><dd><b>Gamma</b> = dollars dealers must buy or sell for each 1% move. <b>Vanna</b> = how those hedges change when volatility moves 1 point. <b>Both</b> = gamma filled, vanna as rings. Vanna always comes from open interest.</dd>
-          <dt>Positions from</dt><dd>One at a time, never added together. <b>Open interest</b> = contracts open at the start of the day. <b>Today's volume</b> = contracts traded today. Both use the simple rule the Map uses: dealers long calls, short puts.</dd>
+          <dt>Show</dt><dd><b>Gamma</b> = dollars dealers must buy or sell for each 1% move. <b>Vanna</b> = how those hedges change when volatility moves 1 point. <b>Charm</b> = how much dealers&rsquo; delta changes <b>per hour</b> from time passing alone, in dollars of the index (yellow = their delta grows, so they sell to stay hedged; purple = it shrinks, so they buy), worked out with each strike&rsquo;s own implied volatility and real calendar time to the expiry. <b>Both</b> = gamma filled, vanna as rings. All of them follow <b>Positions from</b>.</dd>
+          <dt>Positions from</dt><dd>The same four choices as the Map, one at a time. <b>OI</b> = contracts open at the start of the day. <b>Vol</b> = only contracts traded today. <b>OI + vol</b> = both, with the same simple rule (dealers long calls, short puts). <b>OI + signed</b> = open interest plus today&rsquo;s trades by their buy/sell tag: a customer buy leaves the dealer short that option, a customer sell leaves the dealer long.</dd>
+          <dt>Price &plusmn;1% / &plusmn;2% / All, Reset</dt><dd>How much price the charts show around the current price (&plusmn;2% to start). The mouse wheel on any of the three charts zooms in or out around the pointer, dragging up or down moves the range, and a double-click or <b>Reset</b> goes back to the button&rsquo;s range. The orbs, the gamma ladder and the volume profile always show the same prices.</dd>
           <dt>Expiries</dt><dd><b>Today</b> = same-day options only. <b>Next 7 days</b> = tomorrow through 7 days out. <b>All</b> = both. About &plusmn;200 SPX points (&plusmn;2.7% for SPY / QQQ).</dd>
-          <dt>Volume</dt><dd>Contracts traded today at each strike, up to the time on the slider. <b>Calls</b> / <b>Puts</b>: solid = bought, striped = sold, faint = no buy/sell tag. <b style="color:#58D68D">Bull</b> = calls bought (solid) + puts sold (striped). <b style="color:#FF7B72">Bear</b> = puts bought (solid) + calls sold (striped). <b>Net</b> = Bull minus Bear: green bar to the right when more bullish, red to the left when more bearish. Buy / sell comes from each trade's own tag. <b style="color:#FF8A3D">POC</b> (orange line) = the busiest strike for what is shown (Net: the biggest net either way); dashed <b>VAH / VAL</b> = the strikes that hold 70% of it. The orange dotted line on the orbs = where the POC sat through the day.</dd>
+          <dt>Volume</dt><dd>Contracts traded today at each strike, up to the time on the slider, drawn either side of a centre line. <b>Calls/Puts</b>: calls to the right, puts to the left; solid = bought, striped = sold, faint = no buy/sell tag. <b>Bull/Bear</b>: <b style="color:#58D68D">bull</b> to the right = calls bought (solid) + puts sold (striped); <b style="color:#FF7B72">bear</b> to the left = puts bought (solid) + calls sold (striped). <b>Net</b> = Bull minus Bear: green bar to the right when more bullish, red to the left when more bearish. Buy / sell comes from each trade's own tag. <b style="color:#FF8A3D">POC</b> (orange line) = the busiest strike for the totals shown (Calls/Puts: calls + puts; Bull/Bear: bull + bear; Net: the biggest net either way); dashed <b>VAH / VAL</b> = the strikes that hold 70% of it. The orange dotted line on the orbs = where the POC sat through the day.</dd>
           <dt>Block</dt><dd>1, 3 or 5 minutes per orb column and candle (1 minute is the finest: a new reading arrives once a minute). A block that is still filling has a yellow dashed frame marked <b>building</b>.</dd>
           <dt>Play / slider / Now</dt><dd>Play replays the day; nothing to the right of the slider is shown, so it never peeks ahead. Hover an orb or a volume bar for its numbers; click the orbs to jump there. <b>Now</b> = back to the latest minute.</dd>
           <dt>How fresh</dt><dd>The options feed is read once a minute. A new minute shows up here a few seconds after it is read (the tab checks every 3 seconds). The stand-alone page flow_orbs.html shows the same data.</dd>
@@ -1306,6 +1333,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
         <dl>
           <dt>Tape read</dt><dd>A plain summary of the three ladders, refreshed live. Earlier entries (one every 30 minutes) fold under <b>Earlier &#9656;</b>; click to open.</dd>
           <dt>Today</dt><dd>Everything traded today. <b>%B</b> = share bought; 40&ndash;60% is no signal. <b>Where the money went today.</b></dd>
+          <dt>Last 5 min / 15 min / 30 min / Day</dt><dd>Switch on the first ladder (Day to start). In a window mode each bar shows only the contracts <b>added in that window</b> at that strike (now minus then, from the minute log), split calls bought / calls sold / puts bought / puts sold in the usual colours, using the Flow page&rsquo;s <b>Side</b> setting. The 3 strikes with the most new contracts get a yellow frame, and one sentence on top names the busiest, for example &ldquo;Last 15 min: most new activity at 7400 puts bought (+3.2k), then 7450 calls sold (+2.1k)&rdquo;. Hovering any ladder shows that strike&rsquo;s day totals and its last 5, 15 and 30 minutes.</dd>
           <dt>Last 30 min</dt><dd>Only the last 30 minutes, with its own scale. <b>Where trading is happening now.</b></dd>
           <dt>Last 30 vs prior 30</dt><dd>Bright bar = heating up, dark bar = cooling off. <b>+13K</b> = 13,000 more contracts than the 30 minutes before. <b>&times;9+</b> = 9 times as many (the strike just woke up). <b>&times;0.3</b> = 30% of before (dying). <b>Where the tape is heading.</b></dd>
           <dt>Calls|Puts / Bull|Bear / Net</dt><dd>Each ladder has its own switch. <b>Calls|Puts</b> = puts left, calls right. <b>Bull|Bear</b> = <b class="dn">bearish left</b> (puts bought solid, calls sold striped), <b class="up">bullish right</b> (calls bought solid, puts sold striped); the label shows how much came from calls (C %) or puts (P %). <b>Net</b> = one bar per strike, bullish minus bearish. On the last-30-vs-prior-30 ladder these show the change.</dd>
@@ -1374,8 +1402,8 @@ body.phone .vxmgrid{grid-template-columns:1fr}
             <b>Variance stack</b>: VIX² + DSPX² &asymp; VIXEQ² through the day. The share that is VIX² is how much single-stock volatility is reaching the index through correlation; rising with COR1M = the index is catching single-stock stress.
             Both need the vol poller (free delayed index quotes, about 15 minutes late).</dd>
           <dt>VIX map (option)</dt><dd>Dealer gamma (left) and vanna (right) in VIX options, by VIX level (up the side) and time of day (across), like the SPX Map. <b style="color:#7FB0FF">Blue</b> = dealers long: they sell VIX as it rises and buy as it falls, which leans against VIX moves. <b style="color:#FF8A7A">Red</b> = dealers short: they chase VIX moves. Each VIX expiry is priced on its own forward (where that expiry trades), and a VIX level moves every forward by the same amount.
-            <b>Expiries</b>: Front expiry (default) or All combined. <b>Positions from</b>: open interest or today's volume, one at a time. <b>Dealer side</b>: default = dealers <b>short</b> VIX calls and <b>long</b> VIX puts (customers buy VIX calls as crash hedges and sell VIX puts); SPX-style = the Map's simple rule (long calls, short puts), shown for comparison &mdash; it is exactly the opposite colour.
-            Marks: white = VIX, cyan dashed = front forward, yellow dotted = where the value flips sign (on the gamma map: the VIX level where dealer gamma flips), green / pink dashed = the biggest call / put open-interest strike, drawn at the VIX level where the front forward reaches it. Hover for the numbers. One column every 5 minutes plus the newest minute; written by the Orbs feed.</dd>
+            <b>Expiries</b>: Front expiry (default) or All combined. <b>Positions from</b>: the Map&rsquo;s four, one at a time: <b>OI</b>, <b>Vol</b>, <b>OI + vol</b>, and <b>OI + signed</b> = open interest with the chosen dealer side plus today&rsquo;s trades by their buy/sell tag (a customer buy leaves the dealer short; this part is measured, so the Dealer side switch does not flip it). <b>VIX range</b>: <b>10&ndash;25</b> to start (VIX rarely goes above 25), 10&ndash;35, 10&ndash;50, All, or Custom (type a min and max); both maps use it and the colour scale is fitted to the rows shown. The choice is remembered. <b>Dealer side</b>: default = dealers <b>short</b> VIX calls and <b>long</b> VIX puts (customers buy VIX calls as crash hedges and sell VIX puts); SPX-style = the Map's simple rule (long calls, short puts), shown for comparison &mdash; it is exactly the opposite colour.
+            Marks: white line = VIX <b>every minute</b> across the session, cyan dashed = front forward, white dot and the <b>now</b> label at the right edge = VIX now (an arrow when it is outside the range shown), yellow dotted = where the value flips sign (on the gamma map: the VIX level where dealer gamma flips), green / pink dashed = the biggest call / put open-interest strike, drawn at the VIX level where the front forward reaches it. Hover for the numbers. Colour columns every 5 minutes plus the newest minute; written by the Orbs feed (container cvxmap-wide). If today&rsquo;s file is not there yet the map says which file it is waiting for and shows the last stored day.</dd>
           <dt>Note</dt><dd>Index data runs about 15 minutes late: fine for the regime, not for timing.</dd>
         </dl>
 
@@ -1463,6 +1491,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Buckets</dt><dd>Every expiry is put in one of four groups by trading days left: <b>1 day</b> (the next expiry), <b>2 days &ndash; 1 week</b>, <b>1 week &ndash; 1 month</b>, and <b>more than 1 month</b>. Weekends and market holidays are not counted.</dd>
           <dt>Gamma chart</dt><dd>Each coloured line shows how much SPX delta dealers would have to trade for a 1% move, if SPX were at that level, for one bucket. The white filled line is all buckets together. Below zero = dealers would sell into a fall and buy into a rise (moves can stretch); above zero = the opposite (moves get damped). The red dashed line is today&rsquo;s close; the yellow dashed line is where the total crosses zero. Units: $ billions per 1% move.</dd>
           <dt>Table</dt><dd>Each bucket at today&rsquo;s level, its share of the total, the SPX level where that bucket turns from negative to positive, and the change over the last 5 evenings.</dd>
+          <dt>Live (green)</dt><dd>The nightly book stays as it is, but the page reads it at the <b>live</b> SPX price from the cockpit&rsquo;s live feed: the green line moves with SPX, and the live table shows each bucket&rsquo;s gamma at the live price (read off last night&rsquo;s curves between their 25-point steps), the same at last night&rsquo;s price, each zero-cross and how far the live price is from it in points and %. The <b>LIVE</b> badge shows the feed&rsquo;s time. The book and the time to each expiry are still last night&rsquo;s. Vega is shown <b>as of last night</b>: the nightly file has vega at its own price only, not across SPX levels. Nothing extra is downloaded.</dd>
           <dt>Vega bars</dt><dd>How much the dealer book gains or loses for 1 vol point, by bucket, in $ millions. Nobody publishes who owns each option, so this needs an assumption. The buttons switch between three: dealers long calls and short puts (the standard reading), customers owning every option, and the reverse. The size of the bars is solid; the sign is the assumption.</dd>
           <dt>History</dt><dd>Each bucket at that day&rsquo;s close, one point per evening, back to the oldest stored book. Move across the chart to read a day.</dd>
           <dt>Factor cards</dt><dd>Six style factors as pairs: high vs low beta, the market vs low-volatility stocks, small vs large, quality vs the market, energy vs the market, and how stocks move with long Treasuries. The big number is the 50-day relative move as a z-score against its own last 3 years: beyond &plusmn;2 is unusual. &ldquo;2 weeks ago&rdquo; shows the direction. The chart is the last year of z with the &plusmn;2 zones shaded.</dd>
@@ -1477,6 +1506,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Bands</dt><dd>A band is a zone where levels from different views fall within 25 SPX points of each other. <b>Yellow, bold</b> = 3 or more views agree (a key zone). <b>Grey, faint</b> = 2 views. Thin coloured ticks on the right edge = a level from one view only. The coloured dots in a band show which views agree.</dd>
           <dt>Vol-shock peak</dt><dd>The hollow dashed ring. The strike where a single option&rsquo;s vega reacts most to a jump in volatility, at today&rsquo;s price, vol and time. It does not depend on anyone&rsquo;s position, so it is shown for reference and never counts toward a band.</dd>
           <dt>Yesterday</dt><dd>A white hollow diamond with an arrow shows where a zone sat the previous evening and how far it moved.</dd>
+          <dt>Price &plusmn;1% / &plusmn;2% / All, Reset</dt><dd>How much price the chart shows around spot (All to start, the whole chart). The mouse wheel on the chart zooms around the pointer, dragging up or down moves the range, and a double-click or <b>Reset</b> goes back to the button&rsquo;s range. Hover cards and taps still work when zoomed.</dd>
           <dt>Hover / tap</dt><dd>Point at (or tap) a band for a card with its middle and range, the distance from spot, each view and its exact number, what changed since the previous evening, and the track record so far. The chips under the chart pick out each key zone; tap one to light up its band.</dd>
           <dt>Track record</dt><dd>Each stored zone is checked over the next 5 sessions: did SPX trade into it, and did it close back on the side it came from (held) or go through (broke). Key zones are compared with single-view levels. Under 30 cases the numbers mean very little.</dd>
           <dt>Limits</dt><dd>Built from the end-of-day option book and daily prices. Dealer sides are assumed (calls +, puts &minus;), not measured. Levels further than 8% from spot are not drawn.</dd>
@@ -1586,7 +1616,7 @@ st.bubRidge=load("bubRidge","0")==="1";
 st.bubBg=load("bubBg","off"); if(!["off","gamma","oi"].includes(st.bubBg)) st.bubBg="off";
 st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
-st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
+st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volWin=load("volWin","day"); if(!["5","15","30","day"].includes(st.volWin)) st.volWin="day"; st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
 if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
@@ -2307,16 +2337,17 @@ function renderLadder(se,book){
 }
 let ladY=null;
 function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend,colArg){
-  const mode=modeArg||st.ladMode||"vol"; // vol = day · vol30 = last 30 min · vold = last 30 vs prior 30
+  const mode=modeArg||st.ladMode||"vol"; // vol = day · vol30 = last 30 min · vold = last 30 vs prior 30 · vol5 / vol15 (2026-11-09) = last 5 / 15 min
   const NT=topN||3;
   const jAt=(mins)=>{ if(!se||se.m<2) return -1; const tNow=se.T[se.m-1]; for(let j=se.m-1;j>=0;j--){ if(tNow-se.T[j]>=mins) return j; } return -1; };
-  const j30=jAt(30), j60=jAt(60);
+  const wm=/^vol(\d+)$/.exec(mode), WIN=wm?+wm[1]:0, isWin=WIN>0;
+  const j30=jAt(30), j60=jAt(60), jW=isWin?jAt(WIN):j30;
   const cum=(k,c,j)=>{ if(j<0||!se.idx.has(k)) return 0; const v=(c?se.cuC:se.cuP)[se.idx.get(k)][j]; return v==null?0:v; };
   // 2026-11-05: colour mode per ladder — cp = calls right / puts left · bb = bullish right (calls bought solid, puts sold striped) /
   // bearish left (puts bought solid, calls sold striped) · net = bullish minus bearish. Sides follow the Flow tab's Side setting; unsigned prints excluded.
   const CM=["cp","bb","net"].includes(colArg)?colArg:(["bb","net"].includes(st.volCol)?st.volCol:"cp");
   const GR="#58D68D", RD="#FF7B72";
-  const sr=signedRows(se); const T0=se&&se.m>0&&j30>=0?se.T[j30]:-1, Tp=se&&se.m>0&&j60>=0?se.T[j60]:-1; const tFrom=mode==="vol30"?T0:-1;
+  const sr=signedRows(se); const T0=se&&se.m>0&&j30>=0?se.T[j30]:-1, Tp=se&&se.m>0&&j60>=0?se.T[j60]:-1; const TW=se&&se.m>0&&jW>=0?se.T[jW]:-1; const tFrom=isWin?TW:-1;
   const acc=(m,k)=>{ let o=m.get(k); if(!o){ o={cB:0,cS:0,pB:0,pS:0}; m.set(k,o); } return o; };
   const bs=new Map(), bsL=new Map(), bsP=new Map();
   if(sr&&sr.rows) for(const r of sr.rows){ if(!r.side) continue; const key=(r.cp==="C"?"c":"p")+(r.side>0?"B":"S");
@@ -2324,6 +2355,7 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend,c
     if(mode==="vold"&&T0>=0){ if(r.t>T0) acc(bsL,r.k)[key]+=r.n; else if(Tp>=0&&r.t>Tp) acc(bsP,r.k)[key]+=r.n; } }
   const Z={cB:0,cS:0,pB:0,pS:0}, bull=o=>o.cB+o.pS, bear=o=>o.pB+o.cS;
   const rows=vis.map(r=>{ const cv=r.cv||0, pv=r.pv||0; const c30=Math.max(0,cv-cum(r.k,true,j30)), p30=Math.max(0,pv-cum(r.k,false,j30));
+    const cW=Math.max(0,cv-cum(r.k,true,jW)), pW=Math.max(0,pv-cum(r.k,false,jW));
     const cPrev=Math.max(0,cum(r.k,true,j30)-cum(r.k,true,j60)), pPrev=Math.max(0,cum(r.k,false,j30)-cum(r.k,false,j60));
     const o=bs.get(r.k)||Z;
     const fb=(B,S)=>(B+S)>0?B/(B+S):null;
@@ -2332,7 +2364,9 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend,c
         return {k:r.k,bu:bL-bP,be:eL-eP,br:bP>0?bL/bP:(bL>0?9:null),er:eP>0?eL/eP:(eL>0?9:null),nt:(bL-eL)-(bP-eP)}; }
       return {k:r.k,o,bu:bull(o),be:bear(o),nt:bull(o)-bear(o)}; }
     if(mode==="vold") return {k:r.k,c:c30-cPrev,p:p30-pPrev,cr:cPrev>0?c30/cPrev:(c30>0?9:null),pr:pPrev>0?p30/pPrev:(p30>0?9:null)};
-    const c=mode==="vol30"?c30:cv, p=mode==="vol30"?p30:pv; return {k:r.k,c,p,cb:fb(o.cB,o.cS),pb:fb(o.pB,o.pS)}; });
+    const c=isWin?cW:cv, p=isWin?pW:pv; return {k:r.k,c,p,cb:fb(o.cB,o.cS),pb:fb(o.pB,o.pS)}; });
+  // window modes: the 3 strikes with the most NEW contracts (calls + puts) get a yellow frame
+  const hot=isWin?vis.map(r=>({k:r.k,n:Math.max(0,(r.cv||0)-cum(r.k,true,jW))+Math.max(0,(r.pv||0)-cum(r.k,false,jW))})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n).slice(0,3).map(x=>x.k):[];
   const mag=r=>CM==="net"?Math.abs(r.nt):CM==="bb"?Math.max(Math.abs(r.bu),Math.abs(r.be)):Math.max(Math.abs(r.c),Math.abs(r.p));
   const vmax=Math.max(1,...rows.map(mag)); const vh=Math.max(2,Math.min(bh,9));
   const fmtK=v=>v>=1e4?(v/1e3).toFixed(0)+"K":v>=1e3?(v/1e3).toFixed(1)+"K":String(Math.round(v));
@@ -2350,6 +2384,7 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend,c
     ctx.restore(); }
   for(const r of rows){ const y=Y(r.k);
     if(r.k===st.sel){ ctx.fillStyle="#ffffff0d"; ctx.fillRect(0,y-rowH/2,w,rowH); }
+    if(hot.includes(r.k)){ ctx.save(); ctx.fillStyle="#FFD23F22"; ctx.fillRect(18,y-rowH/2,w-48,rowH); ctx.strokeStyle="#FFD23F"; ctx.lineWidth=2; ctx.strokeRect(18,y-rowH/2,w-48,rowH); ctx.restore(); }
     if(CM==="net"){
       const v=r.nt, wv=half*Math.abs(v)/vmax;
       ctx.fillStyle=v>=0?GR:RD; if(v>=0) ctx.fillRect(mid,y-vh/2,wv,vh); else ctx.fillRect(mid-wv,y-vh/2,wv,vh);
@@ -2397,9 +2432,10 @@ function drawVolLadder(ctx,w,h,vis,Y,mid,half,bh,se,book,modeArg,topN,noLegend,c
       ctx.fillStyle="#000000aa"; ctx.fillRect(x-2,y-9,tw+4,12); ctx.fillStyle="#fff"; ctx.fillText(l.t,x,y); } }
   const ys=Y(book.S); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(w-24,ys); ctx.lineTo(w-30,ys-4); ctx.lineTo(w-30,ys+4); ctx.fill();
   { ctx.fillStyle=C("--faint"); const lt=CM==="cp"?"puts ◂":"bearish ◂", rt=CM==="cp"?"▸ calls":"▸ bullish"; if(half>=140){ ctx.fillText(lt,Math.max(2,mid-half-ctx.measureText(lt).width-8),h-4); ctx.fillText(rt,Math.min(w-ctx.measureText(rt).width-2,mid+half+8),h-4); } }
-  const leg = CM!=="cp" ? `${mode==="vold"?"last 30 min − prior 30":mode==="vol30"?"last 30 min":"today"} · ${CM==="net"?"net = bullish − bearish contracts":"right = bullish (calls bought solid, puts sold striped) · left = bearish (puts bought solid, calls sold striped)"}${mode==="vold"&&j60<0?" · needs 60 min of log":""}`
+  const winTxt=isWin?`last ${WIN} min`:"today";
+  const leg = CM!=="cp" ? `${mode==="vold"?"last 30 min − prior 30":winTxt} · ${CM==="net"?"net = bullish − bearish contracts":"right = bullish (calls bought solid, puts sold striped) · left = bearish (puts bought solid, calls sold striped)"}${mode==="vold"&&j60<0?" · needs 60 min of log":""}`
             : mode==="vold" ? `last 30 min − prior 30 · teal / coral = accelerating, dark = fading · ×ratio · ${j60<0?"needs 60 min of log":""}`
-            : `${mode==="vol30"?"last 30 min":"today"} · solid = bought, hatched = sold (per the Flow tab's Side setting), %B = bought share${sr&&sr.rows?"":" · no buy/sell sides in this log"}`;
+            : `${winTxt} · solid = bought, hatched = sold (per the Flow tab's Side setting), %B = bought share${sr&&sr.rows?"":" · no buy/sell sides in this log"}`;
   if(!noLegend) ctx.fillText(leg,4,12);
 }
 
@@ -2448,7 +2484,11 @@ function renderVolTab(se,book){
     rd.innerHTML=(line?`<div class="now">${line}</div>`:`<div class="now">Needs a live chain and the minute log.</div>`)+
       (log.length?`<details class="vlog"${st.volLogOpen?" open":""}><summary>Earlier (${log.length}) — one entry every 30 min</summary><div class="log">${log.slice().reverse().map(e=>`<div><span class="t">${e.t}</span>${esc(e.text)}</div>`).join("")}</div></details>`:"");
     if(!rd.__vlogBound){ rd.__vlogBound=true; rd.addEventListener("toggle",e=>{ if(e.target&&e.target.classList&&e.target.classList.contains("vlog")) st.volLogOpen=e.target.open; },true); } }
-  for(const [id,mode,ck] of [["volDayC","vol","volCol"],["vol30C","vol30","volCol30"],["volDC","vold","volColD"]]){
+  const wMode=st.volWin==="day"?"vol":"vol"+st.volWin;
+  { const hd=document.getElementById("volDayH"); if(hd) hd.textContent=st.volWin==="day"?"Today":`Last ${st.volWin} min`;
+    const wl=document.getElementById("volWinLine"); if(wl){ wl.hidden=st.volWin==="day"; if(st.volWin!=="day") wl.innerHTML=volWinSentence(se,book,+st.volWin); } }
+  VOLGEO={_se:se,_book:book};
+  for(const [id,mode,ck] of [["volDayC",wMode,"volCol"],["vol30C","vol30","volCol30"],["volDC","vold","volColD"]]){
     const cv=document.getElementById(id); if(!cv) continue; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
     if(!book||!book.rows||!book.rows.length){ ctx.fillStyle=C("--faint"); ctx.font="12px system-ui"; ctx.fillText("Needs a live chain",12,20); continue; }
     const rows=book.rows.slice().sort((a,b)=>b.k-a.k); const n=rows.length; const padT=22, padB=18; const rowH=(h-padT-padB)/n;
@@ -2461,8 +2501,47 @@ function renderVolTab(se,book){
     const ys=Y(book.S); ctx.strokeStyle="#ffffff80"; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(60,ys); ctx.lineTo(w-32,ys); ctx.stroke(); ctx.setLineDash([]);
     if(book.flip){ const yf=Y(book.flip); if(yf>padT&&yf<h-padB){ ctx.strokeStyle=C("--warn"); ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(60,yf); ctx.lineTo(w-32,yf); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=C("--warn"); ctx.fillText("flip",w-30,yf+4); } }
     drawVolLadder(ctx,w,h,rows,Y,mid,half,bh,se,book,mode,5,true,st[ck]);
+    VOLGEO[id]={rows,Y,rowH}; volBindHover(cv);
   }
 }
+/* ---- 2026-11-09 Volume tab, recent activity: contracts added in the last N minutes per strike, from the minute log
+   (day-cumulative counters: now minus N minutes ago), split calls bought / calls sold / puts bought / puts sold by the
+   Flow tab's Side setting (Quote / Trade tag / Per trade, the same signedRows() the ladders use). Untagged = the rest. */
+var VOLGEO={}, _vw={key:"",m:{}};
+function volWinStats(se,book,W){
+  const key=(se?se.m+"|"+se.T[se.m-1]+"|"+se.n:"")+"|"+st.sideSrc+"|"+st.sym+"|"+(book&&book.rows?book.rows.length+"@"+book.rows.reduce((a,r)=>a+(r.cv||0)+(r.pv||0),0):"");
+  if(_vw.key!==key){ _vw={key,m:{}}; } if(_vw.m[W]) return _vw.m[W];
+  const out=new Map(); if(!se||se.m<2||!book||!book.rows){ _vw.m[W]=out; return out; }
+  const tNow=se.T[se.m-1]; let j=-1; for(let q=se.m-1;q>=0;q--){ if(tNow-se.T[q]>=W){ j=q; break; } }
+  const cum=(k,c)=>{ if(j<0||!se.idx.has(k)) return 0; const v=(c?se.cuC:se.cuP)[se.idx.get(k)][j]; return v==null?0:v; };
+  for(const r of book.rows){ out.set(r.k,{k:r.k,c:Math.max(0,(r.cv||0)-cum(r.k,true)),p:Math.max(0,(r.pv||0)-cum(r.k,false)),cB:0,cS:0,pB:0,pS:0}); }
+  const t0=j>=0?se.T[j]:-1, sr=signedRows(se);
+  if(sr&&sr.rows) for(const r of sr.rows){ if(r.t<=t0||!r.side) continue; const o=out.get(r.k); if(!o) continue; o[(r.cp==="C"?"c":"p")+(r.side>0?"B":"S")]+=r.n; }
+  out.short=j<0; _vw.m[W]=out; return out; }
+function volK(v){ v=Math.abs(v); return v>=1e4?(v/1e3).toFixed(0)+"k":v>=1e3?(v/1e3).toFixed(1)+"k":String(Math.round(v)); }
+function volWinSentence(se,book,W){
+  const m=volWinStats(se,book,W); if(!m.size) return `Last ${W} min: needs the live chain and the minute log.`;
+  const items=[]; let tagged=0;
+  for(const o of m.values()){ for(const [f,t] of [["cB","calls bought"],["cS","calls sold"],["pB","puts bought"],["pS","puts sold"]]) if(o[f]>0){ items.push({k:o.k,t,n:o[f]}); tagged+=o[f]; } }
+  if(!tagged) for(const o of m.values()){ if(o.c>0) items.push({k:o.k,t:"calls",n:o.c}); if(o.p>0) items.push({k:o.k,t:"puts",n:o.p}); }
+  items.sort((a,b)=>b.n-a.n); const top=items.slice(0,3);
+  if(!top.length) return `Last ${W} min: no new contracts at these strikes.`;
+  const sd={cockpit:"Side: Quote",convex:"Side: Trade tag",trade:"Side: Per trade"}[st.sideSrc]||"";
+  return `<b>Last ${W} min:</b> most new activity at <b>${fmtN(top[0].k)} ${top[0].t} (+${volK(top[0].n)})</b>`+top.slice(1).map((x,i)=>`${i?", ":", then "}${fmtN(x.k)} ${x.t} (+${volK(x.n)})`).join("")+`.`+
+    ` <span style="color:#B9C6D8;font-size:15px">${tagged?sd:"no buy/sell sides in this window"}${m.short?` · the log is shorter than ${W} min, so this counts everything since it began`:""}</span>`; }
+function volTipHtml(se,book,k){
+  const r=book&&book.rows&&book.rows.find(x=>x.k===k); if(!r) return "";
+  const sr=signedRows(se), d={cB:0,cS:0,pB:0,pS:0}; if(sr&&sr.rows) for(const x of sr.rows){ if(x.k!==k||!x.side) continue; d[(x.cp==="C"?"c":"p")+(x.side>0?"B":"S")]+=x.n; }
+  const line=(lab,o,c,p)=>`<b>${lab}</b> <span class="ca">calls ${c>0?"+":""}${volK(c)}</span> (bought ${volK(o.cB)} · sold ${volK(o.cS)}) · <span class="pu">puts ${p>0?"+":""}${volK(p)}</span> (bought ${volK(o.pB)} · sold ${volK(o.pS)})`;
+  let h=`<b>${fmtN(k)}</b> · ${esc(st.sym)}<br>`+line("Day",d,r.cv||0,r.pv||0);
+  for(const W of [5,15,30]){ const o=volWinStats(se,book,W).get(k); if(o) h+="<br>"+line(`Last ${W} min`,o,o.c,o.p); }
+  return h+`<br><span class="mu">bought / sold by the Flow tab's Side setting; the rest had no side</span>`; }
+function volBindHover(cv){ if(cv.__vh) return; cv.__vh=true;
+  cv.addEventListener("mousemove",e=>{ const g=VOLGEO[cv.id], t=document.getElementById("volTip"); if(!g||!t) return; const r=cv.getBoundingClientRect(), y=e.clientY-r.top;
+    let best=null,bd=1e9; for(const row of g.rows){ const d=Math.abs(g.Y(row.k)-y); if(d<bd){ bd=d; best=row.k; } } if(best==null||bd>g.rowH){ t.hidden=true; return; }
+    const html=volTipHtml(VOLGEO._se,VOLGEO._book,best); if(!html){ t.hidden=true; return; }
+    t.innerHTML=html; t.hidden=false; const vw=document.documentElement.clientWidth, w=t.offsetWidth, h=t.offsetHeight; let x=e.clientX+16, Y=e.clientY+12; if(x+w>vw-8) x=e.clientX-w-16; if(Y+h>window.innerHeight-8) Y=e.clientY-h-12; t.style.left=Math.max(8,x)+"px"; t.style.top=Math.max(8,Y)+"px"; });
+  cv.addEventListener("mouseleave",()=>{ const t=document.getElementById("volTip"); if(t) t.hidden=true; }); }
 
 /* ============================================================ render: strike picker + watch list */
 function renderPicker(se,d){
@@ -2886,6 +2965,58 @@ function renderRead(se,book){
     +(book.em>0?`<div class="lvl em"><small>Move left</small><b>±${book.em.toFixed(book.em<10?2:1)}</b><small>${(book.em/S*100).toFixed(2)}%</small></div>`:"");
 }
 
+/* ============================================================ top bar: SPX <-> SPY level calculator (2026-11-09 follow-ups)
+   Type a level: above 2000 = SPX, else SPY (or force it). Converted with the LIVE ratio SPX spot / SPY spot from live.json
+   (recomputed on every live update). For each index: the nearest listed strike(s) (SPX 5 pt, SPY 1 pt), distance from
+   spot, today's 0DTE volume (calls / puts, bought / sold by trade tag when the feed has it), open interest, and dealer
+   gamma at that strike from the 0DTE book on the Map's current basis (OI / Vol / OI + vol / OI + signed) - all from data
+   already on the page, no new pulls. Click a strike to jump to it (symbol + selected strike; Orbs centres on it). */
+var XC={mode:load("xcMode","auto"), v:load("xcIn",""), key:""}; if(!["auto","SPX","SPY"].includes(XC.mode)) XC.mode="auto";
+function xcStep(sym){ const d=st.live&&st.live[sym]; return (d&&d.step)||(sym==="SPX"?5:1); }
+function xcNear(sym,x){ const d=st.live&&st.live[sym], step=xcStep(sym), ks=(d&&d.rows||[]).map(r=>r.k);
+  const lo=Math.floor(x/step+1e-9)*step, hi=Math.ceil(x/step-1e-9)*step; const out=lo===hi?[lo]:[lo,hi];
+  return out.map(k=>({k,listed:ks.includes(k)})); }
+function xcGamma(sym,k){ // dealer gamma $ per 1% move at strike k, 0DTE book, current Map basis, at current spot
+  const {book}=currentBook(null,sym); if(!book||!book.rows) return null; const r=book.rows.find(x=>x.k===k); if(!r||!(r.sg>0)) return null;
+  const S=book.S, c=liveClock(), ty=Math.max(minsToClose(c),1)/525600, sq=Math.sqrt(ty), d1=(Math.log(S/k)+0.5*r.sg*r.sg*ty)/(r.sg*sq);
+  return Math.exp(-d1*d1/2)*0.398942280401433/(S*r.sg*sq)*100*S*S*0.01*(r.cp-r.pp); }
+function xcMoney(v){ if(v==null||!isFinite(v)) return '<span class="nd">no data</span>'; const a=Math.abs(v), s=v<0?"−":"+"; return s+"$"+(a>=1e9?(a/1e9).toFixed(2)+"B":a>=1e6?(a/1e6).toFixed(1)+"M":a>=1e3?(a/1e3).toFixed(0)+"K":a.toFixed(0)); }
+function xcK(v){ if(v==null||!isFinite(v)) return "–"; v=Math.abs(v); return v>=1e4?(v/1e3).toFixed(0)+"k":v>=1e3?(v/1e3).toFixed(1)+"k":String(Math.round(v)); }
+function xcCalc(){ const raw=parseFloat(String(XC.v).replace(/,/g,"")); const A=st.live&&st.live.SPX, B=st.live&&st.live.SPY;
+  if(!(raw>0)) return {err:"type a level"}; if(!(A&&A.spot>0&&B&&B.spot>0)) return {err:"no live SPX / SPY price yet"};
+  const ratio=A.spot/B.spot, from=XC.mode==="auto"?(raw>2000?"SPX":"SPY"):XC.mode, to=from==="SPX"?"SPY":"SPX", other=from==="SPX"?raw/ratio:raw*ratio;
+  const ts=String(st.live.ts||""), tm=(ts.match(/T(\d\d:\d\d:\d\d)/)||[])[1]||ts;
+  return {raw,from,to,other,ratio,tm,lv:{[from]:raw,[to]:other}}; }
+function xcUpdate(){
+  const out=document.getElementById("xcOut"), pop=document.getElementById("xcPop"); if(!out||!pop) return;
+  const R=xcCalc(); const key=JSON.stringify(R)+"|"+st.basis+"|"+(st.live&&st.live.ts);
+  if(key===XC.key) return; XC.key=key;
+  if(R.err){ out.innerHTML=XC.v?`<small>${esc(R.err)}</small>`:""; pop.innerHTML=""; return; }
+  const dp=s=>s==="SPX"?0:2;
+  out.innerHTML=`${esc(R.from)} ${fmtN(R.raw,dp(R.from))} = <b>${esc(R.to)} ${fmtN(R.other,R.to==="SPX"?1:2)}</b> <small>ratio ${R.ratio.toFixed(3)} · ${esc(R.tm)}</small>`;
+  const rows=[];
+  for(const sym of ["SPX","SPY"]){ const d=st.live[sym], x=R.lv[sym], S=d.spot;
+    for(const n of xcNear(sym,x)){ const r=(d.rows||[]).find(q=>q.k===n.k); const g=r?xcGamma(sym,n.k):null, dist=n.k-S;
+      const tag=r&&r.cVb!=null&&r.cVs!=null&&r.pVb!=null&&r.pVs!=null;
+      const vol=r?`<span class="ca">C ${xcK(r.cV)}</span>${tag?` <small>(b ${xcK(r.cVb)} / s ${xcK(r.cVs)})</small>`:""} · <span class="pu">P ${xcK(r.pV)}</span>${tag?` <small>(b ${xcK(r.pVb)} / s ${xcK(r.pVs)})</small>`:""}${tag?"":' <span class="nd">(no buy/sell)</span>'}`:'<span class="nd">no data</span>';
+      const oi=r&&(r.cOI!=null||r.pOI!=null)?`<span class="ca">C ${xcK(r.cOI)}</span> · <span class="pu">P ${xcK(r.pOI)}</span>`:'<span class="nd">no data</span>';
+      rows.push(`<tr><td><button class="xck" data-sym="${sym}" data-k="${n.k}" title="Jump to ${sym} ${n.k}">${sym} ${fmtN(n.k)}</button>${n.listed?"":' <span class="nd">not in the live chain</span>'}</td><td class="${dist>=0?"up":"dn"}">${dist>=0?"+":"−"}${fmtN(Math.abs(dist),sym==="SPX"?0:2)} (${(dist/S*100).toFixed(2)}%)</td><td>${vol}</td><td>${oi}</td><td>${xcMoney(g)}</td></tr>`); } }
+  const bt={oi:"OI",vol:"Vol",oiv:"OI + vol",ois:"OI + signed"}[st.basis]||st.basis;
+  pop.innerHTML=`<div><b>${esc(R.from)} ${fmtN(R.raw,dp(R.from))}</b> ≈ <b>${esc(R.to)} ${fmtN(R.other,R.to==="SPX"?1:2)}</b> · live ratio SPX / SPY <b>${R.ratio.toFixed(3)}</b> at ${esc(R.tm)} · SPX ${fmtN(st.live.SPX.spot,2)} · SPY ${fmtN(st.live.SPY.spot,2)}</div>`+
+    `<table><tr><th>Nearest strike</th><th>From spot</th><th>Today's 0DTE volume</th><th>Open interest</th><th>Dealer gamma</th></tr>${rows.join("")}</table>`+
+    `<div class="nd" style="font-size:15px;margin-top:4px">0DTE strikes from the live chain · bought / sold = the feed's trade tags · dealer gamma = $ per 1% move at that strike, 0DTE book, Map basis ${esc(bt)} · positioning read, not a trade signal</div>`;
+  pop.querySelectorAll("button.xck").forEach(b=>b.onclick=e=>{ e.stopPropagation(); xcJump(b.dataset.sym,+b.dataset.k); }); }
+function xcJump(sym,k){ if(st.sym!==sym){ st.sym=sym; save("sym",sym); st.rowOff=0; } st.sel=k;
+  if(st.tab==="orbs"&&typeof OR!=="undefined"&&OR.P){ const span=(OR.view?OR.view.hi-OR.view.lo:k*0.02); OR.P=null; OR.view={lo:k-span/2,hi:k+span/2}; OR.key=""; }
+  document.getElementById("xcPop").hidden=true; render(); }
+(function xcInit(){ const inp=document.getElementById("xcIn"), box=document.getElementById("xcalc"), pop=document.getElementById("xcPop"); if(!inp||!box) return;
+  inp.value=XC.v; syncSeg("xcMode",XC.mode);
+  inp.addEventListener("input",()=>{ XC.v=inp.value; save("xcIn",XC.v); XC.key=""; xcUpdate(); if(XC.v) pop.hidden=false; });
+  document.querySelectorAll("#xcMode button").forEach(b=>b.addEventListener("click",()=>{ XC.mode=b.dataset.v; save("xcMode",XC.mode); syncSeg("xcMode",XC.mode); XC.key=""; xcUpdate(); }));
+  box.addEventListener("mouseenter",()=>{ if(pop.innerHTML) pop.hidden=false; }); box.addEventListener("mouseleave",()=>{ if(document.activeElement!==inp) pop.hidden=true; });
+  inp.addEventListener("focus",()=>{ if(pop.innerHTML) pop.hidden=false; }); inp.addEventListener("blur",()=>setTimeout(()=>{ if(!box.matches(":hover")) pop.hidden=true; },150));
+  document.getElementById("xcOut").addEventListener("click",()=>{ pop.hidden=!pop.hidden||!pop.innerHTML; }); })();
+
 /* ============================================================ main render */
 /* before 9:30 the SPX cash index does not print: imply it from SPY's pre-market move off yesterday's closes (from yesterday's log) */
 function preOpen(){ const c=liveClock(); return c.h*60+c.m<RTH_OPEN; }
@@ -2908,6 +3039,7 @@ function currentBook(se,sym){
   return {d,book};
 }
 function render(){
+  try{ xcUpdate(); }catch(e){}
   document.body.classList.toggle("mapmax",st.max&&st.tab==="flow");
   if(!["map","both","strike"].includes(st.focus)) st.focus="map";
   document.body.classList.toggle("focus-map",st.focus==="map"&&!st.max); document.body.classList.toggle("focus-strike",st.focus==="strike"&&!st.max);
@@ -3050,7 +3182,7 @@ for(const [id,k,num] of [["zoomWSeg","zoomW",1],["zoomTSeg","zoomT",0],["mapColS
 for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn","clockVar"]]) document.getElementById(id).addEventListener("click",()=>{ st[k]=!st[k]; save(k,st[k]?"1":"0"); render(); });
 document.getElementById("bubRidgeBtn").addEventListener("click",()=>{ st.bubRidge=!st.bubRidge; save("bubRidge",st.bubRidge?"1":"0"); render(); });
 bindSeg("basisSeg","basis",()=>syncSeg("mapBasisSeg",st.basis));
-bindSeg("premDaySeg","premDayU"); bindSeg("volColSeg","volCol"); bindSeg("volCol30Seg","volCol30"); bindSeg("volColDSeg","volColD");
+bindSeg("premDaySeg","premDayU"); bindSeg("volColSeg","volCol"); bindSeg("volWinSeg","volWin"); bindSeg("volCol30Seg","volCol30"); bindSeg("volColDSeg","volColD");
 (()=>{ const b=document.getElementById("volHowBtn"); if(!b) return; // 2026-11-05: plain-English read lines on the Volume tab, hideable
   const set=on=>{ document.body.classList.toggle("vhoff",!on); b.setAttribute("aria-pressed",on?"true":"false"); save("volHow",on?"1":"0"); window.dispatchEvent(new Event("resize")); };
   set(load("volHow","1")==="1"); b.addEventListener("click",()=>set(b.getAttribute("aria-pressed")!=="true")); })();
@@ -3098,7 +3230,7 @@ document.getElementById("maxBtn").addEventListener("click",()=>{ st.max=!st.max;
 document.querySelectorAll("#focusSeg button").forEach(b=>b.addEventListener("click",()=>setFocus(b.dataset.v)));
 document.getElementById("backMapBtn").addEventListener("click",()=>setFocus("map"));
 document.getElementById("watchBtn").addEventListener("click",toggleWatch);
-st.fbOn=load("fbOn","1")!=="0"; st.sideSrc=load("sideSrc","cockpit");
+st.fbOn=load("fbOn","0")==="1"; /* 2026-11-09: Flow bars OFF by default; a saved choice (fbOn = 1 / 0) is kept */ st.sideSrc=load("sideSrc","cockpit");
 document.getElementById("fbBtn").addEventListener("click",()=>{ st.fbOn=!st.fbOn; save("fbOn",st.fbOn?"1":"0"); render(); });
 bindSeg("sideSrcSeg","sideSrc",()=>syncSeg("premSideSeg",st.sideSrc)); bindSeg("premSideSeg","sideSrc",()=>syncSeg("sideSrcSeg",st.sideSrc));
 document.getElementById("amSrcBtn").addEventListener("click",()=>{ st.amSrc={doc:"ours",ours:"both",both:"doc"}[st.amSrc]||"doc"; save("amSrc",st.amSrc); render(); });
@@ -6397,7 +6529,8 @@ function tnLines(id,xs,lines,o){
     g+=`<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${l.w||3}"${l.dash?` stroke-dasharray="${l.dash}"`:""} stroke-linejoin="round"/>`; });
   (o.vx||[]).forEach(v=>{ if(v.x==null||v.x<x0||v.x>x1) return; g+=`<line x1="${X(v.x).toFixed(1)}" x2="${X(v.x).toFixed(1)}" y1="${T}" y2="${H-B}" stroke="${v.c}" stroke-width="2.5" stroke-dasharray="7 5"/><text x="${(X(v.x)+8).toFixed(1)}" y="${T+18}" style="fill:${v.c};font-weight:700">${tnEsc(v.label)}</text>`; });
   g+=`<line class="tncross" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="#fff" stroke-width="1" opacity="0"/>`;
-  return `<svg class="tnsvg" id="${id}" viewBox="0 0 ${W} ${H}" data-l="${L}" data-w="${W-L-R}" data-full="${W}" role="img">${g}</svg>`;
+  if(o.live) g+=`<g class="tnlive" id="${id}Live" opacity="0"><line x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="#7CFFB2" stroke-width="3"/><text x="0" y="${T+40}" style="fill:#7CFFB2;font-weight:700">live</text></g>`;
+  return `<svg class="tnsvg" id="${id}" viewBox="0 0 ${W} ${H}" data-l="${L}" data-w="${W-L-R}" data-full="${W}" data-x0="${x0}" data-x1="${x1}" role="img">${g}</svg>`;
 }
 function tnHover(id,xs,fn){
   const svg=document.getElementById(id), out=document.getElementById(id+"Read"); if(!svg||!out) return;
@@ -6444,7 +6577,7 @@ function renderTenor(){
   if(!st.tnOn){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> to load dealer gamma and vega by expiry bucket and the factor cards.</p>'; tnLastKey=""; return; }
   if(!D){ tnFetch(); body.innerHTML='<p class="veread">Loading…</p>'; return; }
   if(D.err){ body.innerHTML=`<p class="veread">${tnEsc(D.err)}</p>`; return; }
-  const key=[D.generated,st.tnVega,st.tnHist].join("|"); if(key===tnLastKey&&body.querySelector(".tnwrap")) return; tnLastKey=key;
+  const key=[D.generated,st.tnVega,st.tnHist].join("|"); if(key===tnLastKey&&body.querySelector(".tnwrap")){ tnLiveUpdate(); return; } tnLastKey=key;
   const G=D.gamma||{}, V=D.vega||{}, Bk=G.buckets||{}, grid=G.grid||[];
   let h='<div class="tnwrap">';
   h+=`<div class="tnread">${(D.read||[]).slice(0,8).map(x=>`<p>${tnTxt(x)}</p>`).join("")}</div>`;
@@ -6453,9 +6586,10 @@ function renderTenor(){
     const zc=(G.total||{}).zero_cross;
     const tbl=TN_KEYS.map(k=>{ const b=Bk[k]||{}; return `<tr><td><i style="background:${TN_COL[k]}"></i>${TN_LAB[k]}</td><td>${tnN(b.at_spot)}</td><td>${b.share_pct==null?"—":Math.round(b.share_pct)+"%"}</td><td>${tnLvl(b.zero_cross)}</td><td>${tnN((D.change_1w||{})[k])}</td></tr>`; }).join("")+
       `<tr class="tot"><td><i style="background:#fff"></i>Total</td><td>${tnN((G.total||{}).at_spot)}</td><td>100%</td><td>${tnLvl(zc)}</td><td>${tnN((D.change_1w||{}).total)}</td></tr>`;
-    h+=veSec("tnGam","Dealer gamma by expiry bucket, across SPX levels",`$ billions of SPX delta per 1% move · each line = one bucket, white filled = total · red dashed = spot${zc?" · yellow dashed = total zero-cross":""}`,
+    h+=veSec("tnGam","Dealer gamma by expiry bucket, across SPX levels",`$ billions of SPX delta per 1% move · each line = one bucket, white filled = total · red dashed = last night's spot · green = live SPX${zc?" · yellow dashed = total zero-cross":""}`,
+      `<div class="tnlivebox" id="tnLiveBox"></div>`+
       tnLegend(TN_KEYS.concat(["total"]))+`<div class="tnhov" id="tnGamSvgRead">Move across the chart to read each bucket at a level.</div>`+
-      tnLines("tnGamSvg",grid,lines,{vx:[{x:D.spot,c:"#FF6B6B",label:"spot "+Math.round(D.spot).toLocaleString()}].concat(zc?[{x:zc,c:"#F4D03F",label:"zero "+Math.round(zc).toLocaleString()}]:[])})+
+      tnLines("tnGamSvg",grid,lines,{live:true,vx:[{x:D.spot,c:"#FF6B6B",label:"last night "+Math.round(D.spot).toLocaleString()}].concat(zc?[{x:zc,c:"#F4D03F",label:"zero "+Math.round(zc).toLocaleString()}]:[])})+
       `<table class="tntbl"><tr><th>Bucket</th><th>At spot</th><th>Share</th><th>Zero-cross</th><th>vs 1 week ago</th></tr>${tbl}</table>`+
       `<p class="tnnote">Buckets count trading days to expiry. Covers expiries out to ${tnEsc(G.max_expiry)} (${G.max_dte} days); later expiries are not stored.</p>`);
   }
@@ -6489,12 +6623,40 @@ function renderTenor(){
   if(grid.length) tnHover("tnGamSvg",grid,i=>`SPX <b>${Math.round(grid[i]).toLocaleString()}</b> · `+TN_KEYS.concat(["total"]).map(k=>{ const c=k==="total"?G.total:Bk[k]; return `<span style="color:${TN_COL[k]}">${TN_LAB[k]} <b>${tnN(((c||{}).curve||[])[i])}</b></span>`; }).join(" · "));
   if(H0.length>=2){ const rng={"1m":21,"3m":63,all:99999}[st.tnHist]||99999, Hs=H0.slice(-rng);
     tnHover("tnHisSvg",Hs.map((_,i)=>i),i=>{ const r=Hs[i]; return `<b>${tnEsc(r.date)}</b> · SPX ${Math.round(r.spot).toLocaleString()} · `+TN_KEYS.map(k=>`<span style="color:${TN_COL[k]}">${TN_LAB[k]} <b>${tnN(r["g_"+k])}</b></span>`).join(" · ")+` · total <b>${tnN(r.total)}</b>`; }); }
+  tnLiveUpdate();
 }
+/* ---- Tenor live (2026-11-09 follow-ups). The nightly job is unchanged: its curves are already on an SPX ladder, so the
+   page reads them at the LIVE SPX from the cockpit's live feed (live.json, polled every 3 s) by straight-line
+   interpolation between ladder points. No new data pulls. The book and its time to expiry stay as of last night. */
+function tnInterp(xs,ys,x){ if(!xs||!ys||xs.length<2||x<xs[0]||x>xs[xs.length-1]) return null; let i=1; while(i<xs.length-1&&xs[i]<x) i++;
+  const a=ys[i-1], b=ys[i]; if(a==null||b==null) return null; return a+(b-a)*(x-xs[i-1])/((xs[i]-xs[i-1])||1); }
+function tnLiveSpot(){ const L=st.live&&st.live.SPX; const x=L&&+L.spot; return x>0?{x,ts:String(st.live.ts||"")}:null; }
+function tnLiveUpdate(){
+  const D=tnData; if(!D||D.err||!st.tnOn) return; const G=D.gamma||{}, grid=G.grid||[], Bk=G.buckets||{}, box=document.getElementById("tnLiveBox"), svg=document.getElementById("tnGamSvg");
+  if(!box||!grid.length) return; const L=tnLiveSpot();
+  const key=L?L.x+"|"+L.ts:"none"; if(box.dataset.k===key) return; box.dataset.k=key;
+  const mk=document.getElementById("tnGamSvgLive");
+  if(!L){ if(mk) mk.setAttribute("opacity","0"); box.innerHTML=`<div class="tnlivehd"><span class="tnbadge" style="background:#6B7A90">no live feed</span> Showing last night's book at last night's spot. The live SPX comes from the cockpit's live feed.</div>`; return; }
+  const x0=+svg.dataset.x0, x1=+svg.dataset.x1, Lp=+svg.dataset.l, Wd=+svg.dataset.w;
+  if(mk){ if(L.x>=x0&&L.x<=x1){ const px=Lp+Wd*(L.x-x0)/((x1-x0)||1); mk.setAttribute("transform",`translate(${px.toFixed(1)},0)`); mk.setAttribute("opacity","1");
+      const tx=mk.querySelector("text"); tx.textContent="live "+L.x.toLocaleString(undefined,{maximumFractionDigits:0}); tx.setAttribute("x",px>Lp+Wd-160?"-150":"8"); }
+    else mk.setAttribute("opacity","0"); }
+  const tm=(L.ts.match(/T(\d\d:\d\d:\d\d)/)||[])[1]||L.ts, dd=L.ts.slice(0,10), stale=dd&&D.asof&&dd<=D.asof;
+  const at=k=>{ const c=k==="total"?G.total:Bk[k]; return tnInterp(grid,(c||{}).curve,L.x); };
+  const rows=TN_KEYS.concat(["total"]).map(k=>{ const c=k==="total"?G.total||{}:Bk[k]||{}, v=at(k), z=c.zero_cross, dz=z==null?null:z-L.x;
+    return `<tr${k==="total"?' class="tot"':""}><td><i style="background:${TN_COL[k]}"></i>${TN_LAB[k]}</td><td><b>${tnN(v)}</b></td><td>${tnN(c.at_spot)}</td><td>${tnLvl(z)}</td><td>${dz==null?"—":`<b>${tnN(dz,0)}</b> pts (${tnN(dz/L.x*100,2)}%) ${dz>0?"above":"below"}`}</td></tr>`; }).join("");
+  const conv=st.tnVega, V=D.vega||{}, vtot=(V.total||{})[conv];
+  box.innerHTML=`<div class="tnlivehd"><span class="tnbadge tnlive" style="background:#1f9d55">LIVE ${tnEsc(tm)}</span> SPX <b>${L.x.toLocaleString(undefined,{maximumFractionDigits:2})}</b> (${tnN(L.x-D.spot,1)} from last night's ${Math.round(D.spot).toLocaleString()})${L.x<x0||L.x>x1?" · outside the nightly ladder, no reading":""}${stale?` · the live feed is from ${tnEsc(dd)}, not after this book`:""}</div>`+
+    `<table class="tntbl tnlivetbl"><tr><th>Bucket</th><th>Gamma at live SPX</th><th>At last night's spot</th><th>Zero-cross</th><th>Live SPX to zero-cross</th></tr>${rows}</table>`+
+    `<p class="tnnote">Gamma at live SPX = last night's curves read at today's price (straight line between 25-point ladder points); the book and time to expiry are as of last night. Vega: <b>${tnN(vtot,0)} $mn</b> total, <b>as of last night</b> (the nightly file has vega at its own spot only, no ladder across levels).</p>`; }
 /* ============================================================ Levels tab (2026-11-09)
    Reads confluence.json, written each evening by scripts/confluence_report.py.
    Price levels where several independent views agree, drawn over the last 60 sessions.
    Hover (or tap) a band for the details. Off by default. Positioning read, not a trade signal. */
 var lvData=null, lvBusy=false, lvLastKey="", lvSel=null;
+/* 2026-11-09 follow-ups: price zoom on the Levels chart. ±1% / ±2% around spot / All (default = All, the chart as before),
+   mouse wheel zooms around the pointer, drag pans, double-click or Reset goes back to the button's range. */
+var LVZ={zoom:load("lvZoom","all"), view:null, drag:null, dragged:false, raf:0, geo:null}; if(!["1","2","all"].includes(LVZ.zoom)) LVZ.zoom="all";
 st.lvOn=load("lvOn","0")==="1"; st.lvDet=load("lvDet","0")==="1";
 var LV_COL={greeks:"#FFB454",oi:"#4EA1FF",vix:"#D49BFF",price:"#3EE089",crowd:"#FF6B8B"};
 var LV_LAB={greeks:"Greek peaks",oi:"Open interest",vix:"VIX options",price:"Price memory",crowd:"Crowded strikes"};
@@ -6582,8 +6744,10 @@ function lvChart(D,W){
   multi.forEach(z=>{ lo=Math.min(lo,z.low); hi=Math.max(hi,z.high); }); lo=Math.min(lo,D.spot); hi=Math.max(hi,D.spot);
   if(!isFinite(lo)){ lo=D.spot*0.95; hi=D.spot*1.05; }
   const pad=(hi-lo)*0.04; lo-=pad; hi+=pad;
+  const full={lo,hi}; if(LVZ.view){ lo=LVZ.view.lo; hi=LVZ.view.hi; } else if(LVZ.zoom!=="all"){ const f=LVZ.zoom==="1"?0.01:0.02; lo=D.spot*(1-f); hi=D.spot*(1+f); }
+  const zoomed=lo>full.lo+1e-6||hi<full.hi-1e-6; LVZ.geo={lo,hi,T,H,B,full};
   const Y=p=>T+(H-T-B)*(hi-p)/(hi-lo), inR=p=>p>=lo&&p<=hi;
-  let g=`<rect x="0" y="0" width="${W}" height="${H}" fill="#0E1B33"/>`;
+  let g=`<rect x="0" y="0" width="${W}" height="${H}" fill="#0E1B33"/>`, gDates="";
   const step=tnStep(hi-lo,nar?6:9);
   for(let p=Math.ceil(lo/step)*step;p<=hi;p+=step){ const y=Y(p).toFixed(1);
     g+=`<line x1="${L}" x2="${Rr}" y1="${y}" y2="${y}" stroke="#ffffff22"/><text class="ax" x="${L-6}" y="${(+y+5).toFixed(1)}" text-anchor="end">${Math.round(p).toLocaleString()}</text>`; }
@@ -6598,7 +6762,7 @@ function lvChart(D,W){
   bars.forEach((b,i)=>{ const x=L+4+sp*(i+0.5), up=b.c>=b.o, c=up?"#3FD0B0":"#FF6B5A";
     g+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${Y(b.h).toFixed(1)}" y2="${Y(b.l).toFixed(1)}" stroke="${c}" stroke-width="1.4"/>`+
        `<rect x="${(x-bw/2).toFixed(1)}" y="${Y(Math.max(b.o,b.c)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5,Math.abs(Y(b.o)-Y(b.c))).toFixed(1)}" fill="${c}"/>`;
-    if(i%every===0) g+=`<text class="ax" x="${x.toFixed(1)}" y="${H-B+24}" text-anchor="middle">${lvEsc(b.d.slice(5).replace("-","/"))}</text>`; });
+    if(i%every===0) gDates+=`<text class="ax" x="${x.toFixed(1)}" y="${H-B+24}" text-anchor="middle">${lvEsc(b.d.slice(5).replace("-","/"))}</text>`; });
   g+='</g>';
   /* invisible touch targets: at least 22 px tall, so a thin band is easy to tap */
   multi.forEach(z=>{ const zi=zs.indexOf(z), yc=Y(z.centre), hh=Math.max(Y(z.low)-Y(z.high),22);
@@ -6621,7 +6785,7 @@ function lvChart(D,W){
   infos.forEach((x,i)=>{ if(!inR(x.level)) return; const y=Y(x.level).toFixed(1);
     g+=`<circle class="lvhit lvinfo" data-i="${i}" cx="${dx0}" cy="${y}" r="${nar?8:10}" fill="#0E1B33" fill-opacity=".01" stroke="#FFCF8A" stroke-width="2.6" stroke-dasharray="4 3"/>`; });
   /* labels on key zones only (distance to spot), pushed apart so they never overlap */
-  const keys=multi.filter(z=>z.key).sort((a,b)=>b.centre-a.centre); let last=-1e9;
+  const keys=multi.filter(z=>z.key&&(!zoomed||inR(z.centre))).sort((a,b)=>b.centre-a.centre); let last=-1e9;
   const room=Rr-lx, gap=nar?20:24, ys0=keys.map(z=>Y(z.centre)+6), yy=ys0.slice();
   for(let i=1;i<yy.length;i++) yy[i]=Math.max(yy[i],yy[i-1]+gap);            // push down
   for(let i=yy.length-1;i>=0;i--) yy[i]=Math.min(yy[i],H-B-4-(yy.length-1-i)*gap); // keep inside the plot
@@ -6635,8 +6799,10 @@ function lvChart(D,W){
   const ys=Y(D.spot).toFixed(1);
   g+=`<line x1="${L}" x2="${Rr}" y1="${ys}" y2="${ys}" stroke="#fff" stroke-width="2.6" stroke-dasharray="9 5" pointer-events="none"/>`+
      `<rect x="${L+6}" y="${(+ys-27).toFixed(1)}" width="${nar?118:150}" height="24" rx="4" fill="#fff"/><text class="lvspot" x="${L+12}" y="${(+ys-9).toFixed(1)}">SPX ${(+D.spot).toLocaleString(undefined,{maximumFractionDigits:2})}</text>`;
+  if(zoomed) g+=`<rect x="${L+4}" y="${H-B-30}" width="${nar?150:190}" height="24" rx="4" fill="#0A1426" fill-opacity=".9"/><text class="ax" x="${L+10}" y="${H-B-12}" style="fill:#FFD23F;font-weight:700">zoomed ${Math.round(lo).toLocaleString()}–${Math.round(hi).toLocaleString()}</text>`;
   return `<svg class="lvsvg" id="lvSvg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Price levels where several views agree, over the last 60 sessions">`+
-    `<defs><marker id="lvArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#fff"/></marker></defs>${g}</svg>`;
+    `<defs><marker id="lvArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#fff"/></marker><clipPath id="lvClip"><rect x="0" y="${T}" width="${W}" height="${H-T-B}"/></clipPath></defs>`+
+    `<rect x="0" y="0" width="${W}" height="${H}" fill="#0E1B33"/><g clip-path="url(#lvClip)">${g}</g>${gDates}</svg>`;
 }
 function lvLegend(){
   return '<div class="lvlegend">'+LV_KEYS.map(k=>`<span><i style="background:${LV_COL[k]}"></i>${LV_LAB[k]}</span>`).join("")+
@@ -6662,22 +6828,41 @@ function renderLevels(){
   const W=Math.max(320,Math.min(1500,(body.clientWidth||document.documentElement.clientWidth||1000)-4));
   const key=[D.generated,D.asof,W,lvSel].join("|"); if(key===lvLastKey&&body.querySelector(".lvwrap")) return; lvLastKey=key;
   const keys=(D.zones||[]).filter(z=>z.key).sort((a,b)=>b.centre-a.centre);
-  let h='<div class="lvwrap">'+lvLegend()+`<div class="lvchart" id="lvChart">${lvChart(D,W)}</div>`;
+  const zb=`<div class="lvzoom"><span class="orgrp"><span class="orlab">Price</span><span class="orseg" id="lvZoomSeg">${[["1","±1%"],["2","±2%"],["all","All"]].map(([v,t])=>`<button data-v="${v}" aria-pressed="${LVZ.zoom===v}">${t}</button>`).join("")}</span></span><button class="sxbtn" id="lvReset">Reset</button><span class="hint">mouse wheel on the chart zooms · drag pans · double-click resets</span></div>`;
+  let h='<div class="lvwrap">'+lvLegend()+zb+`<div class="lvchart" id="lvChart">${lvChart(D,W)}</div>`;
   h+=`<div class="lvchips">${keys.length?keys.map(z=>{ const zi=D.zones.indexOf(z), d=z.centre-D.spot;
     return `<button class="lvchip${lvSel===zi?" on":""}" data-z="${zi}"><b>${lvP(z.centre)}</b><span>${z.n_layers} views</span><span class="${d>=0?"up":"dn"}">${lvS(d)}</span></button>`; }).join(""):'<span class="lvnote">No level where 3 or more views agree today.</span>'}</div>`;
   h+=`<details class="lvdet" id="lvDet"${st.lvDet?" open":""}><summary>Details: every zone, the numbers behind it, missing data</summary>${lvDetails(D)}</details>`;
   h+=`<p class="lvnote">Hover or tap a band for the details. ${lvTxt(D.disclaimer||"Positioning read, not a trade signal.")} A level says where views agree, not which way price goes.</p></div>`;
   body.innerHTML=h;
   const det=document.getElementById("lvDet"); det.addEventListener("toggle",()=>{ st.lvDet=det.open; save("lvDet",det.open?"1":"0"); });
-  const svg=document.getElementById("lvSvg");
+  body.querySelectorAll("#lvZoomSeg button").forEach(b=>b.onclick=()=>{ LVZ.zoom=b.dataset.v; save("lvZoom",LVZ.zoom); LVZ.view=null; body.querySelectorAll("#lvZoomSeg button").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); lvRedraw(); });
+  document.getElementById("lvReset").onclick=()=>{ LVZ.view=null; lvRedraw(); };
+  lvBindSvg(D, body);
+}
+/* redraw the chart only (zoom / pan), keep the rest of the tab */
+function lvRedraw(){ if(LVZ.raf) return; LVZ.raf=requestAnimationFrame(()=>{ LVZ.raf=0; const D=lvData, body=document.getElementById("lvBody"), ch=document.getElementById("lvChart"); if(!D||!ch||!body) return;
+  const W=Math.max(320,Math.min(1500,(body.clientWidth||document.documentElement.clientWidth||1000)-4)); lvHideTip(); ch.innerHTML=lvChart(D,W); lvBindSvg(D,body); }); }
+function lvSetView(lo,hi){ const G=LVZ.geo; if(!G) return; const span=G.full.hi-G.full.lo; let sp=Math.max(10,Math.min(span*1.5,hi-lo)), c=(lo+hi)/2;
+  c=Math.max(G.full.lo-span*0.25+sp/2,Math.min(G.full.hi+span*0.25-sp/2,c)); LVZ.view={lo:c-sp/2,hi:c+sp/2}; lvRedraw(); }
+function lvPriceAt(svg,e){ const G=LVZ.geo, r=svg.getBoundingClientRect(), vb=svg.viewBox.baseVal, yy=(e.clientY-r.top)*vb.height/r.height; return G.hi-(yy-G.T)/(G.H-G.T-G.B)*(G.hi-G.lo); }
+window.addEventListener("mousemove",e=>{ const d=LVZ.drag; if(!d) return; if(!(e.buttons&1)){ LVZ.drag=null; return; } const svg=document.getElementById("lvSvg"); if(!svg) return;
+  const r=svg.getBoundingClientRect(), dy=(e.clientY-d.y0)*svg.viewBox.baseVal.height/r.height; if(Math.abs(dy)>4) LVZ.dragged=true;
+  if(LVZ.dragged){ const dp=dy/(d.G.H-d.G.T-d.G.B)*(d.G.hi-d.G.lo); lvSetView(d.G.lo+dp,d.G.hi+dp); } });
+window.addEventListener("mouseup",()=>{ LVZ.drag=null; });
+function lvBindSvg(D, body){
+  const svg=document.getElementById("lvSvg"); if(!svg) return;
+  svg.addEventListener("wheel",e=>{ e.preventDefault(); const G=LVZ.geo, p=lvPriceAt(svg,e), f=e.deltaY>0?1.18:1/1.18; lvSetView(p-(p-G.lo)*f,p+(G.hi-p)*f); },{passive:false});
+  svg.addEventListener("mousedown",e=>{ if(e.button!==0) return; LVZ.drag={y0:e.clientY,G:Object.assign({},LVZ.geo)}; LVZ.dragged=false; });
+  svg.addEventListener("dblclick",e=>{ e.preventDefault(); LVZ.view=null; lvRedraw(); });
   const tipFor=el=>{ if(el.classList.contains("lvband")||el.classList.contains("lvzone")) return lvTipZone(D.zones[+el.dataset.z],D);
     if(el.classList.contains("lvinfo")) return lvTipInfo((D.info_levels||[])[+el.dataset.i],D);
     if(el.classList.contains("lvsingle")){ try{ return lvTipSingle(JSON.parse(el.dataset.l),D); }catch(e){ return ""; } } return ""; };
   const hitOf=e=>e.target.closest&&e.target.closest(".lvinfo,.lvsingle,.lvzone,.lvband");
   const hl=zi=>svg.querySelectorAll(".lvband").forEach(r=>r.classList.toggle("hov",+r.dataset.z===zi));
-  svg.addEventListener("mousemove",e=>{ const el=hitOf(e); hl(el&&el.dataset.z!=null?+el.dataset.z:-1); if(el){ const t=tipFor(el); if(t) lvShowTip(t,e.clientX,e.clientY); } else if(lvSel==null) lvHideTip(); });
+  svg.addEventListener("mousemove",e=>{ if(LVZ.drag&&LVZ.dragged) return; const el=hitOf(e); hl(el&&el.dataset.z!=null?+el.dataset.z:-1); if(el){ const t=tipFor(el); if(t) lvShowTip(t,e.clientX,e.clientY); } else if(lvSel==null) lvHideTip(); });
   svg.addEventListener("mouseleave",()=>{ hl(-1); if(lvSel==null) lvHideTip(); });
-  svg.addEventListener("click",e=>{ const el=hitOf(e); if(!el){ lvSel=null; lvHideTip(); svg.querySelectorAll(".lvband.sel").forEach(b=>b.classList.remove("sel")); return; }
+  svg.addEventListener("click",e=>{ if(LVZ.dragged){ LVZ.dragged=false; return; } const el=hitOf(e); if(!el){ lvSel=null; lvHideTip(); svg.querySelectorAll(".lvband.sel").forEach(b=>b.classList.remove("sel")); return; }
     hl(el.dataset.z!=null?+el.dataset.z:-1); const t=tipFor(el); if(t) lvShowTip(t,e.clientX,e.clientY); e.stopPropagation(); });
   body.querySelectorAll(".lvchip").forEach(b=>b.onclick=e=>{ const zi=+b.dataset.z; lvSel=lvSel===zi?null:zi;
     body.querySelectorAll(".lvchip").forEach(c=>c.classList.toggle("on",+c.dataset.z===lvSel));
@@ -6888,82 +7073,128 @@ function vxoUpdate(){ optRow("vxOpts",VXO_DEF,st.vxo); if(st.vxo.vx1||st.vxo.vx2
    Maths (vix_map.py, unit-tested): Black-76 on each expiry's forward, r = 0, calendar time, each strike's own IV; a VIX
    level moves every expiry's forward by the same amount. Default sign = dealers SHORT VIX calls, LONG VIX puts; the
    switch flips to the SPX-style naive sign (exactly the negative). Fetched only while the option is on and the VIX tab
-   is open. */
-var VXM={J:null, busy:false, at:0, err:null, key:"", book:load("vxmBook","f"), basis:load("vxmBasis","o"), sign:load("vxmSign","dealer"), geo:null};
-if(!["f","a"].includes(VXM.book)) VXM.book="f"; if(!["o","v"].includes(VXM.basis)) VXM.basis="o"; if(!["dealer","naive"].includes(VXM.sign)) VXM.sign="dealer";
+   is open.
+   2026-11-09 follow-ups (Mithil): Positions from = the MAP's set OI | Vol | OI + vol | OI + signed (signed trades are
+   measured and never flipped by the switch); VIX range presets 10–25 (default) / 10–35 / 10–50 / All / custom, colour
+   scale fitted to the rows shown; the VIX line and the front forward are drawn every minute across the session (file
+   "px") with a "now" marker; when today's file is missing the page says which file it is waiting for and shows the
+   newest stored day (wide_index.json "vix_days"). */
+var VXM={J:null, busy:false, at:0, err:null, key:"", book:load("vxmBook","f"), basis:load("vxmBasis","oi"), sign:load("vxmSign","dealer"),
+  rng:load("vxmRng","25"), cmin:+load("vxmCmin","10")||10, cmax:+load("vxmCmax","25")||25, want:"", day:"", geo:null};
+VXM.basis={o:"oi",v:"vol"}[VXM.basis]||VXM.basis;
+if(!["f","a"].includes(VXM.book)) VXM.book="f"; if(!["oi","vol","oiv","ois"].includes(VXM.basis)) VXM.basis="oi"; if(!["dealer","naive"].includes(VXM.sign)) VXM.sign="dealer";
+if(!["25","35","50","all","custom"].includes(VXM.rng)) VXM.rng="25";
+/* today's file; if it is not there yet, the newest stored day from wide_index.json (vix_days), with a banner saying which
+   file the page is waiting for */
 async function vxmFetch(force){
   if(!st.vxo.vmap||st.tab!=="vix"||VXM.busy) return; if(!force&&Date.now()-VXM.at<25000) return;
-  VXM.busy=true; VXM.at=Date.now(); const ymd=String(liveClock().date||"").replace(/-/g,"");
-  try{ const r=await fetch("vixmap_"+ymd+".json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status);
-    const j=await r.json(); if(!j||!Array.isArray(j.cols)||!Array.isArray(j.levels)) throw new Error("bad file"); VXM.J=j; VXM.err=null; }
-  catch(e){ VXM.err=String(e&&e.message||e); if(VXM.J&&VXM.J.day!==liveClock().date) VXM.J=null; }
+  VXM.busy=true; VXM.at=Date.now(); const ymd=String(liveClock().date||"").replace(/-/g,""); VXM.want="vixmap_"+ymd+".json";
+  const get=async u=>{ const r=await fetch(u+"?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); };
+  const ok=j=>j&&Array.isArray(j.cols)&&Array.isArray(j.levels)&&j.cols.length;
+  try{ const j=await get(VXM.want); if(!ok(j)) throw new Error("no columns yet"); VXM.J=j; VXM.day=ymd; VXM.err=null; }
+  catch(e){ VXM.err=String(e&&e.message||e);
+    try{ const ix=await get("wide_index.json"), d=(ix.vix_days||[]).find(x=>x!==ymd);
+      if(d&&(!VXM.J||VXM.day!==d)){ const j=await get("vixmap_"+d+".json"); if(ok(j)){ VXM.J=j; VXM.day=d; } }
+      else if(!d&&VXM.day!==ymd) VXM.J=null; }
+    catch(e2){ if(VXM.day!==ymd) VXM.J=null; } }
   VXM.busy=false; VXM.key=""; if(st.tab==="vix") vxmRender(); }
 setInterval(()=>vxmFetch(false),30000);
 function vxmZero(lv,v,ref){ let best=null; for(let i=1;i<lv.length;i++){ const a=v[i-1], b=v[i]; if((a<0&&b>=0)||(a>0&&b<=0)){ if(b===a) continue; const x=lv[i-1]+(lv[i]-lv[i-1])*(0-a)/(b-a); if(best==null||Math.abs(x-ref)<Math.abs(best-ref)) best=x; } } return best; }
 function vxmK(v){ const a=Math.abs(v), s=v<0?"−":"+"; return a>=1000?s+"$"+(a/1000).toFixed(a>=10000?0:1)+"M":s+"$"+a.toFixed(a>=10?0:1)+"k"; }
 function vxmSeg(id,key,opts){ return `<span class="orgrp"><span class="orlab">${opts.lab}</span><span class="orseg" id="${id}">`+opts.v.map(([v,t,tt])=>`<button data-m="${key}" data-v="${v}" aria-pressed="${VXM[key]===v}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`).join("")+`</span></span>`; }
+/* one column's values ($k) on the chosen basis and sign. o / v carry the assumed dealer side (default short calls, long
+   puts; SPX-style = the negative); t = signed trades, measured, never flipped:
+   OI = s·o · Vol = s·v · OI + vol = s·(o + v) · OI + signed = s·o + t */
+function vxmVals(c,g){ const sg=VXM.sign==="dealer"?1:-1, p=g+VXM.book, o=c[p+"o"]||[], v=c[p+"v"]||[], t=c[p+"t"]||[];
+  if(VXM.basis==="oi") return o.map(x=>sg*x); if(VXM.basis==="vol") return v.map(x=>sg*x);
+  if(VXM.basis==="oiv") return o.map((x,i)=>sg*(x+(v[i]||0))); return o.map((x,i)=>sg*x+(t[i]||0)); }
+/* the VIX levels shown: preset 10–25 (default) / 10–35 / 10–50 / All / custom, kept inside the file's grid */
+function vxmRange(lv){ const g0=lv[0], g1=lv[lv.length-1]; let lo=10, hi={"25":25,"35":35,"50":50}[VXM.rng];
+  if(VXM.rng==="all"){ lo=g0; hi=g1; } else if(VXM.rng==="custom"){ lo=Math.min(VXM.cmin,VXM.cmax); hi=Math.max(VXM.cmin,VXM.cmax); }
+  const want=[lo,hi]; lo=Math.max(g0,lo); hi=Math.min(g1,hi); if(!(hi-lo>=1)){ lo=g0; hi=g1; }
+  const i0=lv.findIndex(y=>y>=lo-1e-9); let i1=lv.length-1; while(i1>0&&lv[i1]>hi+1e-9) i1--;
+  return {lo:lv[i0],hi:lv[i1],i0,i1,clip:want[0]<g0-1e-9||want[1]>g1+1e-9,g0,g1}; }
+/* every minute's [time, VIX, front forward] (file v2 "px"), else the columns */
+function vxmPath(J){ return (J.px&&J.px.length)?J.px:J.cols.map(c=>[c.t,c.x,c.fF]); }
 function vxmRender(){
   const el=document.getElementById("vxMap"); if(!el) return; el.hidden=!st.vxo.vmap; if(!st.vxo.vmap){ el.innerHTML=""; VXM.key=""; return; }
-  vxmFetch(false); const J=VXM.J, W=el.clientWidth||900;
-  const key=[J&&J.cols.length,J&&J.cols.length&&J.cols[J.cols.length-1].t,J&&J.cols.length&&J.cols[J.cols.length-1].x,VXM.book,VXM.basis,VXM.sign,W,VXM.err].join("|");
+  vxmFetch(false); const J=VXM.J, W=el.clientWidth||900, pth=J?vxmPath(J):[], lastP=pth[pth.length-1];
+  const key=[J&&J.cols.length,J&&J.cols.length&&J.cols[J.cols.length-1].t,lastP&&lastP.join(","),VXM.day,VXM.book,VXM.basis,VXM.sign,VXM.rng,VXM.cmin,VXM.cmax,W,VXM.err].join("|");
   if(key===VXM.key&&el.querySelector(".vxmgrid,.vxnote")) return; VXM.key=key;
   const head=`<div class="vxh"><h2>VIX map — dealer gamma and vanna by VIX level</h2><span class="vxsub">time of day across, VIX level up the side · every expiry's forward moves with VIX · positioning read, not a signal</span></div>`+
     `<div class="vxmctl">`+vxmSeg("vxmBookSeg","book",{lab:"Expiries",v:[["f","Front expiry","The nearest VIX expiry only"],["a","All combined","Every listed VIX expiry, each forward moved by the same VIX change"]]})+
-    vxmSeg("vxmBasisSeg","basis",{lab:"Positions from",v:[["o","Open interest"],["v","Today's volume"]]})+
-    vxmSeg("vxmSignSeg","sign",{lab:"Dealer side",v:[["dealer","Short calls, long puts","Default: customers buy VIX calls as hedges and sell VIX puts, so dealers hold the other side"],["naive","SPX-style: long calls, short puts","The simple rule the SPX Map uses, for comparison. It is exactly the opposite sign."]]})+`</div>`;
-  if(!J||!J.cols.length){ el.innerHTML=head+`<div class="vxnote">${VXM.err?`No VIX map for today yet (${esc(VXM.err)}). It is written from 09:30 by the Orbs feed (container <code>cvxmap-wide</code>).`:"Loading the VIX map…"}</div>`; vxmBind(el); return; }
-  const sg=VXM.sign==="dealer"?1:-1, kG="g"+VXM.book+VXM.basis, kV="v"+VXM.book+VXM.basis, lv=J.levels;
-  const sc=k=>{ const a=[]; for(const c of J.cols) for(const v of c[k]||[]) a.push(Math.abs(v)); a.sort((p,q)=>p-q); return a.length?Math.max(1e-9,a[Math.floor(0.98*(a.length-1))]):1; };
+    vxmSeg("vxmBasisSeg","basis",{lab:"Positions from",v:[["oi","OI","Start-of-day open interest, dealer side as chosen on the right"],["vol","Vol","Today's volume only, same dealer side"],["oiv","OI + vol","Open interest plus today's volume, both with the chosen dealer side"],["ois","OI + signed","Open interest with the chosen dealer side, plus today's tagged trades as measured: customer buys leave dealers short, customer sells leave them long (this part does not flip with the switch)"]]})+
+    vxmSeg("vxmSignSeg","sign",{lab:"Dealer side",v:[["dealer","Short calls, long puts","Default: customers buy VIX calls as hedges and sell VIX puts, so dealers hold the other side"],["naive","SPX-style: long calls, short puts","The simple rule the SPX Map uses, for comparison. It is exactly the opposite sign."]]})+
+    vxmSeg("vxmRngSeg","rng",{lab:"VIX range",v:[["25","10–25","Default: VIX rarely goes above 25"],["35","10–35"],["50","10–50"],["all","All","Every row in the file"],["custom","Custom","Your own min and max (boxes on the right)"]]})+
+    `<span class="orgrp vxmcus"${VXM.rng==="custom"?"":" hidden"}><label>min <input type="number" id="vxmCmin" min="5" max="95" step="0.5" value="${VXM.cmin}"></label><label>max <input type="number" id="vxmCmax" min="6" max="100" step="0.5" value="${VXM.cmax}"></label></span></div>`;
+  const ymd=String(liveClock().date||"").replace(/-/g,""), wait=`<b>${esc(VXM.want||"vixmap_"+ymd+".json")}</b>`;
+  if(!J||!J.cols.length){ el.innerHTML=head+`<div class="vxnote vxmwait">${VXM.err||VXM.want?`Waiting for ${wait} (${esc(VXM.err||"not written yet")}). It is written every minute from 09:30 ET by the Orbs feed (container <code>cvxmap-wide</code>, <code>run_wide.sh start</code>). No earlier VIX map day is stored either.`:"Loading the VIX map…"}</div>`; vxmBind(el); return; }
+  const lv=J.levels, R=vxmRange(lv), kG="g", kV="v";
+  const sc=g=>{ const a=[]; for(const c of J.cols){ const v=vxmVals(c,g); for(let i=R.i0;i<=R.i1;i++) a.push(Math.abs(v[i]||0)); } a.sort((p,q)=>p-q); return a.length?Math.max(1e-9,a[Math.floor(0.98*(a.length-1))]):1; };
   const limG=sc(kG), limV=sc(kV);
-  const leg=lim=>`<div class="vxmleg"><span>${vxmK(-lim)}</span><i></i><span>${vxmK(lim)}</span></div>`;
-  el.innerHTML=head+`<div class="vxmgrid"><div class="vxmbox"><div class="vxmt">Dealer gamma <span>$ per VIX point, per 1-point move</span></div><canvas id="vxmGC"></canvas>${leg(limG)}</div>`+
+  const leg=lim=>`<div class="vxmleg"><span>${vxmK(-lim)}</span><i></i><span>${vxmK(lim)}</span><span class="vxmlegn">colour scale fitted to VIX ${vxN(R.lo,R.lo%1?1:0)}–${vxN(R.hi,R.hi%1?1:0)}</span></div>`;
+  const stale=VXM.day&&VXM.day!==ymd, noT=VXM.basis==="ois"&&!J.cols.some(c=>c["g"+VXM.book+"t"]);
+  el.innerHTML=head+(stale?`<div class="vxnote vxmwait">Showing <b>${esc(J.day||VXM.day)}</b>, the last stored session. Waiting for ${wait} — written every minute from 09:30 ET by the Orbs feed (container <code>cvxmap-wide</code>).</div>`:"")+
+    (R.clip?`<div class="vxnote">This day's map rows run from VIX ${vxN(R.g0,0)} to ${vxN(R.g1,0)}; the range is cut to that.</div>`:"")+
+    (noT?`<div class="vxnote">This file has no signed-trade book (written before 2026-11-09), so OI + signed shows OI only. Rebuild with run_wide.sh days.</div>`:"")+
+    `<div class="vxmgrid"><div class="vxmbox"><div class="vxmt">Dealer gamma <span>$ per VIX point, per 1-point move</span></div><canvas id="vxmGC"></canvas>${leg(limG)}</div>`+
     `<div class="vxmbox"><div class="vxmt">Dealer vanna <span>$ per VIX point, per +1 vol point</span></div><canvas id="vxmVC"></canvas>${leg(limV)}</div></div>`+
-    `<div class="vxmkey"><b class="vxmup">Blue</b> = dealers long (they lean against VIX moves) · <b class="vxmdn">red</b> = dealers short (they chase VIX moves) · white line = VIX · cyan dashed = front forward · yellow dotted = where the value flips sign · green / pink dashed = biggest call / put open-interest strike, drawn where the front forward reaches it · colour is full at the edges of the scale bar</div>`+
+    `<div class="vxmkey"><b class="vxmup">Blue</b> = dealers long (they lean against VIX moves) · <b class="vxmdn">red</b> = dealers short (they chase VIX moves) · white line = VIX, every minute · cyan dashed = front forward · white dot + label at the right = VIX now · yellow dotted = where the value flips sign · green / pink dashed = biggest call / put open-interest strike, drawn where the front forward reaches it · colour is full at the edges of the scale bar</div>`+
     `<div class="vxmhov" id="vxmHov">Hover the map for the numbers.</div><div class="vxmread" id="vxmRead"></div>`;
   vxmBind(el);
-  const geoG=vxmDraw(document.getElementById("vxmGC"),J,kG,sg,limG,true), geoV=vxmDraw(document.getElementById("vxmVC"),J,kV,sg,limV,false);
+  const geoG=vxmDraw(document.getElementById("vxmGC"),J,kG,limG,true,R), geoV=vxmDraw(document.getElementById("vxmVC"),J,kV,limV,false,R);
   VXM.geo={G:geoG,V:geoV};
-  const last=J.cols[J.cols.length-1], gl=(last[kG]||[]).map(v=>v*sg), z=vxmZero(lv,gl,last.x), top=last.top&&last.top[VXM.book==="f"?"front":"all"]||{}, basis=last.fF-last.x;
+  const last=J.cols[J.cols.length-1], gl=vxmVals(last,kG), z=vxmZero(lv,gl,last.x), top=last.top&&last.top[VXM.book==="f"?"front":"all"]||{}, basis=last.fF-last.x;
   const i0=lv.reduce((b,y,i)=>Math.abs(y-last.x)<Math.abs(lv[b]-last.x)?i:b,0), gNow=gl[i0];
-  const m=s=>s==null?"–":vxN(s,2);
-  document.getElementById("vxmRead").innerHTML=`<div><b>VIX ${vxN(last.x,2)}</b> at ${esc(last.t)}${last.live?" (newest minute)":""} · front forward <b>${vxN(last.fF,2)}</b> (${esc(last.fe)}) · ${VXM.book==="f"?"front expiry":"all "+last.ne+" expiries"} · ${VXM.basis==="o"?"open interest":"today's volume"} · ${VXM.sign==="dealer"?"dealers short calls, long puts":"SPX-style sign (long calls, short puts)"}.</div>`+
+  const m=s=>s==null?"–":vxN(s,2), bt={oi:"open interest",vol:"today's volume",oiv:"open interest + today's volume",ois:"open interest + today's signed trades"}[VXM.basis];
+  document.getElementById("vxmRead").innerHTML=`<div><b>VIX ${vxN(lastP?lastP[1]:last.x,2)}</b> at ${esc(lastP?lastP[0]:last.t)} · front forward <b>${vxN(lastP&&lastP[2]!=null?lastP[2]:last.fF,2)}</b> (${esc(last.fe)}) · ${VXM.book==="f"?"front expiry":"all "+last.ne+" expiries"} · ${bt} · ${VXM.sign==="dealer"?"dealers short calls, long puts":"SPX-style sign (long calls, short puts)"}.</div>`+
     `<div>Dealer gamma at today's VIX: <b class="${gNow>=0?"vxmup":"vxmdn"}">${vxmK(gNow)}</b> per point — ${gNow>=0?"dealers <b>sell VIX as it rises</b> and buy it as it falls (they lean against VIX moves)":"dealers <b>buy VIX as it rises</b> (they chase VIX moves)"}.</div>`+
     `<div>Gamma flips sign at <b>VIX ${z==null?"– (no flip on the map)":vxN(z,2)}</b>${z!=null?` (${z>last.x?"+":""}${vxN(z-last.x,2)} from now)`:""}. Biggest call open interest at strike <b>${m(top.call)}</b>${top.call!=null?` (front forward there = VIX ≈ ${vxN(top.call-basis,2)})`:""}; biggest put open interest at strike <b>${m(top.put)}</b>${top.put!=null?` (VIX ≈ ${vxN(top.put-basis,2)})`:""}.</div>`;
 }
-function vxmBind(el){ el.querySelectorAll(".orseg button[data-m]").forEach(b=>b.onclick=()=>{ VXM[b.dataset.m]=b.dataset.v; save("vxm"+b.dataset.m[0].toUpperCase()+b.dataset.m.slice(1),b.dataset.v); VXM.key=""; vxmRender(); }); }
-function vxmDraw(cv,J,k,sg,lim,isG){
-  const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const padL=62,padR=86,padT=10,padB=34, W=w-padL-padR, H=h-padT-padB, lv=J.levels, t0=570, t1=975;
-  const X=t=>padL+W*(t-t0)/(t1-t0), lo=lv[0], hi=lv[lv.length-1], Y=v=>padT+H*(1-(v-lo)/((hi-lo)||1)), rh=Math.max(1,H/lv.length+0.6);
+function vxmBind(el){ el.querySelectorAll(".orseg button[data-m]").forEach(b=>b.onclick=()=>{ VXM[b.dataset.m]=b.dataset.v; save("vxm"+b.dataset.m[0].toUpperCase()+b.dataset.m.slice(1),b.dataset.v); VXM.key=""; vxmRender(); });
+  for(const [id,k] of [["vxmCmin","cmin"],["vxmCmax","cmax"]]){ const inp=el.querySelector("#"+id); if(inp) inp.onchange=()=>{ const v=+inp.value; if(isFinite(v)&&v>0){ VXM[k]=v; save("vxm"+k[0].toUpperCase()+k.slice(1),String(v)); VXM.key=""; vxmRender(); } }; } }
+function vxmDraw(cv,J,k,lim,isG,R){
+  const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const padL=62,padR=96,padT=10,padB=34, W=w-padL-padR, H=h-padT-padB, lv=J.levels, t0=570, t1=975;
+  const lo=R.lo, hi=R.hi, n=R.i1-R.i0+1, step=n>1?(hi-lo)/(n-1):1, ylo=lo-step/2, yhi=hi+step/2;
+  const X=t=>padL+W*(t-t0)/(t1-t0), Y=v=>padT+H*(1-(v-ylo)/((yhi-ylo)||1)), rh=Math.max(1,H/n+0.6);
   const POS=[76,141,255], NEG=[255,107,90], BASE=[14,27,51];
   const col=v=>{ const u=Math.max(-1,Math.min(1,v/lim)), c=u>=0?POS:NEG, a=Math.pow(Math.abs(u),0.75); return `rgb(${BASE.map((b,j)=>Math.round(b+(c[j]-b)*a)).join(",")})`; };
   const cols=J.cols;
-  for(let q=0;q<cols.length;q++){ const c=cols[q], ta=tmin(c.t), tb=q<cols.length-1?tmin(cols[q+1].t):ta+(c.live?1:(J.col_min||5)); const xa=X(ta), xb=Math.max(xa+1,X(tb)); const a=c[k]||[];
-    for(let i=0;i<lv.length;i++){ ctx.fillStyle=col((a[i]||0)*sg); ctx.fillRect(xa,Y(lv[i])-rh/2,xb-xa+0.5,rh); } }
+  for(let q=0;q<cols.length;q++){ const c=cols[q], ta=tmin(c.t), tb=q<cols.length-1?tmin(cols[q+1].t):ta+(c.live?1:(J.col_min||5)); const xa=X(ta), xb=Math.max(xa+1,X(tb)); const a=vxmVals(c,k);
+    for(let i=R.i0;i<=R.i1;i++){ ctx.fillStyle=col(a[i]||0); ctx.fillRect(xa,Y(lv[i])-rh/2,xb-xa+0.5,rh); } }
   ctx.font="15px "+C("--font"); ctx.fillStyle="#F2F6FC"; ctx.strokeStyle="#ffffff1c"; ctx.lineWidth=1;
-  const st0=orNice(hi-lo,7); for(let v=Math.ceil(lo/st0)*st0; v<=hi; v+=st0){ const y=Y(v); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.textAlign="right"; ctx.fillText(vxN(v,v%1?1:0),padL-6,y+5); }
+  const st0=orNice(hi-lo,7); for(let v=Math.ceil(lo/st0)*st0; v<=hi+1e-9; v+=st0){ const y=Y(v); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.textAlign="right"; ctx.fillText(vxN(v,v%1?1:0),padL-6,y+5); }
   ctx.textAlign="center"; for(let hh=10;hh<=16;hh++) ctx.fillText(String(hh>12?hh-12:hh)+(hh>=12?" pm":" am"),X(hh*60),h-12); ctx.textAlign="left";
+  ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip();
   // zero line of each column (gamma or vanna), nearest to that minute's VIX
-  ctx.save(); ctx.strokeStyle="#FFE27A"; ctx.lineWidth=2; ctx.setLineDash([2,3]); ctx.beginPath(); let on=false;
-  for(const c of cols){ const z=vxmZero(lv,(c[k]||[]).map(v=>v*sg),c.x); const x=X(tmin(c.t)); if(z==null){ on=false; continue; } if(on) ctx.lineTo(x,Y(z)); else { ctx.moveTo(x,Y(z)); on=true; } } ctx.stroke(); ctx.restore();
-  // VIX path (white) and the front forward path (cyan dashed)
-  const path=(f,colr,dash,lw)=>{ ctx.save(); ctx.strokeStyle=colr; ctx.lineWidth=lw; ctx.setLineDash(dash); ctx.beginPath(); cols.forEach((c,q)=>{ const v=f(c), x=X(tmin(c.t)); if(v<lo||v>hi) return; q?ctx.lineTo(x,Y(v)):ctx.moveTo(x,Y(v)); }); ctx.stroke(); ctx.restore(); };
-  path(c=>c.x,"#ffffff",[],2.4); path(c=>c.fF,"#7FE7FF",[6,4],1.8);
-  const last=cols[cols.length-1], xr=padL+W+4, lab=(v,txt,colr)=>{ if(v==null||v<lo||v>hi) return; const y=Y(v); ctx.font="bold 14px "+C("--font"); const tw=ctx.measureText(txt).width; ctx.fillStyle="#0A1426e6"; ctx.fillRect(xr-2,y-11,Math.min(tw+6,padR+2),18); ctx.fillStyle=colr; ctx.fillText(txt,xr+1,y+4); };
+  ctx.strokeStyle="#FFE27A"; ctx.lineWidth=2; ctx.setLineDash([2,3]); ctx.beginPath(); let on=false;
+  for(const c of cols){ const z=vxmZero(lv,vxmVals(c,k),c.x); const x=X(tmin(c.t)); if(z==null){ on=false; continue; } if(on) ctx.lineTo(x,Y(z)); else { ctx.moveTo(x,Y(z)); on=true; } } ctx.stroke();
+  // VIX (white) and the front forward (cyan dashed): every minute across the whole session, clipped at the range edges
+  const pth=vxmPath(J); const path=(j,colr,dash,lw)=>{ ctx.strokeStyle=colr; ctx.lineWidth=lw; ctx.setLineDash(dash); ctx.beginPath(); let started=false;
+    for(const p of pth){ const v=p[j]; if(v==null||!isFinite(v)) continue; const x=X(tmin(p[0])), y=Y(v); started?ctx.lineTo(x,y):ctx.moveTo(x,y); started=true; } ctx.stroke(); };
+  path(2,"#7FE7FF",[6,4],1.8); path(1,"#000000",[],5); path(1,"#ffffff",[],2.6);
+  ctx.restore(); ctx.setLineDash([]);
+  // the "now" marker: dot on the line + a label at the right edge (an arrow when VIX is outside the range shown)
+  const lp=pth[pth.length-1], last=cols[cols.length-1], xr=padL+W+4;
+  if(lp){ const vx=lp[1], inR=vx>=ylo&&vx<=yhi, yv=Math.max(padT,Math.min(padT+H,Y(vx)));
+    if(inR){ ctx.fillStyle="#fff"; ctx.strokeStyle="#0A1426"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(X(tmin(lp[0])),yv,5.5,0,7); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(padL+W+1,yv); ctx.lineTo(padL+W+9,yv-6); ctx.lineTo(padL+W+9,yv+6); ctx.closePath(); ctx.fill(); }
+  const lab=(y,txt,colr)=>{ ctx.font="bold 14px "+C("--font"); const tw=ctx.measureText(txt).width; ctx.fillStyle="#0A1426e6"; ctx.fillRect(xr+8,y-11,Math.min(tw+6,padR-8),18); ctx.fillStyle=colr; ctx.fillText(txt,xr+11,y+4); };
   const marks=[];
-  marks.push([last.x,"VIX "+vxN(last.x,2),"#fff"]); marks.push([last.fF,"fwd "+vxN(last.fF,2),"#7FE7FF"]);
-  if(isG){ const z=vxmZero(lv,(last[k]||[]).map(v=>v*sg),last.x); if(z!=null) marks.push([z,"flip "+vxN(z,1),"#FFE27A"]);
+  if(lp){ const vx=lp[1]; marks.push([Math.max(ylo,Math.min(yhi,vx)),(vx>yhi?"▲ ":vx<ylo?"▼ ":"")+"now "+vxN(vx,2),"#fff",true]); if(lp[2]!=null&&lp[2]>=ylo&&lp[2]<=yhi) marks.push([lp[2],"fwd "+vxN(lp[2],2),"#7FE7FF"]); }
+  if(isG){ const z=vxmZero(lv,vxmVals(last,k),last.x); if(z!=null&&z>=ylo&&z<=yhi) marks.push([z,"flip "+vxN(z,1),"#FFE27A"]);
     const top=last.top&&last.top[VXM.book==="f"?"front":"all"]||{}, basis=last.fF-last.x;
-    for(const [s,t,colr] of [[top.call,"call OI","#58D68D"],[top.put,"put OI","#FF9AC8"]]) if(s!=null){ const yv=s-basis; marks.push([yv,t+" "+vxN(s,0),colr]);
-      if(yv>=lo&&yv<=hi){ ctx.save(); ctx.strokeStyle=colr; ctx.setLineDash([8,4]); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(padL,Y(yv)); ctx.lineTo(padL+W,Y(yv)); ctx.stroke(); ctx.restore(); } } }
-  marks.sort((a,b)=>b[0]-a[0]); let prevY=-1e9; for(const m of marks){ let y=m[0]; const py=Y(y); const yy=Math.max(py,prevY+18); prevY=yy; lab(lo+(hi-lo)*(1-(yy-padT)/H),m[1],m[2]); }
-  return {X,Y,padL,padT,W,H,lo,hi,lv,t0,t1,k,sg,lim,isG}; }
+    for(const [s,t,colr] of [[top.call,"call OI","#58D68D"],[top.put,"put OI","#FF9AC8"]]) if(s!=null){ const yv=s-basis; if(yv<ylo||yv>yhi) continue; marks.push([yv,t+" "+vxN(s,0),colr]);
+      ctx.save(); ctx.strokeStyle=colr; ctx.setLineDash([8,4]); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(padL,Y(yv)); ctx.lineTo(padL+W,Y(yv)); ctx.stroke(); ctx.restore(); } }
+  marks.sort((a,b)=>b[0]-a[0]); let prevY=-1e9; for(const m of marks){ const yy=Math.max(Y(m[0]),prevY+18); prevY=yy; lab(Math.min(yy,h-padB),m[1],m[2]); }
+  return {X,Y,padL,padT,W,H,lo:ylo,hi:yhi,lv,t0,t1,k,lim,isG}; }
 function vxmHover(e){ const g=VXM.geo, J=VXM.J; if(!g||!J) return; const cv=e.target, G=cv.id==="vxmGC"?g.G:g.V; if(!G) return;
   const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top; const t=G.t0+(x-G.padL)/G.W*(G.t1-G.t0), v=G.lo+(G.hi-G.lo)*(1-(y-G.padT)/G.H);
   let q=-1; for(let j=0;j<J.cols.length;j++) if(tmin(J.cols[j].t)<=t+0.01) q=j; const hv=document.getElementById("vxmHov"); if(!hv) return;
   if(q<0||v<G.lo||v>G.hi){ hv.textContent="Hover the map for the numbers."; return; }
-  const c=J.cols[q], i=J.levels.reduce((b,l,ii)=>Math.abs(l-v)<Math.abs(J.levels[b]-v)?ii:b,0), lvl=J.levels[i], sg=G.sg;
-  const gk="g"+VXM.book+VXM.basis, vk="v"+VXM.book+VXM.basis;
-  hv.innerHTML=`<b>${esc(c.t)}</b> · VIX level <b>${vxN(lvl,2)}</b> (VIX then ${vxN(c.x,2)}, front forward there ${vxN(c.fF+lvl-c.x,2)}) · dealer gamma <b>${vxmK((c[gk]||[])[i]*sg||0)}</b> per point · dealer vanna <b>${vxmK((c[vk]||[])[i]*sg||0)}</b> per vol point`; }
+  const c=J.cols[q], i=J.levels.reduce((b,l,ii)=>Math.abs(l-v)<Math.abs(J.levels[b]-v)?ii:b,0), lvl=J.levels[i];
+  const pth=vxmPath(J); let pm=null; for(const p of pth) if(tmin(p[0])<=t+0.01) pm=p; const vx=pm?pm[1]:c.x;
+  hv.innerHTML=`<b>${esc(pm?pm[0]:c.t)}</b> · VIX then <b>${vxN(vx,2)}</b> · level <b>${vxN(lvl,2)}</b> (front forward there ${vxN(c.fF+lvl-c.x,2)}) · dealer gamma <b>${vxmK(vxmVals(c,"g")[i]||0)}</b> per point · dealer vanna <b>${vxmK(vxmVals(c,"v")[i]||0)}</b> per vol point <span style="color:#B9C6D8">(map column ${esc(c.t)})</span>`; }
 document.addEventListener("mousemove",e=>{ if(e.target&&(e.target.id==="vxmGC"||e.target.id==="vxmVC")) vxmHover(e); });
 
 /* ============================================================ Orbs tab (2026-11-09)
@@ -6973,24 +7204,37 @@ document.addEventListener("mousemove",e=>{ if(e.target&&(e.target.id==="vxmGC"||
      wide_live_<SYM>.json    the newest minute only (~10 KB) - polled every 3 s while this tab is open and ON
    The collector pulls every 60 s, so a new minute appears here about 1-7 s after its pull is written.
    OFF (default) = nothing is fetched or drawn. Follows the SPX / SPY / QQQ buttons.
-   Profile modes follow the Volume ladder's rules (trade tags): Bull = calls bought + puts sold, Bear = puts bought +
-   calls sold, Net = Bull - Bear. Positions basis: open interest OR today's volume, never both.
+   Profile modes follow the Volume ladder's rules (trade tags): Calls|Puts (calls right, puts left), Bull|Bear (Bull =
+   calls bought + puts sold, right; Bear = puts bought + calls sold, left), Net = Bull - Bear.
+   2026-11-09 follow-ups: Positions from = the MAP's set, one at a time: OI | Vol | OI + vol | OI + signed (wide_feed
+   stores every greek on three books: OI g/va/ch, volume gv/vav/chv, signed trades gt/vat/cht; OI + vol = OI + volume,
+   OI + signed = OI + signed trades, exactly as the MAP's bookCP()). Show adds Charm (dealer delta change per hour).
+   Price zoom: ±1% / ±2% (default) / All around the current price, mouse wheel to zoom, drag to pan, double-click or
+   Reset to go back to the button's range - the orbs, the gamma ladder and the volume profile move together.
    Positioning read, not a trade signal. */
 var OR={on:load("orOn","0")==="1", meas:load("orMeas","g"), basis:load("orBasis","oi"), book:load("orBook","all"),
-  prof:load("orProf","cp"), blk:+load("orBlk","1")||1, day:null, J:null, loading:false, err:null, i:-1, follow:true,
+  prof:load("orProf","cp"), blk:+load("orBlk","1")||1, zoom:load("orZoom","2"), view:null, drag:null, dragged:false, raf:0,
+  day:null, J:null, loading:false, err:null, i:-1, follow:true,
   play:null, timer:null, liveBusy:false, liveAt:0, liveT:null, P:null, key:"", reloadAt:0, g:null};
-if(!["g","va","both"].includes(OR.meas)) OR.meas="g"; if(!["oi","vol"].includes(OR.basis)) OR.basis="oi";
-if(!["0","7","all"].includes(OR.book)) OR.book="all"; if(!["c","p","bull","bear","net"].includes(OR.prof)) OR.prof="c";
-if(![1,3,5].includes(OR.blk)) OR.blk=1;
-const OR_CUM=["c","p","cb","cs","pb","ps","cP","pP"], OR_SNAP=["g","gv","gt","va"], OR_GQ=1e-5;
+if(!["g","va","ch","both"].includes(OR.meas)) OR.meas="g"; if(!["oi","vol","oiv","ois"].includes(OR.basis)) OR.basis="oi";
+if(!["0","7","all"].includes(OR.book)) OR.book="all";
+OR.prof={c:"cp",p:"cp",bull:"bb",bear:"bb"}[OR.prof]||OR.prof; if(!["cp","bb","net"].includes(OR.prof)) OR.prof="cp";
+if(![1,3,5].includes(OR.blk)) OR.blk=1; if(!["1","2","all"].includes(OR.zoom)) OR.zoom="2";
+const OR_CUM=["c","p","cb","cs","pb","ps","cP","pP"], OR_SNAP=["g","gv","gt","va","vav","vat","ch","chv","cht"], OR_GQ=1e-5;
+/* the three stored books per greek (wide_feed "BASES"): OI, today's volume, signed trades */
+const OR_FLD={g:["g","gv","gt"],va:["va","vav","vat"],ch:["ch","chv","cht"]};
+const OR_BASIS_TXT={oi:"open interest",vol:"today's volume",oiv:"open interest + today's volume",ois:"open interest + today's signed trades"};
+const OR_MEAS_TXT={g:"gamma",va:"vanna",ch:"charm"};
+const OR_UNIT={g:"gamma, $ per 1% move",va:"vanna, $ per vol point",ch:"charm, $ of delta per hour"};
 const OR_COL={call:"#3FC1E8",put:"#FF5FA2",pos:"#FFD23F",neg:"#B26BFF",poc:"#FF8A3D",up:"#58D68D",dn:"#FF7B72"};
 /* day file v2 -> full blocks (inverse of wide_feed.encode_slots); v1 blocks pass through */
 function orDecode(S){ const out=[], prev={}; const step=S.step||1;
   for(const e of S.slots||[]){ if(!e.dz){ out.push(e); continue; }
     const ks=[]; for(let i=0;i<e.n;i++) ks.push(+(e.k0+step*i).toFixed(6));
     const b={t:e.t,x:e.x,k:ks}; if(e.ex) b.ex=e.ex;
-    for(const g of ["0","7"]){ for(const f of OR_SNAP) b[f+g]=(e[f+g]||[]).map(v=>v*OR_GQ);
-      for(const f of OR_CUM){ const pm=prev[f+g]||new Map(), nm=new Map(), d=e[f+g]||[], cur=ks.map((k,i)=>{ const v=(pm.get(k)||0)+(d[i]||0); nm.set(k,v); return v; });
+    const sc=e.sc||{};
+    for(const g of ["0","7"]){ for(const f of OR_SNAP){ const q=sc[f+g]||OR_GQ; b[f+g]=(e[f+g]||[]).map(v=>v*q); }
+      for(const f of OR_CUM){ if(!e[f+g]) continue; const pm=prev[f+g]||new Map(), nm=new Map(), d=e[f+g], cur=ks.map((k,i)=>{ const v=(pm.get(k)||0)+(d[i]||0); nm.set(k,v); return v; });
         prev[f+g]=nm; b[f+g]=(f==="cP"||f==="pP")?cur.map(v=>v/1000):cur; } }
     out.push(b); }
   return out; }
@@ -7025,6 +7269,14 @@ function orTimer(){ const want=OR.on&&st.tab==="orbs"; if(want&&!OR.timer) OR.ti
 /* the chosen expiries */
 function orArr(s,f){ const a=s[f+"0"]||[], b=s[f+"7"]||[]; if(OR.book==="0") return a; if(OR.book==="7") return b; return a.map((v,i)=>(v||0)+(b[i]||0)); }
 function orGF(){ return OR.basis==="vol"?"gv":"g"; }
+/* one greek ("g" | "va" | "ch") on the chosen positions basis: OI · Vol · OI + vol · OI + signed (MAP's bookCP) */
+function orG(s,m){ const F=OR_FLD[m]||OR_FLD.g, o=orArr(s,F[0]);
+  if(OR.basis==="oi") return o; if(OR.basis==="vol") return orArr(s,F[1]).concat().map(v=>v||0);
+  const x=orArr(s,OR.basis==="oiv"?F[1]:F[2]); return o.map((v,i)=>(v||0)+(x[i]||0)); }
+function orMeasKey(){ return OR.meas==="both"?"g":OR.meas; }
+/* does this day file carry the field the current view needs? (day files written before 2026-11-09 follow-ups do not) */
+function orHas(s,m){ const F=OR_FLD[m]; const need=OR.basis==="oi"?[F[0]]:OR.basis==="vol"?[F[1]]:OR.basis==="oiv"?[F[0],F[1]]:[F[0],F[2]];
+  return need.every(f=>(s[f+"0"]||[]).length||(s[f+"7"]||[]).length); }
 /* 1 / 3 / 5-minute blocks from the 1-minute slots: the LAST minute of each block carries the block (greeks are that
    minute's snapshot, volumes are cumulative for the day); candles = OHLC of spot over the block's minutes. */
 function orPrep(){
@@ -7035,14 +7287,15 @@ function orPrep(){
   const live=orLiveDay(); bk.forEach((b,q)=>{ b.s=sl[b.j]; b.cd=cd.get(b.t0)||{t:b.t0,o:b.s.x,h:b.s.x,l:b.s.x,c:b.s.x};
     b.building=live&&q===bk.length-1&&B>1&&b.tl<b.t0+B-1; });
   const allK=new Set(); for(const b of bk) for(const k of b.s.k) allK.add(k); const ks=[...allK].sort((a,b)=>a-b);
-  const mx={}; for(const f of ["g","gv","va"]){ let m=0; mx[f]=bk.map(b=>{ for(const v of orArr(b.s,f)) m=Math.max(m,Math.abs(v||0)); return m||1; }); }
+  const mx={}; for(const f of ["g","va","ch"]){ let m=0; mx[f]=bk.map(b=>{ for(const v of orG(b.s,f)) m=Math.max(m,Math.abs(v||0)); return m||1; }); }
   const poc=bk.map(b=>orProfile(b.s).poc);
   return {bk,ks,mx,poc,lo:ks[0],hi:ks[ks.length-1],step:S.step||1}; }
-/* volume profile for the chosen mode; POC / value area on the series shown (Net: |net|) */
+/* volume profile for the chosen mode; POC / value area on the totals shown: Calls|Puts = calls + puts, Bull|Bear = bull +
+   bear, Net = |bull - bear| */
 function orProfile(s){
   const c=orArr(s,"c"), p=orArr(s,"p"), cb=orArr(s,"cb"), cs=orArr(s,"cs"), pb=orArr(s,"pb"), ps=orArr(s,"ps");
   const bull=c.map((_,i)=>(cb[i]||0)+(ps[i]||0)), bear=c.map((_,i)=>(pb[i]||0)+(cs[i]||0)), net=bull.map((v,i)=>v-bear[i]);
-  const m=OR.prof, ser=m==="c"?c:m==="p"?p:m==="bull"?bull:m==="bear"?bear:net.map(Math.abs);
+  const m=OR.prof, ser=m==="cp"?c.map((v,i)=>(v||0)+(p[i]||0)):m==="bb"?bull.map((v,i)=>v+bear[i]):net.map(Math.abs);
   let pi=0; for(let i=1;i<ser.length;i++) if((ser[i]||0)>(ser[pi]||0)) pi=i;
   const sum=ser.reduce((a,b)=>a+(b||0),0); let lo=pi,hi=pi,acc=ser[pi]||0;
   while(sum>0&&acc<0.7*sum&&(lo>0||hi<ser.length-1)){ const a=lo>0?ser[lo-1]||0:-1, b=hi<ser.length-1?ser[hi+1]||0:-1; if(a>=b){ lo--; acc+=a; } else { hi++; acc+=b; } }
@@ -7053,9 +7306,20 @@ function orFk(v){ return Number.isInteger(v)?String(v):(+v).toFixed(1); }
 function orNice(span,n){ const raw=span/(n||8), p=Math.pow(10,Math.floor(Math.log10(raw||1))); for(const m of [1,2,2.5,5,10]) if(raw<=m*p) return m*p; return 10*p; }
 function orA(a){ return Math.round(Math.max(0,Math.min(1,a))*255).toString(16).padStart(2,"0"); }
 const OR_PAD={t:12,b:34};
-function orY(h){ const P=OR.P, b=P.bk[OR.i]; let lo=Infinity,hi=-Infinity; for(let q=0;q<=OR.i;q++){ const c=P.bk[q].cd; lo=Math.min(lo,c.l); hi=Math.max(hi,c.h); }
-  if(!isFinite(lo)){ lo=hi=b.s.x; } const span=Math.max((hi-lo)*0.6,b.s.x*0.006); lo=Math.max(P.lo,lo-span); hi=Math.min(P.hi,hi+span);
-  const H=h-OR_PAD.t-OR_PAD.b; return {lo,hi,H,Y:v=>OR_PAD.t+H*(1-(v-lo)/((hi-lo)||1))}; }
+/* price range shown by all three panes: the zoom button's range around the current block's price (±1% / ±2% / All
+   strikes), or the range set by the mouse wheel / drag (OR.view) until Reset or a double-click */
+function orView(){ const P=OR.P, b=P.bk[OR.i]; if(OR.view) return OR.view;
+  if(OR.zoom==="all") return {lo:P.lo-P.step/2,hi:P.hi+P.step/2}; const f=OR.zoom==="1"?0.01:0.02, x=b.s.x; return {lo:x*(1-f),hi:x*(1+f)}; }
+function orY(h){ const {lo,hi}=orView(); const H=h-OR_PAD.t-OR_PAD.b; return {lo,hi,H,Y:v=>OR_PAD.t+H*(1-(v-lo)/((hi-lo)||1))}; }
+function orSetView(lo,hi){ const P=OR.P; if(!P) return; const full=(P.hi-P.lo)+P.step*4, minS=P.step*3; let sp=Math.max(minS,Math.min(full,hi-lo)), c=(lo+hi)/2;
+  const L0=P.lo-P.step*2, H0=P.hi+P.step*2; c=Math.max(L0+sp/2,Math.min(H0-sp/2,c)); OR.view={lo:c-sp/2,hi:c+sp/2}; orRedraw(); }
+function orRedraw(){ if(OR.raf) return; OR.raf=requestAnimationFrame(()=>{ OR.raf=0; OR.key=""; renderOrbs(); }); }
+function orWheel(e){ if(!OR.P) return; e.preventDefault(); const r=e.currentTarget.getBoundingClientRect(), y=orY(r.height), yy=e.clientY-r.top;
+  const p=y.lo+(y.hi-y.lo)*(1-(yy-OR_PAD.t)/y.H), f=e.deltaY>0?1.18:1/1.18; orSetView(p-(p-y.lo)*f,p+(y.hi-p)*f); }
+function orDragStart(e){ if(!OR.P||e.button!==0) return; const r=e.currentTarget.getBoundingClientRect(), y=orY(r.height); OR.drag={y0:e.clientY,lo:y.lo,hi:y.hi,H:y.H}; OR.dragged=false; }
+function orDragMove(e){ const d=OR.drag; if(!d) return; if(!(e.buttons&1)){ OR.drag=null; return; } const dy=e.clientY-d.y0; if(Math.abs(dy)>4) OR.dragged=true;
+  if(OR.dragged){ const dp=dy/d.H*(d.hi-d.lo); orHideTip(); orSetView(d.lo+dp,d.hi+dp); } }
+function orZoomReset(){ OR.view=null; orRedraw(); }
 function orHatch(ctx,x,y,w,h,col){ if(!(w>0)) return; ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip(); ctx.strokeStyle=col; ctx.lineWidth=1.2; for(let q=x-h;q<x+w+h;q+=4){ ctx.beginPath(); ctx.moveTo(q,y+h); ctx.lineTo(q+h,y); ctx.stroke(); } ctx.restore(); }
 function orDrawMain(cv){
   const P=OR.P, {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const y=orY(h), b=P.bk[OR.i], AXL=66, t0=570, t1=975, W=w-AXL-10;
@@ -7063,8 +7327,9 @@ function orDrawMain(cv){
   ctx.font="15px "+C("--font"); ctx.fillStyle="#DCE6F2"; ctx.strokeStyle="#ffffff14"; ctx.lineWidth=1;
   const lab=orNice(y.hi-y.lo,8); for(let v=Math.ceil(y.lo/lab)*lab; v<=y.hi; v+=lab){ const yy=y.Y(v); ctx.beginPath(); ctx.moveTo(AXL,yy); ctx.lineTo(w,yy); ctx.stroke(); ctx.fillText(orFk(v),4,yy+5); }
   for(let hh=10;hh<=16;hh++){ const x=X(hh*60); ctx.beginPath(); ctx.moveTo(x,OR_PAD.t); ctx.lineTo(x,h-OR_PAD.b); ctx.stroke(); ctx.fillText(String(hh>12?hh-12:hh)+(hh>=12?" pm":" am"),x-14,h-10); }
-  const gf=orGF(), mf=OR.meas==="va"?"va":gf, ring=OR.meas==="both";
-  for(let q=0;q<=OR.i;q++){ const bb=P.bk[q], sl=bb.s, xc=X(bb.t0+OR.blk/2), a=orArr(sl,mf), m=P.mx[mf][OR.i], rv=ring?orArr(sl,"va"):null, mv=P.mx.va[OR.i];
+  const mf=orMeasKey(), ring=OR.meas==="both";
+  ctx.save(); ctx.beginPath(); ctx.rect(AXL,OR_PAD.t,w-AXL,h-OR_PAD.t-OR_PAD.b); ctx.clip();
+  for(let q=0;q<=OR.i;q++){ const bb=P.bk[q], sl=bb.s, xc=X(bb.t0+OR.blk/2), a=orG(sl,mf), m=P.mx[mf][OR.i], rv=ring?orG(sl,"va"):null, mv=P.mx.va[OR.i];
     for(let i=0;i<sl.k.length;i++){ const k=sl.k[i]; if(k<y.lo-step||k>y.hi+step) continue; const yy=y.Y(k), v=a[i]||0, f=Math.sqrt(Math.abs(v)/m);
       if(f>0.04){ ctx.fillStyle=(v>=0?OR_COL.pos:OR_COL.neg)+orA(0.25+0.7*f); ctx.beginPath(); ctx.ellipse(xc,yy,Math.max(1,Math.min(colW*0.62,colW*0.62*f+0.6)),Math.max(1,rowH*0.48*Math.max(f,0.35)),0,0,7); ctx.fill(); }
       if(rv){ const u=rv[i]||0, r=Math.sqrt(Math.abs(u)/mv); if(r>0.08){ ctx.strokeStyle=(u>=0?"#7FE7FF":"#FF9AC8")+orA(0.35+0.6*r); ctx.lineWidth=1.3; ctx.beginPath(); ctx.ellipse(xc,yy,Math.max(1.5,colW*0.55*r),Math.max(1.5,rowH*0.42*Math.max(r,0.35)),0,0,7); ctx.stroke(); } } }
@@ -7074,12 +7339,13 @@ function orDrawMain(cv){
   for(let q=0;q<=OR.i;q++){ const k=P.poc[q]; if(k==null){ on=false; continue; } const xx=X(P.bk[q].t0+OR.blk/2), yy=y.Y(k); if(!on){ ctx.moveTo(xx,yy); on=true; } else ctx.lineTo(xx,yy); } ctx.stroke(); ctx.restore();
   for(let q=0;q<=OR.i;q++){ const c=P.bk[q].cd, x=X(c.t+OR.blk/2), up=c.c>=c.o, bw=Math.max(1.5,colW*0.6); ctx.strokeStyle=up?"#F1F5FB":"#9FB2CC"; ctx.fillStyle=up?"#0A1426":"#9FB2CC"; ctx.lineWidth=1.2;
     ctx.beginPath(); ctx.moveTo(x,y.Y(c.h)); ctx.lineTo(x,y.Y(c.l)); ctx.stroke(); const yo=y.Y(Math.max(c.o,c.c)), yc=y.Y(Math.min(c.o,c.c)); ctx.fillRect(x-bw/2,yo,bw,Math.max(1,yc-yo)); ctx.strokeRect(x-bw/2,yo,bw,Math.max(1,yc-yo)); }
+  ctx.restore();
   const ys=y.Y(b.s.x); ctx.save(); ctx.strokeStyle="#ffffffbb"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(AXL,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
   ctx.font="bold 16px "+C("--font"); const st0=b.s.x.toFixed(2), tw=ctx.measureText(st0).width; ctx.fillStyle="#0A1426d9"; ctx.fillRect(w-tw-12,ys-21,tw+8,18); ctx.fillStyle="#fff"; ctx.fillText(st0,w-tw-8,ys-7);
   OR.g={X,y,AXL,W,t0,t1,w,h}; }
 function orDrawLadder(cv){
   const P=OR.P, b=P.bk[OR.i], s=b.s, {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const y=orY(h);
-  const mf=OR.meas==="va"?"va":orGF(), a=orArr(s,mf), rowH=Math.max(2,Math.abs(y.Y(0)-y.Y(P.step))-1);
+  const mf=orMeasKey(), a=orG(s,mf), rowH=Math.max(2,Math.abs(y.Y(0)-y.Y(P.step))-1);
   let m=0; for(let i=0;i<s.k.length;i++) if(s.k[i]>=y.lo&&s.k[i]<=y.hi) m=Math.max(m,Math.abs(a[i]||0)); m=m||1;
   const mid=w/2; ctx.strokeStyle="#ffffff40"; ctx.beginPath(); ctx.moveTo(mid,OR_PAD.t); ctx.lineTo(mid,h-OR_PAD.b); ctx.stroke();
   const ord=s.k.map((k,i)=>i).filter(i=>s.k[i]>=y.lo&&s.k[i]<=y.hi);
@@ -7090,37 +7356,42 @@ function orDrawLadder(cv){
     for(const {i,y:yy} of L){ const v=a[i], t=orFk(s.k[i])+" "+orMoney(v), tw=ctx.measureText(t).width, tx=v>=0?Math.max(2,mid-tw-6):Math.min(w-tw-2,mid+6);
       ctx.fillStyle="#0A1426e0"; ctx.fillRect(tx-3,yy-12,tw+6,17); ctx.fillStyle="#fff"; ctx.fillText(t,tx,yy+3); } }
   const ys=y.Y(s.x); ctx.save(); ctx.strokeStyle="#ffffffbb"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(0,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
-  ctx.font="15px "+C("--font"); ctx.fillStyle="#DCE6F2"; ctx.fillText(OR.meas==="va"?"vanna, $ per vol point":"gamma, $ per 1% move",4,h-10); }
+  ctx.font="15px "+C("--font"); ctx.fillStyle="#DCE6F2"; ctx.fillText(OR_UNIT[mf],4,h-10); }
 function orDrawProfile(cv){
   const P=OR.P, b=P.bk[OR.i], s=b.s, {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const y=orY(h), pr=orProfile(s), rowH=Math.max(2,Math.abs(y.Y(0)-y.Y(P.step))-1), M=OR.prof;
-  let m=0; for(let i=0;i<s.k.length;i++) if(s.k[i]>=y.lo&&s.k[i]<=y.hi) m=Math.max(m,M==="net"?Math.abs(pr.net[i]):M==="c"?pr.c[i]:M==="p"?pr.p[i]:pr.ser[i]); m=m||1;
-  const net=M==="net", mid=net?w/2:6, W=net?w/2-8:w-12;
-  if(net){ ctx.strokeStyle="#ffffff40"; ctx.beginPath(); ctx.moveTo(mid,OR_PAD.t); ctx.lineTo(mid,h-OR_PAD.b); ctx.stroke(); }
+  let m=0; for(let i=0;i<s.k.length;i++) if(s.k[i]>=y.lo&&s.k[i]<=y.hi) m=Math.max(m,M==="net"?Math.abs(pr.net[i]):M==="cp"?Math.max(pr.c[i]||0,pr.p[i]||0):Math.max(pr.bull[i]||0,pr.bear[i]||0)); m=m||1;
+  /* every mode is drawn from a centre axis: Calls|Puts = calls right / puts left; Bull|Bear = bull right / bear left;
+     Net = bull - bear (green right / red left). Solid = bought, striped = sold, faint = untagged (Calls|Puts only). */
+  const mid=w/2, W=w/2-8;
+  ctx.strokeStyle="#ffffff40"; ctx.beginPath(); ctx.moveTo(mid,OR_PAD.t); ctx.lineTo(mid,h-OR_PAD.b); ctx.stroke();
+  const bar=(dir,yy,f,tot,B_,S_,col)=>{ if(tot>0){ ctx.fillStyle=col+"40"; ctx.fillRect(dir>0?mid:mid-tot*f,yy,tot*f,rowH); }
+    ctx.fillStyle=col; ctx.fillRect(dir>0?mid:mid-B_*f,yy,B_*f,rowH); orHatch(ctx,dir>0?mid+B_*f:mid-(B_+S_)*f,yy,S_*f,rowH,col); };
   for(let i=0;i<s.k.length;i++){ const k=s.k[i]; if(k<y.lo||k>y.hi) continue; const yy=y.Y(k)-rowH/2, f=W/m;
-    if(M==="c"||M==="p"){ const tot=(M==="c"?pr.c:pr.p)[i]||0, B_=(M==="c"?pr.cb:pr.pb)[i]||0, S_=(M==="c"?pr.cs:pr.ps)[i]||0, col=M==="c"?OR_COL.call:OR_COL.put;
-      ctx.fillStyle=col+"40"; ctx.fillRect(mid,yy,tot*f,rowH); ctx.fillStyle=col; ctx.fillRect(mid,yy,B_*f,rowH); orHatch(ctx,mid+B_*f,yy,S_*f,rowH,col); }
-    else if(M==="bull"){ ctx.fillStyle=OR_COL.up; ctx.fillRect(mid,yy,(pr.cb[i]||0)*f,rowH); orHatch(ctx,mid+(pr.cb[i]||0)*f,yy,(pr.ps[i]||0)*f,rowH,OR_COL.up); }
-    else if(M==="bear"){ ctx.fillStyle=OR_COL.dn; ctx.fillRect(mid,yy,(pr.pb[i]||0)*f,rowH); orHatch(ctx,mid+(pr.pb[i]||0)*f,yy,(pr.cs[i]||0)*f,rowH,OR_COL.dn); }
+    if(M==="cp"){ bar(1,yy,f,pr.c[i]||0,pr.cb[i]||0,pr.cs[i]||0,OR_COL.call); bar(-1,yy,f,pr.p[i]||0,pr.pb[i]||0,pr.ps[i]||0,OR_COL.put); }
+    else if(M==="bb"){ bar(1,yy,f,0,pr.cb[i]||0,pr.ps[i]||0,OR_COL.up); bar(-1,yy,f,0,pr.pb[i]||0,pr.cs[i]||0,OR_COL.dn); }
     else { const v=pr.net[i]||0, L=Math.abs(v)*f; ctx.fillStyle=v>=0?OR_COL.up:OR_COL.dn; ctx.fillRect(v>=0?mid:mid-L,yy,L,rowH); } }
   const line=(k,dash,col,txt)=>{ if(k==null) return; const yy=y.Y(k); ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(w,yy); ctx.stroke(); ctx.restore();
     ctx.font="bold 15px "+C("--font"); const tt=txt+" "+orFk(k), tw=ctx.measureText(tt).width; ctx.fillStyle="#0A1426e0"; ctx.fillRect(w-tw-10,yy-20,tw+8,18); ctx.fillStyle=col; ctx.fillText(tt,w-tw-6,yy-6); };
   line(pr.vah,[5,4],"#FFB07A","VAH"); line(pr.val,[5,4],"#FFB07A","VAL"); line(pr.poc,[],OR_COL.poc,"POC");
   const ys=y.Y(s.x); ctx.save(); ctx.strokeStyle="#ffffffbb"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(0,ys); ctx.lineTo(w,ys); ctx.stroke(); ctx.restore();
   ctx.font="15px "+C("--font"); ctx.fillStyle="#DCE6F2";
-  ctx.fillText({c:"calls: solid bought · striped sold",p:"puts: solid bought · striped sold",bull:"calls bought + puts sold (striped)",bear:"puts bought + calls sold (striped)",net:"◂ bearish   net   bullish ▸"}[M],4,h-10);
+  ctx.fillText({cp:"◂ puts   calls ▸ · solid bought, striped sold",bb:"◂ bear   bull ▸ · solid bought, striped sold",net:"◂ bearish   net   bullish ▸"}[M],4,h-10);
   return pr; }
 function orRead(pr){
-  const P=OR.P, b=P.bk[OR.i], s=b.s, a=orArr(s,orGF()); let ip=-1,ineg=-1;
+  const P=OR.P, b=P.bk[OR.i], s=b.s, a=orG(s,"g"); let ip=-1,ineg=-1;
   for(let i=0;i<s.k.length;i++){ const v=a[i]||0; if(v>0&&(ip<0||v>a[ip])) ip=i; if(v<0&&(ineg<0||v<a[ineg])) ineg=i; }
   const near=k=>{ const d=k-s.x; return (d>=0?"+":"−")+Math.abs(d).toFixed(P.step>=5?0:2)+" ("+Math.abs(d/s.x*100).toFixed(2)+"%) from price"; };
-  const bt={oi:"open interest",vol:"today's volume"}[OR.basis], ex={"0":"today's expiry","7":"the next 7 days' expiries",all:"all expiries to 7 days"}[OR.book];
-  const pn={c:"calls",p:"puts",bull:"bullish contracts",bear:"bearish contracts",net:"net (bullish − bearish) contracts"}[OR.prof];
+  const bt=OR_BASIS_TXT[OR.basis], ex={"0":"today's expiry","7":"the next 7 days' expiries",all:"all expiries to 7 days"}[OR.book];
+  const pn={cp:"all contracts (calls + puts)",bb:"tagged contracts (bull + bear)",net:"net (bullish − bearish) contracts"}[OR.prof];
   let t=`<b>${esc(st.sym)} ${s.x.toFixed(2)}</b> at ${esc(s.t)}${b.building?" (block still building)":""} · gamma from ${bt}, ${ex}. `;
   if(ip>=0) t+=`Biggest <b class="orpos">positive gamma ${orFk(s.k[ip])}</b> ${orMoney(a[ip])} (${near(s.k[ip])}): price tends to slow or stick there. `;
   if(ineg>=0) t+=`Biggest <b class="orneg">negative gamma ${orFk(s.k[ineg])}</b> ${orMoney(a[ineg])} (${near(s.k[ineg])}): price can speed up through it. `;
   if(pr&&pr.poc!=null){ const inVA=s.x>=pr.val&&s.x<=pr.vah; t+=`Busiest strike for ${pn} (<b class="orpoc">POC</b>) <b class="orpoc">${orFk(pr.poc)}</b>; 70% between ${orFk(pr.val)} and ${orFk(pr.vah)}. Price is ${inVA?"<b>inside</b> that range":"<b>outside</b> that range"}.`;
     const j0=Math.max(0,OR.i-Math.round(30/OR.blk)), p0=P.poc[j0]; if(p0!=null&&p0!==pr.poc&&OR.i>0) t+=` The POC moved ${p0<pr.poc?"up":"down"} from ${orFk(p0)} over the last half hour.`; }
-  if(OR.basis==="vol"&&OR.meas!=="g") t+=` <span class="ornote">Vanna is always from open interest.</span>`;
+  if(OR.meas==="ch"){ const c=orG(s,"ch"); let tot=0,near=0; for(let i=0;i<s.k.length;i++){ tot+=c[i]||0; if(Math.abs(s.k[i]-s.x)<=s.x*0.005) near+=c[i]||0; }
+    t+=` <b>Charm</b> (${bt}): dealers' delta changes by <b class="${tot>=0?"orpos":"orneg"}">${orMoney(tot)}</b> per hour from time passing alone (${orMoney(near)} within ±0.5% of price); ${tot>=0?"to stay hedged they <b>sell</b> about that much each hour":"to stay hedged they <b>buy</b> about that much each hour"}, before any price move.`; }
+  const miss=["g",OR.meas==="both"?"va":OR.meas==="g"?null:OR.meas].filter(Boolean).filter(m=>!orHas(s,m));
+  if(miss.length) t+=` <span class="ornote">This day file has no ${miss.map(m=>OR_MEAS_TXT[m]).join(" / ")} on this basis (written before 2026-11-09); rebuild it with run_wide.sh days.</span>`;
   return t+` <span class="ornote">Positioning read, not a trade signal.</span>`; }
 function orSeg(id,key,opts){ return `<span class="orgrp"><span class="orlab">${opts.lab}</span><span class="orseg" id="${id}">`+opts.v.map(([v,t,tt])=>`<button data-k="${key}" data-v="${v}" aria-pressed="${String(OR[key])===String(v)}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`).join("")+`</span></span>`; }
 function renderOrbs(){
@@ -7128,13 +7399,16 @@ function renderOrbs(){
   const hk=[OR.on,OR.meas,OR.basis,OR.book,OR.prof,OR.blk].join("|");
   if(head.dataset.k!==hk){ head.dataset.k=hk;
     head.innerHTML=`<span class="big">Orbs</span><button class="sxbtn" id="orOnBtn" aria-pressed="${OR.on}">${OR.on?"ON":"OFF"}</button>`+(OR.on?
-      orSeg("orMeasSeg","meas",{lab:"Show",v:[["g","Gamma","How much dealers must buy or sell per 1% move"],["va","Vanna","How dealer hedges change when volatility moves 1 point"],["both","Both","Gamma filled, vanna as rings"]]})+
-      orSeg("orBasisSeg","basis",{lab:"Positions from",v:[["oi","Open interest","Contracts open at the start of the day, simple rule: dealers long calls, short puts"],["vol","Today's volume","Today's contracts, same simple rule"]]})+
+      orSeg("orMeasSeg","meas",{lab:"Show",v:[["g","Gamma","How much dealers must buy or sell per 1% move"],["va","Vanna","How dealer hedges change when volatility moves 1 point"],["ch","Charm","How much dealers' delta changes each hour from time passing alone (yellow = their delta grows, so they sell to stay hedged; purple = it shrinks, they buy). Black-Scholes, each strike's own IV, calendar time."],["both","Both","Gamma filled, vanna as rings"]]})+
+      orSeg("orBasisSeg","basis",{lab:"Positions from",v:[["oi","OI","Start-of-day open interest, simple rule: dealers long calls, short puts (same as the Map's OI)"],["vol","Vol","Today's volume only, same simple rule (the Map's Vol)"],["oiv","OI + vol","Open interest plus today's volume, both with the simple rule (the Map's OI + vol)"],["ois","OI + signed","Open interest plus today's tagged buys and sells: customer buys leave dealers short, customer sells leave dealers long (the Map's OI + signed)"]]})+
       orSeg("orBookSeg","book",{lab:"Expiries",v:[["0","Today"],["7","Next 7 days"],["all","All"]]})+
-      orSeg("orProfSeg","prof",{lab:"Volume",v:[["c","Calls"],["p","Puts"],["bull","Bull","Calls bought + puts sold (by trade tag)"],["bear","Bear","Puts bought + calls sold (by trade tag)"],["net","Net","Bull minus Bear per strike"]]})+
-      orSeg("orBlkSeg","blk",{lab:"Block",v:[["1","1 min"],["3","3 min"],["5","5 min"]]}):`<span>Off: nothing is fetched or drawn.</span>`);
+      orSeg("orProfSeg","prof",{lab:"Volume",v:[["cp","Calls/Puts","Calls to the right, puts to the left of the centre line; solid = bought, striped = sold, faint = no trade tag"],["bb","Bull/Bear","Bull (calls bought solid + puts sold striped) to the right, Bear (puts bought solid + calls sold striped) to the left"],["net","Net","Bull minus Bear per strike: green to the right, red to the left"]]})+
+      orSeg("orBlkSeg","blk",{lab:"Block",v:[["1","1 min"],["3","3 min"],["5","5 min"]]})+
+      orSeg("orZoomSeg","zoom",{lab:"Price",v:[["1","±1%","1% either side of the current price"],["2","±2%","2% either side of the current price (default)"],["all","All","Every stored strike"]]})+
+      `<button class="sxbtn" id="orReset" title="Back to the price button's range (or double-click a chart). Mouse wheel on a chart zooms, drag pans.">Reset</button>`:`<span>Off: nothing is fetched or drawn.</span>`);
     document.getElementById("orOnBtn").onclick=()=>{ OR.on=!OR.on; save("orOn",OR.on?"1":"0"); OR.key=""; if(!OR.on){ orStop(); OR.J=null; OR.P=null; } renderOrbs(); };
-    head.querySelectorAll(".orseg button").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; OR[k]=k==="blk"?+b.dataset.v:b.dataset.v; save("or"+k[0].toUpperCase()+k.slice(1),String(OR[k])); OR.P=null; OR.key=""; head.dataset.k=""; renderOrbs(); }); }
+    head.querySelectorAll(".orseg button").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; OR[k]=k==="blk"?+b.dataset.v:b.dataset.v; save("or"+k[0].toUpperCase()+k.slice(1),String(OR[k])); if(k==="zoom") OR.view=null; OR.P=null; OR.key=""; head.dataset.k=""; renderOrbs(); });
+    const rb=document.getElementById("orReset"); if(rb) rb.onclick=orZoomReset; }
   if(!OR.on){ orStop(); body.innerHTML='<p class="veread">Off. Press <b>ON</b> to see dealer gamma by strike through the day as orbs, with the volume profile beside it.</p>'; OR.key=""; return; }
   if(!OR.J){ if(!OR.loading&&(!OR.err||Date.now()-OR.reloadAt>60000)){ OR.reloadAt=Date.now(); orLoadDay(); }
     body.innerHTML=`<p class="veread">${OR.err?esc(OR.err):"Loading…"}</p>`; return; }
@@ -7142,7 +7416,7 @@ function renderOrbs(){
   const S=orSym(); if(!S||!S.slots.length){ body.innerHTML=`<p class="veread">${esc(st.sym)} has no Orbs data for ${esc(OR.J.day||"")}.</p>`; return; }
   if(!OR.P||OR.P.sym!==st.sym){ OR.P=orPrep(); if(!OR.P) return; OR.P.sym=st.sym; }
   const n=OR.P.bk.length; if(OR.follow||OR.i<0||OR.i>n-1) OR.i=n-1;
-  const W=(body.clientWidth||900); const key=[st.sym,OR.day,n,OR.i,OR.P.bk[n-1].s.t,OR.blk,OR.meas,OR.basis,OR.book,OR.prof,W].join("|");
+  const W=(body.clientWidth||900); const key=[st.sym,OR.day,n,OR.i,OR.P.bk[n-1].s.t,OR.blk,OR.meas,OR.basis,OR.book,OR.prof,OR.zoom,OR.view?OR.view.lo.toFixed(3)+"/"+OR.view.hi.toFixed(3):"",W].join("|");
   if(key===OR.key&&body.querySelector("#orMainC")) return; OR.key=key;
   if(!body.querySelector("#orMainC")){
     body.innerHTML=`<div class="ortime"><button class="sxbtn" id="orPlay">▶ Play</button><input type="range" id="orSlider" min="0" max="0" value="0" aria-label="Time"><span class="ort" id="orT">--:--</span><button class="sxbtn" id="orNow">Now</button><span class="orbadge" id="orBadge"></span></div>
@@ -7155,16 +7429,18 @@ function renderOrbs(){
     document.getElementById("orNow").onclick=()=>{ OR.follow=true; orStopPlay(); OR.key=""; renderOrbs(); };
     document.getElementById("orPlay").onclick=()=>{ if(OR.play){ orStopPlay(); return; } if(OR.i>=OR.P.bk.length-1) OR.i=0; OR.follow=false; document.getElementById("orPlay").textContent="❚❚ Pause";
       OR.play=setInterval(()=>{ if(!OR.P||st.tab!=="orbs"){ orStopPlay(); return; } if(OR.i>=OR.P.bk.length-1){ orStopPlay(); OR.follow=true; OR.key=""; renderOrbs(); return; } OR.i++; OR.key=""; renderOrbs(); },350); };
-    const mc=document.getElementById("orMainC"), pc=document.getElementById("orProfC");
-    mc.addEventListener("mousemove",e=>orHover(e,"main")); mc.addEventListener("mouseleave",orHideTip);
-    pc.addEventListener("mousemove",e=>orHover(e,"prof")); pc.addEventListener("mouseleave",orHideTip);
-    mc.addEventListener("click",e=>{ const q=orAt(e); if(q==null) return; OR.i=q; OR.follow=q===OR.P.bk.length-1; orStopPlay(); OR.key=""; renderOrbs(); }); }
+    const mc=document.getElementById("orMainC"), pc=document.getElementById("orProfC"), lc=document.getElementById("orLadC");
+    mc.addEventListener("mousemove",e=>{ if(OR.drag&&OR.dragged) return; orHover(e,"main"); }); mc.addEventListener("mouseleave",orHideTip);
+    pc.addEventListener("mousemove",e=>{ if(OR.drag&&OR.dragged) return; orHover(e,"prof"); }); pc.addEventListener("mouseleave",orHideTip);
+    for(const cv of [mc,lc,pc]){ cv.addEventListener("wheel",orWheel,{passive:false}); cv.addEventListener("mousedown",orDragStart); cv.addEventListener("dblclick",e=>{ e.preventDefault(); orZoomReset(); }); cv.style.cursor="ns-resize"; }
+    mc.addEventListener("click",e=>{ if(OR.dragged){ OR.dragged=false; return; } const q=orAt(e); if(q==null) return; OR.i=q; OR.follow=q===OR.P.bk.length-1; orStopPlay(); OR.key=""; renderOrbs(); }); }
   const sl=document.getElementById("orSlider"); sl.max=String(n-1); sl.value=String(OR.i);
   const b=OR.P.bk[OR.i], live=orLiveDay();
   document.getElementById("orT").textContent=tlabel(b.t0)+(OR.blk>1?"–"+tlabel(Math.min(b.t0+OR.blk,976)):"");
   const bd=document.getElementById("orBadge"); bd.className="orbadge"+(live&&OR.follow?" live":""); bd.textContent=live?(OR.follow?"LIVE · new minute every 60 s":"REPLAY · live day"):"REPLAY · "+(OR.J.day||"");
-  document.getElementById("orSub").textContent=(OR.meas==="va"?"vanna":"gamma")+(OR.meas==="both"?" + vanna rings":"")+" · size = how big · yellow + / purple −";
-  document.getElementById("orLadT").textContent=b.s.t+" · "+(OR.meas==="va"?"Vanna":"Gamma");
+  const vw=orView(), zt=OR.view?"zoomed "+orFk(Math.round(vw.lo/OR.P.step)*OR.P.step)+"–"+orFk(Math.round(vw.hi/OR.P.step)*OR.P.step):{"1":"±1%","2":"±2%",all:"all strikes"}[OR.zoom];
+  document.getElementById("orSub").textContent=OR_MEAS_TXT[orMeasKey()]+(OR.meas==="both"?" + vanna rings":"")+" · "+({oi:"OI",vol:"Vol",oiv:"OI + vol",ois:"OI + signed"}[OR.basis])+" · size = how big · yellow + / purple − · "+zt;
+  document.getElementById("orLadT").textContent=b.s.t+" · "+({g:"Gamma",va:"Vanna",ch:"Charm"}[orMeasKey()]);
   orDrawMain(document.getElementById("orMainC")); orDrawLadder(document.getElementById("orLadC")); const pr=orDrawProfile(document.getElementById("orProfC"));
   document.getElementById("orProfT").textContent=orK(pr.sum)+" contracts to "+b.s.t;
   document.getElementById("orRead").innerHTML=orRead(pr); }
@@ -7176,11 +7452,13 @@ function orHover(e,which){ const P=OR.P, g=OR.g; if(!P||!g) return; const r=e.ta
   const k=Math.round((y.lo+(y.hi-y.lo)*(1-(yy-OR_PAD.t)/y.H))/P.step)*P.step; let q=OR.i;
   if(which==="main"){ q=orAt(e); if(q==null){ orHideTip(); return; } }
   const s=P.bk[q].s, i=s.k.findIndex(x=>Math.abs(x-k)<1e-6); if(i<0){ orHideTip(); return; }
-  const gv=orArr(s,orGF())[i]||0, va=orArr(s,"va")[i]||0, pr=orProfile(s);
-  const html=`<b>${orFk(k)}</b> at ${esc(s.t)}<br>gamma ${orMoney(gv)} · vanna ${orMoney(va)}<br>calls ${orK(pr.c[i]||0)} · puts ${orK(pr.p[i]||0)} contracts<br><span style="color:${OR_COL.up}">bull ${orK(pr.bull[i]||0)}</span> · <span style="color:${OR_COL.dn}">bear ${orK(pr.bear[i]||0)}</span> · net ${(pr.net[i]>=0?"+":"−")+orK(pr.net[i]||0)}`;
+  const gv=orG(s,"g")[i]||0, va=orG(s,"va")[i]||0, ch=orG(s,"ch")[i]||0, pr=orProfile(s);
+  const html=`<b>${orFk(k)}</b> at ${esc(s.t)} · ${esc(OR_BASIS_TXT[OR.basis])}<br>gamma ${orMoney(gv)} · vanna ${orMoney(va)} · charm ${orMoney(ch)}/h<br>calls ${orK(pr.c[i]||0)} · puts ${orK(pr.p[i]||0)} contracts<br><span style="color:${OR_COL.up}">bull ${orK(pr.bull[i]||0)}</span> · <span style="color:${OR_COL.dn}">bear ${orK(pr.bear[i]||0)}</span> · net ${(pr.net[i]>=0?"+":"−")+orK(pr.net[i]||0)}`;
   const t=document.getElementById("orTip"); if(!t) return; t.innerHTML=html; t.hidden=false; const vw=document.documentElement.clientWidth, w=t.offsetWidth, h=t.offsetHeight;
   let x=e.clientX+16, Y=e.clientY+12; if(x+w>vw-8) x=e.clientX-w-16; if(Y+h>window.innerHeight-8) Y=e.clientY-h-12; t.style.left=Math.max(8,x)+"px"; t.style.top=Math.max(8,Y)+"px"; }
 function orHideTip(){ const t=document.getElementById("orTip"); if(t) t.hidden=true; }
+window.addEventListener("mousemove",e=>{ if(OR.drag) orDragMove(e); });
+window.addEventListener("mouseup",()=>{ OR.drag=null; });
 
 })();
 </script>

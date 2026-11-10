@@ -80,12 +80,13 @@ def test_zero_cross_linear_and_nearest():
 
 
 def test_profiles_equal_dealer_profile():
-    ex = [{"F": 18.4, "T": 12 / 365, "rows": [(16.0, 300, 9000, 50, 400, 0.8, 0.85), (25.0, 20000, 100, 900, 20, 1.2, 1.1)]},
-          {"F": 19.1, "T": 40 / 365, "rows": [(15.0, 100, 4000, 0, 70, 0.7, 0.8), (30.0, 9000, 0, 300, 0, 1.0, 1.0)]}]
+    ex = [{"F": 18.4, "T": 12 / 365, "rows": [(16.0, 300, 9000, 50, 400, 0.8, 0.85, 30, 20, 300, 100),
+                                              (25.0, 20000, 100, 900, 20, 1.2, 1.1, 700, 200, 5, 15)]},
+          {"F": 19.1, "T": 40 / 365, "rows": [(15.0, 100, 4000, 0, 70, 0.7, 0.8), (30.0, 9000, 0, 300, 0, 1.0, 1.0, 100, 200, 0, 0)]}]
     lv = V.grid_for(17.5)
     P = V.profiles(ex, lv, 17.5)
     for book, sel in (("f", ex[:1]), ("a", ex)):
-        for b, basis in (("o", "oi"), ("v", "vol")):
+        for b, basis in (("o", "oi"), ("v", "vol"), ("t", "sig")):
             g, v = V.dealer_profile(sel, lv, 17.5, basis)
             assert P["g" + book + b] == pytest.approx(g, rel=1e-12, abs=1e-12)
             assert P["v" + book + b] == pytest.approx(v, rel=1e-12, abs=1e-12)
@@ -93,8 +94,30 @@ def test_profiles_equal_dealer_profile():
 
 def test_grid():
     g = V.grid_for(17.2)
-    assert g[0] == 10.0 and g[-1] == 33.0 and g[1] - g[0] == pytest.approx(0.25)
-    assert V.grid_for(9.0)[0] == 8.0
+    assert g[0] == 10.0 and g[-1] == 50.0 and g[1] - g[0] == pytest.approx(0.25)    # 2026-11-09: always reaches 50
+    assert V.grid_for(9.0)[0] == 8.0 and V.grid_for(30.0)[-1] == 57.0 and V.grid_for(30.0)[0] == 10.0
+
+
+def test_four_bases_and_the_sign_switch():
+    """OI + vol = OI + Vol (both with the assumed sign); OI + signed = OI + measured trades, and the sign switch flips
+    only the assumed part: customer buys leave the dealer short whichever rule is chosen."""
+    lv = [14.0, 17.0, 20.0, 23.0]
+    ex = [{"F": 18.0, "T": 14 / 365, "rows": [(20.0, 900, 300, 50, 70, 1.1, 1.0, 400, 100, 20, 50),
+                                              (16.0, 200, 800, 30, 90, 1.0, 0.9, 10, 20, 300, 60)]}]
+    go, vo = V.dealer_profile(ex, lv, 17.0, "oi")
+    gv, _vv = V.dealer_profile(ex, lv, 17.0, "vol")
+    gt, vt = V.dealer_profile(ex, lv, 17.0, "sig")
+    goiv, _ = V.dealer_profile(ex, lv, 17.0, "oiv")
+    gois, vois = V.dealer_profile(ex, lv, 17.0, "ois")
+    assert goiv == pytest.approx([a + b for a, b in zip(go, gv, strict=True)])
+    assert gois == pytest.approx([a + b for a, b in zip(go, gt, strict=True)])
+    assert vois == pytest.approx([a + b for a, b in zip(vo, vt, strict=True)])
+    gn, _ = V.dealer_profile(ex, lv, 17.0, "ois", sign=V.SIGN_NAIVE)
+    assert gn == pytest.approx([-a + b for a, b in zip(go, gt, strict=True)])
+    # customers bought 400 + 20 and sold 100 + 50 at 20 / 16 ... net dealer contracts from trades:
+    assert V.signed_pos(ex[0]["rows"][0]) == (100 - 400) + (50 - 20)
+    assert all(x < 0 for x in V.dealer_profile([{"F": 18.0, "T": 14 / 365, "rows": [(18.0, 0, 0, 0, 0, 1.0, 1.0, 500, 0, 0, 0)]}],
+                                                lv, 17.0, "sig")[0])        # customers bought calls -> dealers short gamma
 
 
 def make_vix_rec(ts="2026-11-06T10:35:00", vix=17.2):
@@ -118,7 +141,7 @@ def make_vix_rec(ts="2026-11-06T10:35:00", vix=17.2):
                 v = {p: 0.0 for p in eff}
                 oi = 50000 * math.exp(-abs(k - 25) / 3) if cp == "C" else 40000 * math.exp(-abs(k - 15) / 1.5)
                 v.update(bid_price=max(px - 0.02, 0.0), ask_price=px + 0.02, price=px, oi=oi, volm=oi / 20,
-                         volatility=sig)
+                         volatility=sig, volm_buy=oi / 30 if cp == "C" else oi / 60, volm_sell=oi / 60 if cp == "C" else oi / 30)
                 pair.append([f".VIX{d:%y%m%d}{cp}{k}", *[v[p] for p in eff]])
             rows.append([k, *pair])
         chain.append([(d - datetime.date(1970, 1, 1)).days, rows])
@@ -134,11 +157,42 @@ def test_column_from_a_vix_pull():
     col = V.column(dv, now, lv)
     assert col["ne"] == 3 and col["x"] == 17.2 and col["fF"] == pytest.approx(17.8, abs=0.05)
     assert col["top"]["front"] == {"call": 25.0, "put": 15.0}
-    for key in ("gfo", "gfv", "gao", "gav", "vfo", "vfv", "vao", "vav"):
+    for key in ("gfo", "gfv", "gft", "gao", "gav", "gat", "vfo", "vfv", "vft", "vao", "vav", "vat"):
         assert len(col[key]) == len(lv)
+    assert any(col["gat"])                         # the pull carries trade tags -> a signed-trades book
     # puts below, calls above -> dealers long gamma low, short gamma high; one zero cross between
     z = V.zero_cross(lv, col["gao"], 17.2)
     assert col["gao"][0] > 0 and col["gao"][-1] < 0 and z is not None
     vd = V.VixDay("20261106")
-    assert vd.feed(dv, now) and vd.payload()["cols"][0]["t"] == "10:35"
+    assert vd.feed(dv, now) and vd.payload()["cols"][0]["t"] == "10:35" and vd.payload()["px"] == [["10:35", 17.2, col["fF"]]]
     assert not vd.feed(dv, datetime.datetime(2026, 11, 6, 9, 10))     # before the open: ignored
+
+
+def test_end_to_end_realistic_raw_file(tmp_path, monkeypatch):
+    """2026-11-09: the NAS path end to end. A raw file written exactly like cvx_collect.main() writes it (one gzip member per
+    pull, idx and vix sharing the cycle's tz-aware timestamp, the full PARAMS list), read by wide_feed's day rebuild ->
+    data/vixmap_YYYYMMDD.json with a column every 5 minutes + the newest minute, every minute's VIX in px, and the
+    day listed in wide_index.json (the page's fallback)."""
+    import gzip
+    import json
+
+    import wide_feed as W
+
+    from .test_wide_feed import make_rec
+    monkeypatch.setattr(W, "DATA", str(tmp_path))
+    raw = tmp_path / "raw_20261106.ndjson.gz"
+    vix = [17.2, 17.5, 17.1, 18.0, 18.4, 18.9, 18.6]
+    for i, x in enumerate(vix):
+        ts = f"2026-11-06T10:{33 + i:02d}:00-05:00"
+        for rec in (make_rec(ts[:19], n_exp=2), make_vix_rec(ts[:19], vix=x)):
+            rec = dict(rec, ts=ts, elapsed_s=1.1, bytes=1000)
+            with gzip.open(raw, "at", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec, separators=(",", ":")) + "\n")
+    assert W.rebuild("20261106") == 0
+    j = json.loads((tmp_path / "vixmap_20261106.json").read_text())
+    assert j["v"] == 2 and j["levels"][0] == 10.0 and j["levels"][-1] == 50.0
+    assert [c["t"] for c in j["cols"]] == ["10:33", "10:35", "10:39"] and j["cols"][-1]["live"] == 1
+    assert [p[1] for p in j["px"]] == vix                   # the line is each minute's VIX, not one value
+    assert [p[0] for p in j["px"]] == [f"10:{33 + i:02d}" for i in range(7)]
+    assert all(len(c[k]) == len(j["levels"]) for c in j["cols"] for k in ("gao", "gav", "gat", "vfo", "vft"))
+    assert json.loads((tmp_path / "wide_index.json").read_text())["vix_days"] == ["20261106"]

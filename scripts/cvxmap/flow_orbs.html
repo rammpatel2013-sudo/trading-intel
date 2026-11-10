@@ -121,10 +121,11 @@ async function loadDay(keepPos){
   prep(); draw();
 }
 const sym=()=>st.J&&st.J.syms&&st.J.syms[st.sym];
-/* day file v2 -> full blocks (inverse of wide_feed.encode_slots); v1 blocks pass through */
+/* day file v2 -> full blocks (inverse of wide_feed.encode_slots); v1 blocks pass through. 2026-11-09: a greek array may
+   carry its own unit in e.sc[field] ($bn per stored unit), else $10k; premium is no longer in the day file. */
 function decodeSlots(S){ const out=[], prev={}, step=S.step||1, CUM=["c","p","cb","cs","pb","ps","cP","pP"];
   for(const e of S.slots||[]){ if(!e.dz){ out.push(e); continue; } const ks=[]; for(let i=0;i<e.n;i++) ks.push(+(e.k0+step*i).toFixed(6));
-    const b={t:e.t,x:e.x,k:ks}; for(const g of ["0","7"]){ for(const f of ["g","gv","gt","va"]) b[f+g]=(e[f+g]||[]).map(v=>v*1e-5);
+    const b={t:e.t,x:e.x,k:ks}; for(const g of ["0","7"]){ for(const f of ["g","gv","gt","va"]){ const q=(e.sc&&e.sc[f+g])||1e-5; b[f+g]=(e[f+g]||[]).map(v=>v*q); }
       for(const f of CUM){ const pm=prev[f+g]||new Map(), nm=new Map(), d=e[f+g]||[]; const cur=ks.map((k,i)=>{ const v=(pm.get(k)||0)+(d[i]||0); nm.set(k,v); return v; }); prev[f+g]=nm; b[f+g]=(f==="cP"||f==="pP")?cur.map(v=>v/1000):cur; } }
     out.push(b); } return out; }
 /* 1 / 3 / 5-minute blocks: the block's LAST minute carries it (greeks = that minute's snapshot, volumes cumulative) */

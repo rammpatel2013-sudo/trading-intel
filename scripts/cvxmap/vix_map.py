@@ -21,7 +21,18 @@ MATHS (pure functions below, unit-tested in tests/cvxmap/test_vix_map.py)
   VIX point, per 1-point move (gamma) and per +1 vol point (vanna). Positive dealer gamma =
   dealers sell VIX as it rises (dampens moves).
 
-OUTPUT  data/vixmap_YYYYMMDD.json   one column every 5 minutes + the newest minute (live).
+  2026-11-09 follow-ups (Mithil): positions basis = the SPX MAP's set
+  OI | Vol | OI + vol | OI + signed. Stored per column, dealer-default sign:
+  *o = open interest, *v = today's volume, and (new) *t = signed trades from the trade tags:
+  a customer buy leaves the dealer short, a sell leaves the dealer long, so dealer contracts =
+  (calls sold - calls bought) + (puts sold - puts bought). That part is MEASURED and does not
+  depend on the Dealer side switch. The page combines them: OI = s*o, Vol = s*v,
+  OI + vol = s*(o + v), OI + signed = s*o + t, with s = +1 (default) or -1 (SPX-style).
+  Grid widened to at least VIX 10..50 (the page shows 10-25 by default).
+  "px" = every minute's [time, VIX, front forward], so the VIX line moves minute by minute.
+
+OUTPUT  data/vixmap_YYYYMMDD.json   one column every 5 minutes + the newest minute (live),
+        and px every minute.
 """
 from __future__ import annotations
 
@@ -94,10 +105,25 @@ def strike_iv(k: float, f: float, civ: float, piv: float) -> float:
     return a if a and a > 0 else (b if b and b > 0 else 0.0)
 
 
+def _tags(r: tuple) -> tuple[float, float, float, float]:
+    """(calls bought, calls sold, puts bought, puts sold) of a row; 0 without trade tags."""
+    return (r[7], r[8], r[9], r[10]) if len(r) >= 11 else (0.0, 0.0, 0.0, 0.0)
+
+
+def signed_pos(r: tuple) -> float:
+    """Dealer contracts from today's tagged trades (customer buy -> dealer short, sell ->
+    dealer long), calls + puts. Gamma and vanna are the same for a call and a put."""
+    cb, cs, pb, ps = _tags(r)
+    return (cs - cb) + (ps - pb)
+
+
 def dealer_profile(exps: list[dict], levels: list[float], vix_now: float, basis: str = "oi",
                    sign: tuple[float, float] = SIGN_DEALER) -> tuple[list[float], list[float]]:
     """Dealer gamma and vanna ($k) at each VIX level.
-    exps: [{"F": forward, "T": years, "rows": [(k, cOI, pOI, cV, pV, cIV, pIV), ...]}].
+    exps: [{"F": forward, "T": years,
+            "rows": [(k, cOI, pOI, cV, pV, cIV, pIV[, cb, cs, pb, ps]), ...]}].
+    basis: "oi" | "vol" | "oiv" (OI + vol, both with the assumed sign) | "ois" (OI with the
+    assumed sign + signed trades, measured) | "sig" (signed trades only).
     Each expiry's forward moves by (level - vix_now)."""
     sc, sp = sign
     gam = [0.0] * len(levels)
@@ -106,9 +132,11 @@ def dealer_profile(exps: list[dict], levels: list[float], vix_now: float, basis:
         f0, t = e["F"], e["T"]
         if not (f0 > 0 and t > 0):
             continue
-        for k, coi, poi, cv, pv, civ, piv in e["rows"]:
-            nc, np_ = (coi, poi) if basis == "oi" else (cv, pv)
-            pos = sc * (nc or 0.0) + sp * (np_ or 0.0)
+        for r in e["rows"]:
+            k, coi, poi, cv, pv, civ, piv = r[:7]
+            po, pv_ = sc * (coi or 0.0) + sp * (poi or 0.0), sc * (cv or 0.0) + sp * (pv or 0.0)
+            ps_ = signed_pos(r)
+            pos = {"oi": po, "vol": pv_, "oiv": po + pv_, "ois": po + ps_, "sig": ps_}[basis]
             if not pos:
                 continue
             s = strike_iv(k, f0, civ, piv)
@@ -138,10 +166,11 @@ def zero_cross(levels: list[float], vals: list[float], ref: float) -> float | No
 
 
 def grid_for(vix: float) -> list[float]:
-    """Map rows for the day, fixed at the first column: 0.6x to 1.9x the opening VIX
-    (VIX jumps up more than down)."""
-    lo = max(8.0, math.floor(vix * 0.6))
-    hi = max(lo + 5.0, math.ceil(vix * 1.9))
+    """Map rows for the day, fixed at the first column: from min(10, 0.6x the opening VIX)
+    (never below 8) to max(50, 1.9x the opening VIX) - VIX jumps up more than down.
+    2026-11-09: the page shows 10-25 by default and 10-35 / 10-50 / All on request."""
+    lo = max(8.0, min(10.0, math.floor(vix * 0.6)))
+    hi = max(50.0, math.ceil(vix * 1.9))
     n = round((hi - lo) / GRID_STEP)
     return [round(lo + GRID_STEP * i, 2) for i in range(n + 1)]
 
@@ -179,7 +208,9 @@ def expiries(dv: dict, now: datetime.datetime) -> list[dict]:
         for k in sorted(book):
             c, p = book[k]
             rows.append((float(k), _f(c.get("oi")), _f(p.get("oi")), _f(c.get("volm")),
-                         _f(p.get("volm")), _f(c.get("volatility")), _f(p.get("volatility"))))
+                         _f(p.get("volm")), _f(c.get("volatility")), _f(p.get("volatility")),
+                         _f(c.get("volm_buy")), _f(c.get("volm_sell")),
+                         _f(p.get("volm_buy")), _f(p.get("volm_sell"))))
         if not any(r[1] or r[2] or r[3] or r[4] for r in rows):
             continue
         f = vixdash.forward(book)
@@ -210,19 +241,21 @@ def top_strikes(exps: list[dict]) -> dict:
 
 
 def profiles(ex: list[dict], levels: list[float], vix: float) -> dict[str, list[float]]:
-    """All eight map rows in one pass (greeks once per strike and level): g/v x front/all x oi/vol,
-    dealer-default sign. Same numbers as dealer_profile() (checked in the tests)."""
+    """All twelve map rows in one pass (greeks once per strike and level): g/v x front/all x
+    o (OI) / v (volume), dealer-default sign / t (signed trades, measured).
+    Same numbers as dealer_profile() (checked in the tests)."""
     sc, sp = SIGN_DEALER
-    keys = ("gfo", "gfv", "gao", "gav", "vfo", "vfv", "vao", "vav")
+    keys = tuple(g + b + x for g in "gv" for b in "fa" for x in "ovt")
     acc = {key: [0.0] * len(levels) for key in keys}
     for j, e in enumerate(ex):
         f0, t = e["F"], e["T"]
         if not (f0 > 0 and t > 0):
             continue
         sqt = math.sqrt(t)
-        for k, coi, poi, cv, pv, civ, piv in e["rows"]:
-            po, pv_ = sc * coi + sp * poi, sc * cv + sp * pv
-            if not (po or pv_):
+        for r in e["rows"]:
+            k, coi, poi, cv, pv, civ, piv = r[:7]
+            po, pv_, pt = sc * coi + sp * poi, sc * cv + sp * pv, signed_pos(r)
+            if not (po or pv_ or pt):
                 continue
             s = strike_iv(k, f0, civ, piv)
             if not (s > 0 and k > 0):
@@ -236,7 +269,7 @@ def profiles(ex: list[dict], levels: list[float], vix: float) -> dict[str, list[
                 ph = math.exp(-0.5 * d1 * d1) / SQ2PI
                 g = MULT * ph / (f * ssq) / 1e3
                 v = MULT * (-ph * (d1 - ssq) / s) * 0.01 / 1e3
-                for b, pos in (("o", po), ("v", pv_)):
+                for b, pos in (("o", po), ("v", pv_), ("t", pt)):
                     if not pos:
                         continue
                     acc["ga" + b][i] += pos * g
@@ -271,6 +304,7 @@ class VixDay:
         self.cols: list[dict] = []
         self.last: dict | None = None
         self.exps: list[dict] = []
+        self.px: list[list] = []        # every minute: [HH:MM, VIX, front forward]
         self.changed = False
 
     def feed(self, dv: dict, now: datetime.datetime) -> bool:
@@ -286,6 +320,11 @@ class VixDay:
         col = column(dv, now, self.levels, ex)
         if col is None:
             return False
+        pt = [t, col["x"], col["fF"]]
+        if self.px and self.px[-1][0] == t:
+            self.px[-1] = pt
+        else:
+            self.px.append(pt)
         if (now.hour * 60 + now.minute) % COL_MIN == 0 or not self.cols:
             if self.cols and self.cols[-1]["t"] == t:
                 self.cols[-1] = col
@@ -303,7 +342,10 @@ class VixDay:
         cols = list(self.cols)
         if self.last is not None:
             cols.append(dict(self.last, live=1))
-        return {"v": 1, "day": f"{self.ymd[:4]}-{self.ymd[4:6]}-{self.ymd[6:]}",
+        return {"v": 2, "day": f"{self.ymd[:4]}-{self.ymd[4:6]}-{self.ymd[6:]}",
                 "levels": self.levels or [], "col_min": COL_MIN, "units": "$k per VIX pt",
                 "sign": "dealers short calls, long puts (flip for the naive sign)",
-                "exps": self.exps, "cols": cols}
+                "exps": self.exps, "cols": cols, "px": self.px,
+                "bases": "o = open interest, v = today's volume (dealer-default sign); "
+                         "t = signed trades (measured: calls sold - bought + puts sold - bought), "
+                         "not flipped by the sign switch"}
