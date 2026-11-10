@@ -209,6 +209,24 @@ def search_knowledge(
     }
 
 
+def _one_row_per_session(df: Any) -> Any:
+    """Keep the LAST snapshot of each weekday (2026-11-10 fix).
+
+    greeks_snapshots holds several pulls per day (AM, intraday, EOD) and the odd weekend pull,
+    so the daily series showed 3 rows for one date and Sat/Sun rows. One row per trading day:
+    the latest snapshot of that date; Saturdays and Sundays dropped.
+    """
+    import pandas as pd
+
+    d = df.copy()
+    d["_ts"] = pd.to_datetime(d["ts"])
+    d = d.sort_values("_ts")
+    d["_day"] = d["_ts"].dt.date
+    d = d[d["_ts"].dt.day_of_week < 5]
+    d = d.groupby("_day", as_index=False).tail(1)
+    return d.drop(columns=["_ts", "_day"]).reset_index(drop=True)
+
+
 def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[str, Any]:
     """Per-day net-GEX / flip / regime series for one ticker (descriptive).
 
@@ -221,6 +239,7 @@ def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[
     df = load_snapshot_history(session, sym, days=days_c)
     if df is None or df.empty:
         return {"symbol": sym, "rows": [], "count": 0, "found": False}
+    df = _one_row_per_session(df)
 
     rows: list[dict[str, Any]] = []
     for _, r in df.iterrows():

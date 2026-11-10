@@ -44,6 +44,31 @@ class FredClient:
         s = self._fred.get_series(series_id)
         return pd.Series(dtype="float64") if s is None else pd.Series(s).dropna()
 
+    def release_dates(self, release_id: int) -> list:
+        """Every date a FRED release was published (e.g. 10 = CPI), oldest first. Used by the
+        event-day tool (2026-11-10). ``fredapi`` has no wrapper for this endpoint, so it is one
+        plain GET with the same key; returns [] on any failure (logged)."""
+        import datetime as _dt
+
+        import httpx
+
+        key = getattr(self._fred, "api_key", None)
+        if not key:
+            return []
+        try:
+            r = httpx.get(
+                "https://api.stlouisfed.org/fred/release/dates",
+                params={"release_id": release_id, "api_key": key, "file_type": "json",
+                        "include_release_dates_with_no_data": "false", "limit": 10000},
+                timeout=30.0,
+            )
+            r.raise_for_status()
+            rows = r.json().get("release_dates") or []
+        except Exception as exc:  # noqa: BLE001 - reported, caller sees an empty list
+            log.warning("fred.release_dates_failed", release_id=release_id, error=str(exc)[:200])
+            return []
+        return sorted({_dt.date.fromisoformat(x["date"]) for x in rows if x.get("date")})
+
     def latest(self, series_id: str) -> float | None:
         s = self.series(series_id)
         return float(s.iloc[-1]) if not s.empty else None

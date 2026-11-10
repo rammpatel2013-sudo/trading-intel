@@ -45,6 +45,10 @@ DEFAULT_WINDOW_DAYS = 180
 # wide 180d chain doesn't blow it.
 _INSERT_BATCH = 1000
 
+# AM-settled SPX roots: the 3rd-Friday monthly (.SPX) and, from 2026-11-18, the Wednesday/Friday
+# AM weeklies (.SPXO). Tagged "<source>_set"; PM weeklies/dailies (.SPXW) keep "<source>".
+AM_SETTLED_ROOTS = ("SPX", "SPXO")
+
 _FLOAT_COLS = (
     "delta",
     "gamma",
@@ -110,10 +114,14 @@ def _chain_to_records(
     # root (``.SPX261120C7425`` vs ``.SPXW261022C7425``). Tag the AM-settled rows with
     # their own ``source`` so the OpEx-morning NOW (AM+PM) vs POST-SET (PM only) split
     # is a WHERE clause, no migration (``source`` is already in the unique key).
+    # 2026-11-10: SPXO = Cboe's new AM-settled SPX WEEKLIES (first listed 11/18 + 12/16). Convex lists
+    # them inside the SPX chain as their own group on the same date as that day's SPXW group, so
+    # without a tag the two collided on the unique key and ON CONFLICT DO NOTHING silently dropped
+    # the SPXW rows. Both AM roots go under "<source>_set".
     src = pd.Series(source, index=df.index)
     if symbol.upper() == "SPX" and "symbol" in df.columns:
         root = df["symbol"].astype(str).str.extract(r"^\.([A-Z]+)\d")[0]
-        src = src.where(root != "SPX", source + "_set")
+        src = src.where(~root.isin(AM_SETTLED_ROOTS), source + "_set")
 
     out = pd.DataFrame(
         {

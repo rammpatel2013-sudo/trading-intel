@@ -193,6 +193,24 @@ def test_get_gamma_history_series_and_summary(session: Session) -> None:
     assert result["summary"]["direction"] == "up"
     assert "long gamma" in result["rows"][-1]["regime"]
 
+def test_get_gamma_history_one_row_per_weekday(session: Session) -> None:
+    """2026-11-10: several pulls on one date and weekend pulls collapse to one row per weekday."""
+    for ts, gex in (
+        (datetime(2026, 11, 6, 9, 0), -474.0),
+        (datetime(2026, 11, 6, 16, 30), -241.0),   # Fri EOD kept
+        (datetime(2026, 11, 7, 9, 0), -241.0),     # Sat dropped
+        (datetime(2026, 11, 8, 9, 0), -255.0),     # Sun dropped
+        (datetime(2026, 11, 9, 10, 0), 2.6),
+        (datetime(2026, 11, 9, 16, 30), -128.6),   # Mon EOD kept
+    ):
+        session.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=7500.0, gex_total=gex,
+                                   gex_flip=7600.0, atm_iv=0.2))
+    session.commit()
+    result = tools.get_gamma_history(session, "SPX", days=365)
+    assert [r["date"] for r in result["rows"]] == ["2026-11-06", "2026-11-09"]
+    assert [r["gex_total"] for r in result["rows"]] == [-241.0, -128.6]
+
+
 
 def test_get_technicals_empty(session: Session) -> None:
     result = tools.get_technicals(session, "NVDA", days=120)

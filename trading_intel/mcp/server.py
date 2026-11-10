@@ -746,6 +746,8 @@ def build_server(
 
     from trading_intel.mcp import tenor_tools  # Tenor tab tools (2026-11-09)
     tenor_tools.register(mcp, settings, session_factory)
+    from trading_intel.mcp import event_tools  # hedge response / close odds / CPI days (2026-11-10)
+    event_tools.register(mcp, settings, session_factory)
 
     # ── Ship 2: exposure board (#88) ─────────────────────────────────────
 

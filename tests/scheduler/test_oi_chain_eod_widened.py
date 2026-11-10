@@ -74,3 +74,21 @@ def test_insert_batch_stays_under_the_postgres_bind_cap():
 
     n_cols = len(OiChainEod.__table__.columns) - 1  # id is generated
     assert job._INSERT_BATCH * n_cols < 65535, (job._INSERT_BATCH, n_cols)
+
+
+def test_spxo_am_weekly_does_not_collide_with_spxw():
+    """2026-11-10: .SPXO (AM weekly) and .SPXW (PM) share date + strike; they must land under
+    different sources or ON CONFLICT DO NOTHING drops one of them."""
+    n = 3
+    df = pd.DataFrame({
+        "symbol": [".SPXO261118C7550", ".SPXW261118C7550", ".SPX261120C7550"],
+        "expiration": [pd.Timestamp("2026-11-18"), pd.Timestamp("2026-11-18"), pd.Timestamp("2026-11-20")],
+        "strike": [7550.0] * n, "opt_kind": ["call"] * n, "oi": [3, 900, 500],
+        "oi_change": [0] * n, "volume": [1] * n, "delta": [0.5] * n, "gamma": [0.001] * n,
+        "iv": [0.15] * n, "gxoi": [1.0] * n, "dxoi": [1.0] * n, "vxoi": [1.0] * n,
+    })
+    rows = job._chain_to_records(df, symbol="SPX", ts=datetime(2026, 11, 10), window_days=60)
+    src = {(r["expiry"].isoformat(), r["oi"]): r["source"] for r in rows}
+    assert src[("2026-11-18", 3)].endswith("_set")        # SPXO -> AM
+    assert not src[("2026-11-18", 900)].endswith("_set")  # SPXW -> PM
+    assert src[("2026-11-20", 500)].endswith("_set")      # SPX monthly -> AM

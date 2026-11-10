@@ -161,3 +161,15 @@ def test_feed_groups_missing_mixed_unknown():
     d = _d([(H20, am), (H20, unk1)])                       # unknown next to a known AM group -> not used
     assert cl.pm_groups(d) == []
     assert cl._group_kind("SPY", unk1) == "PM"             # only SPX has an AM root
+
+
+def test_spxo_am_weekly_is_am_not_mixed():
+    H18 = 20775                                            # 2026-11-18, first SPXO expiry
+    spxo = _book({7400.0: (".SPXO261118C7400", ".SPXO261118P7400")})
+    pm18 = _book({7400.0: (".SPXW261118C7400", ".SPXW261118P7400")})
+    d = _d([(H18, spxo), (H18, pm18)])
+    assert cl._group_kind("SPX", spxo) == "AM" and cl.group_issues(d) == []
+    assert cl.pm_groups(d)[0][1] is pm18 and cl.am_groups(d)[0][1] is spxo
+    both = _book({7400.0: (".SPX261118C7400", ".SPXO261118P7400")})
+    assert cl._group_kind("SPX", both) == "AM"              # both roots AM-settled
+    assert cl._group_kind("SPX", _book({7400.0: (".SPXW261118C7400", ".SPXO261118P7400")})) == "mixed"

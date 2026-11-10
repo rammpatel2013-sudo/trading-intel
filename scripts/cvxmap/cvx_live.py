@@ -194,7 +194,10 @@ def decode(rec):
 #            the LAST listed is taken as PM (feed order SPX before SPXW, seen 11/06) and the choice is flagged;
 #   mixed:   never used; flagged.
 # Every non-clean case is listed in group_issues(d) and written to live.json as "root_warn".
-AM_ROOTS = {"SPX": ("SPX", "SPXW")}          # symbol -> (AM root, PM root)
+# 2026-11-10 (Mithil's OK): .SPXO, Cboe's AM-settled SPX WEEKLY (first expiry 11/18, then 12/16), is AM too. Convex
+#   lists it as its own group on the same date as that day's SPXW group, so it now joins the live week book as an
+#   "AM" row (exp_t = that morning's open) instead of being flagged "mixed" and dropped. {SPX, SPXO} together -> AM.
+AM_ROOTS = {"SPX": (("SPX", "SPXO"), "SPXW")}  # symbol -> (AM roots, PM root)
 _ROOT_RE = re.compile(r"^\.([A-Z]+)\d")
 
 
@@ -212,7 +215,7 @@ def _group_kind(sym, book):
         return "unknown"
     if roots == {pair[1]}:
         return "PM"
-    if roots == {pair[0]}:
+    if roots <= set(pair[0]):
         return "AM"
     return "mixed"
 

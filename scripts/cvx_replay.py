@@ -1105,7 +1105,7 @@ def mid_guess_score(day_iso, quotes, p1score):
         from trading_intel.config import get_settings
         from trading_intel.memory.db import make_session_factory
         q = text("select ts, strike, cp, side from tas_prints where root in ('SPX', 'SPXW') and trade_date = :d and expiry = :d "
-                 "and quote_loc in ('mid', 'inside') and side in ('buy', 'sell') and leg_group is null "
+                 "and quote_loc in ('mid', 'inside', 'in_hi', 'in_lo') and side in ('buy', 'sell') and leg_group is null "
                  "and coalesce(spread_leg, false) = false")
         with make_session_factory(get_settings())() as s:
             rows = s.execute(q, {"d": day_iso}).all()

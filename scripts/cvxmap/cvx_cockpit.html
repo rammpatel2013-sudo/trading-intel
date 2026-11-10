@@ -771,6 +771,11 @@ body.phone #tabLevels .vxwrap{padding:8px 8px 40px}
 @media (max-width:980px){.tnbars{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) 90px}}
 /* --- Orbs tab + Density / VIX options + VIX map (2026-11-09): large high-contrast text --- */
 #tabOrbs{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+#tabSurface{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+#tabSurface .vxhead{align-items:center;flex-wrap:wrap;gap:10px 16px}
+#tabSurface .vxhead span:not(.big){font-size:16px;color:#fff}
+.sfnote{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin:6px 0 4px;font-size:17px;color:#fff}
+.sfnote .big{font-size:20px;font-weight:700}
 #tabOrbs .vxhead{align-items:center}
 #tabOrbs .vxhead span:not(.big){font-size:16px;color:#fff}
 .orgrp{display:inline-flex;align-items:center;gap:6px}
@@ -851,6 +856,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
       <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
       <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
       <button data-tab="tenor" aria-pressed="false" title="Dealer gamma and vega split by expiry bucket (1 day, up to 1 week, up to 1 month, longer) across SPX levels, its daily history, and six factor cards with their past record. Built each evening.">Tenor</button>
+      <button data-tab="surface" aria-pressed="false" title="3D dealer gamma, vanna, charm or gamma + vanna by strike and expiry, every minute (the ConvexValue surface view). Off until you press ON.">Surface</button>
       <button data-tab="levels" aria-pressed="false" title="Price levels where several independent views agree (options positioning, open interest, VIX options, price history, crowded strikes), drawn over the last 60 sessions. Hover or tap a band for the details. Built each evening.">Levels</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
@@ -1124,6 +1130,12 @@ body.phone .vxmgrid{grid-template-columns:1fr}
       <div id="orBody"></div>
     </div>
     <div id="orTip" role="tooltip" hidden></div>
+  </main>
+  <main id="tabSurface" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="sfHead"></section>
+      <div id="sfBody"></div>
+    </div>
   </main>
   <main id="tabTenor" class="tab" hidden>
     <div class="vxwrap vewrap">
@@ -1618,7 +1630,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volWin=load("volWin","day"); if(!["5","15","30","day"].includes(st.volWin)) st.volWin="day"; st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels"].includes(st.tab)) st.tab="flow";
+if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex");
@@ -3047,7 +3059,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -3072,6 +3084,7 @@ function render(){
   else if(st.tab==="tenor") renderTenor();
   else if(st.tab==="levels") renderLevels();
   else if(st.tab==="orbs"){ if(typeof OR!=="undefined"&&OR) renderOrbs(); }
+  else if(st.tab==="surface"){ if(typeof SF!=="undefined"&&SF) renderSurface(); }
   else renderSkew(se,d);
 }
 
@@ -4001,7 +4014,7 @@ function renderYday(){
     `<div class="note">${esc(V.trade_date)} prints vs the ${esc(String(V.as_of).slice(0,10))} book. Opened = OI added ≥ half the print; closed/rolled = ≤ a fifth. Bought/sold from the strike's IV change minus its expiry's ATM move.</div>`;
 }
 /* ---- phone-width view */
-function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"&&st.tab!=="levels"&&st.tab!=="orbs"){ st.tab="flow"; } }
+function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"&&st.tab!=="levels"&&st.tab!=="orbs"&&st.tab!=="surface"){ st.tab="flow"; } }
 window.addEventListener("resize",()=>{ phoneMode(); render(); }); phoneMode();
 document.getElementById("robBtn").addEventListener("click",()=>{ st.rob=!st.rob; save("rob",st.rob?"1":"0"); document.getElementById("robBtn").setAttribute("aria-pressed",st.rob); render(); });
 document.getElementById("robBtn").setAttribute("aria-pressed",st.rob);
@@ -7459,6 +7472,107 @@ function orHover(e,which){ const P=OR.P, g=OR.g; if(!P||!g) return; const r=e.ta
 function orHideTip(){ const t=document.getElementById("orTip"); if(t) t.hidden=true; }
 window.addEventListener("mousemove",e=>{ if(OR.drag) orDragMove(e); });
 window.addEventListener("mouseup",()=>{ OR.drag=null; });
+
+/* 2026-11-10 Surface tab — 3D dealer gamma / vanna / charm by strike x expiry (the ConvexValue "Net GXOI" look).
+   Data: surface_live_SPX.json from surface_feed.py (written each minute by the Orbs feed, cvxmap-wide; zero extra
+   Convex calls). Every expiry kept apart. Same units and dealer books as the Map / Orbs:
+     gamma $bn of delta per 1% move · vanna $bn of delta per 1 vol point · charm $bn of delta per hour.
+   Gamma + vanna: "beta" = gamma + beta x vanna (beta = vol points per +1% move, fitted from today's minutes),
+   "normalized" = each greek / its own largest value, added (shape only).
+   Smoothing: Catmull-Rom upsampling (4x along strikes, 4x along expiries) then one [1,2,1] pass — display only;
+   hover always reports the raw value at the nearest real strike and expiry.
+   Off until ON. Plotly (2.27.0, cdnjs) loads the first time the tab is switched ON. */
+var SF={on:load("sfOn","0")==="1", greek:load("sfGreek","g"), basis:load("sfBasis","oi"), win:load("sfWin","100"),
+  exp:load("sfExp","7"), smooth:load("sfSmooth","1"), J:null, err:null, at:0, timer:null, key:"", busy:false, plotly:null};
+const SF_URL="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js";
+const SF_COLORS=[[0,"#3b0f70"],[0.12,"#4a3fbf"],[0.28,"#2f8fe0"],[0.42,"#3fd1d6"],[0.5,"#9cf2c8"],
+  [0.58,"#f2e86b"],[0.72,"#fbb33c"],[0.86,"#f2672a"],[1,"#c81e3a"]];
+function sfLoadPlotly(){
+  if(window.Plotly) return Promise.resolve(window.Plotly);
+  if(SF.plotly) return SF.plotly;
+  SF.plotly=new Promise((ok,bad)=>{ const s=document.createElement("script"); s.src=SF_URL; s.onload=()=>ok(window.Plotly);
+    s.onerror=()=>{ SF.plotly=null; bad(new Error("could not load the 3D library (needs internet)")); }; document.head.appendChild(s); });
+  return SF.plotly;
+}
+async function sfPoll(){
+  if(!SF.on||st.tab!=="surface"||SF.busy) return; SF.busy=true;
+  try{ const J=await orGet("surface_live_SPX.json"); const changed=!SF.J||J.t!==SF.J.t||J.day!==SF.J.day; SF.J=J; SF.err=null; SF.at=Date.now(); if(changed){ SF.key=""; renderSurface(); } }
+  catch(e){ SF.err="Waiting for surface_live_SPX.json — it is written every minute from 09:30 ET by the Orbs feed (cvxmap-wide)."; if(!SF.J) renderSurface(); }
+  finally{ SF.busy=false; }
+}
+function sfTimer(){ const want=SF.on&&st.tab==="surface"; if(want&&!SF.timer){ SF.timer=setInterval(sfPoll,15000); sfPoll(); } if(!want&&SF.timer){ clearInterval(SF.timer); SF.timer=null; } }
+function sfSeg(key,lab,v){ return `<span class="orgrp"><span class="orlab">${lab}</span><span class="orseg">`+v.map(([val,t,tt])=>`<button data-sk="${key}" data-v="${val}" aria-pressed="${String(SF[key])===String(val)}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`).join("")+`</span></span>`; }
+/* one greek on one dealer book, per expiry x strike (rows follow J.ex) */
+function sfBook(J,f){ const G=J[f]; if(!G) return null;
+  const add=(a,b)=>a.map((r,i)=>r.map((v,j)=>v+((b[i]||[])[j]||0)));
+  return SF.basis==="vol"?G.vol : SF.basis==="oiv"?add(G.oi,G.vol) : SF.basis==="ois"?add(G.oi,G.sig) : G.oi; }
+function sfGrid(J){
+  const nm={g:"gamma",va:"vanna",ch:"charm"};
+  let Z, unit;
+  if(SF.greek==="gvb"){ const g=sfBook(J,"g"), v=sfBook(J,"va"), b=J.beta; Z=g.map((r,i)=>r.map((x,j)=>x+b*v[i][j])); unit="$bn per +1% (vol moving "+(b>=0?"+":"")+b.toFixed(2)+" pts)"; }
+  else if(SF.greek==="gvn"){ const g=sfBook(J,"g"), v=sfBook(J,"va"); const mx=a=>Math.max(1e-12,...a.flat().map(Math.abs)); const mg=mx(g), mv=mx(v); Z=g.map((r,i)=>r.map((x,j)=>x/mg+v[i][j]/mv)); unit="shape only (each greek / its own max)"; }
+  else { Z=sfBook(J,SF.greek); unit=SF.greek==="g"?"$bn per 1% move":SF.greek==="va"?"$bn per vol point":"$bn per hour"; }
+  if(!Z) return null;
+  const maxD=SF.exp==="all"?99:+SF.exp; const rows=[]; J.ex.forEach((e,i)=>{ if(e.dte<=maxD) rows.push(i); });
+  const w=+SF.win, ks=J.k, cols=[]; ks.forEach((k,j)=>{ if(Math.abs(k-J.x)<=w) cols.push(j); });
+  if(rows.length<1||cols.length<3) return null;
+  const lab=rows.map(i=>{ const e=J.ex[i]; return e.e.slice(5)+(e.fam==="AM"?" AM":"")+(e.dte===0?" (0DTE)":""); });
+  return {x:cols.map(j=>ks[j]), y:lab, z:rows.map(i=>cols.map(j=>Z[i][j])), unit, name:SF.greek in nm?nm[SF.greek]:"gamma + vanna", ex:rows.map(i=>J.ex[i])};
+}
+function sfCR(p0,p1,p2,p3,t){ const t2=t*t,t3=t2*t; return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3); }
+function sfUp1(a,n){ if(a.length<2) return a.slice(); const o=[]; for(let i=0;i<a.length-1;i++){ const p0=a[Math.max(0,i-1)],p1=a[i],p2=a[i+1],p3=a[Math.min(a.length-1,i+2)]; for(let s=0;s<n;s++) o.push(sfCR(p0,p1,p2,p3,s/n)); } o.push(a[a.length-1]); return o; }
+function sfBlur(Z){ const R=Z.length,C=Z[0].length, at=(i,j)=>Z[Math.min(R-1,Math.max(0,i))][Math.min(C-1,Math.max(0,j))];
+  return Z.map((r,i)=>r.map((v,j)=>(4*v+2*(at(i-1,j)+at(i+1,j)+at(i,j-1)+at(i,j+1))+at(i-1,j-1)+at(i-1,j+1)+at(i+1,j-1)+at(i+1,j+1))/16)); }
+function sfSmooth(g){
+  const n=4, rowsUp=g.z.map(r=>sfUp1(r,n)), xs=sfUp1(g.x,n);
+  const R=rowsUp.length, cols=xs.length, ny=R>1?n:1, out=[];
+  for(let j=0;j<cols;j++){ const col=sfUp1(rowsUp.map(r=>r[j]),ny); col.forEach((v,i)=>{ (out[i]=out[i]||[])[j]=v; }); }
+  const yi=sfUp1(g.y.map((_,i)=>i),ny);
+  return {x:xs, yIdx:yi, z:sfBlur(out)};
+}
+function renderSurface(){
+  const head=document.getElementById("sfHead"), body=document.getElementById("sfBody"); if(!head||!body) return; sfTimer();
+  const hk=[SF.on,SF.greek,SF.basis,SF.win,SF.exp,SF.smooth].join("|");
+  if(head.dataset.k!==hk){ head.dataset.k=hk;
+    head.innerHTML=`<span class="big">Surface</span><button class="sxbtn" id="sfOnBtn" aria-pressed="${SF.on}">${SF.on?"ON":"OFF"}</button>`+(SF.on?
+      sfSeg("greek","Show",[["g","Gamma","Dealer gamma: how much they must buy or sell per 1% move"],["va","Vanna","How dealer hedges change when volatility moves 1 point"],["ch","Charm","How much dealers' delta changes each hour from time passing alone"],["gvb","Gamma + vanna (β)","Gamma plus vanna times today's spot-vol beta: the dealer delta change for a 1% move once implied vol moves with price, in $bn"],["gvn","Gamma + vanna (shape)","Each greek scaled to its own largest value, then added: where both point the same way, no $ meaning"]])+
+      sfSeg("basis","Positions from",[["oi","OI","Open interest, simple rule: dealers long calls, short puts (the Map's OI)"],["vol","Vol","Today's volume, same rule"],["oiv","OI + vol","Open interest plus today's volume"],["ois","OI + signed","Open interest plus today's tagged buys and sells (customer buy = dealer short)"]])+
+      sfSeg("exp","Expiries",[["0","Today"],["3","3 days"],["7","7 days"],["all","All"]])+
+      sfSeg("win","Strikes",[["50","±50"],["100","±100"],["200","±200"]])+
+      sfSeg("smooth","Smooth",[["1","On","Smoothed for the picture; hover shows raw values"],["0","Off","Raw strike x expiry grid"]])
+      :`<span>Off: nothing is fetched or drawn.</span>`);
+    document.getElementById("sfOnBtn").onclick=()=>{ SF.on=!SF.on; save("sfOn",SF.on?"1":"0"); SF.key=""; if(!SF.on){ SF.J=null; sfTimer(); } renderSurface(); };
+    head.querySelectorAll("button[data-sk]").forEach(b=>b.onclick=()=>{ const k=b.dataset.sk; SF[k]=b.dataset.v; save("sf"+k[0].toUpperCase()+k.slice(1),SF[k]); SF.key=""; head.dataset.k=""; renderSurface(); }); }
+  if(!SF.on){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> for the 3D surface of dealer gamma, vanna or charm by strike and expiry.</p>'; SF.key=""; return; }
+  if(!SF.J){ body.innerHTML=`<p class="veread">${esc(SF.err||"Loading…")}</p>`; return; }
+  const g=sfGrid(SF.J); if(!g){ body.innerHTML='<p class="veread">No strikes or expiries in this window.</p>'; return; }
+  const key=[hk,SF.J.day,SF.J.t].join("|"); if(key===SF.key&&body.querySelector("#sfPlot")) return; SF.key=key;
+  if(!body.querySelector("#sfPlot")) body.innerHTML=`<div class="sfnote" id="sfNote"></div><div id="sfPlot" style="width:100%;height:min(74vh,720px);min-height:420px"></div>`;
+  const note=document.getElementById("sfNote");
+  const bsrc=SF.J.beta_src==="default"?"typical value, too few minutes to fit yet":SF.J.beta_src;
+  note.innerHTML=`<span class="big">${esc(SF.J.t)} ET</span> <span>SPX ${SF.J.x.toFixed(2)}</span> <span>${esc(g.name)} · ${esc(g.unit)}</span>`+(SF.greek==="gvb"?` <span>β = ${SF.J.beta.toFixed(2)} vol pts per +1% (${esc(bsrc)})</span>`:"");
+  sfLoadPlotly().then(P=>{
+    let x=g.x, yv=g.y.map((_,i)=>i), z=g.z;
+    if(SF.smooth==="1"){ const s=sfSmooth(g); x=s.x; yv=s.yIdx; z=s.z; }
+    if(z.length===1){ z=[z[0],z[0]]; yv=[0,0.6]; }     // one expiry: draw it as a ribbon
+    const m=Math.max(1e-12,...z.flat().map(Math.abs));
+    const raw=(xx,yy)=>{ const i=Math.max(0,Math.min(g.y.length-1,Math.round(yy))); let j=0,b=1e9; g.x.forEach((k,jj)=>{ const d=Math.abs(k-xx); if(d<b){ b=d; j=jj; } }); return [g.y[i],g.x[j],g.z[i][j]]; };
+    const custom=z.map((r,i)=>r.map((_,j)=>raw(x[j],yv[i])));
+    const fmt=SF.greek==="gvn"?".2f":".3f";
+    const tr={type:"surface",x,y:yv,z,colorscale:SF_COLORS,cmin:-m,cmax:m,customdata:custom,
+      hovertemplate:"%{customdata[0]}<br>strike %{customdata[1]}<br>"+esc(g.name)+" %{customdata[2]:"+fmt+"}<extra></extra>",
+      contours:{z:{show:true,usecolormap:false,color:"rgba(230,236,245,.55)",project:{z:true},width:1}},
+      lighting:{ambient:.55,diffuse:.75,specular:.35,roughness:.5,fresnel:.2},
+      colorbar:{thickness:12,len:.65,tickfont:{color:"#DCE6F2",size:14},outlinewidth:0}};
+    const spot={type:"scatter3d",mode:"lines",x:[SF.J.x,SF.J.x],y:[yv[0],yv[yv.length-1]],z:[0,0],line:{color:"#ffffff",width:6},hoverinfo:"skip",name:"spot"};
+    const ax=t=>({title:{text:t,font:{color:"#DCE6F2",size:15}},color:"#DCE6F2",gridcolor:"#2a3442",zerolinecolor:"#56657a",backgroundcolor:"#05070b",showbackground:true,tickfont:{size:13,color:"#DCE6F2"}});
+    const tick=g.y.length<=8?g.y.map((_,i)=>i):g.y.map((_,i)=>i).filter(i=>i%2===0);
+    const lay={paper_bgcolor:"#05070b",margin:{l:0,r:0,t:0,b:0},showlegend:false,font:{color:"#DCE6F2"},uirevision:"sf",
+      scene:{xaxis:ax("Strike"),yaxis:{...ax("Expiry"),tickvals:tick,ticktext:tick.map(i=>g.y[i])},zaxis:ax(g.name),
+        camera:{eye:{x:-0.35,y:-1.9,z:0.55}},aspectmode:"manual",aspectratio:{x:1.9,y:1,z:0.65}}};
+    P.react("sfPlot",[tr,spot],lay,{responsive:true,displaylogo:false});
+  }).catch(e=>{ body.innerHTML=`<p class="veread">${esc(e.message)}</p>`; });
+}
 
 })();
 </script>

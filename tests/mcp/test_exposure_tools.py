@@ -139,6 +139,15 @@ def test_exposure_by_strike_returns_shape(session: Session) -> None:
     assert "put_wall" in out
     assert "gex_flip" in out
 
+def test_exposure_by_strike_net_is_call_minus_put(session: Session) -> None:
+    """2026-11-10: net_gex was call + put (gross). Net must be call - put; gross kept apart."""
+    _seed_chain(session)
+    out = ext.get_exposure_by_strike(session)
+    for s in out["strikes"]:
+        assert abs(s["net_gex"] - (s["call_gex"] - s["put_gex"])) < 0.02
+        assert abs(s["gross_gex"] - (s["call_gex"] + s["put_gex"])) < 0.02
+
+
 
 # ── get_vol_drift ───────────────────────────────────────────────────
 

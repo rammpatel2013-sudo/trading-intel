@@ -7,12 +7,24 @@ is decided by the tick rule — the side of the last price change of that same c
 (Ellis-Michaely-O'Hara 2000: the quote rule is ~89% right at the bid/ask, ~60% in between, where
 the tick rule does better). Spread legs stay unsigned: a leg's price belongs to the package.
 
+PACKAGE SIGNING (2026-11-10, Mithil: "pair orders to guess the type of order"). A spread leg is still
+never signed by the tick rule. Instead the legs of one package (same tas_prints.leg_group) are read
+together, each against ITS OWN quote: at the ask / above mid = that leg was bought by whoever started
+the trade, at the bid / below mid = sold (quote_loc "in_hi" / "in_lo", tagged at capture from 11/10).
+  2 legs, same call/put (vertical, calendar): the legs must point opposite ways. One clear leg signs
+    the other as its opposite; both pointing the same way = a conflict, left unsigned.
+  2 legs, call + put (risk reversal, strangle): each leg only by its own quote; no inference.
+  3+ legs: each leg by its own quote, unless every clear leg of an all-call or all-put package points
+    the same way (a fly or condor can't be all bought) = conflict, left unsigned.
+Package-signed contracts get their own columns (pkg_buy / pkg_sell) so the cockpit, which reads the
+first five numbers, keeps treating them as unsigned until it is switched to read these.
+
 Reads the tape the tas_capture daemon already banks in tas_prints (quote_loc tagged at capture,
 migration 0052) — zero extra vendor calls. Writes data/sides_YYYYMMDD.json, one row per
 (strike, call/put, minute) that the cockpit merges into its minute log:
 
     [strike, "C"|"P", minute, quote_buy, quote_sell, tick_buy, tick_sell, unsigned,
-     buy_premium, sell_premium]
+     buy_premium, sell_premium, pkg_buy, pkg_sell, pkg_buy_premium, pkg_sell_premium]
 
 minute = minutes after midnight ET rounded UP (a 09:30:15 print lands in the 09:31 bucket: the
 minute log's 09:31 row holds the volume traded since the 09:30 pull).
@@ -37,7 +49,9 @@ DATA = os.environ.get("DASH_DIR") or os.path.join(HERE, "data")
 ROOTS = ("SPX", "SPXW")
 ENV_CANDIDATES = ["/app/.env", os.path.join(HERE, "..", "..", ".env"), os.path.join(HERE, ".env")]
 STOP_AT = (16, 25)
-COLS = ["k", "cp", "t", "qb", "qs", "tb", "ts", "u", "buy_prem", "sell_prem"]
+COLS = ["k", "cp", "t", "qb", "qs", "tb", "ts", "u", "buy_prem", "sell_prem",
+        "pkb", "pks", "pkb_prem", "pks_prem"]
+_LEG_VOTE = {"at_ask": 1, "in_hi": 1, "at_bid": -1, "in_lo": -1}
 
 Row = dict[str, Any]
 ET = ZoneInfo("America/New_York")
@@ -80,6 +94,39 @@ def classify(prints: Iterable[Row]) -> list[tuple[int, str]]:
             out.append((0, "none"))
         if px is not None:
             last_px = px
+    return out
+
+
+def sign_packages(rows: Iterable[Row]) -> dict[Any, int]:
+    """Spread legs -> {row id: +1 bought / -1 sold} for the legs a package read can sign (see the module
+    docstring). Rows need id, leg_group, cp, quote_loc; rows without a leg_group are ignored."""
+    groups: dict[str, list[Row]] = {}
+    for r in rows:
+        if r.get("leg_group"):
+            groups.setdefault(str(r["leg_group"]), []).append(r)
+    out: dict[Any, int] = {}
+    for legs in groups.values():
+        if len(legs) < 2:
+            continue
+        votes = [_LEG_VOTE.get(str(r.get("quote_loc") or ""), 0) for r in legs]
+        same_cp = len({r.get("cp") for r in legs}) == 1
+        clear = [v for v in votes if v]
+        if not clear:
+            continue
+        if len(legs) == 2 and same_cp:
+            a, b = votes
+            if a and b and a == b:
+                continue                      # both legs "bought" (or sold): not a real vertical read
+            a = a or -b
+            b = b or -a
+            out[legs[0].get("id")] = a
+            out[legs[1].get("id")] = b
+            continue
+        if same_cp and len(set(clear)) == 1 and len(clear) >= 2:
+            continue                          # all-call / all-put package, every clear leg one way
+        for r, v in zip(legs, votes, strict=True):
+            if v:
+                out[r.get("id")] = v
     return out
 
 
@@ -129,11 +176,14 @@ def aggregate(rows: Iterable[Row]) -> tuple[Bucket, dict[str, int]]:
     """Rows: symbol, ts, strike, cp, price, size, notional, quote_loc, spread_leg, side (vendor).
 
     Returns ({(strike, cp, minute): [qb, qs, tb, ts, u, buy$, sell$]}, stats)."""
+    rows = list(rows)
     by_sym: dict[str, list[Row]] = {}
     for r in rows:
         by_sym.setdefault(r["symbol"], []).append(r)
     agg: Bucket = {}
-    st = {"prints": 0, "quote": 0, "tick": 0, "leg": 0, "none": 0,
+    pkg = sign_packages(r for r in rows if r.get("spread_leg") or r.get("leg_group"))
+    st = {"prints": 0, "quote": 0, "tick": 0, "leg": 0, "none": 0, "pkg": 0, "pkg_contracts": 0,
+          "leg_contracts": 0,
           "quote_vendor_n": 0, "quote_vendor_agree": 0, "tick_vendor_n": 0, "tick_vendor_agree": 0}
     for ps in by_sym.values():
         ps.sort(key=lambda r: (r["ts"], r.get("id") or 0))
@@ -142,9 +192,18 @@ def aggregate(rows: Iterable[Row]) -> tuple[Bucket, dict[str, int]]:
             if n <= 0 or r.get("strike") is None or r.get("cp") not in ("C", "P"):
                 continue
             key = (float(r["strike"]), r["cp"], minute_up(r["ts"]))
-            a = agg.setdefault(key, [0, 0, 0, 0, 0, 0.0, 0.0])
+            a = agg.setdefault(key, [0, 0, 0, 0, 0, 0.0, 0.0, 0, 0, 0.0, 0.0])
             prem = float(r.get("notional") or float(r.get("price") or 0) * n * 100)
             st["prints"] += 1
+            if how == "leg":
+                st["leg_contracts"] += n
+                ps = pkg.get(r.get("id"), 0)
+                if ps:
+                    st["pkg"] += 1
+                    st["pkg_contracts"] += n
+                    a[7 if ps > 0 else 8] += n
+                    a[9 if ps > 0 else 10] += prem
+                    continue
             st[how] += 1
             if side == 0:
                 a[4] += n
@@ -161,7 +220,8 @@ def aggregate(rows: Iterable[Row]) -> tuple[Bucket, dict[str, int]]:
 def payload(day: str, agg: Bucket, st: dict[str, Any],
             floor: float | None = None) -> dict[str, Any]:
     order = sorted(agg.items(), key=lambda x: (x[0][2], x[0][0], x[0][1]))
-    rows = [[k, cp, t, *(int(x) for x in v[:5]), round(v[5]), round(v[6])]
+    rows = [[k, cp, t, *(int(x) for x in v[:5]), round(v[5]), round(v[6]),
+             int(v[7]), int(v[8]), round(v[9]), round(v[10])]
             for (k, cp, t), v in order]
     return {"day": day, "asof": now_et().strftime("%Y-%m-%dT%H:%M:%S"), "floor": floor,
             "cols": COLS, "stats": st, "rows": rows}
@@ -193,7 +253,7 @@ def get_engine() -> Any:   # noqa: ANN401 - sqlalchemy Engine, imported lazily
 def fetch(engine: Any, day: date) -> list[Row]:  # noqa: ANN401
     from sqlalchemy import bindparam, text
     q = text(
-        "select id, symbol, ts, strike, cp, price, size, notional, quote_loc, spread_leg, side "
+        "select id, symbol, ts, strike, cp, price, size, notional, quote_loc, spread_leg, side, leg_group "
         "from tas_prints where trade_date = :d and expiry = :d and root in :roots "
         "order by symbol, ts, id"
     ).bindparams(bindparam("roots", expanding=True))

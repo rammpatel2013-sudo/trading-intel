@@ -258,9 +258,6 @@ def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[s
         return {"symbol": sym, "found": False, "straddle": None, "reason": "no spot"}
 
     floor = _expiry_floor(ts)
-    # Same offset for both books so the day-over-day decay compares like for like
-    # (0DTE vs 0DTE in the morning, the next expiry vs the next expiry after the close).
-    offset = timedelta(days=(floor - ts.date()).days)
     cur = _straddle_from_oi(session, sym, ts, float(spot), dte_c, floor)
     if not cur:
         return {"symbol": sym, "found": False, "straddle": None}
@@ -273,9 +270,13 @@ def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[s
         out["decay"] = None  # 10/22 front-expiry change: yesterday's book isn't comparable
         prev_ts = None
     if prev_ts is not None:
+        # 2026-11-10 fix: price the SAME expiry in the prior book (today's 0DTE at yesterday's
+        # close = the straddle the market paid for this session; VolSignals' "61 pts"). The old
+        # same-offset rule priced yesterday's own expiring contract at its close (~0 time left,
+        # e.g. 22.7 on 11/09) and called a normal bleed "repricing_up".
         prev_spot = _snapshot_spot_on(session, sym, prev_ts) or spot
         prev = _straddle_from_oi(
-            session, sym, prev_ts, float(prev_spot), dte_c, prev_ts.date() + offset
+            session, sym, prev_ts, float(prev_spot), dte_c + 7, floor
         )
         if prev and prev.get("straddle"):
             try:
@@ -285,6 +286,7 @@ def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[s
             if decay is not None:
                 decay["as_of_prior"] = _iso_day(prev_ts)
                 decay["prior_straddle"] = prev["straddle"]
+                decay["prior_note"] = "same expiry, priced at the prior session's close"
             out["decay"] = decay
     out["found"] = True
     return out

@@ -236,7 +236,7 @@ def mid_blocks(settings, day: str, rows_all: list[dict], top: int = 12) -> list[
 
     q = text(
         "select root, expiry, strike, cp, sum(notional) as prem, sum(size) as size, count(*) as n, "
-        "max(quote_loc) as loc from tas_prints where trade_date = :d and quote_loc in ('mid', 'inside') "
+        "max(quote_loc) as loc from tas_prints where trade_date = :d and quote_loc in ('mid', 'inside', 'in_hi', 'in_lo') "
         "and leg_group is null and coalesce(spread_leg, false) = false and coalesce(is_financing, false) = false "
         "group by root, expiry, strike, cp having sum(notional) >= :m order by prem desc limit 200"
     )

@@ -93,6 +93,10 @@ try:
     import vix_map                                  # VIX tab map (2026-11-09); the Orbs feed runs without it
 except Exception:                                   # pragma: no cover
     vix_map = None
+try:
+    import surface_feed as SF                       # Surface tab (2026-11-10); the Orbs feed runs without it
+except Exception:                                   # pragma: no cover
+    SF = None
 
 
 def log(msg):
@@ -387,6 +391,8 @@ class Day:
         self.live_writes = 0
         self.vix = vix_map.VixDay(ymd) if vix_map is not None else None
         self.dirty = False
+        self.beta = {s: SF.BetaTracker() for s in SF.SURFACE_SYMS} if SF is not None else {}
+        self.surf = {}
 
     def feed(self, rec):
         pull = rec.get("pull")
@@ -412,6 +418,11 @@ class Day:
             except Exception as exc:
                 log("%s %s: %s" % (s, t, str(exc)[:120]))
                 continue
+            if s in self.beta:
+                try:   # 2026-11-10 Surface tab: every expiry kept apart; a failure never stops the Orbs feed
+                    self.surf[s] = SF.build_surface(sys.modules[__name__], L, s, d, self.today, now, self.beta[s])
+                except Exception as exc:
+                    log("surface %s %s: %s" % (s, t, str(exc)[:120]))
             sl, px = self.slots[s], self.px[s]
             if sl and sl[-1]["t"] == t:
                 sl[-1] = blk
@@ -426,6 +437,8 @@ class Day:
         if got and self.live_mode and (L.now_et() - now).total_seconds() < LIVE_MAX_AGE_S:
             for s in got:
                 self.write_live(s)      # the newest minute goes out before anything else is done
+                if s in self.surf:
+                    L.atomic_write(os.path.join(DATA, "surface_live_%s.json" % s), self.surf[s])
         self.n_recs += 1
         return True
 

@@ -89,7 +89,12 @@ def quote_loc(price: float | None, bid: float | None, ask: float | None) -> str 
         return "at_bid"
     if price > ask or price < bid:
         return "outside"
-    return "mid" if abs(price - (ask + bid) / 2.0) <= eps else "inside"
+    mid = (ask + bid) / 2.0
+    if abs(price - mid) <= eps:
+        return "mid"
+    # 2026-11-10: "inside" split by side of mid so a spread LEG can be signed from its own quote
+    # (package signing in scripts/cvxmap/sides_feed.py). Readers that matched 'inside' also take these.
+    return "in_hi" if price > mid else "in_lo"
 
 
 def _f(value: object) -> float | None:

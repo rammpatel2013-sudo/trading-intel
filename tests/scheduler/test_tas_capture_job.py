@@ -178,5 +178,5 @@ def test_quote_loc_rules() -> None:
     q = tas_capture_job.quote_loc
     assert q(1.0, None, 1.1) is None
     assert q(1.0, 1.0, 1.2) == "at_bid" and q(1.2, 1.0, 1.2) == "at_ask"
-    assert q(1.1, 1.0, 1.2) == "mid" and q(1.05, 1.0, 1.2) == "inside"
+    assert q(1.1, 1.0, 1.2) == "mid" and q(1.05, 1.0, 1.2) == "in_lo" and q(1.16, 1.0, 1.2) == "in_hi"
     assert q(1.3, 1.0, 1.2) == "outside" and q(1.0, 1.0, 0) == "no_quote"

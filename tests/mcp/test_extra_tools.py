@@ -646,3 +646,27 @@ def test_skew_history_full_columns(session: Session) -> None:
     assert row["rr_25d_abnormal"] == -0.05
     assert out["summary"]["label"] == "call-bid"
     assert out["summary"]["bias"] == "upside calls bid"
+
+
+def test_straddle_prior_is_same_expiry_at_prior_close(session: Session, monkeypatch) -> None:
+    """2026-11-10: the prior straddle must be TODAY's expiry priced in yesterday's book,
+    not yesterday's own expiring contract (which priced near zero and read as 'repricing up')."""
+    mon, tue = datetime(2026, 11, 9, 16, 30), datetime(2026, 11, 10, 8, 35)
+    for cp in ("C", "P"):
+        # Monday book: Monday's own 0DTE (nearly expired) + Tuesday's expiry (1 day)
+        session.add(OiChainEod(symbol="SPX", ts=mon, expiry=date(2026, 11, 9), strike=7550.0,
+                               cp=cp, dte=0, oi=1000, iv=0.10, source="convex_eod"))
+        session.add(OiChainEod(symbol="SPX", ts=mon, expiry=date(2026, 11, 10), strike=7550.0,
+                               cp=cp, dte=1, oi=1000, iv=0.16, source="convex_eod"))
+        session.add(OiChainEod(symbol="SPX", ts=tue, expiry=date(2026, 11, 10), strike=7550.0,
+                               cp=cp, dte=0, oi=1000, iv=0.16, source="convex_am"))
+    session.add(GreeksSnapshot(symbol="SPX", ts=mon, spot=7550.0, gex_total=1.0, source="convex"))
+    session.add(GreeksSnapshot(symbol="SPX", ts=tue, spot=7550.0, gex_total=1.0, source="convex"))
+    session.commit()
+    monkeypatch.setattr(et, "live_expiry_floor", lambda d, now=None: date(2026, 11, 10))
+    monkeypatch.setattr(et, "same_day_years", lambda d, now=None: 6.5 / (365 * 24))
+    out = et.get_straddle(session, "SPX")
+    prior = out["decay"]["prior_straddle"]
+    # 1 day at 16% vol on 7550 ~ 0.8 * 7550 * 0.16 / sqrt(365) ~ 51 pts; the expiring Monday leg would be ~0
+    assert 40 < prior < 65
+    assert out["straddle"] < prior and out["decay"]["label"] == "decaying"

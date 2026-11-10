@@ -51,8 +51,10 @@ def get_exposure_by_strike(
     Reads the latest ``oi_chain_eod`` snapshot and returns per-strike:
     - net_dex: dxoi summed across C+P (dealer delta exposure)
     - call_dex / put_dex: dxoi split by side
-    - net_gex: gxoi summed across C+P (dealer gamma exposure)
-    - call_gex / put_gex: gxoi split by side
+    - net_gex: call gxoi - put gxoi (naive dealer book: long calls, short puts)
+      (2026-11-10 fix: was call + put, i.e. gross, mislabeled as net)
+    - gross_gex: call gxoi + put gxoi (size of gamma at the strike, no sign)
+    - call_gex / put_gex: gxoi split by side (both positive, vendor gamma x OI)
 
     The call_wall / put_wall / gex_flip are derived from the same data.
     Units: vendor-scaled (Convex gxoi/dxoi). Descriptor only (rule 4).
@@ -117,7 +119,6 @@ def get_exposure_by_strike(
         gx = float(r.gxoi) if r.gxoi is not None else 0.0
         oi_val = int(r.oi) if r.oi is not None else 0
         s["net_dex"] += dx
-        s["net_gex"] += gx
         s["total_oi"] += oi_val
         if str(r.cp).upper().startswith("C"):
             s["call_dex"] += dx
@@ -125,6 +126,9 @@ def get_exposure_by_strike(
         else:
             s["put_dex"] += dx
             s["put_gex"] += gx
+    for s in strikes.values():
+        s["net_gex"] = s["call_gex"] - s["put_gex"]
+        s["gross_gex"] = s["call_gex"] + s["put_gex"]
 
     # Sort by strike, filter to a reasonable range around spot (±15%)
     lo = spot * 0.85
@@ -141,6 +145,7 @@ def get_exposure_by_strike(
             "call_dex": round(v["call_dex"], 2),
             "put_dex": round(v["put_dex"], 2),
             "net_gex": round(v["net_gex"], 2),
+            "gross_gex": round(v["gross_gex"], 2),
             "call_gex": round(v["call_gex"], 2),
             "put_gex": round(v["put_gex"], 2),
             "total_oi": v["total_oi"],
@@ -152,14 +157,22 @@ def get_exposure_by_strike(
     call_wall = max(sorted_strikes, key=lambda x: x[1]["call_gex"], default=None)
     put_wall = max(sorted_strikes, key=lambda x: x[1]["put_gex"], default=None)
 
-    # GEX flip: zero-crossing of cumulative net_gex near spot
-    gex_vals = [(k, v["net_gex"]) for k, v in sorted_strikes]
+    # GEX flip: zero-crossing of CUMULATIVE net_gex (low strike -> high), the crossing
+    # nearest spot. (2026-11-10: before the net fix every per-strike value was positive,
+    # so this never crossed and gex_flip was always null.)
     gex_flip = None
-    for i in range(1, len(gex_vals)):
-        k0, g0 = gex_vals[i - 1]
-        k1, g1 = gex_vals[i]
-        if g0 < 0 <= g1:
-            gex_flip = round(k0 + (k1 - k0) * (-g0) / (g1 - g0), 1)
+    cum = 0.0
+    prev_k, prev_c = None, None
+    best = None
+    for k, v in sorted_strikes:
+        cum += v["net_gex"]
+        if prev_c is not None and prev_c < 0 <= cum:
+            x = prev_k + (k - prev_k) * (-prev_c) / (cum - prev_c)
+            if best is None or abs(x - spot) < abs(best - spot):
+                best = x
+        prev_k, prev_c = k, cum
+    if best is not None:
+        gex_flip = round(best, 1)
 
     return {
         "symbol": sym,
@@ -172,7 +185,7 @@ def get_exposure_by_strike(
         "gex_flip": gex_flip,
         "strikes": series,
         "count": len(series),
-        "units": "vendor-scaled dxoi/gxoi",
+        "units": "vendor-scaled dxoi/gxoi; net_gex = call - put (naive)",
     }
 
 

@@ -60,3 +60,48 @@ def test_tape_clock_and_shift_to_new_york():
     assert sf.tape_clock(mid, datetime(2026, 11, 5, 14, 16)) == "et"
     rows = sf.to_et([{"ts": datetime(2026, 11, 5, 19, 10, 0)}], "utc")
     assert rows[0]["ts"] == datetime(2026, 11, 5, 14, 10, 0)   # Nov 5 = EST, UTC-5
+
+
+def _leg(i, g, cp, loc, k=7500.0):
+    return {"id": i, "leg_group": g, "cp": cp, "quote_loc": loc, "strike": k}
+
+
+def test_package_vertical_one_clear_leg_signs_the_other():
+    # 7690/7790 call spread: 7690 sold at the bid, 7790 at mid -> 7790 bought
+    out = sf.sign_packages([_leg(1, "g", "C", "at_bid", 7690), _leg(2, "g", "C", "mid", 7790)])
+    assert out == {1: -1, 2: 1}
+
+
+def test_package_vertical_below_and_above_mid():
+    out = sf.sign_packages([_leg(1, "g", "P", "in_hi", 7125), _leg(2, "g", "P", "in_lo", 7025)])
+    assert out == {1: 1, 2: -1}
+
+
+def test_package_vertical_conflict_left_unsigned():
+    assert sf.sign_packages([_leg(1, "g", "C", "at_ask"), _leg(2, "g", "C", "in_hi", 7600)]) == {}
+
+
+def test_package_call_put_pair_signs_only_clear_legs():
+    out = sf.sign_packages([_leg(1, "g", "C", "at_ask"), _leg(2, "g", "P", "mid")])
+    assert out == {1: 1}
+
+
+def test_package_fly_all_one_way_is_conflict():
+    legs = [_leg(1, "g", "C", "at_ask", 7500), _leg(2, "g", "C", "in_hi", 7510), _leg(3, "g", "C", "mid", 7520)]
+    assert sf.sign_packages(legs) == {}
+
+
+def test_aggregate_moves_package_signed_legs_out_of_unsigned():
+    t = datetime(2026, 11, 9, 9, 30, 53)
+    base = {"symbol": "X", "ts": t, "spread_leg": True, "side": None, "leg_group": "g", "size": 1000}
+    rows = [
+        {**base, "id": 1, "symbol": "C7690", "strike": 7690.0, "cp": "C", "price": 0.40, "notional": 40000, "quote_loc": "at_bid"},
+        {**base, "id": 2, "symbol": "C7790", "strike": 7790.0, "cp": "C", "price": 0.15, "notional": 15000, "quote_loc": "mid"},
+    ]
+    agg, st = sf.aggregate(rows)
+    a1, a2 = agg[(7690.0, "C", 571)], agg[(7790.0, "C", 571)]
+    assert a1[4] == 0 and a1[8] == 1000            # 7690 package-sold, not unsigned
+    assert a2[4] == 0 and a2[7] == 1000            # 7790 package-bought
+    assert st["pkg_contracts"] == 2000 and st["leg_contracts"] == 2000
+    js = sf.payload("2026-11-09", agg, st, 5000)
+    assert len(js["rows"][0]) == len(sf.COLS)

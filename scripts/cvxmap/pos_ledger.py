@@ -45,7 +45,7 @@ ENV_CANDIDATES = [
 
 # Reuse the collector's decode() for raw data parsing
 sys.path.insert(0, HERE)
-from cvx_live import decode, exp_date  # noqa: E402
+from cvx_live import decode, exp_date, pm_groups  # noqa: E402
 
 # Ledger parameters (locked 2026-11-03)
 DEPTH = 11              # expiry indexes 0..11
@@ -166,7 +166,9 @@ def extract_day_flow(
         hh, mm = ts.hour, ts.minute
         in_window = (hh > SNAP_WINDOW[0]) or (hh == SNAP_WINDOW[0] and mm >= SNAP_WINDOW[1])
 
-        for head, book in d["exps"]:
+        # 2026-11-10: PM groups only. An AM group (.SPX monthly, .SPXO weekly) shares its date with the
+        # .SPXW group, so both landed on one (expiry, strike, right) key and overwrote each other.
+        for head, book in pm_groups(d):
             exp_iso = exp_date(head)
             try:
                 exp_d = datetime.date.fromisoformat(exp_iso)
@@ -472,7 +474,7 @@ def reconcile_oi(engine, as_of_date: datetime.date) -> int:
             if not d or not d["exps"]:
                 continue
 
-            for head, book in d["exps"]:
+            for head, book in pm_groups(d):  # PM only (2026-11-10, see the flow loop)
                 exp_iso = exp_date(head)
                 for k, (c, p) in book.items():
                     for right_label, side in [("C", c), ("P", p)]:
