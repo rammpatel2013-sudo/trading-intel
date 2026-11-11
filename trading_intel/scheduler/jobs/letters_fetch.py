@@ -215,9 +215,23 @@ def _fund_dir(root: Path, fund: str) -> Path:
     return root / (slug or "fund")
 
 
+def ollama_up(host: str, timeout: float = 5.0) -> bool:
+    """True if the Ollama server answers within ``timeout`` seconds.
+
+    2026-11-10: Ollama lives on the laptop. When the laptop is off or on another
+    network, every model call hung on connect and letters_fetch sat 08:50 -> 19:48.
+    One quick probe up front lets the run skip the model legs and finish in seconds.
+    """
+    try:
+        httpx.get(host.rstrip("/") + "/api/tags", timeout=timeout).raise_for_status()
+        return True
+    except Exception:  # noqa: BLE001 — any failure means "not reachable"
+        return False
+
+
 def run(
     session: Session,
-    llm: LLMProvider,
+    llm: LLMProvider | None,
     *,
     settings: Settings | None = None,
     letters_dir: Path | None = None,
@@ -266,6 +280,10 @@ def run(
         notes = 0
 
     result: dict = {"ingested": 0, "skipped": 0, "new_symbols": 0}
+    if llm is None:
+        bound.warning("letters_fetch.llm_skipped", reason="ollama unreachable")
+        bound.info("letters_fetch.done", saved=saved, source_notes=notes, signals=0, llm="skipped")
+        return {"saved": saved, "source_notes": notes, "signals": 0, **result}
     try:
         result = ingest_folder(
             session, llm, research_dir=root, model=settings.LLM_TAGGING_MODEL
@@ -306,7 +324,9 @@ def main() -> None:
             structlog.processors.JSONRenderer(),
         ]
     )
-    llm = OllamaProvider(settings)
+    llm = OllamaProvider(settings) if ollama_up(settings.OLLAMA_HOST) else None
+    if llm is None:
+        print(f"Ollama not reachable at {settings.OLLAMA_HOST} - storing letters only, model legs skipped.")
     session_factory = make_session_factory(settings)
     with session_factory() as session:
         result = run(session, llm, settings=settings)
