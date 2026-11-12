@@ -1,0 +1,26 @@
+{
+  "_about": "VolSignals reference points for scripts/vs_flip_score.py (created 2026-11-10). Add new rows as he posts them. kind: flip = a level where MM gamma changes sign (dir up = short->long as SPX rises, down = long->short); sign = MM gamma sign at spot (+/-/<=0) with optional value in $bn per 1%; no_cross = no sign change between lo and hi. book: close = positions at that day's close; am = the morning book (pre-open or intraday read). quality: exact = number he printed; approx = read off his chart; intraday = his gradient includes that day's trades, our book cannot. spot null = take ours from the DB.",
+  "refs": [
+    {"id": "nov09_full",  "date": "2026-11-09", "book": "close", "time": "16:00", "spot": 7550, "kind": "flip", "dir": "up", "level": 7594, "ex0dte": false, "quality": "exact",  "src": "X 11/09 CPI positioning thread (claude/x72h-volsignals-alma-20261110.md)"},
+    {"id": "nov09_ex0",   "date": "2026-11-09", "book": "close", "time": "16:00", "spot": 7550, "kind": "flip", "dir": "up", "level": 7627, "ex0dte": true,  "quality": "exact",  "src": "same thread, profile without Nov 10 expiry"},
+    {"id": "nov09_sign",  "date": "2026-11-09", "book": "close", "time": "16:00", "spot": 7550, "kind": "sign", "sign": "-", "value": -1.25, "quality": "exact", "src": "MM gamma -$1.25bn/1% at 7,550"},
+    {"id": "sep11_lower", "date": "2026-09-11", "book": "close", "time": "16:00", "spot": 7657, "kind": "flip", "dir": "up", "level": 7520, "ex0dte": false, "quality": "approx", "src": "Sep 17 deck slide: lower gamma flip 7,520 from the Sep 11 map"},
+    {"id": "oct06_upper", "date": "2026-10-06", "book": "am", "time": "08:50", "spot": 7800, "kind": "flip", "dir": "down", "level": 7910, "ex0dte": false, "quality": "approx", "src": "Oct 6 pre-open profile: turns negative in the low 7900s (~+110 pts)"},
+    {"id": "sep29_upper", "date": "2026-09-29", "book": "am", "time": "10:40", "spot": 7677, "kind": "flip", "dir": "down", "level": 7685, "ex0dte": false, "quality": "intraday", "src": "Sep 29 10:40 gamma gradient: red above ~7,685"},
+    {"id": "oct22_low",   "date": "2026-10-22", "book": "am", "time": "12:00", "spot": 7700, "kind": "flip", "dir": "down", "level": 7665, "ex0dte": false, "quality": "intraday", "src": "Oct 22 gradient: red corridor 7,665-7,740 all day"},
+    {"id": "oct22_high",  "date": "2026-10-22", "book": "am", "time": "12:00", "spot": 7700, "kind": "flip", "dir": "up",   "level": 7740, "ex0dte": false, "quality": "intraday", "src": "Oct 22 gradient: red corridor 7,665-7,740 all day"},
+    {"id": "sep01_none",  "date": "2026-09-01", "book": "am", "time": "09:01", "spot": 7644, "kind": "no_cross", "lo": 7500, "hi": 7900, "quality": "exact", "src": "Sep 1: long gamma at every level 7,500-7,900"},
+    {"id": "sep01_sign",  "date": "2026-09-01", "book": "am", "time": "09:01", "spot": 7644, "kind": "sign", "sign": "+", "value": 5.96, "quality": "exact", "src": "Sep 1 09:01 $5.96bn per 1% at 7,644"},
+    {"id": "aug21_sign",  "date": "2026-08-21", "book": "close", "time": "16:00", "spot": null, "kind": "sign", "sign": "+", "value": 5.85, "quality": "exact", "src": "Charm Offensive vol 005: closes 8/21-8/28"},
+    {"id": "aug24_sign",  "date": "2026-08-24", "book": "close", "time": "16:00", "spot": null, "kind": "sign", "sign": "+", "value": 7.11, "quality": "exact", "src": "vol 005"},
+    {"id": "aug25_sign",  "date": "2026-08-25", "book": "close", "time": "16:00", "spot": null, "kind": "sign", "sign": "+", "value": 4.67, "quality": "exact", "src": "vol 005"},
+    {"id": "aug26_sign",  "date": "2026-08-26", "book": "close", "time": "16:00", "spot": null, "kind": "sign", "sign": "+", "value": 8.75, "quality": "exact", "src": "vol 005"},
+    {"id": "aug27_sign",  "date": "2026-08-27", "book": "close", "time": "16:00", "spot": null, "kind": "sign", "sign": "+", "value": 8.97, "quality": "exact", "src": "vol 005"},
+    {"id": "aug28_sign",  "date": "2026-08-28", "book": "close", "time": "16:00", "spot": null, "kind": "sign", "sign": "+", "value": 10.45, "quality": "exact", "src": "vol 005"},
+    {"id": "sep15_sign",  "date": "2026-09-15", "book": "am", "time": "13:30", "spot": null, "kind": "sign", "sign": "<=0", "quality": "approx", "src": "Sep 15 video: now in negative or neutral gamma"},
+    {"id": "sep22_sign",  "date": "2026-09-22", "book": "am", "time": "10:00", "spot": null, "kind": "sign", "sign": "+", "value": 8.0, "quality": "approx", "src": "Sep 22: long more than $8bn per 1% at spot"},
+    {"id": "sep29_sign",  "date": "2026-09-29", "book": "am", "time": "09:00", "spot": null, "kind": "sign", "sign": "+", "value": 3.0, "quality": "approx", "src": "Oct 6 post: last Tuesday's morning column ~$3bn"},
+    {"id": "oct05_sign",  "date": "2026-10-05", "book": "am", "time": "09:00", "spot": null, "kind": "sign", "sign": "+", "value": 6.8, "quality": "approx", "src": "Oct 6 post: yesterday's morning column ~$6.8bn"},
+    {"id": "oct06_sign",  "date": "2026-10-06", "book": "am", "time": "08:50", "spot": 7800, "kind": "sign", "sign": "+", "value": 13.0, "quality": "approx", "src": "Oct 6: long about $13bn per 1% at spot"}
+  ]
+}
