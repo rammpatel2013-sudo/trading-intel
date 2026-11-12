@@ -21,6 +21,17 @@ for _pg in ("cvx_cockpit.html",):
             shutil.copyfile(_src, os.path.join(ROOT, _pg))
         except Exception:
             pass
+# 2026-11-12: the Help tab's screenshots live in scripts/cvxmap/help/ (version-controlled, like the page);
+# copy them to data/help/ so the page's relative help/*.webp links resolve. Missing folder = no-op.
+_HSRC = os.path.join(os.path.dirname(ROOT), "help")
+if os.path.isdir(_HSRC):
+    try:
+        os.makedirs(os.path.join(ROOT, "help"), exist_ok=True)
+        for _f in os.listdir(_HSRC):
+            if _f.lower().endswith((".webp", ".png", ".jpg")):
+                shutil.copyfile(os.path.join(_HSRC, _f), os.path.join(ROOT, "help", _f))
+    except Exception:
+        pass
 os.chdir(ROOT)
 
 

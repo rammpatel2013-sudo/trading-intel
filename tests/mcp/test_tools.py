@@ -271,3 +271,22 @@ def test_get_time_and_sales_flags_after_hours_zeros() -> None:
     out = tools.get_time_and_sales(_StubSource(df), "NVDA")
     assert out["live_prints"] is False
     assert "after-hours" in out["note"]
+
+
+def test_get_gamma_history_days_counts_sessions_not_rows(session: Session) -> None:
+    """2026-11-12 (T7): 3 pulls a day used to eat the row limit - days=3 returned one session."""
+    for d in (2, 3, 4, 5, 6):
+        for h, gex in ((9, 1.0), (12, 2.0), (16, 3.0)):
+            session.add(GreeksSnapshot(symbol="SPX", ts=datetime(2026, 11, d, h, 0), spot=7500.0,
+                                       gex_total=gex, gex_flip=7400.0, atm_iv=0.2))
+    session.commit()
+    result = tools.get_gamma_history(session, "SPX", days=3)
+    assert [r["date"] for r in result["rows"]] == ["2026-11-04", "2026-11-05", "2026-11-06"]
+    assert all(r["gex_total"] == 3.0 for r in result["rows"])
+
+
+def test_regime_text_uses_the_sign_and_flags_mixed() -> None:
+    assert tools.regime_text(52.7, 7594.68, 7601.0).startswith("long gamma (net +52.7; spot below")
+    assert "mixed" in tools.regime_text(52.7, 7594.68, 7601.0)
+    assert "mixed" not in tools.regime_text(-163.0, 7521.26, 7579.9)
+    assert tools.regime_text(None, 230.0, 210.0).startswith("long gamma")

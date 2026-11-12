@@ -5,6 +5,12 @@ and how SPX moved on past event days split by the dealer-gamma sign at the prior
                           and without the front expiry (the "shot clock": what is left after today's close).
     get_close_odds      - option-implied odds of where the front expiry settles, by price bucket
                           (Breeden-Litzenberger on the smile: P(S_T > K) = -dC/dK with r = 0).
+                          2026-11-12: cleaned smile (two-sided quotes only, calls and puts
+                          blended near the money, outliers dropped), survival kept falling by
+                          a least-squares fit instead of a running minimum, priced at the
+                          BOOK's own time, and a quality check that falls back to a plain
+                          lognormal when the smile cannot be read (11/12 08:35 book: the old
+                          maths put 80.6% of the odds in one 10-point bucket).
     get_event_day_stats - past event days (CPI by default, FRED release 10) with the SPX day range and
                           close-to-close move, split by the naive dealer-gamma sign at the prior close.
 
@@ -12,6 +18,7 @@ All naive dealer book (calls +, puts -) like get_profile; positioning reads, nev
 """
 from __future__ import annotations
 
+import math
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -21,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.greeks.black_scholes import bs_call_price
 from trading_intel.mcp import profile_tool as pt
-from trading_intel.memory.models import OiChainDaily, OiChainEod, QuoteDaily
+from trading_intel.memory.models import GreeksSnapshot, OiChainDaily, OiChainEod, QuoteDaily
 from trading_intel.timeutils import live_expiry_floor, same_day_years
 
 ES_MULT = 50.0
@@ -57,6 +64,10 @@ def get_hedge_response(
     by_exp = gp.get("by_expiry") or {}
     front = min(by_exp) if by_exp else None
     ex_front = [a - b for a, b in zip(full, by_exp[front], strict=True)] if front else full
+    mq = [e for e in by_exp if _is_monthly_or_quarterly(e)]
+    ex_mq = list(full)
+    for e in mq:
+        ex_mq = [a - b for a, b in zip(ex_mq, by_exp[e], strict=True)]
     s0 = float(prof["spot"])
     rows = []
     for m in moves:
@@ -64,29 +75,158 @@ def get_hedge_response(
             "move_pct": m, "spx": round(s0 * (1 + m / 100.0), 1),
             "es_k": round(hedge_from_curve(ref, full, s0, m) / 1000.0, 1),
             "es_k_ex_front": round(hedge_from_curve(ref, ex_front, s0, m) / 1000.0, 1),
+            "es_k_ex_monthly": round(hedge_from_curve(ref, ex_mq, s0, m) / 1000.0, 1),
         })
     return {"symbol": prof["symbol"], "as_of": prof["as_of"], "spot": s0, "found": True,
-            "front_expiry": front, "rows": rows,
+            "front_expiry": front, "monthly_quarterly_expiries": sorted(mq), "rows": rows,
             "units": "thousand ES contracts; negative = dealers sell, positive = buy",
-            "note": "naive book (dealers long calls, short puts); sticky strike; size overstates vs signed books"}
+            "note": ("naive book (dealers long calls, short puts); sticky strike. Its size runs "
+                     "far above signed books (about 30x VolSignals' table for Nov 10), mostly "
+                     "because every monthly and quarterly put counts as dealer-short; "
+                     "es_k_ex_monthly drops those expiries to show how much they carry. "
+                     "Read the shape, not the size.")}
+
+
+def _is_monthly_or_quarterly(exp: Any) -> bool:  # noqa: ANN401 - ISO string or date
+    """3rd-Friday monthly, or the last weekday of Mar/Jun/Sep/Dec (holidays ignored) - the expiries
+    where big institutional put positions sit (same rule as scripts/vs_flip_score.py)."""
+    try:
+        d = exp if isinstance(exp, date) else date.fromisoformat(str(exp)[:10])
+    except ValueError:
+        return False
+    if d.weekday() == 4 and 15 <= d.day <= 21:
+        return True
+    if d.month in (3, 6, 9, 12) and d.weekday() < 5:
+        nxt = d + timedelta(days=1)
+        while nxt.weekday() >= 5:
+            nxt += timedelta(days=1)
+        return nxt.month != d.month
+    return False
 
 
 # --------------------------------------------------------------------- close odds
+def pava_down(y: np.ndarray) -> np.ndarray:
+    """Least-squares fit that never rises (pool adjacent violators). The old running minimum let
+    one bad strike drag every higher strike to its value - on the 11/12 08:35 book that collapsed
+    the odds into two 10-point buckets."""
+    vals: list[float] = []
+    wts: list[float] = []
+    lens: list[int] = []
+    for v in np.asarray(y, float)[::-1]:        # fit non-decreasing on the reversed series
+        vals.append(float(v))
+        wts.append(1.0)
+        lens.append(1)
+        while len(vals) > 1 and vals[-2] > vals[-1]:
+            w = wts[-2] + wts[-1]
+            vals[-2:] = [(vals[-2] * wts[-2] + vals[-1] * wts[-1]) / w]
+            wts[-2:] = [w]
+            lens[-2:] = [lens[-2] + lens[-1]]
+    return np.repeat(np.asarray(vals), lens)[::-1]
+
+
+def survival_from_smile(strikes: np.ndarray, ivs: np.ndarray, spot: float,
+                        t: float) -> tuple[np.ndarray, np.ndarray]:
+    """(grid, P(S_T > grid)) from a smile (strike -> IV), r = q = 0. The grid reaches 6 ATM sigmas
+    past the quoted strikes (IV held flat there) so both tails are counted."""
+    o = np.argsort(strikes)
+    k, v = np.asarray(strikes, float)[o], np.asarray(ivs, float)[o]
+    sd = float(np.interp(spot, k, v)) * math.sqrt(max(t, 1e-9))
+    lo, hi = min(k[0], spot * math.exp(-6 * sd)), max(k[-1], spot * math.exp(6 * sd))
+    grid = np.linspace(lo, hi, 4001)
+    sig = np.interp(grid, k, v)
+    c = bs_call_price(spot, grid, sig, np.full_like(grid, t))
+    surv = np.clip(pava_down(-np.gradient(c, grid)), 0.0, 1.0)
+    return grid, surv
+
+
 def odds_from_smile(strikes: np.ndarray, ivs: np.ndarray, spot: float, t: float,
                     edges: list[float]) -> list[float]:
     """P(S_T in each bucket between consecutive ``edges``) from a smile (strike -> IV), r = q = 0.
     Survival P(S_T > K) = -dC/dK on a dense strike grid; buckets below the first / above the last edge
     are included as the first / last entries (len = len(edges) + 1)."""
-    o = np.argsort(strikes)
-    k, v = np.asarray(strikes, float)[o], np.asarray(ivs, float)[o]
-    grid = np.linspace(k[0], k[-1], 4001)
-    sig = np.interp(grid, k, v)
-    c = bs_call_price(spot, grid, sig, np.full_like(grid, t))
-    surv = np.clip(-np.gradient(c, grid), 0.0, 1.0)
-    surv = np.minimum.accumulate(surv)            # survival can only fall with strike
+    grid, surv = survival_from_smile(strikes, ivs, spot, t)
+    return _buckets(grid, surv, edges)
+
+
+def _buckets(grid: np.ndarray, surv: np.ndarray, edges: list[float]) -> list[float]:
     sv = [float(np.interp(e, grid, surv, left=1.0, right=0.0)) for e in edges]
     out = [1.0 - sv[0]] + [sv[i] - sv[i + 1] for i in range(len(sv) - 1)] + [sv[-1]]
     return [max(0.0, x) for x in out]
+
+
+def clean_smile(rows: list[tuple[float, str, float | None, float | None, float | None]],
+                spot: float) -> tuple[np.ndarray, np.ndarray, dict[str, int]]:
+    """Strike -> IV for the close odds, from (strike, cp, iv, bid, ask) rows.
+    - quotes must be two-sided when the book carries them (bid > 0, ask > bid);
+    - out-of-the-money side (puts below spot, calls above), the two sides averaged within 0.5%
+      of spot so the switch at spot leaves no step;
+    - a strike whose IV sits far from its 4 neighbours' median is dropped (stale or bad print);
+    - one light 3-point average."""
+    calls: dict[float, float] = {}
+    puts: dict[float, float] = {}
+    dropped = {"one_sided": 0, "outlier": 0}
+    for k, cp, iv, bid, ask in rows:
+        if iv is None or not (0.01 < float(iv) < 5.0):
+            continue
+        if bid is not None and ask is not None and (float(bid) <= 0 or float(ask) <= float(bid)):
+            dropped["one_sided"] += 1
+            continue
+        (calls if str(cp).upper().startswith("C") else puts)[float(k)] = float(iv)
+    band = 0.005 * spot
+    pts: list[tuple[float, float]] = []
+    for k in sorted(set(calls) | set(puts)):
+        c, p = calls.get(k), puts.get(k)
+        if abs(k - spot) <= band and c is not None and p is not None:
+            pts.append((k, 0.5 * (c + p)))
+        elif k <= spot and p is not None:
+            pts.append((k, p))
+        elif k > spot and c is not None:
+            pts.append((k, c))
+    if len(pts) < 5:
+        return np.array([]), np.array([]), dropped
+    ks = np.array([x[0] for x in pts])
+    vs = np.array([x[1] for x in pts])
+    keep = np.ones(len(vs), bool)
+    for i in range(len(vs)):
+        nb = np.concatenate([vs[max(0, i - 2):i], vs[i + 1:i + 3]])
+        med = float(np.median(nb)) if len(nb) else vs[i]
+        if abs(vs[i] - med) > max(0.30 * med, 0.05):
+            keep[i] = False
+    dropped["outlier"] = int((~keep).sum())
+    ks, vs = ks[keep], vs[keep]
+    if len(vs) >= 3:
+        sm = vs.copy()
+        sm[1:-1] = (vs[:-2] + vs[1:-1] + vs[2:]) / 3.0
+        vs = sm
+    return ks, vs, dropped
+
+
+def dist_stats(grid: np.ndarray, surv: np.ndarray, spot: float,
+               straddle: float) -> dict[str, float]:
+    """Median, P10 / P90, the biggest 5-point bucket and the odds inside spot +/- one straddle."""
+    cdf = 1.0 - surv
+    q = lambda p: float(np.interp(p, cdf, grid))  # noqa: E731 - cdf is non-decreasing
+    b = np.arange(math.floor(grid[0] / 5) * 5, grid[-1] + 5, 5.0)
+    sb = np.interp(b, grid, surv, left=1.0, right=0.0)
+    return {"median": q(0.5), "p10": q(0.10), "p90": q(0.90),
+            "max_5pt": float(np.max(-np.diff(sb))) if len(sb) > 1 else 1.0,
+            "in_1_straddle": float(np.interp(spot - straddle, grid, surv)
+                                   - np.interp(spot + straddle, grid, surv))}
+
+
+def odds_quality(st: dict[str, float], spot: float, straddle: float) -> list[str]:
+    """Reasons the smile's odds cannot be trusted (empty = fine). A lognormal with the same width
+    puts ~79% inside one straddle, ~8% at most in any 5-point bucket for a 25-point straddle, and
+    its middle at spot."""
+    why = []
+    if abs(st["median"] - spot) > max(straddle, 10.0):
+        why.append(f"middle {st['median']:,.0f} sits more than one straddle from spot")
+    if st["max_5pt"] > 0.25:
+        why.append(f"{100 * st['max_5pt']:.0f}% of the odds in one 5-point bucket")
+    if not (0.45 <= st["in_1_straddle"] <= 0.95):
+        why.append(f"{100 * st['in_1_straddle']:.0f}% inside one straddle "
+                   "(a normal day is ~70-80%)")
+    return why
 
 
 def get_close_odds(
@@ -108,22 +248,20 @@ def get_close_odds(
     if exp is None:
         return {"symbol": sym, "found": False}
     rows = session.execute(
-        select(OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.dte).where(
+        select(OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.bid_price,
+               OiChainEod.ask_price).where(
             OiChainEod.symbol == sym, OiChainEod.source.like("convex%"), OiChainEod.ts == ts,
             OiChainEod.expiry == exp, OiChainEod.iv.isnot(None))).all()
-    smile: dict[float, float] = {}
-    for r in rows:   # out-of-the-money side: puts below spot, calls above
-        k, iv = float(r.strike), float(r.iv)
-        if not (0.01 < iv < 5.0):
-            continue
-        if (str(r.cp).upper().startswith("P") and k <= spot) or (str(r.cp).upper().startswith("C") and k > spot):
-            smile[k] = iv
-    if len(smile) < 5:
-        return {"symbol": sym, "found": False, "reason": "too few strikes with IV"}
+    near = _spot_near(session, sym, ts)
+    if near is not None:
+        spot = near
+    ks, vs, dropped = clean_smile(
+        [(r.strike, r.cp, r.iv, r.bid_price, r.ask_price) for r in rows], spot)
+    if len(ks) < 5:
+        return {"symbol": sym, "found": False, "reason": "too few two-sided strikes with IV"}
     dte = (exp - ts.date()).days
-    t = same_day_years(ts.date()) if dte <= 0 else dte / 365.0
-    ks = np.array(sorted(smile))
-    vs = np.array([smile[x] for x in ks])
+    # priced at the BOOK's own time (its IVs and spot), not at the time the tool is asked
+    t = same_day_years(ts.date(), now=ts) if dte <= 0 else dte / 365.0
     atm = float(np.interp(spot, ks, vs))
     straddle = float(2 * bs_call_price(spot, np.array([spot]), np.array([atm]), np.array([t]))[0])
     flip = None
@@ -134,13 +272,47 @@ def get_close_odds(
         if flip and abs(flip - spot) < 3 * straddle:
             e.add(round(flip))
         edges = sorted(e)
-    p = odds_from_smile(ks, vs, spot, t, edges)
+    grid, surv = survival_from_smile(ks, vs, spot, t)
+    stats = dist_stats(grid, surv, spot, straddle)
+    why = odds_quality(stats, spot, straddle)
+    quality = "smile"
+    if why:   # the smile cannot be read: same width, plain lognormal from the ATM IV
+        flat = (np.array([ks[0], spot, ks[-1]]) if ks[0] < spot < ks[-1]
+                else np.array([spot * 0.8, spot, spot * 1.2]))
+        grid, surv = survival_from_smile(flat, np.full(3, atm), spot, t)
+        stats = dist_stats(grid, surv, spot, straddle)
+        quality = "fallback_lognormal"
+    p = _buckets(grid, surv, edges)
     labels = [f"below {edges[0]:,.0f}"] + [f"{edges[i]:,.0f} to {edges[i + 1]:,.0f}"
                                             for i in range(len(edges) - 1)] + [f"above {edges[-1]:,.0f}"]
-    return {"symbol": sym, "as_of": ts.date().isoformat(), "expiry": exp.isoformat(), "spot": round(spot, 2),
+    return {"symbol": sym, "as_of": ts.date().isoformat(),
+            "book_ts": ts.isoformat(timespec="minutes"),
+            "expiry": exp.isoformat(), "spot": round(spot, 2), "t_hours": round(t * 8760.0, 2),
             "straddle": round(straddle, 2), "gamma_flip": round(flip, 1) if flip else None,
+            "gamma_flip_def": ("price where dealer gamma from every expiry in this book (naive "
+                               "sign: dealers long calls, short puts) adds to zero, re-priced on a "
+                               "+/-3% grid"),
             "buckets": [{"range": lab, "odds_pct": round(100 * x, 1)} for lab, x in zip(labels, p, strict=True)],
-            "found": True, "note": "risk-neutral odds from the book's own smile (r = 0); not a forecast"}
+            "median": round(stats["median"], 1), "p10": round(stats["p10"], 1),
+            "p90": round(stats["p90"], 1), "quality": quality, "quality_reasons": why,
+            "strikes_used": len(ks), "dropped": dropped,
+            "found": True,
+            "note": ("risk-neutral odds from the book's own smile at the book's time (r = 0); "
+                     "not a forecast"
+                     + ("" if quality == "smile" else
+                        "; the smile could not be read, so these are plain lognormal odds "
+                        "from the ATM IV"))}
+
+
+def _spot_near(session: Session, sym: str, ts: datetime) -> float | None:
+    """Spot from the latest convex greeks snapshot at or before the book (+30 min), so a morning
+    book is priced at its own spot, not a later intraday one."""
+    row = session.execute(
+        select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym,
+                                          GreeksSnapshot.source == "convex",
+                                          GreeksSnapshot.ts <= ts + timedelta(minutes=30))
+        .order_by(GreeksSnapshot.ts.desc())).first()
+    return float(row[0]) if row and row[0] is not None else None
 
 
 # --------------------------------------------------------------------- event days

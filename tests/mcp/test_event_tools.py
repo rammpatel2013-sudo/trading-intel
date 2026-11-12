@@ -88,3 +88,82 @@ def test_event_day_stats_with_given_dates(session: Session):
     session.commit()
     out = ev.get_event_day_stats(session, dates=[date(2026, 7, 15)])
     assert out["found"] and out["rows"][0]["gamma"] == "short"
+
+
+# ---------------------------------------------------------------- 2026-11-12 close-odds repair
+def test_pava_down_never_rises_and_keeps_good_series():
+    y = np.array([1.0, 0.9, 0.95, 0.5, 0.6, 0.0])
+    f = ev.pava_down(y)
+    assert np.all(np.diff(f) <= 1e-12)
+    assert np.allclose(ev.pava_down(np.array([1.0, 0.7, 0.2])), [1.0, 0.7, 0.2])
+    assert abs(f.sum() - y.sum()) < 1e-9          # least squares keeps the mean of each pooled block
+
+
+def _kinked_rows(spot: float) -> list[tuple]:
+    rows = []
+    for k in range(7300, 7905, 5):
+        put_iv = 0.18 + 0.9 * max(0.0, (spot - k) / spot)       # steep put skew
+        call_iv = 0.12                                          # calls much lower: a step at spot
+        if k == 7480:
+            put_iv = 0.95                                       # one bad print
+        rows.append((float(k), "P", put_iv, 1.0, 1.2))
+        rows.append((float(k), "C", call_iv, 1.0, 1.2))
+        if k == 7700:
+            rows.append((float(k), "C", 0.11, 0.0, 0.05))       # one-sided quote: dropped
+    return rows
+
+
+def test_clean_smile_blends_at_spot_and_drops_bad_rows():
+    spot = 7594.68
+    ks, vs, dropped = ev.clean_smile(_kinked_rows(spot), spot)
+    assert dropped["one_sided"] == 1 and dropped["outlier"] >= 1
+    assert 7480.0 not in set(ks.tolist())
+    # inside 0.5% of spot the two sides are averaged, so no single jump of 6 vol points remains
+    assert np.max(np.abs(np.diff(vs))) < 0.06
+
+
+def test_kinked_smile_odds_have_no_hole_near_spot():
+    spot, t = 7594.68, 6.5 / 8760
+    ks, vs, _ = ev.clean_smile(_kinked_rows(spot), spot)
+    grid, surv = ev.survival_from_smile(ks, vs, spot, t)
+    edges = list(range(7560, 7640, 10))
+    p = ev._buckets(grid, surv, edges)
+    assert all(x > 0.01 for x in p[1:-1])                    # every 10-pt bucket near spot carries odds
+    st = ev.dist_stats(grid, surv, spot, 40.0)
+    assert abs(st["median"] - spot) < 40 and st["max_5pt"] < 0.25
+    assert ev.odds_quality(st, spot, 40.0) == []
+
+
+def test_quality_check_flags_collapsed_odds():
+    grid = np.linspace(7400, 7800, 801)
+    surv = np.where(grid < 7575, 1.0, np.where(grid < 7580, 0.2, 0.0))   # 80% in one 5-pt bucket
+    st = ev.dist_stats(grid, surv, 7594.68, 40.0)
+    why = ev.odds_quality(st, 7594.68, 40.0)
+    assert any("one 5-point bucket" in w for w in why)
+
+
+def test_close_odds_reports_book_time_quality_and_stats(session: Session, monkeypatch):
+    _seed_book(session)
+    monkeypatch.setattr(ev, "live_expiry_floor", lambda d, now=None: date(2026, 11, 10))
+    monkeypatch.setattr(ev.pt, "live_expiry_floor", lambda d, now=None: date(2026, 11, 10))
+    o = ev.get_close_odds(session, "SPX", as_of=date(2026, 11, 9))
+    assert o["found"] and o["quality"] == "smile" and o["quality_reasons"] == []
+    assert o["book_ts"] == "2026-11-09T16:30" and abs(o["t_hours"] - 24.0) < 0.01
+    assert o["p10"] < o["median"] < o["p90"] and abs(o["median"] - 7550) < 30
+    assert "re-priced" in o["gamma_flip_def"]
+
+
+def test_hedge_response_ex_monthly_column(session: Session, monkeypatch):
+    _seed_book(session)                                       # 11/20/2026 = 3rd Friday (monthly)
+    ts = datetime(2026, 11, 9, 16, 30)
+    for k in range(7300, 7805, 5):                            # a put-heavy December monthly (12/18)
+        for cp in ("C", "P"):
+            session.add(OiChainEod(symbol="SPX", ts=ts, expiry=date(2026, 12, 18), strike=float(k), cp=cp,
+                                   dte=39, oi=300 + (6000 if cp == "P" else 0), iv=0.18, source="convex_eod"))
+    session.commit()
+    monkeypatch.setattr(ev.pt, "live_expiry_floor", lambda d, now=None: date(2026, 11, 10))
+    h = ev.get_hedge_response(session, "SPX", as_of=date(2026, 11, 9))
+    assert h["monthly_quarterly_expiries"] == ["2026-11-20", "2026-12-18"]
+    assert all("es_k_ex_monthly" in r for r in h["rows"])
+    assert any(r["es_k_ex_monthly"] != r["es_k"] for r in h["rows"])
+    assert ev._is_monthly_or_quarterly("2026-12-31") and not ev._is_monthly_or_quarterly("2026-11-13")

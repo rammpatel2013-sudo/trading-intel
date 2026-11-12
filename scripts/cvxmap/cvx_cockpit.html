@@ -94,7 +94,7 @@ body.phone #tabDensity{grid-template-columns:1fr;grid-template-rows:520px auto}
 .helpbody h3:first-child{margin-top:6px}
 .helpbody dl{margin:0;display:grid;grid-template-columns:190px minmax(0,1fr);gap:7px 18px}
 .helpbody dt{color:#fff;font-weight:600}
-.helpbody dd{margin:0;color:var(--ink)}
+.helpbody dd{margin:0;color:var(--ink)}.helpbody figure.hshot{margin:12px 0 16px;max-width:1100px}.helpbody figure.hshot.narrow{max-width:460px}.helpbody figure.hshot img{display:block;width:100%;height:auto;border:1px solid var(--rule);border-radius:6px;background:#05070b}.helpbody figure.hshot figcaption{font-size:15px;color:#E6EDF5;margin-top:6px;line-height:1.5}.helpbody dl.hcond{margin-bottom:6px}.helpbody dl.hcond dt{color:#FFD84D}.helpbody .hfigs{display:flex;flex-wrap:wrap;gap:0 18px;align-items:flex-start}.helpbody .hfigs figure.hshot{flex:1 1 420px}
 .helpbody dt b.hb{color:var(--offer)}.helpbody dt b.hr{color:var(--shortg)}
 .helpbody dt b.hg{color:#2ecc71}.helpbody dt b.hy{color:#f4d03f}
 .caveats{margin:4px 0 0;padding-left:22px}
@@ -413,7 +413,7 @@ body.phone .vxlines>.k{padding-top:6px}
 #mapBreakPane .body{flex:0 0 48%}.mapread b{color:var(--r4)}.mapread .l{margin:2px 0}.mapread .l i{font-style:normal;color:var(--mute)}
 .seg.dim{opacity:.4}
 .mapread .blbox{padding:2px 0 6px;border-bottom:1px solid var(--rule);margin-bottom:4px}.mapread .bl1{font-size:17px;margin:2px 0 6px;line-height:1.4}.mapread .bl{font-size:15px;margin:4px 0;line-height:1.45;color:var(--ink)}.mapread .bl i{font-style:normal;color:var(--ink);opacity:.8}
-.mapread details.rdet{margin-top:6px}.mapread details.rdet>summary{cursor:pointer;font-size:15px;font-weight:600;color:var(--ink);padding:4px 0}
+.mapread .agr{display:inline-block;margin-left:4px;padding:0 7px;border-radius:9px;font-size:13px;font-weight:700;background:#ffffff1f;color:var(--ink)}.mapread .agr.hi{background:#2ecc7147}.mapread details.rdet{margin-top:6px}.mapread details.rdet>summary{cursor:pointer;font-size:15px;font-weight:600;color:var(--ink);padding:4px 0}
 body.phone #tabMap{grid-template-columns:1fr;grid-template-rows:420px 300px 420px}
 body.mapmax #tabFlow{grid-template-rows:minmax(0,1fr) 0 0}
 body.mapmax #conPane, body.mapmax #readsPane{display:none}
@@ -1021,8 +1021,8 @@ body.phone .vxmgrid{grid-template-columns:1fr}
     </div>
   </main>
   <main id="tabMap" class="tab" hidden>
-    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus today's tagged buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><div class="seg" role="group" id="mapVol1Seg" title="Which day's VOLUME goes into the maps (only matters on Vol / OI + vol / OI + signed, or with Ledger on). 0DTE vol = today's expiry only (the standard). 0+1DTE vol = also the next expiry's volume, priced as that expiry (its own days left and its own IV), never merged into today's strikes. The 1-7 DTE book itself stays morning OI only."><button data-v="0" aria-pressed="true">0DTE vol</button><button data-v="1" aria-pressed="false">0+1DTE vol</button></div><button class="btn" id="ledBtn" aria-pressed="false" title="Ledger book (Map only): start the 0DTE book from the signed-position ledger at yesterday's close (customers' running buys minus sells; dealers hold the other side), then add today's tagged buy/sell volume minute by minute. Closest we get to measured market-maker positions. Week book and other tabs unchanged. Scored nightly against OI + vol.">Ledger</button><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: each strike's IV moves with SPX by the amount we actually measured (updated every night from our own data: same-day options from the minute log, longer expiries day to day). Today that means IV falls as SPX rises and rises as it falls. Changes gamma and charm on all maps. Scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
-    <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
+    <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus today's tagged buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><div class="seg" role="group" id="mapVol1Seg" title="Which day's VOLUME goes into the maps (only matters on Vol / OI + vol / OI + signed, or with Ledger on). 0DTE vol = today's expiry only (the standard). 0+1DTE vol = also the next expiry's volume, priced as that expiry (its own days left and its own IV), never merged into today's strikes. The 1-7 DTE book itself stays morning OI only."><button data-v="0" aria-pressed="true">0DTE vol</button><button data-v="1" aria-pressed="false">0+1DTE vol</button></div><button class="btn" id="ledBtn" aria-pressed="false" title="Ledger book (Map only): start the 0DTE book from the signed-position ledger at yesterday's close (customers' running buys minus sells; dealers hold the other side), then add today's tagged buy/sell volume minute by minute. Closest we get to measured market-maker positions. Week book and other tabs unchanged. Scored nightly against OI + vol.">Ledger</button><button class="btn" id="flipLineBtn" aria-pressed="false" title="Flip line (off by default): one bold yellow line on the normal gamma map where gamma changes sign (the crossing nearest price at each minute), with the flip and the zone at the current minute. The map&#39;s own colours, and the dark band between blue and red, stay exactly as they are.">Flip line</button><button class="btn" id="zoneBtn" aria-pressed="false" title="Zone view (off by default): the gamma map in two colours - green where dealers are long gamma (they calm moves), red where they are short (they speed moves up) - with one bold yellow flip line and a light band for the transition zone, where gamma is weak (under 10% of that minute&#39;s strongest value). Same numbers as the normal map.">Zone</button><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: each strike's IV moves with SPX by the amount we actually measured (updated every night from our own data: same-day options from the minute log, longer expiries day to day). Today that means IV falls as SPX rises and rises as it falls. Changes gamma and charm on all maps. Scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
+    <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="ruleReadBtn" aria-pressed="false" title="Rule read (off by default): ceiling and floor picked by the gamma regime - long gamma: vanna flip = ceiling, gamma flip = floor; short gamma: gamma flip = ceiling, vanna flip = floor - with how many other levels agree. Gamma peak = pin. One charm line.">Rule read</button><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div><button class="btn" id="zoomBtn" aria-pressed="false" title="Zoom all three map panes: a price window around spot, finer rows and 1-minute columns inside it. Mouse wheel = wider/narrower · drag = move up/down · double-click = back to spot.">Zoom</button><div class="seg" role="group" id="zoomWSeg" title="Zoom price window around spot"><button data-v="25">±25</button><button data-v="50">±50</button><button data-v="100">±100</button></div><div class="seg" role="group" id="zoomTSeg" title="Zoom time window"><button data-v="rth">9:30 →</button><button data-v="2h">Last 2h →</button></div><div class="seg" role="group" id="mapColSeg" title="Colour: Classic = one colour per side, brighter = bigger. Gradient = a ramp of colours (dark at zero, then blue/cyan or amber/gold to near-white) so each size has its own colour, with a faint line where the value is half the column's strongest."><button data-v="classic">Classic</button><button data-v="grad">Gradient</button></div><div class="seg" role="group" id="mapScaleSeg" title="Colour scale: Day = one scale for the whole map (afternoon charm is far bigger, so mornings look dim). Column = each minute scaled to its own strongest value, so the shape shows all day; sizes are still in the read-out."><button data-v="day">Day</button><button data-v="col">Column</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
   </main>
@@ -1175,7 +1175,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 
         <p class="hintro">This cockpit shows how options traders, and the dealers who take the other side of their trades, are positioned in SPX (and SPY, QQQ) through the day. Every page is explained below: what it shows, how to read it, and what each button does. <b>Nothing here is a trade signal</b> &mdash; it describes positioning so you can make your own call.</p>
         <nav class="hjump">
-          <a href="#h-words">Words</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-orbs">Orbs</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-levels">Levels</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
+          <a href="#h-words">Words</a><a href="#h-days">Different days</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-orbs">Orbs</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-surface">Surface</a><a href="#h-levels">Levels</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
         </nav>
 
         <h3 class="pg" id="h-words">Words used on this page</h3>
@@ -1200,7 +1200,20 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>&sigma; (sigma)</dt><dd>One standard deviation. Price stays inside &plusmn;1&sigma; about two times out of three.</dd>
         </dl>
 
+        <h3 class="pg" id="h-days">How to read it on different days</h3>
+        <p class="what">The same screen means different things on different days. First decide which kind of day it is (the gamma box at the top says long or short gamma; on the Map, <b>Flip line</b> draws the flip as one bold yellow line), then read the pages below in that light. Each page further down has its own &ldquo;On different days&rdquo; notes.</p>
+        <dl class="hcond">
+          <dt>Long gamma day</dt><dd>Price is above the flip (blue, above the yellow Flip line). Dealers trade against the move, so ranges hold and moves fade. Map &rarr; <b>Rule read</b>: the ceiling is the vanna flip above price, the floor is the gamma flip below; the gamma peak is the pin. Density: narrow cone, the pin band matters. Fade the edges, don&rsquo;t chase.</dd>
+          <dt>Short gamma day</dt><dd>Price is below the flip (red). Dealers trade with the move, so moves stretch and levels break more easily. Rule read swaps the roles: the gamma flip above caps the top, the vanna flip below holds the bottom. Density: a wider cone; the full-book trough is the floor to watch. Don&rsquo;t fade a break; wait for price to show it is holding.</dd>
+          <dt>At the flip</dt><dd>Price inside the dark band between blue and red (the yellow Flip line is its middle): dealers barely hedge either way, so the day&rsquo;s character is being decided. Chop inside the band is normal; a 5-minute close out of it sets the regime for the next stretch.</dd>
+          <dt>Pin into the close</dt><dd>Long gamma after about 2:30 pm. Price tends to settle on the gamma zero line or the pin of the Map&rsquo;s last smooth column (about 3:45&ndash;3:50, not the 4:00 edge). Charm decides the drift from about 3:15 to 3:45; in the last 10 minutes closing orders take over.</dd>
+          <dt>Trend day</dt><dd>The flip and the pin keep moving with price, and the range passes about 1.5&times; the morning straddle (Gap strip on the Map, Straddle page). The levels are moving targets: follow the direction of travel instead of fading fixed levels. On 11/11 the &ldquo;calm market&rdquo; read failed this way once the range reached 2.5&times; the AM straddle.</dd>
+          <dt>Vol spike</dt><dd>VIX jumping, VIX9D above VIX. Vanna takes over: when implied vol rises, dealer hedges change with no price move at all. Surface &rarr; <b>Gamma + vanna (&beta;)</b>: where its sign differs from gamma alone, a vol move can break that level. VIX page &rarr; &ldquo;Why VIX moved&rdquo;: a whole-curve shift is real repricing; sticky strike is mechanical and tends to come back out.</dd>
+          <dt>Gap open</dt><dd>Price opens far from yesterday&rsquo;s close, before the map has any of today&rsquo;s trades. The overnight straddle edges (violet lines, Gap strip) and the morning plan&rsquo;s levels are the first-hour levels: on 11/11 the overnight edge 7,572 and the morning 7,575 caught the open low.</dd>
+        </dl>
+
         <h3 class="pg" id="h-top">Top bar (every page)</h3>
+        <figure class="hshot"><a href="help/top.webp" target="_blank" rel="noopener"><img src="help/top.webp" loading="lazy" alt="Top bar with price, gamma box and level strip"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: SPX 7,633 (+0.18% since the open) in <b>long gamma</b>; flip 7,603, pin magnet 7,635, put wall 7,600, call wall 7,700; options still price &plusmn;23 points for the rest of the day.</figcaption></figure>
         <dl>
           <dt>SPX / SPY / QQQ</dt><dd>Picks the symbol for every page.</dd>
           <dt>Tabs</dt><dd>Each tab opens one page, explained below.</dd>
@@ -1216,6 +1229,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 
         <h3 class="pg" id="h-flow">Flow</h3>
         <p class="what">The main page: which way today&rsquo;s option money is leaning, strike by strike and minute by minute.</p>
+        <figure class="hshot"><a href="help/flow.webp" target="_blank" rel="noopener"><img src="help/flow.webp" loading="lazy" alt="Flow page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: each bubble is one minute at one strike (green = bullish, red = bearish); white line = price; dealer gamma by strike on the right.</figcaption></figure>
         <dl>
           <dt>Read line</dt><dd>One sentence: today&rsquo;s lean, and whether price is above or below the gamma switch (above = hedging calms moves, below = hedging speeds them up).</dd>
           <dt>Protection card</dt><dd>The biggest put <b>bought</b> below price today.</dd>
@@ -1272,8 +1286,17 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Back to map</dt><dd>Hide the panel.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Long gamma</dt><dd>Heavy one-way flow near a wall tends to get absorbed: if the bubbles stay one colour but price stalls, dealers are taking the other side.</dd>
+          <dt>Short gamma</dt><dd>Flow and price moving the same way can feed on itself, because dealers hedge in the same direction: don&rsquo;t fade it.</dd>
+          <dt>Big move, sliders balanced</dt><dd>If price moves a lot while Premium and Delta read balanced, the move is coming from futures or stocks, not options.</dd>
+          <dt>Falling day</dt><dd>Far puts sold is often old hedges being cashed in (the yellow note), not a bullish bet.</dd>
+        </dl>
+
         <h3 class="pg" id="h-orbs">Orbs</h3>
         <p class="what">Dealer gamma at every strike through the day, drawn as orbs, with the volume profile beside it. Off by default; press <b>ON</b> (nothing is fetched or drawn while it is off). Follows the SPX / SPY / QQQ buttons. A positioning read, not a trade signal.</p>
+        <figure class="hshot"><a href="help/orbs.webp" target="_blank" rel="noopener"><img src="help/orbs.webp" loading="lazy" alt="Orbs page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET, Orbs on (gamma, OI, all expiries): <b style="color:#FFD23F">yellow</b> above about 7,605 (biggest +$3.9B at 7,650), <b style="color:#C99BFF">purple</b> below (&minus;$1.1B at 7,600). Right: 2.1M contracts traded so far, busiest strike (POC) 7,600, 70% of volume between 7,555 and 7,685.</figcaption></figure>
         <dl>
           <dt>Orbs</dt><dd>Each orb is one strike in one time block. <b>Bigger orb = more dealer hedging tied to that strike.</b> <b style="color:#FFD23F">Yellow = positive</b> (dealers trade against the move there, so price tends to slow, stall or pin). <b style="color:#C99BFF">Purple = negative</b> (dealers trade with the move, so price can speed up through it). Candles = price in the same blocks. Orb size is scaled to the biggest value so far, so a replay never uses a later, bigger number.</dd>
           <dt>Show</dt><dd><b>Gamma</b> = dollars dealers must buy or sell for each 1% move. <b>Vanna</b> = how those hedges change when volatility moves 1 point. <b>Charm</b> = how much dealers&rsquo; delta changes <b>per hour</b> from time passing alone, in dollars of the index (yellow = their delta grows, so they sell to stay hedged; purple = it shrinks, so they buy), worked out with each strike&rsquo;s own implied volatility and real calendar time to the expiry. <b>Both</b> = gamma filled, vanna as rings. All of them follow <b>Positions from</b>.</dd>
@@ -1286,8 +1309,17 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>How fresh</dt><dd>The options feed is read once a minute. A new minute shows up here a few seconds after it is read (the tab checks every 3 seconds). The stand-alone page flow_orbs.html shows the same data.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Long gamma</dt><dd>Big yellow orbs at and around price: it tends to slow or pin there (today 7,635&ndash;7,655).</dd>
+          <dt>Short gamma</dt><dd>Purple orbs around price: moves can speed through them; the nearest big yellow orb above or below is where they may slow.</dd>
+          <dt>Into the close</dt><dd>Show &rarr; Charm: yellow = time passing makes dealers sell each hour, purple = buy.</dd>
+          <dt>Trend day</dt><dd>Watch the busiest strike (POC): if it keeps moving with price, new positioning is following the move.</dd>
+        </dl>
+
         <h3 class="pg" id="h-strikes">Strikes</h3>
         <p class="what">Four strikes side by side, each with its own price chart.</p>
+        <figure class="hshot"><a href="help/strikes.webp" target="_blank" rel="noopener"><img src="help/strikes.webp" loading="lazy" alt="Strikes page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: four strikes near price side by side, each with its own chart and card.</figcaption></figure>
         <dl>
           <dt>Around spot</dt><dd>Fill the four charts with strikes near the current price.</dd>
           <dt>From watch list</dt><dd>Fill them from your watch list.</dd>
@@ -1298,8 +1330,14 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Card under each chart</dt><dd>Option price, delta, contracts traded today, IV, and <b>IV offered/bid vs ATM</b>: negative = that strike&rsquo;s volatility is cheaper than at the money (being sold), positive = richer (being bought).</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>At a wall</dt><dd>The strike&rsquo;s IV <b>offered</b> (cheaper than ATM, falling) while price stalls there = the wall is more likely to hold; IV <b>bid</b> = it is more likely to break.</dd>
+        </dl>
+
         <h3 class="pg" id="h-skew">Skew</h3>
         <p class="what">How implied volatility is shaped across strikes, and how that shape has changed today. Rising put skew = traders paying up for downside protection.</p>
+        <figure class="hshot"><a href="help/skew.webp" target="_blank" rel="noopener"><img src="help/skew.webp" loading="lazy" alt="Skew page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: the smile now vs the first log (left), skew through the day (right), term structure (bottom).</figcaption></figure>
         <dl>
           <dt>Compare with</dt><dd>First log / 60m / 30m / 15m ago: what &ldquo;then&rdquo; means in the charts.</dd>
           <dt>Smile by: Strike / Moneyness</dt><dd>Plot by strike price, or by distance from price in %.</dd>
@@ -1308,8 +1346,20 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Term structure now</dt><dd>ATM IV for each expiry. The label = that expiry&rsquo;s straddle as a % of price.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Falling day</dt><dd>Put skew rising with the drop = real demand for protection. Skew turning toward calls while price makes new lows = sellers running out: in our 2019&ndash;2026 test that tell was followed by bounces (ETFs +4.1% over 10 days on average vs +1.3% normally), but it failed in true bear legs such as September 2022.</dd>
+          <dt>Rising day</dt><dd>Call skew rising with price = upside being chased with calls.</dd>
+        </dl>
+
         <h3 class="pg" id="h-map">Map</h3>
         <p class="what">Three heat maps of dealer hedging. Up and down = price. Left to right = time. <b>Left of the black dashed line</b> = how the book stood each minute. <b>Right of it</b> = today&rsquo;s book carried to the close as time passes.</p>
+        <figure class="hshot"><a href="help/map.webp" target="_blank" rel="noopener"><img src="help/map.webp" loading="lazy" alt="Map page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET, default view. <b>Left</b>, gamma: <b class="hb">blue</b> above about 7,601 = dealers long gamma, <b class="hr">red</b> below = short; white = price. <b>Middle</b>: positions by strike and the read-out (calm market at 7,633, flip line 7,601). <b>Right</b>, charm (hedge flow from time passing): orange = dealers buy, cyan = they sell.</figcaption></figure>
+        <div class="hfigs">
+        <figure class="hshot"><a href="help/map_flip.webp" target="_blank" rel="noopener"><img src="help/map_flip.webp" loading="lazy" alt="Gamma map with Flip line on"></a><figcaption><b>Flip line</b> on, same minute: the normal map with one bold yellow line at the flip (7,601), running through the dark band between blue and red &mdash; the transition zone (7,594&ndash;7,608).</figcaption></figure>
+        <figure class="hshot"><a href="help/map_zone.webp" target="_blank" rel="noopener"><img src="help/map_zone.webp" loading="lazy" alt="Gamma map with Zone on"></a><figcaption><b>Zone</b> on, same minute: green = long gamma, red = short; the bold yellow line is the flip (7,601) and the light band around it is the transition zone (7,594&ndash;7,608).</figcaption></figure>
+        <figure class="hshot narrow"><a href="help/map_rule.webp" target="_blank" rel="noopener"><img src="help/map_rule.webp" loading="lazy" alt="Read-out with Rule read on"></a><figcaption><b>Rule read</b> on, same minute: floor 7,601 with 3 of 4 levels agreeing (gamma flip, 0DTE put wall 7,600, the morning 7,605); no vanna flip above price, so no rule ceiling; the gamma peak 7,683 is shown as the pin.</figcaption></figure>
+        </div>
         <dl>
           <dt><b class="hb">Blue</b> / <b class="hr">red</b></dt><dd>Gamma map: blue = dealers long gamma (they calm moves), red = short gamma (they speed moves up). Brighter = stronger.</dd>
           <dt><b class="hg">Green line</b></dt><dd>The peak: strongest positive value. On gamma, where price is most likely to stick.</dd>
@@ -1321,6 +1371,9 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>0DTE / Week / All</dt><dd>Which options the map uses: today&rsquo;s, the next week&rsquo;s, or both (key E). <b>Check the read-out: often most of the gamma at price is in the Week book, so 0DTE alone can mislead.</b></dd>
           <dt>OI / Vol / OI + vol / OI + signed</dt><dd>What the book is built from (see the Flow page). Same setting as Flow.</dd>
           <dt>0DTE vol / 0+1DTE vol</dt><dd>Which day&rsquo;s trades go into the maps. <b>0DTE vol</b> (standard) = only today&rsquo;s expiry. <b>0+1DTE vol</b> = also the next expiry&rsquo;s trades, counted as next-day options (less gamma each), never piled onto today&rsquo;s strikes. Only matters when the book uses volume (Vol, OI + vol, OI + signed, or Ledger); greyed out on plain OI. The week book itself is always morning OI only.</dd>
+          <dt>Rule read</dt><dd>Button above the read-out, <b>off</b> by default. Picks the ceiling and the floor by the gamma regime: in <b>long gamma</b> the vanna flip caps the top and the gamma flip floors the bottom; in <b>short gamma</b> the gamma flip caps the top and the vanna flip floors the bottom. Each level says how many of the other levels sit within about 0.1% of it (the other greek&rsquo;s flip, the call or put wall, the AM levels). The gamma peak is called the <b>pin</b>: price tends to sit there, but it moves with price, so it is not a ceiling. One charm line; the into-the-close pin line shows only in long gamma from 3:15 to 3:45. Vanna and charm use the right map&rsquo;s book. Off = the read-out as before.</dd>
+          <dt>Flip line</dt><dd>Button above the gamma map, <b>off</b> by default. Draws the flip as one <b class="hy">bold yellow line</b> (dark edge) on the normal map: where gamma changes sign, taking the crossing nearest price at each minute. The map&rsquo;s own colours stay as they are, so the <b>dark band between blue and red</b> is the transition zone and the yellow line is its middle. The label gives the flip and the zone at the current minute (zone = where gamma is under 10% of that minute&rsquo;s strongest value). The thin yellow line is still the trough; the flip line is the thick one.</dd>
+          <dt>Zone</dt><dd>Button above the gamma map, <b>off</b> by default. Redraws the gamma map in two colours from the same numbers: <b class="hg">green</b> = dealers long gamma (they calm moves), <b class="hr">red</b> = short gamma (they speed moves up). The <b class="hy">bold yellow line</b> is the flip: where gamma changes sign, taking the crossing nearest price at each minute. The <b>light band</b> around it is the <b>transition zone</b>: prices where dealer gamma is weak (under 10% of that minute&rsquo;s strongest value), so hedging neither calms nor speeds price. The label gives the flip and the zone at the current minute. A narrow band = a sharp switch; a wide band = a soft one where price can chop. Zone ignores De-trend, so the colours always mean long or short.</dd>
           <dt>Map read-out</dt><dd>The panel under &ldquo;Breakdown by strike&rdquo;: a plain bottom line first (calm or fast market, ceiling, flip line, downside magnet, what a vol rise or the clock does, where the gamma sits, outside levels that agree), then the Week book check, then <b>Details</b> with every number. Details stays open or closed as you left it.</dd>
           <dt>Ledger</dt><dd><b>Test view.</b> Starts today&rsquo;s book from a running count of customers&rsquo; buys minus sells from earlier days, then adds today&rsquo;s trades. The closest estimate of real dealer positions, but scored nightly before it is trusted.</dd>
           <dt>De-trend</dt><dd>Removes each minute&rsquo;s background level so small structure shows. <b>Warning:</b> blue and red then mean &ldquo;above or below this minute&rsquo;s average&rdquo;, not long or short.</dd>
@@ -1340,8 +1393,19 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Why vanna can look flat on All</dt><dd>On the All book a large constant from the Week book is removed from vanna and charm automatically. On 0DTE and Week they are left as they are.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Long gamma</dt><dd>Price above the flip. Turn on <b>Rule read</b>: ceiling = the vanna flip above price, floor = the gamma flip below. The gamma peak is the pin.</dd>
+          <dt>Short gamma</dt><dd>Price below the flip. Rule read: ceiling = the gamma flip above, floor = the vanna flip below. Expect moves to run; with Zone off, the yellow trough line is where selling speeds up most.</dd>
+          <dt>At the flip</dt><dd>Turn on <b>Flip line</b>. Inside the dark band around it the day&rsquo;s character is still being decided; a 5-minute close out of the band picks the side.</dd>
+          <dt>Into the close</dt><dd>Read the last smooth column (about 3:45&ndash;3:50), not the 4:00 edge. In long gamma the close tends to settle on the gamma zero line or the pin; the right map (Charm) shows which way time pushes from 3:15.</dd>
+          <dt>Trend day</dt><dd>If the flip and pin keep moving with price, the levels are not holding: follow the move rather than fading it. Gap strip: once the day&rsquo;s range passes about 1.5&times; the AM straddle, the calm read is failing.</dd>
+          <dt>Vol spike</dt><dd>Right map &rarr; Vanna: where it is strong near price, a rise in IV changes dealer hedges with no price move. Away from price, trust <b>where</b> the levels are, not how big they look.</dd>
+        </dl>
+
         <h3 class="pg" id="h-vol">Volume</h3>
         <p class="what">Contracts traded at each strike. Pink = puts (left), blue = calls (right). Solid = bought, striped = sold. Dotted line = price now.</p>
+        <figure class="hshot"><a href="help/vol.webp" target="_blank" rel="noopener"><img src="help/vol.webp" loading="lazy" alt="Volume page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: today (left), the last 30 minutes (middle), last 30 vs the 30 before (right); calls right, puts left, solid = bought, striped = sold.</figcaption></figure>
         <dl>
           <dt>Tape read</dt><dd>A plain summary of the three ladders, refreshed live. Earlier entries (one every 30 minutes) fold under <b>Earlier &#9656;</b>; click to open.</dd>
           <dt>Today</dt><dd>Everything traded today. <b>%B</b> = share bought; 40&ndash;60% is no signal. <b>Where the money went today.</b></dd>
@@ -1353,8 +1417,15 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>How to read</dt><dd>Show or hide the plain-English line under each ladder.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Trend day</dt><dd>Last 30 vs prior 30: strikes heating up in the direction of the move = the move is being chased.</dd>
+          <dt>Pin day</dt><dd>Volume piling up at one strike next to price while price sits still = a pin forming.</dd>
+        </dl>
+
         <h3 class="pg" id="h-prem">Premium</h3>
         <p class="what">Where today&rsquo;s option dollars actually went (regular hours only). Key $ or R.</p>
+        <figure class="hshot"><a href="help/premium.webp" target="_blank" rel="noopener"><img src="help/premium.webp" loading="lazy" alt="Premium page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: the strikes with the most dollars (lines), dollars by minute, and who did what through the day.</figcaption></figure>
         <dl>
           <dt>Premium read</dt><dd>Plain sentences: which side is carrying the tape, the put/call dollar ratio, and the overall lean.</dd>
           <dt>Totals</dt><dd>Call $, put $, put/call ratio, total, and the lean.</dd>
@@ -1364,8 +1435,14 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Through the day</dt><dd><b>Who did what</b>: running totals since 9:30 of calls bought, calls sold, puts bought and puts sold (solid = bought, dashed = sold). <b>The tilt</b>: bullish minus bearish (white, green above zero, red below) and customers&rsquo; net delta (yellow dashed), both on their own scale with zero lined up, plus SPX in grey. <b>$ premium / Contracts</b> switches the unit. When price moves a lot but the tilt stays near zero, the move is not coming from option buying.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Big move</dt><dd>If price moves a lot but the tilt stays near zero, the move is not coming from option buying.</dd>
+        </dl>
+
         <h3 class="pg" id="h-exp">Exposure</h3>
         <p class="what">Dealer exposure at each strike for today&rsquo;s expiry, about &plusmn;100 points around price.</p>
+        <figure class="hshot"><a href="help/exposure.webp" target="_blank" rel="noopener"><img src="help/exposure.webp" loading="lazy" alt="Exposure page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: delta, gamma, open interest and vanna by strike for today&rsquo;s expiry; put side left, call side right.</figcaption></figure>
         <dl>
           <dt>Header</dt><dd>Call wall, put wall, net gamma (GEX) and net delta (DEX), and whether dealers are long or short gamma.</dd>
           <dt>Total (call | put)</dt><dd>Each strike&rsquo;s put side (left) and call side (right) drawn separately: how big each side is.</dd>
@@ -1374,8 +1451,14 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Note</dt><dd>Uses the standard assumption (customers own the puts and have sold the calls), not measured positions. The Week book is on the Map page, not here.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Long vs short gamma</dt><dd>Walls (CW / PW) tend to hold in long gamma and break more easily in short gamma. These ladders use the simple rule (customers own the puts, sold the calls): trust where, not how much.</dd>
+        </dl>
+
         <h3 class="pg" id="h-den">Density</h3>
         <p class="what">Where the close is likely to land, re-estimated every 5 minutes. Layout and levels follow Derivatives Don&rsquo;s version of 11/05. A model, not a forecast. Key N.</p>
+        <figure class="hshot"><a href="help/density.webp" target="_blank" rel="noopener"><img src="help/density.webp" loading="lazy" alt="Density page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: SPX 7,633, VIX 17.66, above the full flip (7,597). The cone&rsquo;s middle is 7,634 with 8 in 10 closes between 7,598 and 7,662; price has spent 44% of the day inside the pin band (7,620&ndash;7,715).</figcaption></figure>
         <dl>
           <dt>Bright band</dt><dd>The range of likely closes from 20,000 simulated paths: wider where dealers are short gamma, narrower where long. Left of the cursor = the 9:30 version for comparison.</dd>
           <dt>Key readings (right)</dt><dd>Only the numbers that matter for a trade: price and VIX, above or below the flip, the close odds, how long price has sat in the pin, the put shelf, and what charm and leveraged ETFs will push into the close. Everything else is folded under <b>More detail</b>.</dd>
@@ -1396,8 +1479,17 @@ body.phone .vxmgrid{grid-template-columns:1fr}
             <b>Status extras</b>: leveraged-ETF rebalancing at the current price, the date of the 1&ndash;7 day book, a <i>thin book</i> warning when little open interest sits near price, and for QQQ with Width = VIX the Nasdaq volatility index. Needs the vol poller running.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Long gamma</dt><dd>A narrow cone and high odds inside the pin band; price spends much of the day in the pin.</dd>
+          <dt>Short gamma</dt><dd>A wider cone; the full-book trough is the floor to watch.</dd>
+          <dt>Trend day</dt><dd>Price leaving the cone&rsquo;s 8-in-10 range = the day is not behaving like the model. On 11/05 SPX closed beyond Don&rsquo;s lower 10% line, right at the full-book trough.</dd>
+          <dt>Into the close</dt><dd>The charm and leveraged-ETF numbers say which way the last hour leans.</dd>
+        </dl>
+
         <h3 class="pg" id="h-vix">VIX</h3>
         <p class="what">The volatility picture: fear level, curve shape, VIX options positioning. Key X. Nothing on this page feeds the map.</p>
+        <figure class="hshot"><a href="help/vix.webp" target="_blank" rel="noopener"><img src="help/vix.webp" loading="lazy" alt="VIX page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: VIX 17.66, VIX9D 16.19 (contango: the calm shape), yet the verdict is <b>Risk-off</b>: VIX calls above the forward were net bought (a squeeze set-up), and puts were bid on the SPX smile.</figcaption></figure>
         <dl>
           <dt>Top numbers</dt><dd>VIX (30-day expected volatility), VIX9D (9-day). <b>9D &divide; VIX above 1</b> = near-term stress is being paid for (backwardation). Front forward = where the nearest VIX expiry is priced. The colour count summarises the board.</dd>
           <dt>&#9662; / &#9656;</dt><dd>Fold or open a section. Remembered.</dd>
@@ -1419,8 +1511,16 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Note</dt><dd>Index data runs about 15 minutes late: fine for the regime, not for timing.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Calm</dt><dd>VIX under 22 in contango: a premium-selling environment.</dd>
+          <dt>Fragile or stress</dt><dd>VIX 22&ndash;32, or above 32, or the curve in backwardation: defined risk only, follow breaks.</dd>
+          <dt>Vol spike</dt><dd>&ldquo;Why VIX moved&rdquo;: a whole-curve shift is real repricing; sticky strike is mechanical. A VIX overshoot (Vol EOD, V1) has tended to come back out.</dd>
+        </dl>
+
         <h3 class="pg" id="h-plan">Plan</h3>
         <p class="what">The morning plan, graded live against what SPX has done since.</p>
+        <figure class="hshot"><a href="help/plan.webp" target="_blank" rel="noopener"><img src="help/plan.webp" loading="lazy" alt="Plan page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: the morning report&rsquo;s IF / THEN lines graded live, with SPX drawn over the AM levels.</figcaption></figure>
         <dl>
           <dt>Conversion: 5-min close / 1-min close / Touch</dt><dd>What counts as a level breaking. Default = a 5-minute close through it (a wick is noise).</dd>
           <dt>Road map</dt><dd>The one thing to watch, the pivot, the working range, and the up and down paths.</dd>
@@ -1432,6 +1532,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 
         <h3 class="pg" id="h-eod">Vol EOD</h3>
         <p class="what">An end-of-day volatility board, built each night after the close.</p>
+        <figure class="hshot"><a href="help/voleod.webp" target="_blank" rel="noopener"><img src="help/voleod.webp" loading="lazy" alt="Vol EOD page"></a><figcaption>Built last night: V1 VIX overshoot with its own track record; the other boards follow below.</figcaption></figure>
         <dl>
           <dt>V1 &middot; VIX overshoot</dt><dd>Did VIX move more than the day&rsquo;s SPX move explains? A big positive gap = fear bid too hard; historically that tends to come back out. The table = the flag&rsquo;s own track record.</dd>
           <dt>V2 &middot; VIX3M, VIX, realized</dt><dd>Curve slope (VIX3M minus VIX: positive = calm) and whether options price more movement than SPX has delivered (VIX minus 21-day realized).</dd>
@@ -1444,6 +1545,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 
         <h3 class="pg" id="h-led">Ledger</h3>
         <p class="what"><b>Test view.</b> A running count, contract by contract, of what customers have bought minus sold since each contract started trading (0&ndash;11 days to expiry). Dealers hold the other side.</p>
+        <figure class="hshot"><a href="help/ledger.webp" target="_blank" rel="noopener"><img src="help/ledger.webp" loading="lazy" alt="Ledger page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: customers&rsquo; running buys minus sells, contract by contract (test view).</figcaption></figure>
         <dl>
           <dt>pos_raw</dt><dd>Customers&rsquo; buys minus sells, added up day by day. Positive = customers net long that contract.</dd>
           <dt>pos_oi</dt><dd>The same count corrected each morning with the official open-interest change.</dd>
@@ -1455,6 +1557,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 
         <h3 class="pg" id="h-str">Straddle</h3>
         <p class="what">How far price has travelled inside the move options priced. Off by default; press <b>ON</b>.</p>
+        <figure class="hshot"><a href="help/straddle.webp" target="_blank" rel="noopener"><img src="help/straddle.webp" loading="lazy" alt="Straddle page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET, Straddle on: from the 9:31 anchor (7,566) price has already travelled about 1.5&times; the opening straddle (orange dot = first break of 1&times;) &mdash; a trend-day sign.</figcaption></figure>
         <dl>
           <dt>Daily / Weekly / Monthly</dt><dd>Each panel starts at the beginning of its own period (today&rsquo;s open, the week&rsquo;s first session, the first session after the last monthly expiry) and draws price inside that period&rsquo;s straddle band.</dd>
           <dt>Bands</dt><dd>Shaded = &plusmn;1&times; the straddle. Dashed orange = &plusmn;1.5&times;.</dd>
@@ -1464,8 +1567,14 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Symbol</dt><dd>Follows the SPX / SPY / QQQ buttons at the top.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Trend day</dt><dd>Used % past 100% = the day has moved more than options priced and sellers of that straddle are losing; past 150% (orange dots) = a trend day.</dd>
+        </dl>
+
         <h3 class="pg" id="h-con">Constellation</h3>
         <p class="what">Where today&rsquo;s option money went, contract by contract. Off by default; press <b>ON</b>.</p>
+        <figure class="hshot"><a href="help/constel.webp" target="_blank" rel="noopener"><img src="help/constel.webp" loading="lazy" alt="Constellation page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET, Constellation on (SPX, near expiries): each bubble = money in one contract; left = bearish, right = bullish.</figcaption></figure>
         <dl>
           <dt>How to read it</dt><dd>Columns = expiries (M = monthly). Inside a column: left = bearish, right = bullish. Height = strike. Bubble size = money traded. Solid outline = call, dashed pink = put. Faded = deep in the money (often financing or spread legs, not bets). Column header = net delta lean and total money.</dd>
           <dt>SPX / SPY / QQQ / VIX</dt><dd>Which symbol.</dd>
@@ -1478,8 +1587,14 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Lines below</dt><dd>Running dealer gamma and vanna added by today&rsquo;s trades, and running bullish / bearish / net money (all, weeklies, monthlies).</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Early warning</dt><dd>A lean that shows up before down days (and not before up days) is the useful one: check Last sessions.</dd>
+        </dl>
+
         <h3 class="pg" id="h-risk">Risk</h3>
         <p class="what">How likely a sharp drop is in the next days, from end-of-day data, rebuilt every evening. Off by default; press <b>ON</b>.</p>
+        <figure class="hshot"><a href="help/risk.webp" target="_blank" rel="noopener"><img src="help/risk.webp" loading="lazy" alt="Risk page"></a><figcaption>Built last night: 31% chance of a 3%+ drop within 5 sessions, about 3.5&times; normal, driven by the VIX level, VIX &divide; VIX3M and financial conditions.</figcaption></figure>
         <dl>
           <dt>Big number</dt><dd>Chance that SPX closes at least 3% below today&rsquo;s close at some point in the next 5 sessions. &ldquo;Normal&rdquo; is how often that happened on any day since 2010 (about 9%). The second line is the same for a 5% drop within 10 sessions.</dd>
           <dt>Gauge colours</dt><dd>Green under 6% · yellow 6&ndash;15% · orange 15&ndash;25% · red 25%+. The white dashed tick is normal.</dd>
@@ -1497,8 +1612,14 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Limits</dt><dd>Tested on end-of-day data. It ranks risk; it does not time the drop. A one-day VIX drop after a stressed week is not an all-clear.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>After a stressed week</dt><dd>A big one-day VIX drop is the false all-clear flag: don&rsquo;t read that day as safe.</dd>
+        </dl>
+
         <h3 class="pg" id="h-tenor">Tenor</h3>
         <p class="what">Where dealer gamma and vega sit along the expiry curve, from the end-of-day option book, rebuilt every evening. Off by default; press <b>ON</b>. A positioning read, not a trade signal.</p>
+        <figure class="hshot"><a href="help/tenor.webp" target="_blank" rel="noopener"><img src="help/tenor.webp" loading="lazy" alt="Tenor page"></a><figcaption>Built last night: dealer gamma by expiry bucket across SPX levels, with each bucket read at the live price in the table.</figcaption></figure>
         <dl>
           <dt>Buckets</dt><dd>Every expiry is put in one of four groups by trading days left: <b>1 day</b> (the next expiry), <b>2 days &ndash; 1 week</b>, <b>1 week &ndash; 1 month</b>, and <b>more than 1 month</b>. Weekends and market holidays are not counted.</dd>
           <dt>Gamma chart</dt><dd>Each coloured line shows how much SPX delta dealers would have to trade for a 1% move, if SPX were at that level, for one bucket. The white filled line is all buckets together. Below zero = dealers would sell into a fall and buy into a rise (moves can stretch); above zero = the opposite (moves get damped). The red dashed line is today&rsquo;s close; the yellow dashed line is where the total crosses zero. Units: $ billions per 1% move.</dd>
@@ -1511,8 +1632,51 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Limits</dt><dd>The book only holds expiries out to about six months, so far-dated options are missing. Gamma is recomputed with each strike&rsquo;s own vol held fixed as SPX moves. Dealer side is assumed, not measured.</dd>
         </dl>
 
+        <h3 class="pg" id="h-surface">Surface</h3>
+        <p class="what">One 3D picture of the dealer book right now. <b>Strike</b> runs across, <b>expiry</b> runs into the screen (today at the front), and the <b>height and colour</b> show how big the greek is at that strike and expiry: red and orange peaks = positive, blue and purple valleys = negative, white line = price. Off by default; press <b>ON</b>. A positioning read, not a trade signal.</p>
+        <figure class="hshot"><a href="help/surface_g0.webp" target="_blank" rel="noopener"><img src="help/surface_g0.webp" loading="lazy" alt="Surface: gamma, today, OI + vol"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET, <b>Gamma &middot; Today &middot; OI + vol</b>: one ridge of positive gamma from about 7,600 to 7,660 with price (white line, 7,633) on it: dealers long gamma around price, so moves get absorbed.</figcaption></figure>
+        <dl>
+          <dt>Start with this view</dt><dd><b>Expiries = Today, Positions = OI + vol</b>: the view the transition rule was read on. <b>7 days</b> or <b>All</b> show the bigger picture, but the later expiries then dominate vanna.</dd>
+          <dt>Hover / tap</dt><dd>A card for the real strike and expiry nearest the pointer (never the smoothed picture): the date and days left, the strike and how far it is from price, the greek shown in plain words (who buys or sells, and how much), the other two greeks at the same spot, and which positions it uses.</dd>
+          <dt>Gamma</dt><dd>Dollars of the index dealers must buy or sell for a 1% move. <b>Positive (ridge)</b> = dealers long gamma: they sell rallies and buy dips, so price slows or sticks. <b>Negative (valley)</b> = short gamma: they chase, so moves speed up. Net gamma changes sign once near price: that edge is the flip.</dd>
+          <dt>Vanna</dt><dd>Dollars of delta dealers gain for a 1-point rise in implied vol. Positive: a vol rise makes them sell and a vol drop makes them buy (vol falling into a rally supports it). Negative: the reverse. Vanna changes sign at nearly every big strike, so it looks like mountains: read only the colour change <b>nearest price</b> &mdash; above price in long gamma (it tends to cap the high), below price in short gamma (it tends to hold the low).</dd>
+          <dt>Charm</dt><dd>Dollars of delta dealers gain each hour from time passing alone. Positive = they sell each hour, negative = they buy. It sits almost all in today&rsquo;s expiry and is strongest late in the day; read it from about 3:15 to 3:45.</dd>
+          <dt>Gamma + vanna (&beta;)</dt><dd>Gamma once implied vol moves with price the way it has today (&beta; = vol points per +1% move, fitted from the last 60 minutes; a typical value until about 10:00). Same sign as plain gamma = the level survives a vol move. <b>Opposite sign</b> (the hover card says so) = a vol move can break it.</dd>
+          <dt>Gamma + vanna (shape)</dt><dd>Each greek scaled to its own largest value and added: no dollar meaning. Where both peak together the level is strongest.</dd>
+          <dt>Positions from</dt><dd>The Map&rsquo;s four: OI, Vol, OI + vol, OI + signed.</dd>
+          <dt>Expiries / Strikes / Smooth</dt><dd>Which expiries (Today, 3 days, 7 days, All), how far from price (&plusmn;50 / 100 / 200 points), and smoothing (the picture only; the hover always reads the raw numbers).</dd>
+          <dt>Surface vs Map</dt><dd>The Surface is the book <b>now</b>, across expiries. The Map carries that book to 4 pm, so the pin and close reads live on the Map.</dd>
+          <dt>Limits</dt><dd>Positions use the simple rule (calls +, puts &minus;) unless OI + signed: trust where the peaks sit more than how tall they are. Not scored nightly yet.</dd>
+        </dl>
+        <h4>Mountains, valleys and cliffs</h4>
+        <dl class="hcond">
+          <dt>Gamma</dt><dd><b>Mountain</b> = dealers long gamma at those strikes: they sell rallies and buy dips, so price slows, sticks or pins there. <b>Valley</b> = short gamma: they chase, so price runs through fast. <b>Cliff</b> (mountain dropping into valley) = the flip: crossing it switches the day from calm to fast. A steep cliff = a sharp switch; a gentle slope = a choppy one. Front to back: a mountain only in today&rsquo;s row is gone at 4 pm.</dd>
+          <dt>Vanna</dt><dd><b>Mountain</b> = when vol rises dealers sell, when it falls they buy (a rally with vol falling gets their buying). <b>Valley</b> = the reverse. <b>Cliff</b> = a vanna flip. There are many; only the one next to price counts: in long gamma the cliff just above price tends to cap the high, in short gamma the one just below tends to hold the low.</dd>
+          <dt>Charm</dt><dd><b>Mountain</b> = time passing alone makes dealers sell at those strikes each hour (a drift down). <b>Valley</b> = time makes them buy (a drift up). <b>Cliff</b> = usually right at price; whichever side is bigger sets the late-day drift. Matters most from 3:15 to 3:45.</dd>
+          <dt>Gamma + vanna (&beta;)</dt><dd>Read like gamma, but after vol moves with price. A spot that is a mountain on gamma and a valley here = a calm spot a vol spike can break. A cliff that sits away from gamma&rsquo;s cliff = the flip moves when vol moves.</dd>
+          <dt>Shape</dt><dd><b>Mountain</b> = gamma and vanna both positive: the strongest stall or pin. <b>Valley</b> = both negative: the strongest speed-up. <b>Cliff</b> = both switch together: the strongest transition.</dd>
+          <dt>Transition zone</dt><dd>On the Surface it is the <b>gamma cliff nearest price</b>. On the Map it is the dark band between blue and red; the Flip line marks its middle.</dd>
+        </dl>
+        <div class="hfigs">
+        <figure class="hshot"><a href="help/surface_hover.webp" target="_blank" rel="noopener"><img src="help/surface_hover.webp" loading="lazy" alt="Surface hover card"></a><figcaption>The hover card: strike 7,620, 13 points below price, today&rsquo;s expiry: gamma +$19B per 1% move (dealers long gamma there); vanna &minus;$187M per vol point; charm +$367M per hour.</figcaption></figure>
+        <figure class="hshot"><a href="help/surface_va0.webp" target="_blank" rel="noopener"><img src="help/surface_va0.webp" loading="lazy" alt="Surface: vanna, today"></a><figcaption><b>Vanna &middot; Today</b>: peaks and valleys alternate strike by strike. Read only the colour change nearest price.</figcaption></figure>
+        </div>
+        <div class="hfigs">
+        <figure class="hshot"><a href="help/surface_ch0.webp" target="_blank" rel="noopener"><img src="help/surface_ch0.webp" loading="lazy" alt="Surface: charm, today"></a><figcaption><b>Charm &middot; Today</b>: positive (yellow) just below price, negative (purple) just above: time alone pushes dealers to sell at the lower strikes and buy at the higher ones.</figcaption></figure>
+        <figure class="hshot"><a href="help/surface_gvb7.webp" target="_blank" rel="noopener"><img src="help/surface_gvb7.webp" loading="lazy" alt="Surface: gamma + vanna beta, 7 days"></a><figcaption><b>Gamma + vanna (&beta;) &middot; 7 days</b>, &beta; = &minus;2.58 vol points per +1% (fitted): the same shape as plain gamma here, so today&rsquo;s ridge holds even if implied vol moves with price.</figcaption></figure>
+        </div>
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Long gamma</dt><dd>Price sits on the ridge. The vanna colour change just above price is the likely cap for the high.</dd>
+          <dt>Short gamma</dt><dd>Price sits in a valley. The vanna colour change just below price is the likely floor; expect bigger swings.</dd>
+          <dt>Vol spike</dt><dd>Switch to Gamma + vanna (&beta;): where it disagrees with plain gamma, a pin or floor can give way when implied vol jumps.</dd>
+          <dt>Into the close</dt><dd>Charm &middot; Today: the sign around price says which way time alone pushes dealers each hour; it fades in the last 10 minutes.</dd>
+          <dt>Trend day</dt><dd>With OI + vol the ridge moves with price as new trades come in. Re-check every half hour; a ridge left far behind no longer matters.</dd>
+        </dl>
+
         <h3 class="pg" id="h-levels">Levels</h3>
         <p class="what">Price levels where several different ways of finding a level point at the same place, rebuilt every evening after the close. Off by default; press <b>ON</b>. A positioning read, not a trade signal: it shows where the views agree, not which way price will go or whether a level will hold.</p>
+        <figure class="hshot"><a href="help/levels.webp" target="_blank" rel="noopener"><img src="help/levels.webp" loading="lazy" alt="Levels page"></a><figcaption>Built last night from the 11/11 book: yellow bands = 3 or more views agree. Price (7,633 at noon) sits between the two 4-view zones, 7,584 below and 7,638 above.</figcaption></figure>
         <dl>
           <dt>The five views</dt><dd><b style="color:#FFB454">Greek peaks</b>: where the option book is most sensitive (largest vomma with open interest, where dealer gamma bends hardest, where dealer gamma crosses zero). <b style="color:#4EA1FF">Open interest</b>: strikes with the most open put and call contracts, up to 45 days. <b style="color:#D49BFF">VIX options</b>: the biggest VIX option strikes turned into SPX levels (about 2 VIX points per 1% SPX move; the recently measured figure is shown too). <b style="color:#3EE089">Price memory</b>: 20/50/100/200-day averages, recent swing highs and lows, last month&rsquo;s high and low, volume-weighted average price from a swing. <b style="color:#FF6B8B">Crowded strikes</b>: the 22- and 25-delta strikes of the next weekly and monthly expiries, and strikes of the largest index block trades.</dd>
           <dt>Bands</dt><dd>A band is a zone where levels from different views fall within 25 SPX points of each other. <b>Yellow, bold</b> = 3 or more views agree (a key zone). <b>Grey, faint</b> = 2 views. Thin coloured ticks on the right edge = a level from one view only. The coloured dots in a band show which views agree.</dd>
@@ -1524,6 +1688,12 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Limits</dt><dd>Built from the end-of-day option book and daily prices. Dealer sides are assumed (calls +, puts &minus;), not measured. Levels further than 8% from spot are not drawn.</dd>
         </dl>
 
+        <h4>On different days</h4>
+        <dl class="hcond">
+          <dt>Calm day</dt><dd>Key zones (3+ views) are where price reacts.</dd>
+          <dt>Trend day</dt><dd>Zones get run through; the track record says how often each kind held.</dd>
+        </dl>
+
         <h3 class="pg" id="h-trust">What to trust, and when</h3>
         <ol class="caveats">
           <li><b>Delta beats premium for direction.</b> On a falling day, puts sold to close (people cashing in protection) count as &ldquo;bullish&rdquo; dollars and can tilt the Premium slider. The Delta slider weights each trade by its market exposure, so it is less affected. If both read balanced on a big move, the options tape was two-sided and the move is coming from elsewhere.</li>
@@ -1533,6 +1703,9 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <li><b>Gamma above the Week book&rsquo;s top strike can show the wrong sign.</b> The Week book is built once in the morning over a fixed range. On a big trend day price can run past it.</li>
           <li><b>Vanna can hide disagreements that gamma shows.</b> Vanna has its background removed, so two different books can look alike on vanna. Gamma shows the difference.</li>
           <li><b>Test views are not trusted yet.</b> OI + signed, Ledger, Speed, Smile and Var clock are scored every night against the standard view before they are relied on.</li>
+          <li><b>Different pages, different flips.</b> The Map re-prices the 0DTE + 1&ndash;7 DTE book every minute (today 7,601); the top bar, Density (front 7,603, full 7,597), Levels (last night&rsquo;s book) and the AI tools each use their own book and method. Within about 10 points they agree; further apart, the books disagree &mdash; read the Map&rsquo;s.</li>
+          <li><b>The dealer side is assumed.</b> Most views use the simple rule (dealers long calls, short puts). Where the signs come out right, the size is still far too big: our hedge table ran about 30&times; VolSignals&rsquo; signed one on Nov 10, mostly because every monthly and quarterly put counts as dealer-short. Read <b>where</b>, not <b>how much</b>.</li>
+          <li><b>Screenshots on this page</b> are real screens from Thu Nov 12 at 12:06 ET (long gamma above the flip). On another day the same page looks different; the &ldquo;On different days&rdquo; notes say how to read it then.</li>
           <li><b>Basis is shared.</b> The OI / Vol setting on Flow and Map is the same switch. If two browser tabs disagree, refresh the older one.</li>
           <li><b>Regular hours only.</b> Premium and Flow leave out pre-open trading and anything after the close.</li>
           <li><b>The Change view cannot work on OI.</b> OI is one number for the whole day, so it needs the Vol or OI + vol basis.</li>
@@ -1632,7 +1805,7 @@ st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volWin=loa
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
 if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
-st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1";   // 0dte | week | all — Map tab book switch
+st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.mapZone=load("mapZone","0")==="1"; st.mapFlipLine=load("mapFlipLine","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1"; st.ruleRead=load("ruleRead","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex");
 // 2026-11-09: Density options DN1-DN6 and VIX options VX1 / VX2 / VIX map - all OFF by default (moved from the test cockpit)
 st.dno=(()=>{ try{ const j=JSON.parse(load("dnOpt","{}"))||{}; return {dn1:!!j.dn1,dn2:!!j.dn2,dn3:!!j.dn3,dn5:!!j.dn5,dn6:!!j.dn6}; }catch(e){ return {dn1:false,dn2:false,dn3:false,dn5:false,dn6:false}; } })();
@@ -4269,6 +4442,44 @@ function heatGrad(kind,v,vmax){ const x=Math.max(-1,Math.min(1,v/vmax)), a=Math.
 function heatRGB(kind,v,vmax){ const x=Math.max(-1,Math.min(1,v/vmax)); const a=Math.pow(Math.abs(x),0.6); const bg=[12,22,42];
   const c = kind!=="gamma" ? (x>=0?[245,166,35]:[64,196,232]) : (x>=0?[49,98,214]:[214,52,52]);     // charm: orange + / cyan −; gamma: blue + / red −
   return [bg[0]+(c[0]-bg[0])*a, bg[1]+(c[1]-bg[1])*a, bg[2]+(c[2]-bg[2])*a]; }
+/* 2026-11-12 ZONE view - Map > Gamma, button "Zone", OFF by default (Mithil's yes 11/12 to the 11/11 vendor chart:
+   one bold flip line on a two-colour background). Colours come from the RAW gamma grid (De-trend is ignored here):
+   green = dealers long gamma (they calm moves), red = short gamma (they speed moves up). In each minute's column the flip
+   = the zero crossing nearest price (the logged price for past minutes, spot now for the projection to the close); the
+   transition zone = the band around it where |gamma| stays under 10% of that column's strongest |gamma| (the same 10%
+   scoring v1 uses for zone width). Display only: buildMap, the read-out and every number are unchanged. */
+const ZONE_FRAC=0.10;
+function zoneRGB(kind,v,vmax){ const x=Math.max(-1,Math.min(1,v/vmax)), a=0.38+0.62*Math.pow(Math.abs(x),0.6), bg=[12,22,42], c=x>=0?[34,170,96]:[214,52,52];
+  return [bg[0]+(c[0]-bg[0])*a, bg[1]+(c[1]-bg[1])*a, bg[2]+(c[2]-bg[2])*a]; }
+function zoneEdge(col,z,dir,lim){ // walk from the zero crossing (|gamma| = 0 at row z) until |gamma| reaches lim; linear between rows
+  let p0=z, u0=0, i=dir<0?Math.floor(z):Math.ceil(z); if(i===z) i+=dir;
+  while(i>=0&&i<col.length){ const v=col[i]; if(v==null) break; const u=Math.abs(v); if(u>=lim) return p0+(i-p0)*(lim-u0)/((u-u0)||1); p0=i; u0=u; i+=dir; }
+  return p0; }
+function zoneLines(m){ // per column: {z, lo, hi} in fractional rows (null when the column has no flip)
+  const pxAt=new Map(); for(const s of (st.flow[st.sym]||[])){ if(s.x>0) pxAt.set(tmin(s.t),s.x); }
+  const ref=t=>{ if(t>m.now) return m.S; for(let q=0;q<4;q++){ if(pxAt.has(t+q)) return pxAt.get(t+q); if(pxAt.has(t-q)) return pxAt.get(t-q); } return m.S; };
+  return m.grid.map((col,j)=>{ const zs=m.feats[j].z; if(!zs.length) return null; const r=(ref(m.times[j])-m.prices[0])/m.dp;
+    let z=zs[0]; for(const q of zs) if(Math.abs(q-r)<Math.abs(z-r)) z=q;
+    let mx=1e-12; for(const v of col) if(v!=null&&Math.abs(v)>mx) mx=Math.abs(v);
+    const lim=ZONE_FRAC*mx; return {z, lo:zoneEdge(col,z,-1,lim), hi:zoneEdge(col,z,1,lim)}; }); }
+function zoneOverlay(ctx,m,X,Y,padL,padT,W,H,opt){   // opt.band / opt.legend false = the Flip line (normal map colours)
+  const band=!(opt&&opt.band===false), legend=!(opt&&opt.legend===false);
+  const ZL=zoneLines(m), P=r=>m.prices[0]+r*m.dp, runs=[]; let cur=[];
+  ZL.forEach((o,j)=>{ if(o&&cur.length&&Math.abs(o.z-cur[cur.length-1].o.z)<=6){ cur.push({j,o}); return; } if(cur.length) runs.push(cur); cur=o?[{j,o}]:[]; }); if(cur.length) runs.push(cur);
+  ctx.fillStyle="rgba(255,255,255,0.20)";
+  for(const R of runs){ if(!band||R.length<2) continue; ctx.beginPath(); R.forEach((q,n)=>{ const x=X(m.times[q.j]), y=Y(P(q.o.hi)); n?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    for(let n=R.length-1;n>=0;n--){ const q=R[n]; ctx.lineTo(X(m.times[q.j]),Y(P(q.o.lo))); } ctx.closePath(); ctx.fill(); }
+  for(const [w,c] of [[6,"rgba(0,0,0,0.70)"],[3,"#FFD84D"]]){ ctx.strokeStyle=c; ctx.lineWidth=w; ctx.lineJoin="round"; ctx.setLineDash([]);
+    for(const R of runs){ ctx.beginPath(); R.forEach((q,n)=>{ const x=X(m.times[q.j]), y=Y(P(q.o.z)); n?ctx.lineTo(x,y):ctx.moveTo(x,y); }); if(R.length===1) ctx.lineTo(X(m.times[R[0].j])+2,Y(P(R[0].o.z))); ctx.stroke(); } }
+  let jn=0; for(let j=0;j<m.times.length;j++) if(m.times[j]<=Math.max(m.now,MAP_OPEN)) jn=j;
+  const o=ZL[jn], col=m.grid[jn]||[]; ctx.font="bold 13px system-ui";
+  const txt=o?`flip ${fmtN(Math.round(P(o.z)))} · zone ${fmtN(Math.round(P(o.lo)))}–${fmtN(Math.round(P(o.hi)))}`:(col.length&&col.every(v=>v==null||v>=0)?"no flip in view: long gamma everywhere":"no flip in view: short gamma everywhere");
+  const tw=ctx.measureText(txt).width, xn=X(m.times[jn]); let x=xn+8; if(x+tw+8>padL+W) x=xn-tw-16; x=Math.max(padL+4,x);
+  let y=o?Y(P(o.z))-10:padT+46; y=Math.max(padT+40,Math.min(padT+H-6,y));
+  ctx.fillStyle="#000000d0"; ctx.fillRect(x-4,y-13,tw+8,18); ctx.fillStyle="#FFD84D"; ctx.fillText(txt,x,y);
+  if(!legend) return;
+  ctx.font="12px system-ui"; const lg="Zone: green = dealers long gamma (calm) · red = short gamma (fast) · yellow = flip · light band = transition zone";
+  const lw=ctx.measureText(lg).width; ctx.fillStyle="#000000b0"; ctx.fillRect(padL+2,padT+17,Math.min(lw+8,W-4),16); ctx.fillStyle="#F4F7FB"; ctx.fillText(lg,padL+6,padT+29); }
 function drawHeat(id,m,se,d,legendTxt){
   const cv=document.getElementById(id); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
   if(!m){ ctx.fillStyle=C("--faint"); ctx.font="12px system-ui"; ctx.fillText("Needs a live chain and the minute log",12,20); return; }
@@ -4277,7 +4488,9 @@ function drawHeat(id,m,se,d,legendTxt){
   // smooth field: paint one pixel per grid cell into an offscreen image, then scale it with interpolation (rows run top=high price)
   const nc=m.times.length, nr=m.prices.length; const off=document.createElement("canvas"); off.width=nc; off.height=nr;
   const oc=off.getContext("2d"), img=oc.createImageData(nc,nr);
-  const cg=m.cgrid||m.grid, HF=st.mapCol==="grad"?heatGrad:heatRGB, SC=j=>(st.mapScale==="col"&&m.colMax)?m.colMax[j]:m.vmax;
+  const ZONE=!!st.mapZone&&m.kind==="gamma"&&id==="mapGammaC";   // 2026-11-12 Zone view (raw grid, its own 95th-pct scale)
+  let zMax=m.vmax; if(ZONE&&m.cgrid!==m.grid){ const a=[]; for(const col of m.grid) for(const v of col) if(v!=null) a.push(Math.abs(v)); a.sort((x,y)=>x-y); zMax=Math.max(1e-9,a[Math.floor(a.length*0.95)]||1e-9); }
+  const cg=ZONE?m.grid:(m.cgrid||m.grid), HF=ZONE?zoneRGB:st.mapCol==="grad"?heatGrad:heatRGB, SC=j=>ZONE?zMax:(st.mapScale==="col"&&m.colMax)?m.colMax[j]:m.vmax;
   for(let j=0;j<nc;j++){ const sc=SC(j); for(let i=0;i<nr;i++){ const v=cg[j][i]; const [r,g,b]=v==null?[12,22,42]:HF(m.kind,v,sc); const q=((nr-1-i)*nc+j)*4; img.data[q]=r; img.data[q+1]=g; img.data[q+2]=b; img.data[q+3]=255; } }
   oc.putImageData(img,0,0); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
   const cw=W/(nc-1), rh=H/(nr-1); ctx.drawImage(off,0,0,nc,nr,padL-cw/2,padT-rh/2,W+cw,H+rh);
@@ -4288,10 +4501,12 @@ function drawHeat(id,m,se,d,legendTxt){
       for(const i of a){ let best=null; for(const k of b){ if(Math.abs(k-i)<=3&&(best==null||Math.abs(k-i)<Math.abs(best-i))) best=k; }
         const y0=Y(m.prices[0]+i*m.dp); if(best!=null){ ctx.moveTo(x0,y0); ctx.lineTo(x1,Y(m.prices[0]+best*m.dp)); } else { ctx.moveTo(x0,y0); ctx.lineTo(x0+2,y0); } } }
     ctx.stroke(); ctx.setLineDash([]); };
-  if(st.mapCol==="grad"){ const iso=cg.map((col,j)=>{ const sc=SC(j)*0.5, o=[]; for(let i=1;i<col.length;i++){ const a=col[i-1], b=col[i]; if(a==null||b==null) continue;
+  if(st.mapCol==="grad"&&!ZONE){ const iso=cg.map((col,j)=>{ const sc=SC(j)*0.5, o=[]; for(let i=1;i<col.length;i++){ const a=col[i-1], b=col[i]; if(a==null||b==null) continue;
       for(const L of [sc,-sc]) if((a-L)*(b-L)<0) o.push(i-1+(L-a)/((b-a)||1)); } return {iso:o}; }); trace(f=>f.iso,"#ffffff38",[1,2],iso); }
   if(m.kind==="gamma"&&st.speedOn) trace(f=>f.sp||[],"#E879F9",[1,3]);
-  trace(f=>f.z,"#dfe6f2",[2,3]); if(m.kind==="gamma"||m.kind==="vanna"||m.kind==="charm"){ trace(f=>f.pk,"#2ecc71"); trace(f=>f.tr,"#f4d03f"); }
+  if(ZONE) zoneOverlay(ctx,m,X,Y,padL,padT,W,H);
+  else { trace(f=>f.z,"#dfe6f2",[2,3]); if(m.kind==="gamma"||m.kind==="vanna"||m.kind==="charm"){ trace(f=>f.pk,"#2ecc71"); trace(f=>f.tr,"#f4d03f"); }
+    if(st.mapFlipLine&&m.kind==="gamma"&&id==="mapGammaC") zoneOverlay(ctx,m,X,Y,padL,padT,W,H,{band:false,legend:false}); }   // 2026-11-12 Flip line
   // ±1σ anchored at 9:35 from ATM IV of today's expiry
   const sg=(d&&d.iv>0)?d.iv:null; if(sg&&st.coneLive){ const t0=9*60+35; ctx.strokeStyle="#ffffff66"; ctx.lineWidth=1; for(const s of [1,-1]){ ctx.beginPath(); let on=false;
       for(const t of m.times){ if(t<t0) continue; const ty=(t-t0)/525600; const p=m.S*Math.exp(s*sg*Math.sqrt(ty)); const x=X(t),y=Y(p); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; } ctx.stroke(); } }
@@ -4346,6 +4561,66 @@ function drawBreakdown(id,se,d,m){
 }
 function colAt(m,t){ let j=0; for(let q=0;q<m.times.length;q++){ if(m.times[q]<=t) j=q; } return j; }
 function featLevels(m,j){ const f=m.feats[j]; const L=i=>m.prices[0]+i*m.dp; return {z:f.z.map(L),pk:f.pk.map(L),tr:f.tr.map(L)}; }
+/* 2026-11-11 RULE READ - button "Rule read" above the read-out, OFF by default (Mithil OK'd items 1 + 4 of the
+   11/11 review). Picks the ceiling and the floor by Mithil's regime rule instead of the nearest gamma peak:
+     long gamma at spot  -> ceiling = vanna flip above price, floor = gamma flip below
+     short gamma at spot -> ceiling = gamma flip above price, floor = vanna flip below
+   Each level counts the independent levels within 0.12% of it (the tolerance "Outside levels agree" already uses):
+   the other greek's flip, the wall on that side (largest OI above / below price, 0DTE or week book), the AM levels.
+   The gamma peak nearest price becomes the PIN (it moves with price, so it is not a ceiling). One charm line, from
+   charm at spot; the into-the-close pin line only in long gamma from 15:15 to 15:45. Vanna and charm come from the
+   same buildMap the right pane draws, on its book; the one the pane is not showing is built the same way.
+   Map maths untouched. With the button off the read-out is exactly as before. */
+const RULE_TOL=0.0012, RULE_PIN_T0=15*60+15, RULE_PIN_T1=15*60+45;
+function ruleWalls(d,S){ // largest call OI above price / put OI below: today's expiry (live rows) and the 1-7 DTE book (08:35 OI, summed by strike)
+  const pick=m=>{ let c=null,p=null,cv=0,pv=0; for(const [k,o] of m){ if(k>=S&&o.c>cv){ cv=o.c; c=k; } if(k<=S&&o.p>pv){ pv=o.p; p=k; } } return {c,p}; };
+  const m0=new Map(); for(const r of (d&&d.rows)||[]) m0.set(+r.k,{c:r.cOI||0,p:r.pOI||0});
+  const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym], mw=new Map();
+  for(const r of (nb&&nb.rows)||[]){ const o=mw.get(+r.k)||{c:0,p:0}; o.c+=r.cOI||0; o.p+=r.pOI||0; mw.set(+r.k,o); }
+  const a=pick(m0), b=pick(mw); return {c0:a.c,p0:a.p,cw:b.c,pw:b.p}; }
+function ruleReadLines(g,ch,va,se,d,S,gS){
+  const f=v=>v==null?"–":fmtN(v), sgn=x=>{ const r=Math.round(x); return (r>0?"+":r<0?"−":"±")+fmtN(Math.abs(r)); };
+  const lg=gS>=0, bookR=st.mapBookR||st.mapBook||"all", tol=S*RULE_TOL;
+  const vR=va&&va.kind==="vanna"?va:buildMap("vanna",se,d,bookR), cR=ch&&ch.kind==="charm"?ch:buildMap("charm",se,d,bookR);
+  const jOf=m=>colAt(m,Math.max(MAP_OPEN,m.now)), jEnd=m=>colAt(m,15*60+30), iOf=m=>Math.max(0,Math.min(m.prices.length-1,Math.round((S-m.prices[0])/m.dp)));
+  const gN=featLevels(g,jOf(g)), gC=featLevels(g,jEnd(g)), vN=vR?featLevels(vR,jOf(vR)):null, vC=vR?featLevels(vR,jEnd(vR)):null;
+  const W=ruleWalls(d,S), am=(st.sym==="SPX"&&docFresh())?docLevels("SPX").filter(x=>x&&isFinite(x.v)):[];
+  const vMiss="the vanna map is not ready";
+  const R=lg
+    ?{c:{v:vN?nearest(vN.z,S,1):null, e:vC?nearest(vC.z,S,1):null, src:"vanna flip", why:"long gamma: vanna caps the top", oth:"gamma", miss:vN?"no vanna flip above price in the window":vMiss, tail:"Price tends to stall or turn here."},
+      f:{v:nearest(gN.z,S,-1), e:nearest(gC.z,S,-1), src:"gamma flip", why:"long gamma: gamma floors the bottom", oth:"vanna", miss:"no gamma flip below price in the window; the calm zone runs down the whole map", tail:"Below it dealers stop absorbing and moves speed up."}}
+    :{c:{v:nearest(gN.z,S,1), e:nearest(gC.z,S,1), src:"gamma flip", why:"short gamma: gamma caps the top", oth:"vanna", miss:"no gamma flip above price in the window; fast market across the map", tail:"Above it dealers start absorbing and moves calm down."},
+      f:{v:vN?nearest(vN.z,S,-1):null, e:vC?nearest(vC.z,S,-1):null, src:"vanna flip", why:"short gamma: vanna floors the bottom", oth:"gamma", miss:vN?"no vanna flip below price in the window":vMiss, tail:"Price tends to hold or turn here."}};
+  const agree=(x,side,oth)=>{ const hits=[]; let m=1; const near=v=>v!=null&&Math.abs(v-x)<=tol;
+    const oz=oth==="gamma"?gN.z:(vN?vN.z:null);
+    if(oz){ m++; const z=oz.filter(near); if(z.length){ const b=z.reduce((p,q)=>Math.abs(q-x)<Math.abs(p-x)?q:p); hits.push(`${oth} flip ${f(b)} (${sgn(b-x)})`); } }
+    const w0=side>0?W.c0:W.p0, ww=side>0?W.cw:W.pw, wn=side>0?"call wall":"put wall";
+    if(w0!=null||ww!=null){ m++; const a=near(w0), b=near(ww);
+      if(a||b){ const k=a?w0:ww; hits.push(`${wn} ${f(k)} (${a&&b&&w0===ww?"0DTE + week":a?"0DTE":"week"}, ${sgn(k-x)})`); } }
+    if(am.length){ m++; const z=am.filter(o=>near(o.v)).sort((p,q)=>Math.abs(p.v-x)-Math.abs(q.v-x)).slice(0,2);
+      if(z.length) hits.push(z.map(o=>`AM ${o.label} ${f(o.v)} (${sgn(o.v-x)})`).join(" · ")); }
+    return {n:1+hits.length,m,hits}; };
+  const line=(o,side)=>{ const nm=side>0?"Ceiling":"Floor";
+    if(o.v==null) return `<div class="bl"><b>No ${nm.toLowerCase()} by the rule</b> — ${o.miss} <i>(${o.why})</i>.</div>`;
+    const A=agree(o.v,side,o.oth), mv=o.e!=null&&Math.abs(o.e-o.v)>=g.dp?`; moves to ${f(o.e)} by 3:30`:"";
+    return `<div class="bl"><b>${nm} ${f(o.v)}</b> <span class="agr${A.n>=3?" hi":""}" title="Levels within 0.12% of it: the rule level itself, the other greek's flip, the wall on that side (0DTE or week book), the AM levels">${A.n} of ${A.m} agree</span> — ${o.src} <i>(${o.why})</i>${A.hits.length?" · "+A.hits.join(" · "):""}${mv}. ${o.tail}</div>`; };
+  const B=[];
+  B.push(`<div class="bl1"><b>${lg?"Calm market":"Fast market"}</b> — dealers ${lg?"absorb moves":"chase moves"} at <b>${f(S)}</b> <i>(${lg?"they sell rallies, buy dips":"they sell into drops, buy into rallies"})</i>.</div>`);
+  B.push(line(R.c,1)); B.push(line(R.f,-1));
+  if(lg&&gN.pk.length){ const pin=gN.pk.reduce((p,q)=>Math.abs(q-S)<Math.abs(p-S)?q:p), t=g.now;
+    if(t>=RULE_PIN_T0&&t<RULE_PIN_T1){ const colT=d&&d.rows?d.rows.reduce((a,r)=>a+(r.color||0),0):0;
+      B.push(`<div class="bl"><b>Pin ${f(pin)}</b> — gamma peak. Now to 3:45 is the pin window${colT>0.01?": time is still adding gamma, so dealers lean hardest against moves away from it":colT<-0.01?", but time is taking gamma away, so the pin holds less well":""}. After 3:50 the closing auction takes over.</div>`); }
+    else B.push(`<div class="bl"><b>Pin ${f(pin)}</b> — gamma peak: price tends to sit here. It moves with price, so it is <b>not</b> a ceiling.</div>`); }
+  { const dm=nearest(gN.tr,S,-1), dmC=nearest(gC.tr,S,-1), dmT=lg?"if the floor breaks, selling chases toward here":"selling chases toward here";
+    if(dm!=null) B.push(`<div class="bl"><b>Downside magnet ${f(dm)}</b> — ${dmT}${dmC!=null&&Math.abs(dmC-dm)>=g.dp?`; moves to ${f(dmC)} by 3:30`:""}.</div>`); }
+  if(vR){ const j=jOf(vR), vS=vR.grid[j][iOf(vR)], vz=featLevels(vR,j).z, z=nearest(vz,S,-1)??nearest(vz,S,1);
+    B.push(`<div class="bl"><b>If fear (vol) rises</b> → dealers <b>${vS>=0?"buy":"sell"}</b> (about ${fmtN(Math.round(Math.abs(vS)))} deltas per vol point) → ${vS>=0?"cushions price":"pushes price down"}.${z!=null?` ${z<S?"Below":"Above"} ${f(z)} this reverses — rising fear makes dealers ${vS>=0?"sell":"buy"}.`:""}</div>`); }
+  if(cR){ const j=jOf(cR), cS=cR.grid[j][iOf(cR)], cz=featLevels(cR,j).z, z=nearest(cz,S,-1)??nearest(cz,S,1);
+    B.push(`<div class="bl"><b>As time passes</b> → dealers <b>${cS>=0?"buy":"sell"}</b> (about ${fmtN(Math.round(Math.abs(cS)))} deltas per 5 min) → ${cS>=0?"supports price":"weighs on price"}.${z!=null?` ${z<S?"Below":"Above"} ${f(z)} it turns to ${cS>=0?"selling":"buying"}.`:""}</div>`); }
+  if(g.share&&g.share.p0!=null){ const wk=Math.round((1-g.share.p0)*100), bk=g.book||"0dte";
+    B.push(`<div class="bl"><b>Where the weight is:</b> ${wk}% of the gamma at price is in next week's options${bk==="0dte"?(wk>=50?" — read the All book, not 0DTE alone":""):" — this map includes it"}.</div>`); }
+  { const wb=(WEEK_CLOCK_V2&&g.book!=="0dte")?wkBookInfo():null; if(wb&&wb.warn.length) B.push(`<div class="bl"><b>⚠ Week book:</b> ${wb.warn.join(" · ")}.</div>`); }
+  return B; }
 function nearest(arr,S,dir){ let b=null; for(const v of arr){ if(dir>0&&v>S&&(b==null||v<b)) b=v; if(dir<0&&v<S&&(b==null||v>b)) b=v; } return b; }
 function mapRead(g,ch,va,se,d){
   if(!g) return ""; const S=g.S, now=g.now, jN=colAt(g,Math.max(MAP_OPEN,now)), jC=colAt(g,15*60+30);
@@ -4376,6 +4651,7 @@ function mapRead(g,ch,va,se,d){
     if(parts.length) L.push(`<div class="l">Book at spot (${bk==="0dte"?"showing 0DTE":bk==="week"?"showing 1–7 DTE":"showing both"}): ${parts.join(" · ")}${ivs}.</div>`); }
   
   L.push(`<div class="l"><i>Rules, not a forecast. Sign is naive OI; a put-heavy book reads short gamma. Structure holds only while the book keeps this shape.</i></div>`);
+  if(st.ruleRead){ const RB=ruleReadLines(g,ch,va,se,d,S,gS); return `<div class="blbox">${RB.join("")}</div>${weekDiff()||""}<details class="rdet" id="mapReadDet"${st.readOpen?" open":""}><summary>Details</summary>${L.join("")}</details>`; }   // 2026-11-11 Rule read
   /* 2026-11-06 bottom line in plain words; the Week book check stays visible; everything above goes under Details. */
   const B=[]; const lg=gS>=0; const zB=nearest(gN.z,S,-1), zA=nearest(gN.z,S,1); const ii=a=>Math.max(0,Math.min(a.prices.length-1,i0));
   B.push(`<div class="bl1"><b>${lg?"Calm market":"Fast market"}</b> — dealers ${lg?"absorb moves":"chase moves"} at <b>${f(S)}</b> <i>(${lg?"they sell rallies, buy dips":"they sell into drops, buy into rallies"})</i>.</div>`);
@@ -4416,7 +4692,10 @@ function renderMapTab(se,d){
   const hh=document.getElementById("mapRightH"); if(hh) hh.textContent=st.mapRight==="chg"?"Change (gamma built in the last 30 min)":st.mapRight==="vanna"?"Vanna (hedge flow per +1 vol pt)":"Charm (hedge flow per 5 min)";
   document.getElementById("mapDocBtn").setAttribute("aria-pressed",st.docOn);
   { const pb=document.getElementById("mapPremBtn"); if(pb) pb.setAttribute("aria-pressed",!!st.premOv); }
+  { const rb=document.getElementById("ruleReadBtn"); if(rb) rb.setAttribute("aria-pressed",!!st.ruleRead); }
   { const gb=document.getElementById("gDetBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gDet); }
+  { const zb=document.getElementById("zoneBtn"); if(zb) zb.setAttribute("aria-pressed",!!st.mapZone); }
+  { const fb=document.getElementById("flipLineBtn"); if(fb) fb.setAttribute("aria-pressed",!!st.mapFlipLine); }
   document.getElementById("coneAmBtn").setAttribute("aria-pressed",st.coneAm); document.getElementById("coneLiveBtn").setAttribute("aria-pressed",st.coneLive);
   for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn","clockVar"]]){ const b=document.getElementById(id); if(b) b.setAttribute("aria-pressed",!!st[k]); }
   { const gb=document.getElementById("gapBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gapOn); const gs=document.getElementById("gapStrip"); if(gs){ const html=st.gapOn?gapStripHTML(se):""; gs.hidden=!html; if(html&&gs.innerHTML!==html) gs.innerHTML=html; } }
@@ -4432,7 +4711,10 @@ function renderMapTab(se,d){
 document.querySelectorAll("#viewSeg button[data-go]").forEach(b=>b.addEventListener("click",()=>{ st.mapRight=b.dataset.go; save("mapRight",st.mapRight); syncSeg("mapRightSeg",st.mapRight); st.tab="map"; save("tab","map"); render(); }));
 document.getElementById("mapDocBtn").addEventListener("click",()=>{ st.docOn=!st.docOn; save("docOn",st.docOn?"1":"0"); render(); });
 document.getElementById("mapPremBtn").addEventListener("click",()=>{ st.premOv=!st.premOv; save("premOv",st.premOv?"1":"0"); render(); });
+document.getElementById("ruleReadBtn").addEventListener("click",()=>{ st.ruleRead=!st.ruleRead; save("ruleRead",st.ruleRead?"1":"0"); render(); });
 document.getElementById("gDetBtn").addEventListener("click",()=>{ st.gDet=!st.gDet; save("gDet",st.gDet?"1":"0"); render(); });
+document.getElementById("zoneBtn").addEventListener("click",()=>{ st.mapZone=!st.mapZone; save("mapZone",st.mapZone?"1":"0"); render(); });   // 2026-11-12 Zone view
+document.getElementById("flipLineBtn").addEventListener("click",()=>{ st.mapFlipLine=!st.mapFlipLine; save("mapFlipLine",st.mapFlipLine?"1":"0"); render(); });   // 2026-11-12 Flip line
 document.querySelectorAll("#mapRightSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapRight=b.dataset.v; save("mapRight",st.mapRight); syncSeg("mapRightSeg",st.mapRight); render(); }));
 document.querySelectorAll("#mapBookSeg button").forEach(b=>b.addEventListener("click",()=>{ st.mapBook=b.dataset.v; save("mapBook",st.mapBook); syncSeg("mapBookSeg",st.mapBook); render(); }));
 document.querySelectorAll("#mapVol1Seg button").forEach(b=>b.addEventListener("click",()=>{ st.vol1=b.dataset.v; save("vol1",st.vol1); syncSeg("mapVol1Seg",st.vol1); render(); }));
@@ -7517,7 +7799,7 @@ function sfGrid(J){
   const w=+SF.win, ks=J.k, cols=[]; ks.forEach((k,j)=>{ if(Math.abs(k-J.x)<=w) cols.push(j); });
   if(rows.length<1||cols.length<3) return null;
   const lab=rows.map(i=>{ const e=J.ex[i]; return e.e.slice(5)+(e.fam==="AM"?" AM":"")+(e.dte===0?" (0DTE)":""); });
-  return {x:cols.map(j=>ks[j]), y:lab, z:rows.map(i=>cols.map(j=>Z[i][j])), unit, name:SF.greek in nm?nm[SF.greek]:"gamma + vanna", ex:rows.map(i=>J.ex[i])};
+  return {x:cols.map(j=>ks[j]), y:lab, z:rows.map(i=>cols.map(j=>Z[i][j])), unit, name:SF.greek in nm?nm[SF.greek]:"gamma + vanna", ex:rows.map(i=>J.ex[i]), ri:rows, ci:cols};
 }
 function sfCR(p0,p1,p2,p3,t){ const t2=t*t,t3=t2*t; return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3); }
 function sfUp1(a,n){ if(a.length<2) return a.slice(); const o=[]; for(let i=0;i<a.length-1;i++){ const p0=a[Math.max(0,i-1)],p1=a[i],p2=a[i+1],p3=a[Math.min(a.length-1,i+2)]; for(let s=0;s<n;s++) o.push(sfCR(p0,p1,p2,p3,s/n)); } o.push(a[a.length-1]); return o; }
@@ -7530,6 +7812,21 @@ function sfSmooth(g){
   const yi=sfUp1(g.y.map((_,i)=>i),ny);
   return {x:xs, yIdx:yi, z:sfBlur(out)};
 }
+/* 2026-11-12 Surface hover card: plain words for the shown greek at the nearest REAL strike and expiry, plus the other
+   two greeks on the same positions. Signs as the Orbs tab: gamma + = dealers long (sell rallies, buy dips); vanna + =
+   a vol rise makes them sell; charm + = time passing makes them sell; gamma + vanna (beta) + = they absorb a 1% move. */
+function sfWhen(e){ const dt=new Date(e.e+"T12:00:00"); const d=isNaN(dt)?e.e:dt.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+  return d+(e.dte===0?" · today (0DTE)":` · ${e.dte} day${e.dte===1?"":"s"} left`)+(e.fam==="AM"?" · AM-settled":""); }
+function sfTip(g,i,j){ const J=SF.J, e=g.ex[i], k=g.x[j], ri=g.ri[i], ci=g.ci[j];
+  const val=f=>{ const B=sfBook(J,f); return B&&B[ri]?(B[ri][ci]||0):0; }, gv=val("g"), va=val("va"), ch=val("ch");
+  const amt=v=>orMoney(Math.abs(v)).slice(1), dk=k-J.x; let main;
+  if(SF.greek==="g") main=`<b>Gamma ${orMoney(gv)} per 1% move</b><br>`+(gv>=0?"dealers are LONG gamma here: they sell rallies and buy dips,<br>so price tends to slow or stick":"dealers are SHORT gamma here: they sell drops and buy rallies,<br>so price can speed up through it");
+  else if(SF.greek==="va") main=`<b>Vanna ${orMoney(va)} per vol point</b><br>`+(va>=0?`vol up 1 point: dealers sell about ${amt(va)}<br>vol down 1 point: they buy about ${amt(va)}`:`vol up 1 point: dealers buy about ${amt(va)}<br>vol down 1 point: they sell about ${amt(va)}`);
+  else if(SF.greek==="ch") main=`<b>Charm ${orMoney(ch)} per hour</b><br>`+(ch>=0?`time passing alone makes dealers sell about ${amt(ch)} each hour`:`time passing alone makes dealers buy about ${amt(ch)} each hour`);
+  else if(SF.greek==="gvb"){ const b=J.beta, v=gv+b*va; main=`<b>Gamma + vanna ${orMoney(v)} per +1% move</b> (vol ${b>=0?"+":"−"}${Math.abs(b).toFixed(1)} pts with it)<br>`+(v>=0?`1% rally: dealers sell about ${amt(v)}; 1% drop: they buy.<br>They absorb the move`:`1% rally: dealers buy about ${amt(v)}; 1% drop: they sell.<br>They add to the move`)+(gv!==0&&Math.sign(v)!==Math.sign(gv)?"<br><b>Opposite sign to gamma alone:</b> a vol move flips this spot":""); }
+  else { const s=g.z[i][j]; main=`<b>Shape ${s>=0?"+":"−"}${Math.abs(s).toFixed(2)}</b> (scale −2 to +2)<br>`+(s>=1?"gamma and vanna both strongly positive here":s<=-1?"gamma and vanna both strongly negative here":"gamma and vanna only partly agree here"); }
+  const rest=[SF.greek!=="g"?`gamma ${orMoney(gv)} per 1%`:"",SF.greek!=="va"?`vanna ${orMoney(va)} per vol pt`:"",SF.greek!=="ch"?`charm ${orMoney(ch)} per hour`:""].filter(Boolean).join(" · ");
+  return `<b>${esc(sfWhen(e))}</b><br><b>Strike ${fmtN(k)}</b> (${Math.round(Math.abs(dk))} pts ${dk>=0?"above":"below"} price ${fmtN(Math.round(J.x))})<br>${main}<br>${rest}<br><span style="color:#9FB2CC">positions: ${esc(OR_BASIS_TXT[SF.basis]||SF.basis)}</span>`; }
 function renderSurface(){
   const head=document.getElementById("sfHead"), body=document.getElementById("sfBody"); if(!head||!body) return; sfTimer();
   const hk=[SF.on,SF.greek,SF.basis,SF.win,SF.exp,SF.smooth].join("|");
@@ -7556,11 +7853,13 @@ function renderSurface(){
     if(SF.smooth==="1"){ const s=sfSmooth(g); x=s.x; yv=s.yIdx; z=s.z; }
     if(z.length===1){ z=[z[0],z[0]]; yv=[0,0.6]; }     // one expiry: draw it as a ribbon
     const m=Math.max(1e-12,...z.flat().map(Math.abs));
-    const raw=(xx,yy)=>{ const i=Math.max(0,Math.min(g.y.length-1,Math.round(yy))); let j=0,b=1e9; g.x.forEach((k,jj)=>{ const d=Math.abs(k-xx); if(d<b){ b=d; j=jj; } }); return [g.y[i],g.x[j],g.z[i][j]]; };
-    const custom=z.map((r,i)=>r.map((_,j)=>raw(x[j],yv[i])));
-    const fmt=SF.greek==="gvn"?".2f":".3f";
-    const tr={type:"surface",x,y:yv,z,colorscale:SF_COLORS,cmin:-m,cmax:m,customdata:custom,
-      hovertemplate:"%{customdata[0]}<br>strike %{customdata[1]}<br>"+esc(g.name)+" %{customdata[2]:"+fmt+"}<extra></extra>",
+    /* 2026-11-12: a 3D surface fills no per-point fields in a hover template (the old %{customdata[0]} template printed as raw
+       text), so each point carries its finished card in `text`, shown with hoverinfo "text", built once per real strike x expiry (sfTip). */
+    const tipC=new Map(), tipAt=(xx,yy)=>{ const i=Math.max(0,Math.min(g.y.length-1,Math.round(yy))); let j=0,b=1e9; g.x.forEach((k,jj)=>{ const d=Math.abs(k-xx); if(d<b){ b=d; j=jj; } });
+      const key=i+"|"+j; let s=tipC.get(key); if(s==null){ s=sfTip(g,i,j); tipC.set(key,s); } return s; };
+    const text=z.map((r,i)=>r.map((_,j)=>tipAt(x[j],yv[i])));
+    const tr={type:"surface",x,y:yv,z,colorscale:SF_COLORS,cmin:-m,cmax:m,text,
+      hoverinfo:"text", hoverlabel:{bgcolor:"#0B1422",bordercolor:"#9FB2CC",align:"left",font:{size:15,color:"#F4F7FB"}},
       contours:{z:{show:true,usecolormap:false,color:"rgba(230,236,245,.55)",project:{z:true},width:1}},
       lighting:{ambient:.55,diffuse:.75,specular:.35,roughness:.5,fresnel:.2},
       colorbar:{thickness:12,len:.65,tickfont:{color:"#DCE6F2",size:14},outlinewidth:0}};

@@ -1,13 +1,13 @@
 {
- "locked": "2026-11-10",
+ "locked": "2026-11-12",
  "commit": "824a06c",
- "note": "production MAP files; sha256 after CRLF->LF; 2026-11-09 cvx_cockpit.html re-locked after Tenor + Levels tabs (Map code unchanged); 2026-11-09 (later) cvx_cockpit.html re-locked again after the Orbs tab, Density DN1-DN6 + VIX VX1/VX2 options moved from the test page, and the VIX gamma/vanna map option (Map code unchanged; all new options OFF by default); 2026-11-09 (follow-ups) cvx_cockpit.html re-locked after the Orbs zoom / Calls-Puts / Bull-Bear / Charm / MAP-basis set, Flow bars off by default, Volume last 5/15/30 min, VIX map bases + range + per-minute line, Tenor live, Levels zoom and the top-bar SPX-SPY calculator (Map code unchanged); 2026-11-10 cvx_cockpit.html re-locked after the Surface tab (3D gamma / vanna / charm / gamma+vanna by strike x expiry, OFF by default; Map code unchanged); 2026-11-10 cvx_live.py re-locked after SPXO (AM-settled SPX weekly) joined the AM family: its groups now feed the live week book as AM rows instead of being flagged mixed (Mithil's OK)",
+ "note": "production MAP files; sha256 after CRLF->LF; 2026-11-09 cvx_cockpit.html re-locked after Tenor + Levels tabs (Map code unchanged); 2026-11-09 (later) cvx_cockpit.html re-locked again after the Orbs tab, Density DN1-DN6 + VIX VX1/VX2 options moved from the test page, and the VIX gamma/vanna map option (Map code unchanged; all new options OFF by default); 2026-11-09 (follow-ups) cvx_cockpit.html re-locked after the Orbs zoom / Calls-Puts / Bull-Bear / Charm / MAP-basis set, Flow bars off by default, Volume last 5/15/30 min, VIX map bases + range + per-minute line, Tenor live, Levels zoom and the top-bar SPX-SPY calculator (Map code unchanged); 2026-11-10 cvx_cockpit.html re-locked after the Surface tab (3D gamma / vanna / charm / gamma+vanna by strike x expiry, OFF by default; Map code unchanged); 2026-11-10 cvx_live.py re-locked after SPXO (AM-settled SPX weekly) joined the AM family: its groups now feed the live week book as AM rows instead of being flagged mixed (Mithil's OK); 2026-11-12 cvx_cockpit.html re-locked after the 11/11 Rule read (read-out option), the Surface hover card, the Map Zone view and Flip line (all OFF by default; Map maths unchanged, parity 104/104 on the demo session) and the Help screenshots + day-type reading; serve_cvx.py re-locked: it also copies scripts/cvxmap/help/ into data/help/ at start",
  "files": {
-  "scripts/cvxmap/cvx_cockpit.html": "609399fb422f2baf6c7140a091f9dd769c3c3c658db51164c7b8c495e6b79e35",
+  "scripts/cvxmap/cvx_cockpit.html": "3477d8afc1b164061bc6a5385720d43a221826db99bb5c25101666c9cf82f665",
   "scripts/cvxmap/cvx_live.py": "dd5435f30b049979254a6ef1512812d172fc25d64e379bb945d453c9683e69a2",
   "scripts/cvxmap/am_feed.py": "08b3c2338c92606d81dad75167da1c3d3faa0da5d861920b6b8fe6d97a72bd66",
   "scripts/cvxmap/market_cal.py": "9936736054ed3e166c6e7ca99d559014c87548e61f30c77e65b478d804bc182b",
-  "scripts/cvxmap/serve_cvx.py": "fe932aa6cea1e3649701eb3f0c42bcee45443bbe948e8aad6a800d30f8c58b6b",
+  "scripts/cvxmap/serve_cvx.py": "abbecb5bf2eae3ea0c2c0a329292e2871e2fdc8cac6d116e2219519a82a1d555",
   "scripts/cvxmap/cvx_collect.py": "02e326b0f83a57191a64d0b3b0db78e3765ea65bafe2945d19a9df406ed5a270",
   "scripts/nas/run_cvxmap.sh": "ad252966986792a5d08e132f0270d53286039b761b453e836e48a34751122046"
  }

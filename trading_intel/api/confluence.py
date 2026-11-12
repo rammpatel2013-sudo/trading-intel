@@ -183,6 +183,12 @@ def load_inputs(session: Session, as_of: date | None = None) -> ConfluenceInputs
     if spot is None:
         return None
     vix_spot, vix_hist = _vix(session, day)
+    if vix_spot is None and vix_hist and (day - vix_hist[-1][0]).days <= 4:
+        # 2026-11-12: an intraday read has no VIX close for today yet:
+        # use the last stored close and say so
+        vix_spot = vix_hist[-1][1]
+        notes.append(f"no VIX close stored for {day.isoformat()} yet: VIX-mapped levels use the "
+                     f"{vix_hist[-1][0].isoformat()} close ({vix_spot:.2f})")
     return ConfluenceInputs(
         as_of=day, spot=spot, chain=_chain(session, ts), vix_spot=vix_spot,
         vix_options=_vix_options(session, day), vix_history=vix_hist,

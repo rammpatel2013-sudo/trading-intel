@@ -47,3 +47,16 @@ def test_bad_inputs() -> None:
 def test_json_serialisable(tmp_path) -> None:
     s = seeded_session()
     json.dumps(et.get_confluence(s, out_dir=tmp_path))
+
+
+def test_vix_layer_uses_last_close_when_today_missing(tmp_path) -> None:
+    """2026-11-12: an intraday read had no VIX close for the day, so the VIX layer came back empty."""
+    from datetime import date as _d
+
+    from trading_intel.memory.models import VixData
+    s = seeded_session()
+    s.query(VixData).filter(VixData.date == _d(2026, 11, 6)).delete()
+    s.commit()
+    r = et.get_confluence(s, day="2026-11-06", out_dir=tmp_path)
+    assert r["found"] and r["layers"]["vix"]
+    assert any("no VIX close stored for 2026-11-06" in n for n in (r.get("gaps") or []))

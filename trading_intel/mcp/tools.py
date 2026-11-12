@@ -236,10 +236,12 @@ def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[
     """
     days_c = max(2, min(int(days), 365))
     sym = symbol.strip().upper()
-    df = load_snapshot_history(session, sym, days=days_c)
+    # several pulls per day (AM, intraday, EOD): read enough rows for ``days`` sessions, then keep
+    # the last ``days`` sessions (2026-11-12, backlog T7 - days=6 used to return 3 sessions)
+    df = load_snapshot_history(session, sym, days=days_c * 12)
     if df is None or df.empty:
         return {"symbol": sym, "rows": [], "count": 0, "found": False}
-    df = _one_row_per_session(df)
+    df = _one_row_per_session(df).tail(days_c).reset_index(drop=True)
 
     rows: list[dict[str, Any]] = []
     for _, r in df.iterrows():
@@ -254,7 +256,7 @@ def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[
                 "vex_total": _num(r.get("vex_total")),
                 "chex_total": _num(r.get("chex_total")),
                 "gex_flip": flip,
-                "regime": gamma_regime(spot, flip),
+                "regime": regime_text(_num(r.get("gex_total")), spot, flip),
                 "flip_dist": flip_distance(spot, flip),
                 "atm_iv": _num(r.get("atm_iv")),
             }
@@ -272,7 +274,26 @@ def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[
             "direction": "up" if change > 0 else "down" if change < 0 else "flat",
             "current_regime": rows[-1]["regime"],
         }
-    return {"symbol": sym, "rows": rows, "count": len(rows), "summary": summary, "found": True}
+    return {"symbol": sym, "rows": rows, "count": len(rows), "summary": summary, "found": True,
+            "flip_def": ("gex_flip = the strike where dealer gamma summed strike by strike from "
+                         "the bottom crosses zero (all stored expiries, naive sign); the cockpit "
+                         "Map and get_close_odds re-price gamma at each price instead, so their "
+                         "flips differ by a few to tens of points")}
+
+
+def regime_text(gex: float | None, spot: float | None, flip: float | None) -> str:
+    """Regime from the SIGN of net dealer gamma at spot (what "long/short gamma at the current
+    price" means), with the flip side beside it; says "mixed" when the two disagree (backlog T7,
+    2026-11-12: 11/12 read "short gamma (< flip)" with net gamma +52.7)."""
+    if gex is None:
+        return gamma_regime(spot, flip)
+    sign = "long gamma" if gex > 0 else "short gamma" if gex < 0 else "flat gamma"
+    if spot is None or flip is None:
+        return f"{sign} (net {gex:+,.1f})"
+    side = "above" if spot > flip else "below" if spot < flip else "at"
+    txt = f"{sign} (net {gex:+,.1f}; spot {side} the flip {flip:,.1f})"
+    agree = (gex > 0 and side != "below") or (gex < 0 and side != "above") or gex == 0
+    return txt if agree else txt + " - mixed: the net sign and the flip side disagree"
 
 
 def get_technicals(session: Session, symbol: str, *, days: int = 120) -> dict[str, Any]:
