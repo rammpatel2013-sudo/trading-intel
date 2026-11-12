@@ -37,8 +37,11 @@ class LLMProvider(Protocol):
 class OllamaProvider(LLMProvider):
     """Local LLM via Ollama. Default provider — free, no API keys needed."""
 
-    def __init__(self, settings: Settings):
-        self._client = ollama.Client(host=settings.OLLAMA_HOST)
+    def __init__(self, settings: Settings, *, timeout: float | None = None):
+        # ``timeout`` = seconds per HTTP call. None keeps ollama's default (wait
+        # forever). The night letters_tag job sets one so a laptop that sleeps
+        # mid-call cannot hang the run into the trading day (2026-11-12).
+        self._client = ollama.Client(host=settings.OLLAMA_HOST, timeout=timeout)
         self._default_model = settings.LLM_DAILY_MODEL
         self._embedding_model = settings.EMBEDDING_MODEL
 

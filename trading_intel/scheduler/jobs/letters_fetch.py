@@ -8,8 +8,14 @@ letters dir, then runs the EXISTING research ingestion
 only (``LLM_TAGGING_MODEL``, rule 7); descriptive research context, never a signal
 (rule 4).
 
+Schedule (2026-11-12): the 08:50 morning run stores the letters ONLY — no model calls.
+Ollama lives on the laptop, and the model legs kept it busy from 08:50 past the open.
+The model legs (levels/scenarios extractor + ingest tagging) run at night in
+``letters_tag``, which calls ``run()`` with an LLM.
+
 Manual run:
-    python -m trading_intel.scheduler.jobs.letters_fetch
+    python -m trading_intel.scheduler.jobs.letters_fetch   # letters only
+    python -m trading_intel.scheduler.jobs.letters_tag     # + model legs (night job)
 """
 
 from __future__ import annotations
@@ -236,7 +242,11 @@ def run(
     settings: Settings | None = None,
     letters_dir: Path | None = None,
 ) -> dict:
-    """Fetch + save new letters, then ingest the letters tree into the watchlist."""
+    """Fetch + save new letters; with an ``llm``, also run the model legs.
+
+    ``llm=None`` stores the letter bodies only (the morning run and the digest's
+    inline fetch). The night ``letters_tag`` job passes an LLM.
+    """
     settings = settings or get_settings()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="letters_fetch")
     root = Path(letters_dir) if letters_dir is not None else DEFAULT_LETTERS_DIR
@@ -281,9 +291,20 @@ def run(
 
     result: dict = {"ingested": 0, "skipped": 0, "new_symbols": 0}
     if llm is None:
-        bound.warning("letters_fetch.llm_skipped", reason="ollama unreachable")
+        bound.info("letters_fetch.llm_skipped", reason="letters only (model legs: letters_tag)")
         bound.info("letters_fetch.done", saved=saved, source_notes=notes, signals=0, llm="skipped")
         return {"saved": saved, "source_notes": notes, "signals": 0, **result}
+
+    # Levels/scenarios FIRST (2026-11-12): four bounded calls that feed the newsletter
+    # levels. Ingest tagging can take hours on a backlog, and the night run stops
+    # starting model calls at 07:00 ET — the levels must not wait behind it.
+    try:
+        signals = _extract_source_signals(session, llm, model=settings.LLM_TAGGING_MODEL)
+    except Exception as exc:  # noqa: BLE001 — levels/scenarios are best-effort
+        session.rollback()
+        bound.error("letters_fetch.signals_failed", err=str(exc), exc_info=True)
+        signals = 0
+
     try:
         result = ingest_folder(
             session, llm, research_dir=root, model=settings.LLM_TAGGING_MODEL
@@ -291,13 +312,6 @@ def run(
     except Exception as exc:  # noqa: BLE001 — tagging is best-effort (needs Ollama)
         session.rollback()
         bound.error("letters_fetch.ingest_failed", err=str(exc), exc_info=True)
-
-    try:
-        signals = _extract_source_signals(session, llm, model=settings.LLM_TAGGING_MODEL)
-    except Exception as exc:  # noqa: BLE001 — levels/scenarios are best-effort
-        session.rollback()
-        bound.error("letters_fetch.signals_failed", err=str(exc), exc_info=True)
-        signals = 0
     bound.info(
         "letters_fetch.done",
         saved=saved,
@@ -311,9 +325,11 @@ def run(
 
 
 def main() -> None:
-    """Manual entrypoint: wire Settings -> Ollama -> session, run once."""
+    """Morning entrypoint (DSM 08:50): store the letters only — never calls Ollama.
+
+    The model legs run at night in ``letters_tag`` (2026-11-12).
+    """
     from trading_intel.memory.db import make_session_factory
-    from trading_intel.synthesis.llm import OllamaProvider
 
     settings = get_settings()
     structlog.configure(
@@ -324,13 +340,10 @@ def main() -> None:
             structlog.processors.JSONRenderer(),
         ]
     )
-    llm = OllamaProvider(settings) if ollama_up(settings.OLLAMA_HOST) else None
-    if llm is None:
-        print(f"Ollama not reachable at {settings.OLLAMA_HOST} - storing letters only, model legs skipped.")
     session_factory = make_session_factory(settings)
     with session_factory() as session:
-        result = run(session, llm, settings=settings)
-    print(f"Done: {result}")
+        result = run(session, None, settings=settings)
+    print(f"Done (letters only - model legs run at night in letters_tag): {result}")
 
 
 if __name__ == "__main__":

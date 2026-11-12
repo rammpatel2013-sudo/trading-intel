@@ -99,16 +99,18 @@ def _ensure_letters_fetched(session: Session, settings: Settings, today: date) -
     the fetch (or the fetch task is disabled), the brief's commentary section
     would show stale letter bodies. Running the fetch here makes the digest
     self-sufficient without requiring DSM task ordering.
+
+    Letters only (2026-11-12): the brief needs the stored bodies, not the model
+    legs, and Ollama runs on the laptop — model work waits for the night
+    ``letters_tag`` job.
     """
     if _letters_fresh(session, today):
         return
     log.info("letters_digest.running_upstream_fetch", reason="notes_stale")
     try:
         from trading_intel.scheduler.jobs import letters_fetch
-        from trading_intel.synthesis.llm import OllamaProvider
 
-        llm = OllamaProvider(settings)
-        letters_fetch.run(session, llm, settings=settings)
+        letters_fetch.run(session, None, settings=settings)
     except Exception as exc:  # noqa: BLE001 — best-effort; brief still renders
         log.warning("letters_digest.upstream_fetch_failed", error=str(exc))
 
