@@ -18,7 +18,8 @@ Options:
                           run_script.sh od_nightly --force --day 2026-11-06
                           (after the 17:00 roll the flow records are gone; the rest stays)
 
-Writes reports/optionsdata/<YYYYMMDD>/:
+Writes reports/optionsdata/<YYYYMMDD>/ (api_calls.csv.gz + summary "api" block added 2026-11-10:
+every HTTP attempt with status, ms and any rate-limit headers, so the beta's limits are measured):
     <SYM>.csv.gz            every expiration stacked, all fields as served
     <SYM>_underlying.csv.gz the underlying snapshot + term rows
     summary.json            per symbol: rows by record, expirations, seconds, errors,
@@ -45,6 +46,10 @@ from zoneinfo import ZoneInfo
 BASE = "https://api.optionsdata.ai/v1"
 ET = ZoneInfo("America/New_York")
 DEFAULT_SYMS = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "VIX", "QQQ", "SPY", "SPX"]
+LIMIT_HDRS = ("x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset", "ratelimit-limit",
+              "ratelimit-remaining", "ratelimit-reset", "retry-after", "x-quota-limit", "x-quota-remaining")
+CALLS = []                   # one row per HTTP attempt: et, path, status, ms, limit headers
+CALLS_LOCK = threading.Lock()
 DEADLINE = (16, 58)          # stop starting new expiry pulls after 16:58 ET (trade date rolls 17:00)
 
 
@@ -65,16 +70,28 @@ def now_et():
     return datetime.now(ET)
 
 
+def _log_call(path, status, t0, headers, note=""):
+    lim = ""
+    if headers is not None:
+        lim = ";".join(f"{h}={headers.get(h)}" for h in LIMIT_HDRS if headers.get(h) is not None)
+    with CALLS_LOCK:
+        CALLS.append([f"{now_et():%H:%M:%S}", path, status, round((time.time() - t0) * 1000), lim, note[:80]])
+
+
 def get_csv(key, path, tries=6, **query):
     url = BASE + path + ("?" + urlencode(query) if query else "")
     req = Request(url, headers={"Authorization": "Bearer " + key, "Accept": "text/csv"})
     last = None
     for attempt in range(tries):
+        t0 = time.time()
         try:
             with urlopen(req, timeout=60) as r:
-                return r.read().decode("utf-8")
+                txt = r.read().decode("utf-8")
+                _log_call(path, r.status, t0, r.headers)
+                return txt
         except HTTPError as e:
             body = e.read().decode("utf-8", "replace")[:200]
+            _log_call(path, e.code, t0, e.headers, body)
             last = f"HTTP {e.code}: {body}"
             if e.code in (429, 500, 502, 503, 504) and attempt < tries - 1:
                 ra = e.headers.get("Retry-After")
@@ -82,6 +99,7 @@ def get_csv(key, path, tries=6, **query):
                 continue
             raise RuntimeError(last)
         except (URLError, TimeoutError) as e:
+            _log_call(path, "net", t0, None, str(e))
             last = f"network: {e}"
             if attempt < tries - 1:
                 time.sleep(2 * (attempt + 1))
@@ -196,6 +214,22 @@ def pull_symbol(key, sym, outdir, max_dte, today, deadline):
     return res
 
 
+def api_stats(calls):
+    """Limits/uptime read of the night's calls: status counts, latency, peak calls per minute."""
+    by = {}
+    for c in calls:
+        by[str(c[2])] = by.get(str(c[2]), 0) + 1
+    ok_ms = sorted(c[3] for c in calls if c[2] == 200)
+    per_min = {}
+    for c in calls:
+        per_min[c[0][:5]] = per_min.get(c[0][:5], 0) + 1
+    pct = lambda q: ok_ms[min(len(ok_ms) - 1, int(q * len(ok_ms)))] if ok_ms else None
+    return {"calls": len(calls), "by_status": by, "ok_ms_p50": pct(0.5), "ok_ms_p95": pct(0.95),
+            "peak_calls_per_min": max(per_min.values()) if per_min else 0,
+            "throttled_429": by.get("429", 0), "edge_503": by.get("503", 0),
+            "limit_headers_seen": sorted({c[4] for c in calls if c[4]})[:5]}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbols", default=",".join(DEFAULT_SYMS))
@@ -243,11 +277,17 @@ def main():
         for sym in redo:
             one(sym)
     summary["finished_et"] = f"{now_et():%H:%M:%S}"
+    summary["api"] = api_stats(CALLS)
+    with gzip.open(os.path.join(outdir, "api_calls.csv.gz"), "wt", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["et", "path", "status", "ms", "limit_headers", "note"])
+        w.writerows(CALLS)
     with open(os.path.join(outdir, "summary.json"), "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=1)
     size = sum(os.path.getsize(os.path.join(outdir, x)) for x in os.listdir(outdir))
     bad = [s["symbol"] for s in summary["symbols"] if s.get("error") or s.get("errors")]
     print(f"od_nightly.done {day} {len(summary['symbols'])} symbols {size/1e6:.1f} MB problems={bad}")
+    print("od_nightly.api", json.dumps(summary["api"]))
     return 0
 
 
