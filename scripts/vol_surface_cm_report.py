@@ -222,6 +222,26 @@ def _render_html(view, symbol: str) -> str:
     front = rungs[0]
     front_lab = view.near_expiry.get(front) or f"{front}d"
 
+    def split_body():
+        # 2026-11-13 Citi split: per rung, the ATM change = slide along the old curve + curve lift
+        if not view.split:
+            return '<p class="mut">No split yet (needs a prior session).</p>'
+        rgb = {"nervous": "#e0524a", "relief": "#2fbf71", "curve re-marked": "#e0a23a",
+               "curve moved with price": "#2f9fd0", "along the curve": "#8fa0bd", "flat": "#6f7d95"}
+        out = ('<table class="spl"><thead><tr><th class="rh">Rung</th><th>ATM change</th>'
+               '<th>Slide along the curve</th><th>Curve moved</th><th class="rh">What it was</th></tr></thead><tbody>')
+        for r in rungs:
+            sp = view.split.get(r)
+            if sp is None:
+                tag = "skipped (broken data)" if r in view.bad_rungs else "&#8212;"
+                out += f'<tr><td class="rh">{r}d</td><td></td><td></td><td></td><td class="rh">{tag}</td></tr>'
+                continue
+            col = rgb.get(sp["regime"], "#8fa0bd")
+            out += (f'<tr><td class="rh">{r}d</td><td>{sp["total"]:+.2f}</td><td>{sp["slide"]:+.2f}</td>'
+                    f'<td style="color:{col}">{sp["lift"]:+.2f}</td>'
+                    f'<td class="rh" style="color:{col}">{sp["regime"]}</td></tr>')
+        return out + "</tbody></table>"
+
     return f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>{symbol} Volatility Surface Changes</title>
@@ -244,6 +264,8 @@ td{{color:#0a1428;font-weight:700}}
 .panel{{background:#0d1a2f;border:1px solid #1c2b45;border-radius:10px;padding:12px 13px}}
 .legend{{font-size:11px;color:#7a8699;margin-top:8px}}
 .k{{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin:0 3px}}
+table.spl{{font-size:14px}} table.spl td{{color:#e6ecf5;background:#0e1b30;font-weight:700;padding:5px 8px}}
+table.spl th{{font-size:12px}}
 .foot{{color:#6f7d95;font-size:11.5px;border-top:1px solid #1c2b45;margin-top:22px;padding-top:12px}}
 code{{background:#13233c;border-radius:4px;padding:1px 5px;font-size:11px}}
 </style></head><body><div class="wrap">
@@ -256,13 +278,17 @@ code{{background:#13233c;border-radius:4px;padding:1px 5px;font-size:11px}}
 
 <div class="read"><b>READ &#183; {rlabel}</b><br>{view.read_text}</div>
 
+<h2>How the ATM vol move splits &#183; vs prior, vol points</h2>
+<div class="panel">{split_body()}
+<div class="legend"><b>Slide along the curve</b> = price moved to a strike that already had that vol (normal; tends to snap back). <b>Curve moved</b> = the whole curve was re-priced (the real news). <span style="color:#e0524a">nervous</span> = both up (vol up more than the curve says) &#183; <span style="color:#2fbf71">relief</span> = both down &#183; the READ uses the change at a fixed strike, so a slide alone never counts as fear.</div></div>
+
 <h2>Vol surface &#183; IV by delta &#215; rung (constant-maturity)</h2>
 <div class="panel"><table><thead>{col_head()}</thead><tbody>{surf_body()}</tbody></table>
 <div class="legend">warmer = higher IV. Rows = the smile: OTM puts (top) &#8594; 50&#916; ATM &#8594; OTM calls (bottom). Columns = fixed forward horizons, labeled with the nearest real expiry.</div></div>
 
 <h2>Vol CHANGES &#183; vs prior (weekly), vol points</h2>
 <div class="panel"><table><thead>{col_head()}</thead><tbody>{chg_body()}</tbody></table>
-<div class="legend"><span class="k" style="background:#2f9e6f"></span>marked up (bid) &#183; <span class="k" style="background:#d1495b"></span>marked down (offered). Same horizon vs a week ago &#8212; a real re-mark, not delta drift.</div></div>
+<div class="legend"><span class="k" style="background:#2f9e6f"></span>marked up (bid) &#183; <span class="k" style="background:#d1495b"></span>marked down (offered). Same horizon vs a week ago, at a fixed DELTA: part of each change is just the slide along the curve (see the split above).</div></div>
 
 <div class="grid2">
   <div><h2>Front-rung skew ({front}d &#183; {front_lab})</h2><div class="panel">{_skew_svg(view, front)}

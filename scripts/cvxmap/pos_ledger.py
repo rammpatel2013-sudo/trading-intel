@@ -56,6 +56,35 @@ GATE_THRESHOLD = 0.15   # |net|/total within cluster for spread label
 CLUSTER_WIDTH = 100     # pts
 
 
+# ---------- OI check (2026-11-13) ----------
+# A net position in one contract can't be bigger than that contract's whole open interest. OI
+# published before the open = positions at yesterday's close, so each night the OI-checked variant
+# (pos_oi) is capped there before today's net is added. pos_raw (what the Map's Ledger book uses)
+# is NOT changed. The nightly health numbers say how much of the tape-built book was impossible.
+def cap_to_oi(pos: float, oi: float | None) -> float:
+    """Shrink a signed position to at most ``oi`` contracts (no change when OI is unknown)."""
+    if oi is None or oi < 0 or not pos:
+        return pos or 0.0
+    return math.copysign(min(abs(pos), float(oi)), pos)
+
+
+def ledger_health(pairs: list[tuple[float, float]]) -> dict:
+    """``pairs`` = [(ledger position coming into the day, that morning's OI)] per contract."""
+    n = len(pairs)
+    imp = [(p, o) for p, o in pairs if abs(p) > o]
+    tot = sum(abs(p) for p, _ in pairs)
+    toi = sum(o for _, o in pairs)
+    pct = lambda a, b: round(100.0 * a / b, 1) if b else None  # noqa: E731
+    return {
+        "n": n,
+        "impossible_n": len(imp),
+        "impossible_pct": pct(len(imp), n),
+        "impossible_size_pct": pct(sum(abs(p) for p, _ in imp), tot),
+        "excess_pct": pct(sum(abs(p) - o for p, o in imp), tot),
+        "ledger_vs_oi_pct": pct(sum(min(abs(p), o) for p, o in pairs), toi),
+    }
+
+
 # ---------- Eastern time helpers ----------
 try:
     from zoneinfo import ZoneInfo
@@ -298,6 +327,7 @@ def update_pos_ledger(
     engine,
     trade_date: datetime.date,
     flow: dict[tuple, dict],
+    health_out: dict | None = None,
 ) -> int:
     """Update pos_ledger running state for the next morning.
 
@@ -349,6 +379,7 @@ def update_pos_ledger(
     """)
 
     upserted = 0
+    health_pairs: list[tuple[float, float]] = []
     with engine.begin() as conn:
         for (exp_iso, strike, right), entry in flow.items():
             try:
@@ -397,14 +428,12 @@ def update_pos_ledger(
             oi_am_today = entry["oi_am"]
             low_conf = False
 
-            if old_oi_current is not None and oi_am_today is not None:
-                # We have dOI data — but note this is comparing THIS morning's OI to
-                # the prior ledger's OI, which may itself be from this morning.
-                # The proper reconciliation needs NEXT morning's OI, so for now
-                # we use pos_raw and flag for reconciliation in the morning job.
-                new_oi_pos = old_oi_pos + net_day
-            else:
-                new_oi_pos = old_oi_pos + net_day
+            # 2026-11-13 OI check: this morning's OI = positions at yesterday's close, so the
+            # position carried into today can't exceed it. (The old "morning job" never ran:
+            # pos_oi was identical to pos_raw on all 20,566 rows.)
+            new_oi_pos = cap_to_oi(old_oi_pos, oi_am_today) + net_day
+            if prior is not None and oi_am_today is not None:
+                health_pairs.append((old_raw, float(oi_am_today)))
 
             # Flag low confidence if volume is very small
             total_vol = (entry["vb"] or 0.0) + (entry["vs"] or 0.0)
@@ -429,6 +458,8 @@ def update_pos_ledger(
             })
             upserted += result.rowcount
 
+    if health_out is not None:
+        health_out.update(ledger_health(health_pairs))
     return upserted
 
 
@@ -556,7 +587,7 @@ def reconcile_oi(engine, as_of_date: datetime.date) -> int:
 
 
 # ---------- JSON export for cockpit ----------
-def export_ledger_json(engine, as_of_date: datetime.date) -> str:
+def export_ledger_json(engine, as_of_date: datetime.date, health: dict | None = None) -> str:
     """Export the latest ledger state as JSON for the cockpit panel.
 
     Returns path to the written file.
@@ -637,6 +668,7 @@ def export_ledger_json(engine, as_of_date: datetime.date) -> str:
         "n_rows": len(rows),
         "rows": rows,
         "today": day_rows,
+        "health": health or None,
     }
 
     out_path = os.path.join(DATA, "ledger.json")
@@ -694,14 +726,19 @@ def process_date(engine, trade_date: datetime.date) -> None:
     log(f"  pos_days: {inserted} rows inserted")
 
     # Step 5: update pos_ledger
-    upserted = update_pos_ledger(engine, trade_date, flow)
+    health: dict = {}
+    upserted = update_pos_ledger(engine, trade_date, flow, health)
     log(f"  pos_ledger: {upserted} rows upserted")
+    if health.get("n"):
+        log(f"  OI check: {health['impossible_n']} of {health['n']} contracts held more than their whole OI "
+            f"({health['impossible_size_pct']}% of the book, {health['excess_pct']}% above OI); "
+            f"the ledger covers {health['ledger_vs_oi_pct']}% of OI")
 
     # Step 6: export ledger.json for the cockpit
     next_morning = trade_date + datetime.timedelta(days=1)
     if trade_date.weekday() == 4:
         next_morning = trade_date + datetime.timedelta(days=3)
-    export_ledger_json(engine, next_morning)
+    export_ledger_json(engine, next_morning, health)
 
 
 def main():

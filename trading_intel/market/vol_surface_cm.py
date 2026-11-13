@@ -16,6 +16,16 @@ re-mark, not delta drift. Pairing that with spot direction gives conviction:
 
 Front rungs (≤21d) moving = near-term/event; back rungs (≥30d) = regime.
 
+2026-11-13 — VOL MOVE SPLIT (Citi "Jargon-Busting Guide", 2008). A fixed-DELTA grid moves even
+when nothing is re-priced: after a down day the 25Δ put is a lower strike, which already had a
+higher IV on yesterday's curve. On our SPX history (8/11–11/12, 60 clean day pairs) 64–73% of the
+ATM change on down days was that slide, and the 25Δ put moved ~4x more at fixed delta than at
+fixed strike. So each rung's ATM change is split into
+    slide = yesterday's curve read at today's ATM strike − yesterday's ATM   (moving along the skew)
+    lift  = today's ATM − that                                             (the curve itself moved)
+and the READ uses the wing change at a FIXED STRIKE (= the lift there). Rungs whose 50Δ call and
+put IVs disagree by more than _BAD_RUNG_PTS (a broken forward — 10 of 87 days had one) are skipped.
+
 Descriptor / research only (FlashAlpha rule 4). Pure stdlib — no pandas / no DB.
 """
 
@@ -23,11 +33,15 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from statistics import NormalDist
 from typing import Any
 
 DELTAS = (5.0, 7.5, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 47.5, 50.0)
 _WING = 25.0  # representative wing delta for the read
 _FRONT_MAX = 21  # rungs ≤ this = "front" (event); > this = "back" (regime)
+_BAD_RUNG_PTS = 3.0  # 50Δ call vs put IV gap (vol pts) above which a rung is treated as broken
+_SPLIT_THR = 0.25  # vol pts: smaller slide/lift counts as "no move"
+_ND = NormalDist()
 
 
 def _by_key(rows: list[dict[str, Any]]) -> dict[tuple, float]:
@@ -62,6 +76,85 @@ def forward_vol(rungs: list[int], atm_pts: dict[int, float | None]) -> dict[tupl
     return out
 
 
+def rung_ok(idx: dict[tuple, float], dte: int, tol: float = _BAD_RUNG_PTS) -> bool:
+    """False when the 50Δ call and put IV disagree by more than ``tol`` vol pts (bad forward)."""
+    c = idx.get((dte, 50.0, "call"))
+    p = idx.get((dte, 50.0, "put"))
+    if c is None or p is None:
+        return True
+    return abs(c - p) * 100.0 <= tol
+
+
+def strike_smile(idx: dict[tuple, float], dte: int, spot: float) -> list[tuple[float, float]]:
+    """The rung's delta grid mapped to strikes (Black-Scholes, r = 0): sorted [(strike, iv)]."""
+    t = max(dte, 1) / 365.0
+    out = []
+    for (r, d, side), iv in idx.items():
+        if r != dte or iv is None or iv <= 0 or not 0 < d < 100:
+            continue
+        x = _ND.inv_cdf(d / 100.0)
+        sgn = -1.0 if side == "call" else 1.0
+        out.append((spot * math.exp(sgn * x * iv * math.sqrt(t) + iv * iv * t / 2.0), iv))
+    out.sort()
+    return out
+
+
+def _interp(smile: list[tuple[float, float]], k: float) -> float | None:
+    for (k0, v0), (k1, v1) in zip(smile, smile[1:]):
+        if k0 <= k <= k1:
+            return v0 if k1 == k0 else v0 + (v1 - v0) * (k - k0) / (k1 - k0)
+    return None
+
+
+def split_regime(slide: float, lift: float, thr: float = _SPLIT_THR) -> str:
+    """Citi's three regimes (+ relief), in plain words."""
+    if abs(slide) < thr and abs(lift) < thr:
+        return "flat"
+    if abs(lift) < thr or abs(lift) < 0.5 * abs(slide):
+        return "along the curve"  # sticky strike: normal, tends to snap back
+    if slide * lift > 0:
+        return "nervous" if lift > 0 else "relief"  # super-sticky strike
+    if abs(slide + lift) < thr:
+        return "curve moved with price"  # sticky delta
+    return "curve re-marked"
+
+
+def vol_split(
+    idx_prior: dict[tuple, float], idx_now: dict[tuple, float], spot_prior: float | None,
+    spot_now: float | None, dte: int,
+) -> dict[str, Any] | None:
+    """ATM change at one rung split into slide (along the prior curve) + lift (curve moved), vol pts."""
+    if not spot_prior or not spot_now:
+        return None
+    a0, a1 = _atm(idx_prior, dte), _atm(idx_now, dte)
+    if a0 is None or a1 is None:
+        return None
+    t = max(dte, 1) / 365.0
+    k_new = spot_now * math.exp((a0 / 100.0) ** 2 * t / 2.0)  # today's 50Δ strike, prior vol
+    y = _interp(strike_smile(idx_prior, dte, spot_prior), k_new)
+    if y is None:
+        return None
+    y *= 100.0
+    slide, lift = y - a0, a1 - y
+    return {"total": a1 - a0, "slide": slide, "lift": lift, "regime": split_regime(slide, lift)}
+
+
+def fixed_strike_wing_change(
+    idx_prior: dict[tuple, float], idx_now: dict[tuple, float], spot_prior: float | None,
+    spot_now: float | None, dte: int, side: str, wing: float = _WING,
+) -> float | None:
+    """IV change (vol pts) at the strike that was the prior session's ``wing``-delta option."""
+    p = idx_prior.get((dte, wing, side))
+    if p is None or not spot_prior or not spot_now:
+        return None
+    t = max(dte, 1) / 365.0
+    x = _ND.inv_cdf(wing / 100.0)
+    sgn = -1.0 if side == "call" else 1.0
+    k = spot_prior * math.exp(sgn * x * p * math.sqrt(t) + p * p * t / 2.0)
+    v = _interp(strike_smile(idx_now, dte, spot_now), k)
+    return None if v is None else (v - p) * 100.0
+
+
 @dataclass
 class SurfaceView:
     rungs: list[int] = field(default_factory=list)
@@ -78,6 +171,10 @@ class SurfaceView:
     ts_prior: str | None = None
     read_label: str = ""
     read_text: str = ""
+    split: dict[int, dict[str, Any]] = field(default_factory=dict)  # rung -> vol_split()
+    wing_fixed_strike: dict[tuple, float] = field(default_factory=dict)  # (dte, side) -> vol pts
+    bad_rungs: list[int] = field(default_factory=list)
+    read_basis: str = "fixed-delta"
 
 
 def _wing_change(iv_chg: dict[tuple, float], side: str, rungs: list[int], *, front: bool | None = None) -> float | None:
@@ -188,8 +285,38 @@ def build_view(rows_now: list[dict[str, Any]], rows_prior: list[dict[str, Any]] 
             v.iv_chg[(dte, d, side)] = round((iv - p) * 100.0, 3)
 
     spot_chg = ((v.spot_now / v.spot_prior - 1.0) * 100.0) if (v.spot_now and v.spot_prior) else None
-    call_chg = _wing_change(v.iv_chg, "call", rungs)
-    put_chg = _wing_change(v.iv_chg, "put", rungs)
-    call_back = _wing_change(v.iv_chg, "call", rungs, front=False)
+    good = [r for r in rungs if rung_ok(idx_now, r) and (not idx_prior or rung_ok(idx_prior, r))]
+    v.bad_rungs = [r for r in rungs if r not in good]
+    if idx_prior:
+        for r in good:
+            sp = vol_split(idx_prior, idx_now, v.spot_prior, v.spot_now, r)
+            if sp is not None:
+                v.split[r] = sp
+            for side in ("call", "put"):
+                w = fixed_strike_wing_change(idx_prior, idx_now, v.spot_prior, v.spot_now, r, side)
+                if w is not None:
+                    v.wing_fixed_strike[(r, side)] = w
+
+    def fs_mean(side: str, front: bool | None = None) -> float | None:
+        vals = [w for (r, s), w in v.wing_fixed_strike.items() if s == side
+                and not (front is True and r > _FRONT_MAX) and not (front is False and r <= _FRONT_MAX)]
+        return sum(vals) / len(vals) if vals else None
+
+    if v.wing_fixed_strike:
+        v.read_basis = "fixed-strike"
+        call_chg, put_chg, call_back = fs_mean("call"), fs_mean("put"), fs_mean("call", front=False)
+    else:
+        call_chg = _wing_change(v.iv_chg, "call", good)
+        put_chg = _wing_change(v.iv_chg, "put", good)
+        call_back = _wing_change(v.iv_chg, "call", good, front=False)
     v.read_label, v.read_text = classify_read(spot_chg, call_chg, put_chg, call_back)
+    key = min(v.split, key=lambda r: abs(r - 30)) if v.split else None
+    if key is not None and v.read_label != "no-read":
+        sp = v.split[key]
+        v.read_text += (
+            f" Split ({key}d ATM {sp['total']:+.2f}pt): {sp['slide']:+.2f} from sliding along the skew"
+            f" (normal), {sp['lift']:+.2f} from the curve itself moving — {sp['regime']}."
+        )
+    if v.bad_rungs:
+        v.read_text += f" Skipped broken data: {', '.join(f'{r}d' for r in v.bad_rungs)} (call/put ATM vol disagree)."
     return v
