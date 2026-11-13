@@ -859,6 +859,42 @@ body.phone .orpane canvas{height:460px}
 .lvzoom{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:6px 0}.lvzoom .hint{font-size:15px;color:#B9C6D8}
 body.phone .vxmgrid{grid-template-columns:1fr}
 @media (max-width:900px){.vxmgrid{grid-template-columns:1fr}}
+/* ---- left page panel (2026-11-12): the 21 pages in 5 groups. A thin strip by default so the charts keep their width;
+   ☰ or a group icon opens it over the charts and picking a page closes it; the pin keeps it open beside the charts. */
+:root{--navw:64px;--navwide:236px}
+.app{padding-left:var(--navw)}
+body.navpin .app{padding-left:var(--navwide)}
+#sideNav{position:fixed;left:0;top:0;bottom:0;width:var(--navw);z-index:50;background:var(--pane);border-right:1px solid var(--rule);display:flex;flex-direction:column;overflow:hidden}
+body.navopen #sideNav,body.navpin #sideNav{width:var(--navwide)}
+body.navopen #sideNav{box-shadow:8px 0 28px rgba(0,0,0,.6)}
+#navShade{position:fixed;inset:0;z-index:49;background:rgba(5,10,20,.45)}
+#navShade[hidden]{display:none}
+.nvtop{display:flex;gap:6px;padding:8px 10px 6px}
+#navToggle,#navPin{border:0;border-radius:7px;background:var(--pane2);color:var(--ink);cursor:pointer;width:44px;height:40px;font-size:20px;line-height:1}
+#navPin{display:none;font-size:16px}
+body.navopen #navPin,body.navpin #navPin{display:inline-block}
+#navPin[aria-pressed=true]{background:var(--r4);color:var(--night)}
+#navRail{display:flex;flex-direction:column;gap:6px;padding:4px 6px}
+body.navopen #navRail,body.navpin #navRail{display:none}
+#navRail button{border:0;background:transparent;color:var(--ink);cursor:pointer;border-radius:8px;padding:8px 0 7px;display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:700;font-size:12px;letter-spacing:.02em}
+#navRail button:hover{background:var(--pane2)}
+#navRail svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#navRail button[aria-current=page]{background:var(--pane2);box-shadow:inset 3px 0 0 var(--r4);color:#fff}
+#sideNav #pageTabs{display:none;flex-direction:column;gap:2px;padding:2px 10px 18px;overflow-y:auto;flex:1}
+body.navopen #sideNav #pageTabs,body.navpin #sideNav #pageTabs{display:flex}
+.nvgrp{display:flex;flex-direction:column;gap:2px}
+.nvh{font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--r4);margin:10px 6px 3px}
+#sideNav #pageTabs button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--ink);cursor:pointer;font-size:16px;font-weight:600;padding:7px 12px;border-radius:7px}
+#sideNav #pageTabs button:hover{background:var(--pane2)}
+#sideNav #pageTabs button[aria-pressed=true]{background:var(--pane2);color:#fff;box-shadow:inset 3px 0 0 var(--r4)}
+#navPhone{display:none}
+body.phone .app,body.phone.navpin .app{padding-left:0}
+body.phone #sideNav{width:min(82vw,300px);transform:translateX(-102%);transition:transform .18s ease}
+body.phone.navopen #sideNav{transform:none}
+body.phone #navRail,body.phone #navPin{display:none}
+body.phone #sideNav #pageTabs{display:flex}
+body.phone #navPhone{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:var(--pane2);color:var(--ink);font-size:22px;width:44px;height:40px;cursor:pointer}
+@media (prefers-reduced-motion:reduce){body.phone #sideNav{transition:none}}
 </style>
 </head>
 <body>
@@ -882,34 +918,56 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 </style>
 <div class="app">
 <div id="tgBar" class="tgbar">TEST COCKPIT loading…</div>
+  <nav id="sideNav" aria-label="Pages">
+    <div class="nvtop"><button id="navToggle" type="button" aria-expanded="false" title="Show all pages (5 groups). Pick one and the list closes.">&#9776;</button><button id="navPin" type="button" aria-pressed="false" title="Pin: keep the page list open beside the charts (remembered)">&#128204;</button></div>
+    <div id="navRail" role="group" aria-label="Page groups">
+      <button type="button" data-g="map" aria-current="false" title="Map & levels: Map, Orbs, Surface, Density, Levels"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg><span>Map</span></button>
+      <button type="button" data-g="flow" aria-current="false" title="Flow: Flow, Volume, Premium, Bets, Constellation, Ledger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h14M14 4l4 4-4 4"/><path d="M20 16H6M10 12l-4 4 4 4"/></svg><span>Flow</span></button>
+      <button type="button" data-g="pos" aria-current="false" title="Positioning: Strikes, Exposure, Tenor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 17v-5M12 17V6M17 17v-8"/></svg><span>Book</span></button>
+      <button type="button" data-g="vol" aria-current="false" title="Vol & risk: VIX, Skew, Straddle, Vol EOD, Risk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/></svg><span>Vol</span></button>
+      <button type="button" data-g="plan" aria-current="false" title="Plan & help: Plan, Help"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17"/></svg><span>Plan</span></button>
+    </div>
+    <div id="pageTabs" role="tablist" aria-label="View">
+      <div class="nvgrp" data-g="map"><div class="nvh">Map &amp; levels</div>
+        <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
+        <button data-tab="orbs" aria-pressed="false" title="Dealer gamma, vanna or charm by strike through the day as orbs, with the volume profile beside it (calls/puts, bull/bear, net). Off until you press ON.">Orbs</button>
+        <button data-tab="surface" aria-pressed="false" title="3D dealer gamma, vanna, charm or gamma + vanna by strike and expiry, every minute (the ConvexValue surface view). Off until you press ON.">Surface</button>
+        <button data-tab="density" aria-pressed="false" title="Where the close is likely to land: a cone re-run every 5 minutes from live spot and the live 0DTE straddle, with the Map&rsquo;s gamma zero and vanna rails (key N)">Density</button>
+        <button data-tab="levels" aria-pressed="false" title="Price levels where several independent views agree (options positioning, open interest, VIX options, price history, crowded strikes), drawn over the last 60 sessions. Hover or tap a band for the details. Built each evening.">Levels</button>
+      </div>
+      <div class="nvgrp" data-g="flow"><div class="nvh">Flow</div>
+        <button data-tab="flow" aria-pressed="true">Flow</button>
+        <button data-tab="vol" aria-pressed="false" title="Volume by strike, three views side by side: today · last 30 min · last 30 vs prior 30 (key V)">Volume</button>
+        <button data-tab="premium" aria-pressed="false" title="Where today&rsquo;s option premium actually went: top call and put strikes by dollars, bought vs sold, and the biggest minutes (key $)">Premium</button>
+        <button data-tab="bets" aria-pressed="false" title="Today&rsquo;s biggest bullish and bearish option bets on single stocks: mega caps next to small + micro caps, top 5 each, from the market-wide tape. Updated every 5 minutes. Off until you press ON.">Bets</button>
+        <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
+        <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
+      </div>
+      <div class="nvgrp" data-g="pos"><div class="nvh">Positioning</div>
+        <button data-tab="strikes" aria-pressed="false">Strikes</button>
+        <button data-tab="exposure" aria-pressed="false" title="Per-strike dealer gamma and delta exposure from the live chain">Exposure</button>
+        <button data-tab="tenor" aria-pressed="false" title="Dealer gamma and vega split by expiry bucket (1 day, up to 1 week, up to 1 month, longer) across SPX levels, its daily history, and six factor cards with their past record. Built each evening.">Tenor</button>
+      </div>
+      <div class="nvgrp" data-g="vol"><div class="nvh">Vol &amp; risk</div>
+        <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, VIX chain + the VIX index family (key X)">VIX</button>
+        <button data-tab="skew" aria-pressed="false">Skew</button>
+        <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
+        <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly after the close.">Vol EOD</button>
+        <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
+      </div>
+      <div class="nvgrp" data-g="plan"><div class="nvh">Plan &amp; help</div>
+        <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus our own morning book">Plan</button>
+        <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
+      </div>
+    </div>
+  </nav>
+  <div id="navShade" hidden></div>
   <header>
+    <button id="navPhone" type="button" aria-label="Pages" title="Pages">&#9776;</button>
     <div class="tabs" role="group" aria-label="Symbol" id="symTabs">
       <button data-sym="SPX" aria-pressed="true">SPX</button>
       <button data-sym="SPY" aria-pressed="false">SPY</button>
       <button data-sym="QQQ" aria-pressed="false">QQQ</button>
-    </div>
-    <div class="tabs" role="tablist" aria-label="View" id="pageTabs">
-      <button data-tab="flow" aria-pressed="true">Flow</button>
-      <button data-tab="orbs" aria-pressed="false" title="Dealer gamma, vanna or charm by strike through the day as orbs, with the volume profile beside it (calls/puts, bull/bear, net). Off until you press ON.">Orbs</button>
-      <button data-tab="strikes" aria-pressed="false">Strikes</button>
-      <button data-tab="skew" aria-pressed="false">Skew</button>
-      <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
-      <button data-tab="vol" aria-pressed="false" title="Volume by strike, three views side by side: today · last 30 min · last 30 vs prior 30 (key V)">Volume</button>
-      <button data-tab="premium" aria-pressed="false" title="Where today&rsquo;s option premium actually went: top call and put strikes by dollars, bought vs sold, and the biggest minutes (key $)">Premium</button>
-      <button data-tab="exposure" aria-pressed="false" title="Per-strike dealer gamma and delta exposure from the live chain">Exposure</button>
-      <button data-tab="density" aria-pressed="false" title="Where the close is likely to land: a cone re-run every 5 minutes from live spot and the live 0DTE straddle, with the Map&rsquo;s gamma zero and vanna rails (key N)">Density</button>
-      <button data-tab="vix" aria-pressed="false" title="VIX regime board, term structure, events, implied variance and positions by strike, VIX chain + the VIX index family (key X)">VIX</button>
-      <button data-tab="help" aria-pressed="false" title="What each tab shows, how to read the map, and where the numbers stop being reliable (key H)">Help</button>
-      <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus our own morning book">Plan</button>
-      <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly after the close.">Vol EOD</button>
-      <button data-tab="ledger" aria-pressed="false" title="Signed-position ledger: running buy/sell accumulation per contract over its life (0–11 DTE). Second view beside the MAP — MAP never changes.">Ledger</button>
-      <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
-      <button data-tab="constel" aria-pressed="false" title="Flow Constellation: where option premium went by expiry and strike (SPX, SPY, QQQ, VIX), bullish vs bearish, with a 5-minute replay and cumulative gamma / vanna / flow lines">Constellation</button>
-      <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
-      <button data-tab="tenor" aria-pressed="false" title="Dealer gamma and vega split by expiry bucket (1 day, up to 1 week, up to 1 month, longer) across SPX levels, its daily history, and six factor cards with their past record. Built each evening.">Tenor</button>
-      <button data-tab="surface" aria-pressed="false" title="3D dealer gamma, vanna, charm or gamma + vanna by strike and expiry, every minute (the ConvexValue surface view). Off until you press ON.">Surface</button>
-      <button data-tab="bets" aria-pressed="false" title="Today&rsquo;s biggest bullish and bearish option bets on single stocks: mega caps next to small + micro caps, top 5 each, from the market-wide tape. Updated every 5 minutes. Off until you press ON.">Bets</button>
-      <button data-tab="levels" aria-pressed="false" title="Price levels where several independent views agree (options positioning, open interest, VIX options, price history, crowded strikes), drawn over the last 60 sessions. Hover or tap a band for the details. Built each evening.">Levels</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="xcalc" id="xcalc" title="SPX ↔ SPY level: type a level (above 2000 = SPX, else SPY), converted with the live SPX / SPY ratio. Hover for the strikes and their activity; click a strike to jump to it.">
@@ -1270,11 +1328,11 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Gap open</dt><dd>Price opens far from yesterday&rsquo;s close, before the map has any of today&rsquo;s trades. The overnight straddle edges (violet lines, Gap strip) and the morning plan&rsquo;s levels are the first-hour levels: on 11/11 the overnight edge 7,572 and the morning 7,575 caught the open low.</dd>
         </dl>
 
-        <h3 class="pg" id="h-top">Top bar (every page)</h3>
-        <figure class="hshot"><a href="help/top.webp" target="_blank" rel="noopener"><img src="help/top.webp" loading="lazy" alt="Top bar with price, gamma box and level strip"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: SPX 7,633 (+0.18% since the open) in <b>long gamma</b>; flip 7,603, pin magnet 7,635, put wall 7,600, call wall 7,700; options still price &plusmn;23 points for the rest of the day.</figcaption></figure>
+        <h3 class="pg" id="h-top">Top bar and page panel (every page)</h3>
+        <figure class="hshot"><a href="help/top.webp" target="_blank" rel="noopener"><img src="help/top.webp" loading="lazy" alt="Top bar, read strip and the page panel strip"></a><figcaption>Real screen, Fri Nov 6, 11:22 ET: SPX 7,409.88 (+0.76% since the open) in <b>short gamma</b>; put wall 7,400, pin magnet 7,400, call wall 7,500; options still price &plusmn;48 points for the rest of the day. Far left: the page panel strip (&#9776; opens the full list; the lit icon is the group you are in).</figcaption></figure>
         <dl>
           <dt>SPX / SPY / QQQ</dt><dd>Picks the symbol for every page.</dd>
-          <dt>Tabs</dt><dd>Each tab opens one page, explained below.</dd>
+          <dt>Page panel (left)</dt><dd>All 21 pages sit in a panel on the left, in 5 groups: <b>Map &amp; levels</b> (Map, Orbs, Surface, Density, Levels), <b>Flow</b> (Flow, Volume, Premium, Bets, Constellation, Ledger), <b>Positioning</b> (Strikes, Exposure, Tenor), <b>Vol &amp; risk</b> (VIX, Skew, Straddle, Vol EOD, Risk) and <b>Plan &amp; help</b> (Plan, Help). It stays a thin strip so the charts keep their width; the lit icon is the group you are in. Click <b>&#9776;</b> or a group icon to open it over the charts; pick a page and it closes. <b>&#128204;</b> keeps it open beside the charts and is remembered; click &#9776; to fold it back. On a phone tap <b>&#9776;</b> at the top left. The keys still work: V Volume, X VIX, $ Premium, N Density, H Help.</dd>
           <dt>Price and time</dt><dd>Live price, change since the open, time, and time left to the close.</dd>
           <dt>SPX&harr;SPY box</dt><dd>Type a level and see the same level on the other index. Above 2000 is read as SPX, anything lower as SPY; the small <b>SPX</b> / <b>SPY</b> buttons force it (<b>Auto</b> = by size). It converts with the <b>live</b> ratio SPX price &divide; SPY price, recomputed every live update; the ratio (3 decimals) and its time are shown. Hover the box for the details: the nearest listed strikes on both (SPX every 5 points, SPY every 1), how far each is from the current price in points and %, today&rsquo;s same-day volume there (calls and puts, bought / sold by the feed&rsquo;s trade tags when it has them), open interest, and dealer gamma at that strike ($ per 1% move, same-day book, the Map&rsquo;s current basis). &ldquo;no data&rdquo; = that number is not in the live feed. Click a strike to jump to it (symbol and selected strike; on Orbs the chart centres on it). The last level you typed is remembered. Nothing extra is downloaded.</dd>
           <dt>&#128247; (camera)</dt><dd>Takes a picture of the page you are on. It copies to the clipboard where the browser allows it, otherwise it downloads a PNG.</dd>
@@ -3343,7 +3401,7 @@ function render(){
   document.body.classList.toggle("focus-map",st.focus==="map"&&!st.max); document.body.classList.toggle("focus-strike",st.focus==="strike"&&!st.max);
   syncSeg("focusSeg",st.focus);
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
-  document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
+  document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab)); navSync();
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
     document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); document.getElementById("tabBets").hidden=st.tab!=="bets"; if(st.tab!=="bets"&&typeof BT!=="undefined"&&BT) btTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
@@ -4300,8 +4358,26 @@ function renderYday(){
     <div class="note" style="margin:0 0 4px">ΔOI ${c.doi==null?"–":(c.doi>=0?"+":"")+fmtN(c.doi)}${c.oi!=null?` (OI ${fmtN(c.oi)})`:""}${c.d_iv_rel!=null?` · IV vs ATM ${c.d_iv_rel>=0?"+":""}${c.d_iv_rel.toFixed(2)} pt`:""}</div>`).join("")+
     `<div class="note">${esc(V.trade_date)} prints vs the ${esc(String(V.as_of).slice(0,10))} book. Opened = OI added ≥ half the print; closed/rolled = ≤ a fifth. Bought/sold from the strike's IV change minus its expiry's ATM move.</div>`;
 }
+/* ---- left page panel (2026-11-12). Page switching, keys and saved settings are unchanged: the tab buttons keep
+   data-tab inside #pageTabs, so the existing click handler and render() still drive them. */
+function navGroups(){ return {map:["map","orbs","surface","density","levels"],flow:["flow","vol","premium","bets","constel","ledger"],pos:["strikes","exposure","tenor"],vol:["vix","skew","straddle","voleod","risk"],plan:["plan","help"]}; }
+function navGroupOf(t){ const G=navGroups(); for(const g in G) if(G[g].includes(t)) return g; return "flow"; }
+function navApply(){ const pin=load("nav","strip")==="pin"&&!document.body.classList.contains("phone"); document.body.classList.toggle("navpin",pin); const b=document.getElementById("navPin"); if(b) b.setAttribute("aria-pressed",pin); }
+function navOpen(on,g){ document.body.classList.toggle("navopen",!!on); const sh=document.getElementById("navShade"); if(sh) sh.hidden=!on;
+  const t=document.getElementById("navToggle"); if(t) t.setAttribute("aria-expanded",!!on);
+  if(on){ const el=document.querySelector(`#pageTabs .nvgrp[data-g="${g||navGroupOf(st.tab)}"]`); if(el) el.scrollIntoView({block:"nearest"}); } }
+function navSync(){ const g=navGroupOf(st.tab); document.querySelectorAll("#navRail button").forEach(b=>b.setAttribute("aria-current",b.dataset.g===g?"page":"false")); }
+document.getElementById("navToggle").addEventListener("click",()=>{
+  if(document.body.classList.contains("navpin")){ save("nav","strip"); navApply(); navOpen(false); window.dispatchEvent(new Event("resize")); return; }
+  navOpen(!document.body.classList.contains("navopen")); });
+document.getElementById("navPhone").addEventListener("click",()=>navOpen(true));
+document.getElementById("navShade").addEventListener("click",()=>navOpen(false));
+document.querySelectorAll("#navRail button").forEach(b=>b.addEventListener("click",()=>navOpen(true,b.dataset.g)));
+document.getElementById("navPin").addEventListener("click",()=>{ const pin=!document.body.classList.contains("navpin"); save("nav",pin?"pin":"strip"); navApply(); navOpen(false); window.dispatchEvent(new Event("resize")); });
+document.querySelectorAll("#pageTabs button").forEach(b=>b.addEventListener("click",()=>{ if(!document.body.classList.contains("navpin")) navOpen(false); }));
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&document.body.classList.contains("navopen")) navOpen(false); });
 /* ---- phone-width view */
-function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"&&st.tab!=="levels"&&st.tab!=="orbs"&&st.tab!=="surface"&&st.tab!=="bets"){ st.tab="flow"; } }
+function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); navApply(); }   /* 2026-11-12: no longer forces phones back to Flow */
 window.addEventListener("resize",()=>{ phoneMode(); render(); }); phoneMode();
 document.getElementById("robBtn").addEventListener("click",()=>{ st.rob=!st.rob; save("rob",st.rob?"1":"0"); document.getElementById("robBtn").setAttribute("aria-pressed",st.rob); render(); });
 document.getElementById("robBtn").setAttribute("aria-pressed",st.rob);
