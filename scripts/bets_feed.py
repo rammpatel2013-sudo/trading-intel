@@ -15,13 +15,19 @@ HOW A PRINT COUNTS (each leg on its own, then summed per name)
   calls bought + puts sold = BULLISH premium; puts bought + calls sold = BEARISH premium.
   A multi-leg package is judged by its legs, never by the sign of its net price or by one
   leg's tag (a credit put spread is a bullish bet; a negative package price can still be a buy).
-  Left out, and counted separately:
-    financing   - is_financing (tas_capture: |delta| >= 0.85, or >= 0.70 and a year+ out),
-                  |delta| >= 0.85, or IV >= 150% (deep in the money: boxes, conversions,
-                  dividend and stock-loan trades - not bets)
+  Left out, and counted separately (by reason in totals.fin_by):
+    financing   - deep in the money: boxes, conversions, dividend and stock-loan trades, not bets.
+                  tagged: is_financing (tas_capture: |delta| >= 0.85, or >= 0.70 and a year+ out);
+                  delta: |delta| >= 0.85; itm: in the money with time value under 10% of the price
+                  (catches prints with no greeks); iv: IV >= 150% on an in-the-money print (a broken
+                  IV fit). A high-IV OTM option (small caps, wings) stays a bet. [11/12 night fix:
+                  the first real run counted a DELL Jan28 550 put, ~all intrinsic, as a +$22M bet
+                  and dropped every IV >= 150% print, ITM or not.]
     unsigned    - side mid / unknown (the tape cannot say who paid)
     not a stock - index and ETF roots, and names with no market cap
   The "biggest bet" of a name = its largest same-size package (or single print) by |net premium|.
+  Times are New York time: tas_prints.ts is naive and on the NAS it is UTC (the 11/12 run showed
+  "as of 20:59"), so the clock is detected the way sides_feed.tape_clock does and converted.
 
 MARKET CAPS
   FMP through the existing clients (rule 1): company-screener once a day (stocks only, so ETFs
@@ -45,7 +51,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
@@ -56,6 +62,7 @@ EVERY_S = 300
 START_HM, END_HM = (9, 35), (16, 5)
 FIN_DELTA = 0.85
 BAD_IV = 1.5
+FIN_TV = 0.10    # in the money with time value under 10% of the price = deep ITM
 TOP = 5
 BUCKETS = (("mega", 200e9), ("large", 10e9), ("mid", 2e9), ("small", 300e6), ("micro", 0.0))
 X = "\u00d7"     # the multiplication sign in "x35K"
@@ -76,10 +83,59 @@ def leg_dir(side: str | None, cp: str | None) -> int:
     return 1 if (cp == "C") == (side == "buy") else -1
 
 
-def is_financing(r: dict) -> bool:
-    d, iv = r.get("delta"), r.get("iv")
-    return bool(r.get("is_financing")) or (d is not None and abs(d) >= FIN_DELTA) \
-        or (iv is not None and iv >= BAD_IV)
+def intrinsic(r: dict) -> float | None:
+    s, k, cp = r.get("spot"), r.get("strike"), r.get("cp")
+    if s is None or k is None or cp not in ("C", "P"):
+        return None
+    return max(0.0, (s - k) if cp == "C" else (k - s))
+
+
+def fin_reason(r: dict) -> str | None:
+    """Why a print is financing (deep in the money, not a bet): tagged / delta / itm / iv.
+    None = a bet."""
+    if r.get("is_financing"):
+        return "tagged"
+    d = r.get("delta")
+    if d is not None and abs(d) >= FIN_DELTA:
+        return "delta"
+    itm, px = intrinsic(r), r.get("price")
+    if itm and px and px > 0 and (px - itm) / px < FIN_TV:
+        return "itm"
+    iv = r.get("iv")
+    if iv is not None and iv >= BAD_IV and itm:
+        return "iv"
+    return None
+
+
+def tape_clock(rows: list[dict], now: datetime | None = None) -> str:
+    """'et' or 'utc' for the naive ts values (the rule of scripts/cvxmap/sides_feed.tape_clock):
+    a print after 16:30 -> UTC; one before 13:00 -> ET; else the clock whose last print is nearer
+    to now."""
+    naive = [r["ts"] for r in rows if r.get("ts") is not None and r["ts"].tzinfo is None]
+    if not naive:
+        return "et"
+    mins = [t.hour * 60 + t.minute for t in naive]
+    if max(mins) > 16 * 60 + 30:
+        return "utc"
+    if min(mins) < 13 * 60 or now is None:
+        return "et"
+    last = max(naive)
+    n_utc = now.replace(tzinfo=ET).astimezone(UTC).replace(tzinfo=None)
+    return "utc" if abs(last - n_utc) < abs(last - now) else "et"
+
+
+def to_et(rows: list[dict], now: datetime | None = None) -> list[dict]:
+    """ts -> naive New York time (aware values converted, naive UTC shifted)."""
+    clock = tape_clock(rows, now)
+    for r in rows:
+        t = r.get("ts")
+        if t is None:
+            continue
+        if t.tzinfo is not None:
+            r["ts"] = t.astimezone(ET).replace(tzinfo=None)
+        elif clock == "utc":
+            r["ts"] = t.replace(tzinfo=UTC).astimezone(ET).replace(tzinfo=None)
+    return rows
 
 
 def bucket_of(cap: float | None) -> str | None:
@@ -140,16 +196,19 @@ def _hhmm(ts: object) -> str:
 def classify(rows: list[dict]) -> tuple[dict, dict]:
     """Per-name bullish / bearish premium + the biggest bet; plus the left-out totals."""
     names: dict[str, dict] = defaultdict(lambda: {"bull": 0.0, "bear": 0.0, "n": 0, "groups": {}})
-    out = {"fin_n": 0, "fin_prem": 0.0, "uns_n": 0, "uns_prem": 0.0, "nonstock_n": 0}
+    out = {"fin_n": 0, "fin_prem": 0.0, "uns_n": 0, "uns_prem": 0.0, "nonstock_n": 0,
+           "fin_by": {"tagged": 0, "delta": 0, "itm": 0, "iv": 0}}
     for i, r in enumerate(rows):
         root = (r.get("root") or "").upper()
         prem = float(r.get("notional") or 0.0)
         if not root or root in NON_STOCK:
             out["nonstock_n"] += 1
             continue
-        if is_financing(r):
+        why = fin_reason(r)
+        if why:
             out["fin_n"] += 1
             out["fin_prem"] += prem
+            out["fin_by"][why] += 1
             continue
         d = leg_dir(r.get("side"), r.get("cp"))
         if d == 0:
@@ -207,7 +266,7 @@ def build(rows: list[dict], caps: dict, day: str, now: datetime) -> dict:
                    reverse=True)[:TOP]
     totals = {"names": len(per), "bull": round(sum(x["bull"] for x in per.values())),
               "bear": round(sum(x["bear"] for x in per.values())), "nocap": nocap,
-              "fin_n": out["fin_n"], "fin_prem": round(out["fin_prem"]),
+              "fin_n": out["fin_n"], "fin_prem": round(out["fin_prem"]), "fin_by": out["fin_by"],
               "uns_n": out["uns_n"], "uns_prem": round(out["uns_prem"])}
     return {"v": 1, "day": day, "asof": _hhmm(asof), "gen": now.isoformat(timespec="seconds"),
             "src": "tas_prints - market-wide option prints >= $25k (equity roots only)",
@@ -301,8 +360,8 @@ def etf_flag(client: object, sym: str) -> bool:
 
 
 # ---------------------------------------------------------------- tape + files
-COLS = ("ts", "root", "expiry", "strike", "cp", "side", "size", "notional", "delta", "iv",
-        "is_financing", "leg_group")
+COLS = ("ts", "root", "expiry", "strike", "cp", "side", "price", "size", "notional", "spot",
+        "delta", "iv", "is_financing", "leg_group")
 
 
 def load_rows(session: object, day: date) -> list[dict]:
@@ -332,10 +391,8 @@ def append_day(payload: dict) -> None:
         day = {"v": 1, "day": payload["day"], "snaps": []}
     snap = {"t": payload["asof"], "totals": payload["totals"],
             "mega": payload["mega"]["top"], "smallmicro": payload["smallmicro"]["top"]}
-    if day["snaps"] and day["snaps"][-1].get("t") == snap["t"]:
-        day["snaps"][-1] = snap
-    else:
-        day["snaps"].append(snap)
+    # time order: a run for the same or an earlier as-of replaces the snapshots from there on
+    day["snaps"] = [x for x in day["snaps"] if str(x.get("t") or "") < snap["t"]] + [snap]
     _write(path, day)
 
 
@@ -345,7 +402,7 @@ def _shown(payload: dict) -> list[str]:
 
 def run_once(session_factory: object, client: object, day: date) -> dict:
     with session_factory() as s:          # type: ignore[operator]
-        rows = load_rows(s, day)
+        rows = to_et(load_rows(s, day), datetime.now(ET).replace(tzinfo=None))
     roots = sorted({(r.get("root") or "").upper() for r in rows} - {""})
     cache = _load_cache()
     caps = fill_caps(client, roots, cache, day.isoformat())
@@ -368,7 +425,7 @@ def run_once(session_factory: object, client: object, day: date) -> dict:
     t = payload["totals"]
     print(f"{datetime.now(ET):%H:%M:%S} bets_feed {payload['day']} asof {payload['asof']}: "
           f"{t['names']} names, bull ${t['bull'] / 1e6:.0f}M bear ${t['bear'] / 1e6:.0f}M, "
-          f"financing {t['fin_n']}, unsigned {t['uns_n']}, no cap {t['nocap']}, "
+          f"financing {t['fin_n']} {t['fin_by']}, unsigned {t['uns_n']}, no cap {t['nocap']}, "
           f"caps from {'screener' if cache.get('screener_ok') else 'batch-quote'}", flush=True)
     return payload
 

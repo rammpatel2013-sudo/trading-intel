@@ -10,11 +10,12 @@ bf = load_script("bets_feed")
 
 
 def _p(root, cp, side, notional, *, strike=100.0, expiry="2027-03-19", size=100, delta=0.4, iv=0.5,
-       fin=False, group=None, t="10:00"):
+       fin=False, group=None, t="10:00", spot=None, price=None):
     return {"ts": datetime.fromisoformat(f"2026-11-12T{t}:00"), "root": root,
-            "expiry": date.fromisoformat(expiry),
-            "strike": strike, "cp": cp, "side": side, "size": size, "notional": notional,
-            "delta": delta if cp == "C" else -abs(delta), "iv": iv, "is_financing": fin, "leg_group": group}
+            "expiry": date.fromisoformat(expiry), "strike": strike, "cp": cp, "side": side,
+            "price": price, "size": size, "notional": notional, "spot": spot,
+            "delta": None if delta is None else (delta if cp == "C" else -abs(delta)), "iv": iv,
+            "is_financing": fin, "leg_group": group}
 
 
 def test_leg_direction_calls_bought_puts_sold_are_bullish() -> None:
@@ -37,16 +38,36 @@ def test_credit_put_spread_counts_bullish_by_its_legs() -> None:
 
 
 def test_financing_unsigned_and_index_prints_are_left_out() -> None:
-    rows = [_p("MU", "P", "buy", 71_000_000, delta=0.81, iv=2.7),        # broken IV: deep ITM
-            _p("LULU", "P", "sell", 62_000_000, delta=0.9999),             # deep ITM
+    rows = [_p("MU", "P", "buy", 71_000_000, strike=300, spot=230, price=71.5, delta=0.81, iv=2.7),  # ITM
+            _p("LULU", "P", "sell", 62_000_000, delta=0.9999),             # deep ITM by delta
             _p("BA", "P", "sell", 42_000_000, fin=True),                   # tagged financing by tas_capture
+            # the 11/12 DELL print: Jan28 550 put, no greeks, $223 of which $203 intrinsic
+            _p("DELL", "P", "sell", 22_300_000, strike=550, expiry="2028-01-21", spot=347, price=223,
+               delta=None, iv=None, size=1000),
+            _p("ABCL", "C", "buy", 2_000_000, strike=6, spot=4.1, price=0.35, delta=0.3, iv=2.2),  # OTM, high IV: a bet
             _p("NVDA", "C", "mid", 5_000_000),                             # unsigned
             _p("SPY", "C", "buy", 9_000_000),                              # not a stock
             _p("NVDA", "C", "buy", 59_000_000)]
     per, out = bf.classify(rows)
-    assert set(per) == {"NVDA"} and per["NVDA"]["bull"] == 59_000_000
-    assert out["fin_n"] == 3 and out["fin_prem"] == 175_000_000
+    assert set(per) == {"NVDA", "ABCL"} and per["NVDA"]["bull"] == 59_000_000
+    assert out["fin_n"] == 4 and out["fin_prem"] == 197_300_000
+    assert out["fin_by"] == {"tagged": 1, "delta": 1, "itm": 2, "iv": 0}
     assert out["uns_n"] == 1 and out["nonstock_n"] == 1
+    # IV >= 150% only counts as financing on an in-the-money print with some time value left
+    assert bf.fin_reason(_p("X", "C", "buy", 1, strike=10, spot=12, price=3.0, delta=0.6, iv=1.9)) == "iv"
+    assert bf.fin_reason(_p("X", "C", "buy", 1, strike=10, spot=8, price=0.9, delta=0.3, iv=1.9)) is None
+
+
+def test_tape_times_on_utc_become_new_york_times() -> None:
+    utc = [_p("NVDA", "C", "buy", 9_000_000, t="15:42"), _p("NVDA", "C", "buy", 1_000_000, t="20:59")]
+    bf.to_et(utc)
+    assert [r["ts"].strftime("%H:%M") for r in utc] == ["10:42", "15:59"]      # EST: UTC-5
+    et = [_p("AAPL", "P", "buy", 9_000_000, t="09:41"), _p("AAPL", "P", "buy", 1_000_000, t="15:59")]
+    bf.to_et(et)
+    assert [r["ts"].strftime("%H:%M") for r in et] == ["09:41", "15:59"]      # already New York time
+    pay = bf.build(utc, {"NVDA": 4e12}, "2026-11-12", datetime(2026, 11, 12, 16, 0))
+    assert pay["asof"] == "15:59" and pay["mega"]["top"][0]["big"]["t"] == "10:42"
+    assert pay["totals"]["fin_by"] == {"tagged": 0, "delta": 0, "itm": 0, "iv": 0}
 
 
 def test_biggest_bet_is_the_largest_package_and_mixed_size_clusters_split() -> None:
@@ -132,5 +153,10 @@ def test_run_once_writes_live_and_day_files(tmp_path, monkeypatch) -> None:
     bf.run_once(lambda: _S(), client, date(2026, 11, 12))           # same as-of minute: replaced, not added
     day = json.loads((tmp_path / "data" / "bets_20261112.json").read_text())
     assert len(day["snaps"]) == 1
+    day["snaps"] = [{"t": "09:55"}, {"t": "20:59"}]                  # an earlier run wrote a later as-of
+    (tmp_path / "data" / "bets_20261112.json").write_text(json.dumps(day))
+    bf.run_once(lambda: _S(), client, date(2026, 11, 12))
+    day = json.loads((tmp_path / "data" / "bets_20261112.json").read_text())
+    assert [x["t"] for x in day["snaps"]] == ["09:55", "10:00"]      # kept in time order
     cache = json.loads((tmp_path / "reports" / "bets" / "mktcap_cache.json").read_text())
     assert cache["etf"]["ETFX"] is True and cache["caps"]["BIG"] == 500e9
