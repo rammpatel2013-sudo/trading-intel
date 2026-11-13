@@ -1691,22 +1691,39 @@ def main():
                            "video": "%s" % (video.name if video else vkind or "skipped"),
                            "runtime": "%.0f s" % (time.time() - t_all)}}
         html = scorecard_html(day_iso, day_info, dens, charm, clock, tests, res["levels"], meta, last_frames)
-        sc = out_dir / ("scorecard_%s.html" % ymd)
+        sc = out_dir / ("scorecard_tech_%s.html" % ymd)          # 2026-11-13: the full report is now the private technical file
         sc.write_text(html, encoding="utf-8")
         log("scorecard %s (%.1f MB)" % (sc, sc.stat().st_size / 1e6))
+        stage = "simple card"
+        simple = None
+        try:                                                      # 2026-11-13: plain-language page (scripts/cvxmap/simple_card.py)
+            sys.path.insert(0, str(CVX))
+            import simple_card
+            simple = simple_card.write(out_root, day_iso, out_dir / ("scorecard_%s.html" % ymd), seed=SEED, names=TEST_NAMES, book=BOOK)
+            log("simple card %s" % simple[0])
+        except Exception:
+            log("simple card failed:\n%s" % traceback.format_exc())
         # keep the disk light: the frames are inside the video
         if video:
             shutil.rmtree(out_dir / "frames", ignore_errors=True)
 
         stage = "telegram"
         if not args.no_telegram:
-            msg = ["<b>SPX replay %s</b> (Convex / NAS, map basis %s)" % (day.strftime("%a %d %b"), BASIS_NAME[VIEW_BASIS])]
-            msg.append("Close %s · range %s" % (fmt(day_info["close"], 2), fmt(day_info["high"] - day_info["low"], 1)))
-            for l in lines:
-                msg.append(l.replace("<span class='bad'>", "").replace("</span>", ""))
-            if missing:
-                msg.append("Convex minutes missing: %d" % len(missing))
-            telegram("\n".join(msg), [(sc, "SPX replay scorecard %s" % day_iso), (video, "SPX replay video %s" % day_iso)])
+            if simple:
+                msg = [simple_card.telegram_text(simple[1])]
+                if missing:
+                    msg.append("Convex minutes missing: %d" % len(missing))
+                files = [(simple[0], "SPX scorecard %s" % day_iso), (sc, "Technical scorecard %s (private)" % day_iso),
+                         (video, "SPX replay video %s" % day_iso)]
+            else:
+                msg = ["<b>SPX replay %s</b> (Convex / NAS, map basis %s)" % (day.strftime("%a %d %b"), BASIS_NAME[VIEW_BASIS])]
+                msg.append("Close %s · range %s" % (fmt(day_info["close"], 2), fmt(day_info["high"] - day_info["low"], 1)))
+                for l in lines:
+                    msg.append(l.replace("<span class='bad'>", "").replace("</span>", ""))
+                if missing:
+                    msg.append("Convex minutes missing: %d" % len(missing))
+                files = [(sc, "SPX replay scorecard %s" % day_iso), (video, "SPX replay video %s" % day_iso)]
+            telegram("\n".join(msg), files)
         log("done in %.0f s" % (time.time() - t_all))
         return 0
     except Exception as exc:
