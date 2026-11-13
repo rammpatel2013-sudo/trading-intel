@@ -20,7 +20,10 @@ HOW A PRINT COUNTS (each leg on its own, then summed per name)
                   tagged: is_financing (tas_capture: |delta| >= 0.85, or >= 0.70 and a year+ out);
                   delta: |delta| >= 0.85; itm: in the money with time value under 10% of the price
                   (catches prints with no greeks; a print with no spot takes the same root's
-                  nearest spot first); iv: IV >= 150% on an in-the-money print (a broken
+                  nearest spot first); deep: more than 25% in the money (strike vs stock
+                  price) whatever its time value [Mithil 11/12 20:57 "Add" - the DELL Jan28
+                  550 put sold at ~$349 spot had ~10.3% time value, just over the itm line];
+                  iv: IV >= 150% on an in-the-money print (a broken
                   IV fit). A high-IV OTM option (small caps, wings) stays a bet. [11/12 night fix:
                   the first real run counted a DELL Jan28 550 put, ~all intrinsic, as a +$22M bet
                   and dropped every IV >= 150% print, ITM or not.]
@@ -65,6 +68,7 @@ START_HM, END_HM = (9, 35), (16, 5)
 FIN_DELTA = 0.85
 BAD_IV = 1.5
 FIN_TV = 0.10    # in the money with time value under 10% of the price = deep ITM
+FIN_DEEP = 0.25  # more than 25% in the money (vs the stock price) = deep ITM, any time value
 TOP = 5
 BUCKETS = (("mega", 200e9), ("large", 10e9), ("mid", 2e9), ("small", 300e6), ("micro", 0.0))
 X = "\u00d7"     # the multiplication sign in "x35K"
@@ -93,7 +97,7 @@ def intrinsic(r: dict) -> float | None:
 
 
 def fin_reason(r: dict) -> str | None:
-    """Why a print is financing (deep in the money, not a bet): tagged / delta / itm / iv.
+    """Why a print is financing (deep in the money, not a bet): tagged / delta / itm / deep / iv.
     None = a bet."""
     if r.get("is_financing"):
         return "tagged"
@@ -103,6 +107,9 @@ def fin_reason(r: dict) -> str | None:
     itm, px = intrinsic(r), r.get("price")
     if itm and px and px > 0 and (px - itm) / px < FIN_TV:
         return "itm"
+    s = r.get("spot")
+    if itm and s and s > 0 and itm / s > FIN_DEEP:
+        return "deep"
     iv = r.get("iv")
     if iv is not None and iv >= BAD_IV and itm:
         return "iv"
@@ -223,7 +230,7 @@ def classify(rows: list[dict]) -> tuple[dict, dict]:
     """Per-name bullish / bearish premium + the biggest bet; plus the left-out totals."""
     names: dict[str, dict] = defaultdict(lambda: {"bull": 0.0, "bear": 0.0, "n": 0, "groups": {}})
     out = {"fin_n": 0, "fin_prem": 0.0, "uns_n": 0, "uns_prem": 0.0, "nonstock_n": 0,
-           "fin_by": {"tagged": 0, "delta": 0, "itm": 0, "iv": 0}, "spot_filled": 0}
+           "fin_by": {"tagged": 0, "delta": 0, "itm": 0, "deep": 0, "iv": 0}, "spot_filled": 0}
     fill_spot(rows)                       # idempotent: run_once may build more than once
     out["spot_filled"] = sum(1 for r in rows if r.get("_spot_filled"))
     for i, r in enumerate(rows):

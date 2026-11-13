@@ -42,7 +42,9 @@ async function readout(){ if(busy||!st.live||!st.live.SPX) return; const c=liveC
   const key=c.date+" "+tlabel(slot); if(done.has(key)) return; done.add(key); busy=true;
   try{ const rec=tgReadoutMeta(); if(!rec) return; rec.slot=tlabel(slot); rec.cfgs={}; const t0=performance.now();
     for(const [name,cfg] of TG_CFGS) for(const sm of [false,true]){ await new Promise(r=>setTimeout(r,0)); rec.cfgs[name+(sm?"|S":"|P")]=tgReadoutCfg(cfg,sm); }
+    try{ rec.dl=tgDeltaReadout(); }catch(e){ rec.dl={v:TG_DL_V,err:String(e).slice(0,200)}; }   // 2026-11-13 Delta levels for delta_score.py
     rec.ms=Math.round(performance.now()-t0); rec.current_toggles=Object.assign({},TG); rec.user_smile=!!st.smileOn; post("readout",rec); }
   finally{ busy=false; } }
 setInterval(readout,20000); setTimeout(readout,5000);
+try{ tgDlHover(); }catch(e){}   // 2026-11-13 Delta map hover / tap card
 })();

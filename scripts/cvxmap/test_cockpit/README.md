@@ -33,8 +33,19 @@ All toggles are off by default and independent of each other. A **v0** toggle us
 | Real 5-min charm | D4 | v1 | Charm = the actual change in delta over the next 5 minutes. |
 | Levels from raw | F2 | v0 | Peaks and troughs are found from the raw field's scale, not the colour field's. |
 | Display labels | F1, F3–F5 | v1 | The display candidate (`7fd6345a`), reapplied onto `824a06c`: raw vs median-relative labels, flat zones, line rules, Smile OFF/ON check. |
+| Shadow | SG | v0 | (2026-11-13) Alma's shadow greeks: IV moves with price by the measured β; gamma + vanna·β/S; the Delta pane uses the delta at that IV. Overrides Smile while on. See "Delta map + Shadow" below. |
 
 The toggles also act on the other tabs that use the Map's maths (Density, Change).
+
+## Delta map (DL) + Shadow (SG), added 2026-11-13 (rules dl-v1)
+Mithil's yes 2026-11-12 to QuantNug's delta heatmap ("where supportive / bearish zones to buy / sell are"), and 2026-11-13 00:10 "combining both knowledge to make our map with shadow delta/gamma" (Alma: GEX is "the delta of delta", "only following GEX blindly without DEX won't make you catch the dealer flow"; her shadow gamma = gamma + vanna × the measured spot-vol beta).
+- **SG Shadow** (toggle, v0): each option's IV moves with price along our measured β (the Smile button's `smilebeta.json`) from that minute's price, integrated exactly zone by zone (Simpson with E2). Gamma = gamma + vanna × β/S (Alma's shadow gamma); the Delta pane = plain option delta at that IV; charm / vanna use the path IV. Overrides Smile while on (Smile = slope of the min-variance hedge Δ + Vega·β, a different object). Checked on 11/12 12:06: shadow gamma = finite difference of shadow delta within 0.07% (plain: exact); shadow gamma at spot 769 vs plain 995 (All book) — the measured β takes about a quarter off the long gamma there. C2 (IV path, 8-step) is untouched.
+- **Delta** (right pane button) computes dealer delta **directly** (kind "delta": Σ position × N(d1), the part that moves) for the same book, basis, clock and toggles. Two views (switch next to the button):
+  - **From here**: ES contracts dealers would buy (green) / sell (red) on the way from that minute's price to each level, H = −F × (D(level) − D(price)); F = 2 ES per SPX option delta (SPY via the live ratio, QQQ in $M). Lines every N ES, dotted = net hedge back to zero, #1–#6 = peaks of |gamma| now (shadow gamma with SG): solid = long gamma (absorbs), dashed = short (speeds).
+  - **By strike**: each strike's own buy / sell as SPX travels from that minute's price to the strike, as a band at the strike (QuantNug's look). Green below price = support, red below = speeds a drop, red above = resistance, green above = speeds a rise. The two views don't add up to each other (one sums all strikes at a level, the other shows one strike at its own level).
+- Sizes are **model** ES: the naive book counts every contract of the basis as dealer-held (on OI + vol all of today's volume), so read them as relative.
+- Hover / tap for the numbers. The read-out keeps Charm (same text as with Charm selected); buildMap for gamma / charm / vanna and every other number are unchanged with SG off (parity: production vs test, old vs new test page).
+- Scoring: each 15-minute read-out records `dl` (SPX, OI + vol, All book, production maths, Smile off) with `levels` (IV held) and `levels_sg` (Shadow), and the `sg|P`, `sg|S` configs join the scoring v1 read-outs. `delta_score.py` (run at the end of `score_test.py`, DSM 17:20) scores each mode: first touch held / broke (S2 rules) vs a placebo level 10–15 pts away on the same side; verdict after 20+ days and 40+ resolved touches per class. Tests: `tests/test_delta_score.py`.
 
 ## What gets recorded (`scripts/cvxmap/data/test/`, git-ignored)
 - `notes_YYYYMMDD.jsonl`: each "My read" note and each toggle change, with the time, the toggles, spot, Smile and basis.

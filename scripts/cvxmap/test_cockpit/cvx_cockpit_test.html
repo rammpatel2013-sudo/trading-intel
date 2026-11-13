@@ -513,6 +513,16 @@ body.phone .phead{padding:6px 10px 2px}body.phone .pane{max-width:100vw;overflow
 .tip{position:absolute;pointer-events:none;background:#06101FEE;border:1px solid var(--rule);border-radius:6px;padding:7px 9px;font-size:12px;line-height:1.45;display:none;z-index:5;min-width:150px}
 .tip b{font-weight:600}
 .hint{color:#B9C6D8;font-size:12.5px}
+.rangestrip{grid-column:1/-1;padding:4px 2px 2px;font-size:16px;line-height:1.5;color:#EEF3FA}   /* 2026-11-13 Range card */
+.rangestrip .rl{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline}.rangestrip .rl b{font-size:19px;color:#fff;font-weight:700}
+.rangestrip .rl .rg{color:#58D68D}.rangestrip .rl .ry{color:#FFD84D}.rangestrip .rl .rw{color:#FF8A8A;font-weight:700}.rangestrip .rl i{font-style:normal;color:#C9D4E3}
+.rbar{position:relative;height:24px;margin:8px 0 22px;background:#16213A;border-radius:4px}
+.rbar .rs{position:absolute;top:0;height:11px}.rbar .rf{position:absolute;top:13px;height:11px;background:#2ECC71;border-radius:2px}
+.rbar .rband{position:absolute;top:0;height:24px;background:#FFD84D30;border-left:1px solid #FFD84D;border-right:1px solid #FFD84D}
+.rbar .rmk{position:absolute;top:-5px;width:2px;height:34px;background:#fff}.rbar .rgs{position:absolute;top:-5px;width:4px;height:34px;background:#FFD84D;margin-left:-1px}
+.rbar .rlab{position:absolute;top:27px;font-size:13px;color:#DCE4F0;white-space:nowrap;transform:translateX(-50%)}.rbar .rlab.l0{transform:none}
+.rangedet{margin:2px 0 4px;padding:8px 10px;background:#0B1730;border:1px solid var(--rule);border-radius:6px;font-size:15px;line-height:1.55}.rangedet b{color:#fff}.rangedet .rw{color:#FF8A8A;font-weight:700}.rangedet .rq{color:#9FB3CF}
+#rangeDetBtn{font-size:13px;padding:1px 8px}
 .gapstrip{padding:4px 12px 6px;font-size:15px;line-height:1.45;color:#EEF3FA;border-bottom:1px solid var(--rule)}.gapstrip b{color:#D9B3FF;font-weight:700}.gapstrip .up{color:#58D68D}.gapstrip .dn{color:#FF8A8A}.gapstrip i{font-style:normal;color:#C9D4E3}
 select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:5px;padding:2px 6px;color:var(--ink);font-size:13px;font-weight:600}
 
@@ -985,7 +995,8 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     <div class="regime na" id="regime">No read yet</div>
     <div class="readtxt" id="readtxt">Waiting for the live feed.</div>
     <div class="levels" id="levels"></div>
-    <span style="display:flex;gap:6px"><button class="btn" id="pulseBtn" aria-pressed="false" title="Expand the signed-flow strip: cards, implied close, mood by expiry">Pulse</button><button class="btn" id="robBtn" aria-pressed="false" title="Lean after removing the biggest prints: one program or broad?">Robustness</button></span>
+    <span style="display:flex;gap:6px"><button class="btn" id="pulseBtn" aria-pressed="false" title="Expand the signed-flow strip: cards, implied close, mood by expiry">Pulse</button><button class="btn" id="robBtn" aria-pressed="false" title="Lean after removing the biggest prints: one program or broad?">Robustness</button><button class="btn" id="rangeBtn" aria-pressed="false" title="Range (off by default): how big today's SPX high-to-low is likely to be, from yesterday's VIX and VIX vs 3-month VIX - typical, quiet (1 day in 10 is smaller), big (1 in 10 is bigger) and 1 in 50 - with the range so far, the pace and a best guess for the full day. Size only, never direction.">Range</button></span>
+    <div class="rangestrip" id="rangeStrip" hidden></div>
   </section>
 
   <main id="tabFlow" class="tab">
@@ -1134,7 +1145,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     <section class="pane" id="mapGammaPane"><div class="phead"><h2>Gamma</h2><div class="seg" role="group" id="mapBookSeg" title="Which dealer book the Gamma map and the breakdown use (the right-hand map has its own) (0DTE live chain · 1–7 DTE book from the 08:35 pull · both) — key E"><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="true">All</button></div><div class="seg" role="group" aria-label="Positions basis" id="mapBasisSeg" title="Which dealer book the maps are built from. This is the SAME setting as the Flow tab - changing it here changes it there. OI = start-of-day open interest &middot; Vol = today's volume only &middot; OI + vol = both."><button data-v="oi" aria-pressed="true">OI</button><button data-v="vol" aria-pressed="false">Vol</button><button data-v="oiv" aria-pressed="false">OI + vol</button><button data-v="ois" aria-pressed="false" title="OI plus today's tagged buy/sell volume: customer call sells add dealer longs, call buys dealer shorts; put buys add dealer short puts. Being scored nightly against OI + vol before it is trusted.">OI + signed</button></div><div class="seg" role="group" id="mapVol1Seg" title="Which day's VOLUME goes into the maps (only matters on Vol / OI + vol / OI + signed, or with Ledger on). 0DTE vol = today's expiry only (the standard). 0+1DTE vol = also the next expiry's volume, priced as that expiry (its own days left and its own IV), never merged into today's strikes. The 1-7 DTE book itself stays morning OI only."><button data-v="0" aria-pressed="true">0DTE vol</button><button data-v="1" aria-pressed="false">0+1DTE vol</button></div><button class="btn" id="ledBtn" aria-pressed="false" title="Ledger book (Map only): start the 0DTE book from the signed-position ledger at yesterday's close (customers' running buys minus sells; dealers hold the other side), then add today's tagged buy/sell volume minute by minute. Closest we get to measured market-maker positions. Week book and other tabs unchanged. Scored nightly against OI + vol.">Ledger</button><button class="btn" id="flipLineBtn" aria-pressed="false" title="Flip line (off by default): one bold yellow line on the normal gamma map where gamma changes sign (the crossing nearest price at each minute), with the flip and the zone at the current minute. The map&#39;s own colours, and the dark band between blue and red, stay exactly as they are.">Flip line</button><button class="btn" id="zoneBtn" aria-pressed="false" title="Zone view (off by default): the gamma map in two colours - green where dealers are long gamma (they calm moves), red where they are short (they speed moves up) - with one bold yellow flip line and a light band for the transition zone, where gamma is weak (under 10% of that minute&#39;s strongest value). Same numbers as the normal map.">Zone</button><button class="btn" id="gDetBtn" aria-pressed="false" title="Remove each column's background level from the gamma map so structure stands out - the same treatment vanna gets. WARNING: with this on, blue and red no longer mean long and short gamma, only above and below the column average. Off by default.">De-trend</button><button class="btn" id="coneAmBtn" aria-pressed="true" title="Static cone: 0DTE ATM IV at 08:35, from the 9:30 open, ±1σ dashed / ±2σ dotted, frozen for the day">AM cone</button><button class="btn" id="coneLiveBtn" aria-pressed="true" title="Moving cone: live ATM IV, re-centred on live spot every update">Live cone</button><button class="btn" id="speedBtn" aria-pressed="false" title="Speed lines (pink dotted): where gamma changes fastest with price - the edges where a pin starts to let go. Phase 3, being scored nightly.">Speed</button><button class="btn" id="smileBtn" aria-pressed="false" title="Smile model: each strike's IV moves with SPX by the amount we actually measured (updated every night from our own data: same-day options from the minute log, longer expiries day to day). Today that means IV falls as SPX rises and rises as it falls. Changes gamma and charm on all maps. Scored nightly against the plain model.">Smile</button><button class="btn" id="vclockBtn" aria-pressed="false" title="Variance clock: the map's projection to the close spends time like the market does (busy open and close, quiet lunch) instead of evenly. Phase 3, being scored nightly.">Var clock</button><button class="btn" id="gapBtn" aria-pressed="true" title="Opening gap vs the 0DTE straddle (SPX): a strip above the map + violet dashed lines at prior close ± overnight straddle. Overnight straddle = today's expiry at yesterday's 16:00; AM straddle = the same at 09:30.">Gap</button><span class="hint" id="mapNote"></span></div><div class="gapstrip" id="gapStrip" hidden></div><div class="body"><canvas id="mapGammaC"></canvas></div></section>
     <section class="pane" id="mapBreakPane"><div class="phead"><h2>Breakdown by strike</h2><span class="sp"></span><button class="btn" id="ruleReadBtn" aria-pressed="false" title="Rule read (off by default): ceiling and floor picked by the gamma regime - long gamma: vanna flip = ceiling, gamma flip = floor; short gamma: gamma flip = ceiling, vanna flip = floor - with how many other levels agree. Gamma peak = pin. One charm line.">Rule read</button><button class="btn" id="mapPremBtn" aria-pressed="false" title="Draw the Premium tab's lines on the maps (off by default)">Premium</button><button class="btn doc" id="mapDocBtn" aria-pressed="true" title="Draw AM levels on the maps (D)">AM</button></div><div class="body"><canvas id="mapBreakC"></canvas></div>
       <div class="mapread" id="mapRead"></div></section>
-    <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div><button class="btn" id="zoomBtn" aria-pressed="false" title="Zoom all three map panes: a price window around spot, finer rows and 1-minute columns inside it. Mouse wheel = wider/narrower · drag = move up/down · double-click = back to spot.">Zoom</button><div class="seg" role="group" id="zoomWSeg" title="Zoom price window around spot"><button data-v="25">±25</button><button data-v="50">±50</button><button data-v="100">±100</button></div><div class="seg" role="group" id="zoomTSeg" title="Zoom time window"><button data-v="rth">9:30 →</button><button data-v="2h">Last 2h →</button></div><div class="seg" role="group" id="mapColSeg" title="Colour: Classic = one colour per side, brighter = bigger. Gradient = a ramp of colours (dark at zero, then blue/cyan or amber/gold to near-white) so each size has its own colour, with a faint line where the value is half the column's strongest."><button data-v="classic">Classic</button><button data-v="grad">Gradient</button></div><div class="seg" role="group" id="mapScaleSeg" title="Colour scale: Day = one scale for the whole map (afternoon charm is far bigger, so mornings look dim). Column = each minute scaled to its own strongest value, so the shape shows all day; sizes are still in the read-out."><button data-v="day">Day</button><button data-v="col">Column</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
+    <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button><button data-v="delta" aria-pressed="false" title="TEST Delta map: ES contracts dealers would buy (green) or sell (red) on the way if SPX went from that minute&#39;s price to each level - built from the gamma map of the same book. #1-#6 = where they hedge the most per 5 pts now.">Delta</button></div><div class="seg" role="group" id="tgDlModeSeg" style="display:none" title="TEST Delta view: From here = all strikes, dealer buy/sell to reach each level from the price at that minute; By strike = each strike's own buy/sell as price reaches it (QuantNug-style bands)."><button data-v="here" aria-pressed="true">From here</button><button data-v="strike" aria-pressed="false">By strike</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div><button class="btn" id="zoomBtn" aria-pressed="false" title="Zoom all three map panes: a price window around spot, finer rows and 1-minute columns inside it. Mouse wheel = wider/narrower · drag = move up/down · double-click = back to spot.">Zoom</button><div class="seg" role="group" id="zoomWSeg" title="Zoom price window around spot"><button data-v="25">±25</button><button data-v="50">±50</button><button data-v="100">±100</button></div><div class="seg" role="group" id="zoomTSeg" title="Zoom time window"><button data-v="rth">9:30 →</button><button data-v="2h">Last 2h →</button></div><div class="seg" role="group" id="mapColSeg" title="Colour: Classic = one colour per side, brighter = bigger. Gradient = a ramp of colours (dark at zero, then blue/cyan or amber/gold to near-white) so each size has its own colour, with a faint line where the value is half the column's strongest."><button data-v="classic">Classic</button><button data-v="grad">Gradient</button></div><div class="seg" role="group" id="mapScaleSeg" title="Colour scale: Day = one scale for the whole map (afternoon charm is far bigger, so mornings look dim). Column = each minute scaled to its own strongest value, so the shape shows all day; sizes are still in the read-out."><button data-v="day">Day</button><button data-v="col">Column</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
   </main>
   <main id="tabVol" class="tab" hidden>
     <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span><span class="frbar" id="frBarVol"></span></div><div class="volread" id="volRead"></div></section>
@@ -1341,6 +1352,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
           <dt>Level strip</dt><dd><b>Put wall</b>, <b>Gamma flip</b>, <b>Pin magnet</b>, <b>Call wall</b>, <b>Report pivot</b> and <b>Move left</b> (how many points options still price for the rest of today). The small % under each = distance from price.</dd>
           <dt>Pulse</dt><dd>Opens the full flow strip on the Flow page: the cards, both sliders and the mood by expiry.</dd>
           <dt>Robustness</dt><dd>Re-checks the lean after removing the biggest trades. <b>Broad</b> = many traders agree. <b>One program</b> = a few big trades are driving it.</dd>
+          <dt>Range</dt><dd>Button next to Robustness, <b>off</b> by default. How big today&rsquo;s SPX high-to-low is likely to be, in points. The bar: <b>grey</b> = a quiet day (1 day in 10 is smaller), <b>blue</b> = normal, <b>orange</b> = big (1 in 10 is bigger), <b>red</b> = past 1 in 50; the <b>white</b> tick is the typical day. The <b>green</b> bar under it is the range so far. The <b>yellow</b> tick is the best guess for the whole day, with its 1-in-10 band as a light yellow box: early on it leans on the morning number, later on the pace (how much a typical day has made by this time). It comes from yesterday&rsquo;s close of VIX and of VIX &divide; 3-month VIX (&ldquo;the curve&rdquo;): an upward curve means calmer days, an inverted one bigger days at the same VIX. Measured on Cboe daily data: fit 2010&ndash;2017, checked 2018&ndash;now, where it explains about half of how big a day gets. <b>Details</b> shows the inputs, the last six days (typical &rarr; actual) and how often the bands held. <b>Size only, never direction.</b> About 1 day in 20 runs past twice its typical at any VIX and nothing here sees it coming (Nov 5: typical 67, actual 331). Written each evening by <code>range_feed</code>.</dd>
         </dl>
 
         <h3 class="pg" id="h-flow">Flow</h3>
@@ -1802,7 +1814,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
           <dt>All names</dt><dd>The bar under each heading adds up every name in that group, not only the five shown.</dd>
           <dt>Biggest</dt><dd>The name&rsquo;s largest single trade by net dollars. A spread or other package is shown with all its legs (for example <i>19Mar27 170C buy &middot; 185C sell &times;35K</i>: one expiry, two strikes, 35,000 each), then its net and the New York time it printed.</dd>
           <dt>Spreads</dt><dd>A package is judged by its legs, never by the sign of its price: a put spread sold for a credit is a bullish bet. A negative package price only says which way the cash went.</dd>
-          <dt>Left out</dt><dd><b>Financing, not bets</b>: deep in-the-money prints (boxes, conversions, dividend and stock-loan trades). A print counts as one when its delta is 0.85 or more, or when it is in the money and less than a tenth of its price is time value (a print that came without a stock price takes the stock&rsquo;s nearest one). A high-IV option that is out of the money stays a bet. Also left out: prints at the mid (no way to tell who paid), index and ETF names, and names with no market cap. The line at the bottom counts them.</dd>
+          <dt>Left out</dt><dd><b>Financing, not bets</b>: deep in-the-money prints (boxes, conversions, dividend and stock-loan trades). A print counts as one when its delta is 0.85 or more, when it is in the money and less than a tenth of its price is time value, or when it is more than 25% in the money (a print that came without a stock price takes the stock&rsquo;s nearest one). A high-IV option that is out of the money stays a bet. Also left out: prints at the mid (no way to tell who paid), index and ETF names, and names with no market cap. The line at the bottom counts them.</dd>
           <dt>Market cap</dt><dd>From FMP, refreshed once a day. Mega = $200B and up. Small = $300M to $2B. Micro = under $300M.</dd>
           <dt>Limits</dt><dd>&ldquo;Bought&rdquo; and &ldquo;sold&rdquo; come from where each print traded against the quote: right most of the time, not always. A big bullish print can be a hedge: calls bought can cap a short in the stock or in futures, so the trader is bearish overall. Not scored yet.</dd>
         </dl>
@@ -1940,6 +1952,7 @@ if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.mapZone=load("mapZone","0")==="1"; st.mapFlipLine=load("mapFlipLine","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1"; st.ruleRead=load("ruleRead","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex");
+st.rangeOn=load("rangeOn","0")==="1"; st.rangeDet=load("rangeDet","0")==="1";   // 2026-11-13 Range card, OFF by default
 // 2026-11-09: Density options DN1-DN6 and VIX options VX1 / VX2 / VIX map - all OFF by default (moved from the test cockpit)
 st.dno=(()=>{ try{ const j=JSON.parse(load("dnOpt","{}"))||{}; return {dn1:!!j.dn1,dn2:!!j.dn2,dn3:!!j.dn3,dn5:!!j.dn5,dn6:!!j.dn6}; }catch(e){ return {dn1:false,dn2:false,dn3:false,dn5:false,dn6:false}; } })();
 st.vxo=(()=>{ try{ const j=JSON.parse(load("vxOpt","{}"))||{}; return {vx1:!!j.vx1,vx2:!!j.vx2,vmap:!!j.vmap}; }catch(e){ return {vx1:false,vx2:false,vmap:false}; } })(); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -3410,7 +3423,7 @@ function render(){
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
-  renderHeader(d,book,se); renderRead(se,book);
+  renderHeader(d,book,se); renderRead(se,book); try{ rangeRender(); }catch(e){ console.error(e); }   // 2026-11-13 Range card
   if(st.tab==="flow"){ renderMap(se,book); renderLadder(se,book);
     if(!st.max){ renderFlow2(se,d,book); if(st.focus!=="map"){ renderPicker(se,d); renderWatch(se); renderContract(se,d); } renderReads(se,book); } }
   else if(st.tab==="strikes") renderStrikes(se,d);
@@ -4386,6 +4399,71 @@ function syncPulse(){ document.body.classList.toggle("f2full",st.f2full); docume
 document.getElementById("pulseBtn").addEventListener("click",()=>{ st.f2full=!st.f2full; save("f2full",st.f2full?"1":"0"); syncPulse(); render(); });
 syncPulse();
 
+/* ============================================================ RANGE card (2026-11-13, Mithil's yes 11/12 22:5x to QuantNug's
+   "How big is today likely to be? (VIX + curve)"). Button "Range" in the read strip, OFF by default; nothing is fetched while off.
+   range_card.json (scripts/range_feed.py, each evening): typical / quiet / big / 1-in-50 SPX range for the session, from the prior
+   close of VIX and VIX / VIX3M (model range-v1, fit 2010-2017, checked 2018-now), the last six days, the scores, and the pace store
+   (share of its range a session has made by each 5 minutes after 09:30, blend weight w and a 1-in-10 band per mark).
+   Here: so far = SPX minute prices after 09:30 (the 09:30 row carries the prior close) plus live spot; pace = so far / curve;
+   best guess G = exp(w ln pace + (1-w) ln typical), never below so far; band = G * exp(lo..hi), never below so far.
+   Display only: no other number on the page changes. */
+var RANGE=null, RANGE_AT=0;   // var: render() may run before this line on page load
+function rangeFetch(){ if(!st.rangeOn) return; if(DEMO){ RANGE={_demo:1}; render(); return; }
+  fetch("range_card.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(j=>{ RANGE=j; RANGE_AT=Date.now(); render(); }).catch(e=>{ RANGE={_err:String(e)}; render(); }); }
+setInterval(()=>{ if(st.rangeOn) rangeFetch(); }, 5*60*1000);
+function rangeSoFar(R){ // SPX high-low after 09:30 from the minute log + live spot; null before the open
+  const c=liveClock(), now=c.h*60+c.m, close=R&&R.early_close&&R.for_date===c.date?13*60:16*60;
+  let lo=Infinity, hi=-Infinity, n=0;
+  for(const s of (st.flow.SPX||[])){ const t=tmin(s.t); if(t>RTH_OPEN&&t<=close&&s.x>0){ lo=Math.min(lo,s.x); hi=Math.max(hi,s.x); n++; } }
+  const sp=st.live&&st.live.SPX&&st.live.SPX.spot; if(sp>0&&now>RTH_OPEN&&now<=close){ lo=Math.min(lo,sp); hi=Math.max(hi,sp); n++; }
+  return n?{v:hi-lo,lo,hi,t:Math.min(now,close)-RTH_OPEN,done:now>=close,close}:null; }
+function rangeLive(R,sf){ // pace + best guess at the last completed 5-minute mark
+  const P=R.pace; if(!sf||!P||!P.curve||!P.curve.length||!(R.typical>0)||sf.t<10) return null;
+  const i=Math.max(0,Math.min(P.curve.length-1,Math.floor(sf.t/5)-1)), cu=P.curve[i], w=P.w[i]; if(!(cu>0)) return null;
+  if(sf.done) return {i,mark:P.marks[i],share:1,pace:sf.v,G:sf.v,lo:sf.v,hi:sf.v};
+  const pace=sf.v/cu, G=Math.max(sf.v,Math.exp(w*Math.log(pace)+(1-w)*Math.log(R.typical)));
+  return {i,mark:P.marks[i],share:cu,pace,G,lo:Math.max(sf.v,G*Math.exp(P.lo[i])),hi:Math.max(sf.v,G*Math.exp(P.hi[i])),w}; }
+function rangeDay(iso){ try{ return new Date(iso+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}); }catch(e){ return iso; } }
+function rangeStripHTML(){
+  if(!st.rangeOn) return "";
+  const R=RANGE; if(!R) return "<i>Range: loading…</i>"; if(R._demo) return "<i>Range: not in the demo (it reads range_card.json).</i>";
+  if(R._err||!(R.typical>0)) return `<i>Range: range_card.json not available yet${R._err?" ("+R._err+")":""} — written each evening by range_feed.</i>`;
+  const c=liveClock(), f=x=>fmtN(Math.round(x)), sf=rangeSoFar(R), L=rangeLive(R,sf);
+  const stale=R.for_date<c.date, ahead=R.for_date>c.date, pct=x=>Math.round(x*100)+"%";
+  const curve=R.ratio<1?`upward (VIX is ${pct(R.ratio)} of 3-month VIX)`:`inverted (VIX is ${pct(R.ratio)} of 3-month VIX)`;
+  let line=`<b>Range ${ahead?rangeDay(R.for_date):"today"}</b>`;
+  if(stale) line+=` <span class="rw">⚠ card is for ${rangeDay(R.for_date)} — today's not written yet</span>`;
+  if(sf&&!ahead&&!stale) line+=`<span>so far <b class="rg">${f(sf.v)}</b></span>`;
+  line+=`<span>typical <b>${f(R.typical)}</b></span>`;
+  if(L&&!ahead&&!stale){ line+=sf.done?`<span>day done: <b class="ry">${f(sf.v)}</b> vs typical ${f(R.typical)}</span>`
+      :`<span>by ${tlabel(RTH_OPEN+L.mark)} a typical day has made <b>${pct(L.share)}</b> of its range → on pace for <b>${f(L.pace)}</b></span><span>best guess <b class="ry">${f(L.G)}</b> <i>(1 in 10: ${f(L.lo)}–${f(L.hi)})</i>${R.pace.rough?' <i>rough</i>':""}</span>`; }
+  else line+=`<span><i>quiet under ${f(R.quiet)} · big over ${f(R.big)} · 1 in 50 over ${f(R.p98)}</i></span>`;
+  line+=`<button class="btn" id="rangeDetBtn" aria-pressed="${!!st.rangeDet}">Details</button>`;
+  const top=Math.max(R.p98*1.08, sf&&!ahead&&!stale?sf.v*1.05:0, L&&!ahead&&!stale?L.hi*1.03:0), X=v=>Math.max(0,Math.min(100,v/top*100)).toFixed(2)+"%";
+  const seg=(a,b,col)=>`<div class="rs" style="left:${X(a)};width:calc(${X(b)} - ${X(a)});background:${col}"></div>`;
+  let bar=seg(0,R.quiet,"#3A4560")+seg(R.quiet,R.big,"#2F62B5")+seg(R.big,R.p98,"#C9811F")+seg(R.p98,top,"#B8323A");
+  if(L&&!ahead&&!stale&&!sf.done) bar+=`<div class="rband" style="left:${X(L.lo)};width:calc(${X(L.hi)} - ${X(L.lo)})"></div>`;
+  if(sf&&!ahead&&!stale) bar+=`<div class="rf" style="left:0;width:${X(sf.v)}"></div>`;
+  bar+=`<div class="rmk" style="left:${X(R.typical)}"></div>`;
+  if(L&&!ahead&&!stale) bar+=`<div class="rgs" style="left:${X(L.G)}"></div>`;
+  bar+=`<span class="rlab l0" style="left:0">0</span><span class="rlab" style="left:${X(R.quiet)}">quiet ${f(R.quiet)}</span><span class="rlab" style="left:${X(R.typical)}">typical ${f(R.typical)}</span><span class="rlab" style="left:${X(R.big)}">big ${f(R.big)}</span><span class="rlab" style="left:${X(R.p98)}">1 in 50: ${f(R.p98)}</span>`;
+  let h=`<div class="rl">${line}</div><div class="rbar" role="img" aria-label="Today's range against the typical, quiet, big and 1-in-50 day">${bar}</div>`;
+  if(st.rangeDet){ const rec=(R.recent||[]).map(x=>{ const out=x.actual<x.quiet||x.actual>x.big; return `${rangeDay(x.date).replace(/^\w+, /,"")} ${f(x.typical)}→<span class="${out?"rw":""}">${f(x.actual)}</span>`; }).join(" · ");
+    const so=R.scores&&R.scores.oos, sl=R.scores&&R.scores.live, P=R.pace||{};
+    const ps=R.scores&&(R.scores.pace_live&&R.scores.pace_live["10:00"]&&R.scores.pace_live["10:00"].n?R.scores.pace_live:R.scores.pace_stored);
+    const psTxt=ps?Object.entries(ps).filter(([k,v])=>v&&v.n).map(([k,v])=>`${k}: ${v.guess_closer} of ${v.n}`).join(" · "):"";
+    h+=`<div class="rangedet"><div><b>Why this size:</b> VIX ${R.vix.toFixed(2)} at the ${rangeDay(R.inputs_date)} close; the curve is ${curve}. Days like this: typical <b>${f(R.typical)}</b> SPX pts high to low; 1 in 10 quieter than ${f(R.quiet)}; 1 in 10 bigger than ${f(R.big)}; 1 in 50 bigger than ${f(R.p98)}.</div>
+      <div><b>Recent days</b>, typical → actual: ${rec||"–"} <span class="rq">(red = outside quiet–big)</span></div>
+      <div><b>How often the bands held:</b> 2018–now ${so&&so.n?`${so.in_band_pct}% of ${fmtN(so.n)} days between quiet and big (aim 80%), ${fmtN(so.over_1in50)} past 1 in 50`:"–"}${sl&&sl.n?` · live since ${rangeDay(sl.since)}: ${sl.in_band} of ${sl.n}`:" · live scoring starts "+rangeDay((sl&&sl.since)||"2026-11-13")}.</div>
+      <div><b>Pace:</b> from ${fmtN(P.n||0)} sessions${P.src?" ("+Object.entries(P.src).map(([k,v])=>`${k==="spy_1m"?"SPY 1-min bars":k==="spx_log"?"our SPX minute log":k} ${v}`).join(", ")+")":""}${P.rough?" — <b>rough</b> until 60 sessions (best guess leans on the curve alone, band = the morning band)":""}.${psTxt?` Best guess closer to the day's actual range than the morning typical — ${psTxt}${R.scores.pace_live&&R.scores.pace_live["10:00"]&&R.scores.pace_live["10:00"].n?" (live)":" (stored sessions)"}.`:""}</div>
+      <div class="rq">Size only, never direction. About 1 day in 20 runs past twice its typical at any VIX and nothing here sees those coming (Nov 5: typical 67, actual 331). Model ${R.v}: log(range ÷ prior close) from log VIX and log(VIX ÷ VIX3M) of the prior close; fit ${R.model.fit}, R² ${R.model.r2_check} on ${R.model.check}. Written ${R.generated}.</div></div>`; }
+  return h; }
+function rangeRender(){ const el=document.getElementById("rangeStrip"); if(!el) return; const b=document.getElementById("rangeBtn"); if(b) b.setAttribute("aria-pressed",!!st.rangeOn);
+  const h=st.rangeOn?rangeStripHTML():""; el.hidden=!h; if(el._h!==h){ el.innerHTML=h; el._h=h; const d=document.getElementById("rangeDetBtn"); if(d) d.addEventListener("click",()=>{ st.rangeDet=!st.rangeDet; save("rangeDet",st.rangeDet?"1":"0"); render(); }); } }
+document.getElementById("rangeBtn").addEventListener("click",()=>{ st.rangeOn=!st.rangeOn; save("rangeOn",st.rangeOn?"1":"0"); if(st.rangeOn) rangeFetch(); render(); window.dispatchEvent(new Event("resize")); });
+if(st.rangeOn) rangeFetch();
+
 /* ============================================================ MAP tab — OptionsDepth-style projection heat maps (gamma / charm / vanna) + breakdown by strike
    Left of the "now" line: the dealer book as it stood each minute (OI basis + that minute's volume, that minute's IV), repriced across the price grid.
    Right of it: the current book carried forward through the session as time to expiry shrinks (sticky-strike IV). Dealer convention: calls +, puts −.
@@ -4417,14 +4495,15 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["c2","IV path","C2","v0","IV at a map price moves along β from the anchor spot: σ(S) = σ₀ + ∫ β/x dx. Greeks are computed at that IV. Smile ON adds the slope terms on top. Needs the β file."],
   ["d4","Real 5-min charm","D4","v1","Charm = the actual change in delta over the next 5 minutes (instead of rate × 5 min, which overstates the last 10–30 minutes)."],
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
-  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."]];
+  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
+  ["sg","Shadow","SG","v0","Alma's shadow greeks (2026-11-13): IV moves with price by our measured β (the Smile button's β file) along the path from that minute's price. Gamma = gamma + vanna × (IV change per point); Delta pane = the plain option delta at that moving IV, computed directly; charm / vanna use the path IV. Overrides Smile while on (Smile measures the min-variance hedge, a different object - never both). Needs the β file."]];
 // 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
 const TG_SEL={b2:["","1600","1615"]};
 let TG={}; for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false;
 let TG_ANYG=false, TG_GEND=16*60;
 const TG_STATS={rej:0,fill:0,wkLive:0,wkFb:0};
 const FEED_END=16*60+15;   // cvx_live.py EXPIRY_MIN: the writer solves 0DTE IV to 16:15
-function tgApply(){ TG_ANYG=!!(TG.c2||TG.d1||TG.d4); }
+function tgApply(){ TG_ANYG=!!(TG.c2||TG.d1||TG.d4||TG.sg); }
 function tgLoad(){ try{ const j=JSON.parse(localStorage.getItem("tg_v1")||"{}"); for(const k in TG) if(k in j) TG[k]=j[k]; }catch(e){} tgApply(); }
 function tgSave(){ try{ localStorage.setItem("tg_v1",JSON.stringify(TG)); }catch(e){} }
 function tgOn(){ return TG_DEF.filter(([id])=>!!TG[id]).map(([id,lb,tid])=>tid+(TG_SEL[id]?" "+TG[id].slice(0,2)+":"+TG[id].slice(2):"")); }
@@ -4499,14 +4578,30 @@ function tgPathSg(r,S){ const s0=r.s0||(st.live&&st.live[st.sym]&&st.live[st.sym
   const n=8, dte=r.dte||0; let integ=0, prev=null;
   for(let i=0;i<=n;i++){ const x=s0+(S-s0)*i/n; const b=smileBeta(r.k,x,dte); const f=(b==null?0:b)/x; if(prev!=null) integ+=(prev+f)/2*(S-s0)/n; prev=f; }
   const v=Math.max(0.01,r.sg+integ); r._c2.set(key,v); return v; }
-function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 options (same maths as greekCol when all three are off)
-  const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sm=!!st.smileOn; if(sm) smileSlopes(rows); const c2=TG.c2&&!!SB;
+/* SG (2026-11-13): IV along the measured-β path from the row's anchor s0 (Alma's shadow greeks), integrated EXACTLY:
+   β is constant inside each moneyness zone (m = 100(k/x - 1)), so σ(S) = σ0 + Σ β_zone · ln(x_b / x_a) over the zone pieces
+   between s0 and S; with E2 (smooth β) Simpson's rule, 64 steps. Its slope is β(S)/S at every price, so the shadow gamma
+   (gamma + vanna·β/S) is exactly the derivative of the shadow delta. C2's 8-step path (tgPathSg) is left as it was. */
+function tgShadowSg(r,S){ const s0=r.s0||(st.live&&st.live[st.sym]&&st.live[st.sym].spot)||S; if(!SB||Math.abs(S-s0)<1e-9) return r.sg;
+  const ck="sg"+(TG.e2?"e":"h")+(SB&&SB.generated)+"|"+s0+"|"+r.sg; if(!r._sg||r._sgk!==ck){ r._sg=new Map(); r._sgk=ck; }
+  const key=Math.round(S*1e4); const hit=r._sg.get(key); if(hit!==undefined) return hit;
+  const dte=r.dte||0; let integ=0;
+  if(TG.e2){ const n=64, h=(S-s0)/n; for(let i=0;i<=n;i++){ const x=s0+h*i, b=smileBeta(r.k,x,dte), w=(i===0||i===n)?1:(i%2?4:2); integ+=w*((b==null?0:b)/x); } integ*=h/3; }
+  else { const E=dte>=1?(SB.multi&&SB.multi.edges_pct)||[]:(SB.dte0&&SB.dte0.edges_pct)||[]; const lo=Math.min(s0,S), hi=Math.max(s0,S);
+    const xs=E.map(e=>r.k/(1+e/100)).filter(x=>x>lo&&x<hi).sort((a,b)=>a-b); const pts=[lo,...xs,hi];
+    for(let i=0;i<pts.length-1;i++){ const a=pts[i], b2=pts[i+1], bm=smileBeta(r.k,(a+b2)/2,dte); integ+=(bm==null?0:bm)*Math.log(b2/a); }
+    if(S<s0) integ=-integ; }
+  const v=Math.max(0.01,r.sg+integ); r._sg.set(key,v); return v; }
+function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / SG options (same maths as greekCol when all are off) + kind "delta"
+  const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sgOn=!!TG.sg&&!!SB, sm=!!st.smileOn&&!sgOn; if(sm) smileSlopes(rows); const c2=TG.c2&&!!SB;
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue;
-    const sg=c2?tgPathSg(r,S):r.sg;
+    const sg=sgOn?tgShadowSg(r,S):c2?tgPathSg(r,S):r.sg;
     const d1=(Math.log(S/r.k)+0.5*sg*sg*ty)/(sg*sq), d2=d1-sg*sq, p=PHI(d1);
+    if(kind==="delta"){ tot+=pos*tgN(d1); continue; }   // TEST DL: dealer delta in contracts, the part that moves (calls and puts share N(d1); a put's -1 is a constant)
     const sS=sm?smileSS(r,S):0;
     if(kind==="gamma"){ let g=p/(S*sg*sq) + (sm? 2*sS*(-p*d2/sg) + sS*sS*(S*p*sq*d1*d2/sg) : 0);
       if(sm&&TG.d1) g+=S*p*sq*tgDbdS(r,S);                          // + Vega · db/dS
+      if(sgOn){ const b=smileBeta(r.k,S,r.dte||0); if(b!=null) g+=(-p*d2/sg)*(b/S); }   // TEST SG: + Vanna · dσ/dS along the β path (Alma's shadow gamma)
       tot+=pos*g*2.5; }
     else if(kind==="charm"){ const smc=sm? sS*S*p*(d1*d2+1)/(2*sq)*(5/525600) : 0; let dd;
       if(TG.d4){ const t2=ty-5/525600; const n1=t2>0?tgN((Math.log(S/r.k)+0.5*sg*sg*t2)/(sg*Math.sqrt(t2))):(S>r.k?1:(S<r.k?0:0.5)); dd=n1-tgN(d1); }
@@ -4527,8 +4622,8 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 op
    Close / 1DTE / Friday prediction: zero line nearest spot on the profile at the target (target close − 10 min);
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
-const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-f4d247901e38";
-const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}]];
+const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-ddf94822214a";
+const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
 function tgCross(prices,col,i,lev){ const a=col[i-1], b=col[i]; return prices[i-1]+(prices[i]-prices[i-1])*(lev-a)/((b-a)||1); }
@@ -4591,6 +4686,130 @@ function tgReadoutAll(){ const m=tgReadoutMeta(); if(!m) return null; m.cfgs={};
 function tgRawP95(grid){ const all=[]; for(const col of grid) for(const v of col) all.push(Math.abs(v)); all.sort((a,b)=>a-b); return Math.max(1e-9, all[Math.floor(all.length*0.95)]||1e-9); }
 tgLoad();
 
+/* TEST DL (2026-11-13) - DELTA map: Map tab, right pane, button "Delta" (Mithil's yes 2026-11-12 22:5x to QuantNug's
+   "custom delta heatmap ... where supportive / bearish zones to buy / sell are"; 00:10 11/13: combine it with Alma's shadow
+   greeks). Test cockpit only (MAP rule, 11/09). Two views (switch "From here | By strike" next to the button):
+   FROM HERE  every price x minute = the ES contracts dealers would BUY (green) or SELL (red) on the way if SPX went from that
+              minute's price to that level:  H(p) = -F x [D(p) - D(price)], D = dealer delta of the same book/basis/clock,
+              computed DIRECTLY from each option's delta (kind "delta" in greekColTG: sum of position x N(d1)). With the Shadow
+              toggle (SG) each option's IV moves with price by our measured beta, so D is Alma's shadow delta; without it IV is
+              held (sticky strike). F = ES contracts per option delta: SPX 2 (100 x SPX / 50 x SPX), SPY 2 x SPY / SPX (live
+              ratio), QQQ shown in $M.
+   BY STRIKE  each strike's own share: the ES contracts that strike's options alone make dealers buy / sell as SPX travels
+              from that minute's price to the strike, drawn as a band at the strike. Green below price = support (dealers buy
+              into it), red below = it speeds a drop; red above = resistance, green above = it speeds a rise. The views do not
+              add up to each other: "From here" sums every strike at each level, "By strike" shows one strike at its own level.
+   The column's price = the logged price of that minute (the 09:30 row carries the prior close, so 09:31 is used there), spot
+   for the projection to the close.  Lines every N ES (From here), dotted = where the net hedge from here comes back to zero.
+   #1-#6 (From here) = where dealers hedge the most per 5 points right now (peaks of |gamma| - shadow gamma with SG - at least
+   8% of the column's strongest); (By strike) = the six biggest strike bands now. Solid = long gamma at the level (absorbs:
+   works against the move into it), dashed = short gamma (speeds it).
+   Sizes are model numbers: the naive book counts every contract of the basis as dealer-held, so read them as relative.
+   Display only: buildMap for gamma / charm / vanna, the read-out (it keeps Charm, as when Charm is selected) and every other
+   number are unchanged. Scored nightly by delta_score.py from the 15-minute read-outs (field "dl": SPX, OI + vol, All book,
+   production maths, Smile off; levels with Shadow off and on). */
+const TG_DL_V="dl-v1";
+const TG_DL_RAMP={pos:[[12,22,42],[16,78,46],[30,150,78],[100,220,140],[220,252,230]],neg:[[12,22,42],[105,18,30],[200,45,45],[250,125,80],[255,226,196]]};
+let TG_DL_LAST=null;
+st.dlMode=(()=>{ try{ const v=localStorage.getItem(NS+"dlMode"); return v==="strike"?"strike":"here"; }catch(e){ return "here"; } })();
+function tgDlFac(sym){ const L=st.live||{}, s=sym||st.sym, spx=L.SPX&&L.SPX.spot, spy=L.SPY&&L.SPY.spot, q=L.QQQ&&L.QQQ.spot;
+  if(s==="SPX") return {f:2,u:"ES"};
+  if(s==="SPY"&&spx>0&&spy>0) return {f:2*spy/spx,u:"ES"};
+  const x=s==="SPY"?spy:q; return {f:100*(x||0)/1e6,u:"$M"}; }
+function tgDlInterp(col,p0,dp,a){ const n=col.length, r=(a-p0)/dp; if(r<=0) return col[0]+(col[1]-col[0])*r; if(r>=n-1) return col[n-1]+(col[n-1]-col[n-2])*(r-(n-1));
+  const k=Math.floor(r), u=r-k; return col[k]+(col[k+1]-col[k])*u; }
+function tgDlColumn(D,prices,dp,a,f){ const Da=tgDlInterp(D,prices[0],dp,a); return D.map(x=>-f*(x-Da)); }
+function tgDlLevels(prices,col,S,f,H,nmax){ // peaks of |gamma| = most hedging per 5 pts; buy/sell = what dealers do travelling there from S
+  const n=col.length; let mx=0; for(const v of col) if(v!=null&&Math.abs(v)>mx) mx=Math.abs(v); if(!(mx>0)) return [];
+  const c=[]; for(let i=1;i<n-1;i++){ const a=Math.abs(col[i]); if(a>=Math.abs(col[i-1])&&a>Math.abs(col[i+1])&&a>=0.08*mx) c.push(i); }
+  c.sort((x,y)=>Math.abs(col[y])-Math.abs(col[x])||x-y);
+  return c.slice(0,nmax||6).map((i,r)=>{ const p=prices[i], g=col[i], side=Math.abs(p-S)<1e-9?0:Math.sign(p-S);
+    return {rank:r+1,p:+p.toFixed(2),es5:Math.round(Math.abs(g)*2*f),cls:g>0?"hold":"speed",
+      dir:side===0?(g>0?"absorbs":"speeds"):(-Math.sign(g)*side>0?"buy":"sell"),H:H?Math.round(H[i]):null}; }); }
+function tgDlStep(v){ for(const s of [25,50,100,250,500,1000,2500,5000,10000,25000,50000,100000,250000]) if(v/s<=4) return s; return 500000; }
+function tgDlRef(t,now,S,px){ if(t>now) return S; for(let q=(t===MAP_OPEN?1:0);q<4;q++) if(px.has(t+q)) return px.get(t+q); for(let q=1;q<4;q++) if(px.has(t-q)) return px.get(t-q); return S; }
+function tgDlRowSg(r,p){ return !SB?r.sg:TG.sg?tgShadowSg(r,p):TG.c2?tgPathSg(r,p):r.sg; }   // same IV rule as greekColTG
+function tgDlStrikeCol(rows0,near,t,ty0,a,f,day){ // each strike's own hedge from price a to the strike (ES), summed over expiries at that strike
+  const out=new Map(); const add=(r,ty)=>{ if(!(r.sg>0)) return; const pos=r.cp-r.pp; if(!pos||!(ty>0)) return; const sq=Math.sqrt(ty);
+    const n=p=>{ const sg=tgDlRowSg(r,p); return tgN((Math.log(p/r.k)+0.5*sg*sg*ty)/(sg*sq)); };
+    out.set(r.k,(out.get(r.k)||0)-f*pos*(n(r.k)-n(a))); };
+  if(rows0) for(const r of rows0) add(r,ty0);
+  if(near) for(const r of near){ const m=wkTauMin(r,day,t); if(m!=null) add(r,m/525600); }
+  return out; }
+function tgDeltaMap(se,d,book,V){
+  const g=buildMap("gamma",se,d,book,V), dm=buildMap("delta",se,d,book,V); if(!g||!dm) return null;
+  const {f,u}=tgDlFac(); const px=new Map(); for(const s of (st.flow[st.sym]||[])) if(s.x>0) px.set(tmin(s.t),s.x);
+  const anchors=g.times.map(t=>tgDlRef(t,g.now,g.S,px)); const strike=st.dlMode==="strike";
+  let jn=0; for(let j=0;j<g.times.length;j++) if(g.times[j]<=Math.max(g.now,MAP_OPEN)) jn=j;
+  let grid, levels, kcols=null;
+  const here=dm.grid.map((D,j)=>tgDlColumn(D,g.prices,g.dp,anchors[j],f));
+  if(!strike){ grid=here; levels=tgDlLevels(g.prices,g.grid[jn],anchors[jn],f,here[jn],6); }
+  else { // per-strike bands: rows inside each strike's half-step go to that strike
+    const snaps=st.flow[st.sym]||[], byT=new Map(snaps.map((s,j)=>[tmin(s.t),j])), live=mapRowsAt(null,se,d), use0=book!=="week";
+    const near=book==="0dte"?null:nearRows(), day=wkDayISO(), step=d.step||5, memo=new Map();
+    kcols=g.times.map((t,j)=>{ let rows=null; if(use0){ if(t<MAP_OPEN||t>g.now) rows=live; else { let jj=null; for(let q=0;q<4;q++) if(byT.has(t+q)){ jj=byT.get(t+q); break; } rows=jj==null?live:(memo.get(jj)||(memo.set(jj,mapRowsAt(jj,se,d)),memo.get(jj))); } }
+      const ty=Math.max(TG_GEND-Math.max(t,t<MAP_OPEN?MAP_OPEN:t),1)/525600; return tgDlStrikeCol(rows,near,Math.max(t,MAP_OPEN),ty,anchors[j],f,day); });
+    grid=kcols.map(km=>g.prices.map(p=>{ const k=Math.round(p/step)*step; return Math.abs(p-k)<=step*0.45?(km.get(k)||0):0; }));
+    const now=[...kcols[jn].entries()].filter(([k])=>k>=g.prices[0]&&k<=g.prices[g.prices.length-1]).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,6);
+    levels=now.map(([k,H],r)=>{ const i=Math.max(0,Math.min(g.prices.length-1,Math.round((k-g.prices[0])/g.dp))), gv=g.grid[jn][i], side=Math.sign(k-anchors[jn]);
+      return {rank:r+1,p:k,es5:Math.round(Math.abs(gv)*2*f),cls:gv>0?"hold":"speed",dir:H>=0?"buy":"sell",H:Math.round(H),own:true,side}; }); }
+  const all=[]; for(const col of grid) for(const v of col) all.push(Math.abs(v)); all.sort((a,b)=>a-b);
+  const vmax=Math.max(1e-9,all[Math.floor(all.length*0.95)]||all[all.length-1]||1e-9);
+  const feats=grid.map((col,j)=>{ const z=[]; if(!strike){ const ra=(anchors[j]-g.prices[0])/g.dp;
+      for(let i=1;i<col.length;i++){ if((col[i-1]<0&&col[i]>=0)||(col[i-1]>0&&col[i]<=0)){ const zi=i-1+(0-col[i-1])/(col[i]-col[i-1]||1); if(Math.abs(zi-ra)>1.5) z.push(zi); } } }
+    return {z,pk:[],tr:[],sp:[]}; });
+  const colMax=grid.map(col=>{ let a=1e-9; for(const v of col) if(v!=null&&Math.abs(v)>a) a=Math.abs(v); return a; });
+  return {kind:"delta",prices:g.prices,times:g.times,grid,cgrid:grid,base:null,vmax,now:g.now,S:g.S,feats,dp:g.dp,near:g.near,nearN:g.nearN,
+    book:g.book,share:null,colMax,view:V,led:g.led,unit:u,fac:f,gm:g,here,kcols,anchors,jn,levels,step:tgDlStep(vmax),strike,shadow:!!(TG.sg&&SB)}; }
+function tgDeltaLegend(m,bkTxt){ if(!m) return "Delta: needs the gamma map";
+  return (m.strike?`Delta by strike · each strike's own dealer buy (green) / sell (red) if SPX went from that minute's price to the strike`
+    :`Delta · green = dealers BUY on the way to that level from that minute's price · red = SELL · lines every ${fmtN(m.step)} ${m.unit} (model) · dotted = net zero`)
+    +` · ${m.shadow?"SHADOW: IV moves with price (measured β)":"IV held (sticky strike)"} · #1–#6 = ${m.strike?"biggest strike bands":"most hedging per 5 pts"} now · ${bkTxt}`; }
+function tgDlOverlay(ctx,o){ const m=o.m, X=o.X, Y=o.Y; if(!m||m.kind!=="delta") return;
+  m._geo={padL:o.padL,padT:o.padT,W:o.W,H:o.H,T0:m.times[0]}; TG_DL_LAST=m;
+  const P=r=>m.prices[0]+r*m.dp;
+  ctx.lineWidth=1; ctx.setLineDash([]);
+  if(!m.strike) for(let k=-8;k<=8;k++){ if(!k) continue; const L=k*m.step; ctx.strokeStyle=Math.abs(k)%2?"#ffffff55":"#ffffff99"; ctx.beginPath(); let any=false;
+    const cr=m.grid.map(col=>{ const o=[]; for(let i=1;i<col.length;i++){ const a=col[i-1], b=col[i]; if((a-L)*(b-L)<0) o.push(i-1+(L-a)/((b-a)||1)); } return o; });
+    for(let j=0;j<cr.length-1;j++){ for(const i of cr[j]){ let best=null; for(const q of cr[j+1]) if(Math.abs(q-i)<=3&&(best==null||Math.abs(q-i)<Math.abs(best-i))) best=q;
+        if(best!=null){ ctx.moveTo(X(m.times[j]),Y(P(i))); ctx.lineTo(X(m.times[j+1]),Y(P(best))); any=true; } } }
+    if(any) ctx.stroke(); }
+  const xn=X(m.times[m.jn]), xr=o.padL+o.W; ctx.font="bold 13px system-ui"; const used=[];
+  for(const L of m.levels){ const y=Y(L.p); if(y<o.padT||y>o.padT+o.H) continue; const col=L.dir==="buy"?"#2ECC71":L.dir==="sell"?"#FF5A5A":"#FFD84D";
+    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.setLineDash(L.cls==="hold"?[]:[6,4]); ctx.beginPath(); ctx.moveTo(xn,y); ctx.lineTo(xr,y); ctx.stroke(); ctx.setLineDash([]);
+    const txt=`#${L.rank} ${fmtN(L.p)}`, tw=ctx.measureText(txt).width; let yy=y+5; while(used.some(u=>Math.abs(u-yy)<16)) yy+=16; used.push(yy);
+    const x=Math.max(o.padL+2,Math.min(xr-tw-10,xn+8)); ctx.fillStyle="#000000d8"; ctx.fillRect(x-4,yy-13,tw+8,18); ctx.fillStyle=col; ctx.fillText(txt,x,yy); } }
+function tgDlTipHTML(m,t,p){ const g=m.gm, j=(()=>{ let b=0; for(let q=0;q<m.times.length;q++) if(Math.abs(m.times[q]-t)<Math.abs(m.times[b]-t)) b=q; return b; })();
+  const i=Math.max(0,Math.min(m.prices.length-1,Math.round((p-m.prices[0])/m.dp))), H=m.here[j][i], gv=g.grid[j][i], a=m.anchors[j], u=m.unit;
+  const amt=x=>(u==="ES"?fmtN(Math.abs(x))+" ES":"$"+fmtN(Math.abs(x),1)+"M")+" (model)";
+  const lv=m.levels.find(L=>Math.abs(L.p-m.prices[i])<=Math.max(m.dp*1.01,m.strike?2.5:0)&&j===m.jn);
+  let h=`<b>${tlabel(m.times[j])} · ${fmtN(m.prices[i])}</b>${lv?` · <b>#${lv.rank}</b>`:""}${m.shadow?" · shadow":""}<br>From ${fmtN(a)} to here, all strikes: dealers <b style="color:${H>=0?"#2ECC71":"#FF5A5A"}">${H>=0?"buy":"sell"} ${amt(H)}</b>`;
+  if(m.strike&&m.kcols){ const step=(st.live&&st.live[st.sym]&&st.live[st.sym].step)||5, k=Math.round(m.prices[i]/step)*step, v=m.kcols[j].get(k);
+    if(v!=null) h+=`<br>Strike ${fmtN(k)} alone: dealers <b style="color:${v>=0?"#2ECC71":"#FF5A5A"}">${v>=0?"buy":"sell"} ${amt(v)}</b> as price reaches it`; }
+  return h+`<br>At this level: ${amt(gv*2*m.fac)} per 5 pts — ${gv>0?"long gamma: works against the move (calms it)":"short gamma: works with the move (speeds it)"}`; }
+function tgDlHover(){ const cv=document.getElementById("mapRightC"), pane=document.getElementById("mapRightPane"); if(!cv||!pane||cv._dl) return; cv._dl=1;
+  const tip=document.createElement("div"); tip.className="tip"; tip.id="tgDlTip"; tip.style.minWidth="260px"; tip.style.fontSize="14px"; pane.style.position=pane.style.position||"relative"; pane.appendChild(tip);
+  const move=e=>{ const m=TG_DL_LAST; if(st.mapRight!=="delta"||!m||!m._geo){ tip.style.display="none"; return; } const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top, G=m._geo;
+    if(x<G.padL||x>G.padL+G.W||y<G.padT||y>G.padT+G.H){ tip.style.display="none"; return; }
+    const t=G.T0+(x-G.padL)/G.W*(MAP_T1-G.T0), p=m.prices[0]+(1-(y-G.padT)/G.H)*(m.prices[m.prices.length-1]-m.prices[0]);
+    tip.innerHTML=tgDlTipHTML(m,t,p); const pr=pane.getBoundingClientRect(); tip.style.display="block"; tip.style.left=Math.min(e.clientX-pr.left+14,pr.width-300)+"px"; tip.style.top=(e.clientY-pr.top+14)+"px"; };
+  cv.addEventListener("mousemove",move); cv.addEventListener("click",move); cv.addEventListener("mouseleave",()=>{ tip.style.display="none"; });
+  document.querySelectorAll("#tgDlModeSeg button").forEach(b=>b.addEventListener("click",()=>{ st.dlMode=b.dataset.v==="strike"?"strike":"here"; try{ localStorage.setItem(NS+"dlMode",st.dlMode); }catch(e){} render(); })); }
+function tgDlSeg(){ const s=document.getElementById("tgDlModeSeg"); if(!s) return; s.style.display=st.mapRight==="delta"?"":"none"; syncSeg("tgDlModeSeg",st.dlMode); }
+function tgDeltaReadout(){ // fixed config for scoring: SPX, OI + vol, All book, production maths, Smile off; levels with Shadow off and on; restores everything
+  const d=st.live&&st.live.SPX; if(!d||!d.rows||!(d.spot>0)) return null;
+  const keepTG=Object.assign({},TG), keep={sym:st.sym,smileOn:st.smileOn,basis:st.basis,mapLed:st.mapLed}; const c=liveClock(), now=c.h*60+c.m, day=wkDayISO();
+  try{ st.sym="SPX"; st.basis="oiv"; st.mapLed=false; st.smileOn=false; const out={v:TG_DL_V,basis:"oiv",book:"all",spot:d.spot};
+    for(const sg of [false,true]){ for(const k in TG) TG[k]=(k in TG_SEL)?"":false; TG.sg=sg; tgApply(); tgClockSync();
+      if(sg&&!SB){ out.levels_sg=null; continue; }
+      const S=d.spot, dp=(d.step||5)/MAP_SUB, live=mapRowsAt(null,null,d), near=nearRows()||[], P=tgGrid(S,0.02,dp), tyNow=Math.max(TG_GEND-now,1)/525600;
+      const col=P.map(p=>greekCol("gamma",live,p,tyNow)+(near.length?greekColWeek("gamma",near,p,now,day):0));
+      const D=P.map(p=>greekCol("delta",live,p,tyNow)+(near.length?greekColWeek("delta",near,p,now,day):0));
+      out[sg?"levels_sg":"levels"]=tgDlLevels(P,col,S,2,tgDlColumn(D,P,dp,S,2),6); }
+    return out; }
+  catch(e){ return {v:TG_DL_V,err:String(e).slice(0,200)}; }
+  finally{ for(const k in TG) TG[k]=keepTG[k]; tgApply(); st.sym=keep.sym; st.smileOn=keep.smileOn; st.basis=keep.basis; st.mapLed=keep.mapLed; tgClockSync(); } }
+
 /* Phase 3 (2026-11-04), both OFF by default (Map tab buttons; scored nightly before they are trusted):
    Smile  = shadow greeks: the smile moves with spot (sticky moneyness), so dσ/dS = −(K/S)·dσ/dK per strike.
             Δ_shadow = Δ + vega·σ_S → gamma adds 2·vanna·σ_S + volga·σ_S², charm adds −σ_S·d(vega)/dτ.
@@ -4614,7 +4833,7 @@ function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmoo
 function smileSS(r,S){ if(SMILE_MEASURED){ const b=smileBeta(r.k,S,r.dte||0); if(b!=null) return b/S; } return -(r.k/S)*(r.sk||0); }
 sbFetch(); setInterval(sbFetch,30*60*1000);
 function greekCol(kind, rows, S, ty, cm){ // one price point: sum over strikes
-  if(TG_ANYG) return greekColTG(kind,rows,S,ty,cm);   // TEST toggles C2 / D1 / D4
+  if(TG_ANYG||kind==="delta") return greekColTG(kind,rows,S,ty,cm);   // TEST toggles C2 / D1 / D4 / SG + the Delta map
   const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sm=!!st.smileOn; if(sm) smileSlopes(rows);
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue;
     const d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);
@@ -4727,7 +4946,7 @@ function wkBookInfo(){ // what the Week book is and how far to trust it (shown o
   if(ss&&ss.date===day&&ss.early_close) w.push(`early close ${ss.close} today: Week endpoints use it, the 0DTE clock still runs to 16:00`);
   return {asof,stale:!!asof&&asof!==day,warn:w}; }
 function greekColWeek(kind,rows,S,t,day){ let tot=0;
-  if(st.smileOn||TG_ANYG){ for(const r of rows){ const m=wkTauMin(r,day,t); if(m==null) continue; tot+=greekCol(kind,[r],S,m/525600); } return tot; }
+  if(st.smileOn||TG_ANYG||kind==="delta"){ for(const r of rows){ const m=wkTauMin(r,day,t); if(m==null) continue; tot+=greekCol(kind,[r],S,m/525600); } return tot; }
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue; const m=wkTauMin(r,day,t); if(m==null) continue;   // same maths as greekCol, Smile off, no per-row array
     const ty=m/525600, sq=Math.sqrt(Math.max(ty,1e-7)), d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);
     if(kind==="gamma") tot+=pos*(p/(S*r.sg*sq))*2.5; else if(kind==="charm") tot-=pos*(p*d2/(2*ty))*(5/525600); else tot-=pos*(-p*d2/r.sg)*0.01; }
@@ -4826,10 +5045,10 @@ function buildMap(kind,se,d,bookArg,view){
 /* Gradient ramp (2026-11-04): dark at zero, then several colours per side so each size reads as its own colour. */
 const HRAMP={ pos_g:[[12,22,42],[22,48,128],[45,105,225],[110,180,255],[225,242,255]], neg_g:[[12,22,42],[105,18,30],[200,45,45],[250,125,80],[255,226,196]],
              pos_c:[[12,22,42],[115,58,10],[210,120,22],[250,190,60],[255,246,205]], neg_c:[[12,22,42],[14,60,120],[30,135,215],[110,215,250],[232,250,255]] };
-function heatGrad(kind,v,vmax){ const x=Math.max(-1,Math.min(1,v/vmax)), a=Math.abs(x); const R=kind==="gamma"?(x>=0?HRAMP.pos_g:HRAMP.neg_g):(x>=0?HRAMP.pos_c:HRAMP.neg_c);
+function heatGrad(kind,v,vmax){ const x=Math.max(-1,Math.min(1,v/vmax)), a=Math.abs(x); const R=kind==="delta"?(x>=0?TG_DL_RAMP.pos:TG_DL_RAMP.neg):kind==="gamma"?(x>=0?HRAMP.pos_g:HRAMP.neg_g):(x>=0?HRAMP.pos_c:HRAMP.neg_c);
   const f=a*(R.length-1), i=Math.min(R.length-2,Math.floor(f)), u=f-i; return [0,1,2].map(q=>R[i][q]+(R[i+1][q]-R[i][q])*u); }
 function heatRGB(kind,v,vmax){ const x=Math.max(-1,Math.min(1,v/vmax)); const a=Math.pow(Math.abs(x),0.6); const bg=[12,22,42];
-  const c = kind!=="gamma" ? (x>=0?[245,166,35]:[64,196,232]) : (x>=0?[49,98,214]:[214,52,52]);     // charm: orange + / cyan −; gamma: blue + / red −
+  const c = kind==="delta" ? (x>=0?[46,204,113]:[214,52,52]) : kind!=="gamma" ? (x>=0?[245,166,35]:[64,196,232]) : (x>=0?[49,98,214]:[214,52,52]);     // charm: orange + / cyan −; gamma: blue + / red −
   return [bg[0]+(c[0]-bg[0])*a, bg[1]+(c[1]-bg[1])*a, bg[2]+(c[2]-bg[2])*a]; }
 /* 2026-11-12 ZONE view - Map > Gamma, button "Zone", OFF by default (Mithil's yes 11/12 to the 11/11 vendor chart:
    one bold flip line on a two-colour background). Colours come from the RAW gamma grid (De-trend is ignored here):
@@ -4924,6 +5143,7 @@ function drawHeat(id,m,se,d,legendTxt){
   { const ts=MAP_T1-T0<=180?30:60; for(let t=Math.ceil(T0/ts)*ts;t<=MAP_T1;t+=ts) ctx.fillText(tlabel(t),Math.min(X(t)-12,padL+W-30),h-6); }
   if(ys>=padT&&ys<=padT+H){ ctx.fillStyle="#fff"; ctx.fillRect(padL+W+2,ys-6,46,12); ctx.fillStyle="#000"; ctx.fillText(fmtN(m.S),padL+W+4,ys+3); }
   ctx.fillStyle=C("--faint"); ctx.fillText(legendTxt,padL+6,padT+12);
+  if(m.kind==="delta"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); tgDlOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }   // TEST DL
   if(typeof premOverlay==="function"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); premOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }
 }
 function drawBreakdown(id,se,d,m){
@@ -5088,19 +5308,21 @@ function renderMapTab(se,d){
   if(!d||!d.rows){ for(const id of ["mapGammaC","mapRightC","mapBreakC"]) drawHeat(id,null); return; }
   const bookR=st.mapBookR||st.mapBook||"all";
   const V=mapView();
-  const g=buildMap("gamma",se,d,undefined,V), r=st.mapRight==="chg"?changeMap(se,d,bookR,V):buildMap(st.mapRight||"charm",se,d,bookR,V);
-  const gF=V?buildMap("gamma",se,d):g, rF=V?(st.mapRight==="chg"?changeMap(se,d,bookR):buildMap(st.mapRight||"charm",se,d,bookR)):r;   // the read always uses the full map
+  const DL=st.mapRight==="delta";   // TEST DL: the pane shows Delta; the read-out keeps Charm (as when Charm is selected)
+  const g=buildMap("gamma",se,d,undefined,V), r=DL?tgDeltaMap(se,d,bookR,V):st.mapRight==="chg"?changeMap(se,d,bookR,V):buildMap(st.mapRight||"charm",se,d,bookR,V);
+  const gF=V?buildMap("gamma",se,d):g, rF=DL?buildMap("charm",se,d,bookR):V?(st.mapRight==="chg"?changeMap(se,d,bookR):buildMap(st.mapRight||"charm",se,d,bookR)):r;   // the read always uses the full map
   drawHeat("mapGammaC",g,se,d,TG.fx?`Dealer Δ per 2.5 pts · ${(st.mapBook||"0dte")==="0dte"?"0DTE":(st.mapBook==="week"?"1–7 DTE book":"0DTE + 1–7 DTE")}${v1On()?" + next expiry's volume":""} · ${st.gDet?"DE-TRENDED: blue/red = above/below the column median, NOT long/short":"colour = raw modeled value, blue long / red short"} · ${st.mapScale==="col"?"COLUMN scale: brightness is NOT comparable across times":"one colour scale for the whole map"} · green peak · yellow trough · dotted = raw zero${st.gDet?" (not the colour edge)":""} · ±1σ from 9:35`:`Dealer Δ per 2.5 pts · ${(st.mapBook||"0dte")==="0dte"?"0DTE":(st.mapBook==="week"?"1–7 DTE book":"0DTE + 1–7 DTE")}${v1On()?" + next expiry's volume":""} · ${st.gDet?"DE-TRENDED: blue/red = above/below the column average, NOT long/short":"blue long / red short"} · green peak · yellow trough · dotted zero · ±1σ from 9:35`);
   syncSeg("mapBookSeg",st.mapBook||"all"); syncSeg("mapBookRSeg",bookR); syncSeg("mapBasisSeg",st.basis); syncSeg("mapVol1Seg",st.vol1);
   { const ledOn=!!(st.mapLed&&ledBook()); const bs=document.getElementById("mapBasisSeg"); if(bs){ bs.classList.toggle("dim",ledOn); bs.title=ledOn?"Ledger is ON: the maps use the ledger + today's measured buy/sell, so OI / Vol / OI + vol / OI + signed are NOT used by the maps (they still set the Flow tab). Turn Ledger off to use them.":BASIS_TITLE; }
     const vs=document.getElementById("mapVol1Seg"); if(vs) vs.classList.toggle("dim",!ledOn&&st.basis==="oi"); }
   const bk=bookR; const bkTxt=bk==="0dte"?"0DTE only":bk==="week"?`1–7 DTE book only (${r?r.nearN:0} strikes, 08:35 OI)`:`0DTE + ${r?r.nearN:0} strikes of the 1–7 DTE book (morning OI only, no volume)${v1On()?" + next expiry's volume":""} · colour = structure vs the window baseline`;
   if(st.mapRight==="chg"&&r&&r.blocked){ drawChgBlocked("mapRightC"); }
+  else if(DL) drawHeat("mapRightC",r,se,d,tgDeltaLegend(r,bkTxt));
   else drawHeat("mapRightC",r,se,d,st.mapRight==="chg"
     ?`Change in dealer Δ per 2.5 pts over the last ${r?r.lagMin:30} min · orange = gamma added · cyan = removed · dotted = unchanged · basis ${st.basis.toUpperCase()} · ${bkTxt}`
     :(st.mapRight==="vanna"?"Dealer Δ per +1 vol pt":"Dealer Δ per 5 min")+(TG.fx?((r&&r.base?" · colour = vs this column's median, NOT buy/sell":" · orange = dealer buys · cyan = sells")+" · "+(st.mapScale==="col"?"COLUMN scale: brightness not comparable across times":"one scale for the whole map")+" · green peak · yellow trough · dotted = raw zero"+(r&&r.base?" (not the colour edge)":"")+" · "):" · orange = dealer buys · cyan = sells · green peak · yellow trough · dotted zero · ")+(bk!=="0dte"&&!(r&&r.near)?"week book not loaded (am_feed near_book)":bkTxt));
   drawBreakdown("mapBreakC",se,d,g);
-  const hh=document.getElementById("mapRightH"); if(hh) hh.textContent=st.mapRight==="chg"?"Change (gamma built in the last 30 min)":st.mapRight==="vanna"?"Vanna (hedge flow per +1 vol pt)":"Charm (hedge flow per 5 min)";
+  tgDlSeg(); const hh=document.getElementById("mapRightH"); if(hh) hh.textContent=DL?(st.dlMode==="strike"?"Delta by strike (each strike's own buy / sell)":"Delta (dealer buy / sell to reach each level)")+(TG.sg&&SB?" · shadow":""):st.mapRight==="chg"?"Change (gamma built in the last 30 min)":st.mapRight==="vanna"?"Vanna (hedge flow per +1 vol pt)":"Charm (hedge flow per 5 min)";
   document.getElementById("mapDocBtn").setAttribute("aria-pressed",st.docOn);
   { const pb=document.getElementById("mapPremBtn"); if(pb) pb.setAttribute("aria-pressed",!!st.premOv); }
   { const rb=document.getElementById("ruleReadBtn"); if(rb) rb.setAttribute("aria-pressed",!!st.ruleRead); }
@@ -8425,9 +8647,11 @@ async function readout(){ if(busy||!st.live||!st.live.SPX) return; const c=liveC
   const key=c.date+" "+tlabel(slot); if(done.has(key)) return; done.add(key); busy=true;
   try{ const rec=tgReadoutMeta(); if(!rec) return; rec.slot=tlabel(slot); rec.cfgs={}; const t0=performance.now();
     for(const [name,cfg] of TG_CFGS) for(const sm of [false,true]){ await new Promise(r=>setTimeout(r,0)); rec.cfgs[name+(sm?"|S":"|P")]=tgReadoutCfg(cfg,sm); }
+    try{ rec.dl=tgDeltaReadout(); }catch(e){ rec.dl={v:TG_DL_V,err:String(e).slice(0,200)}; }   // 2026-11-13 Delta levels for delta_score.py
     rec.ms=Math.round(performance.now()-t0); rec.current_toggles=Object.assign({},TG); rec.user_smile=!!st.smileOn; post("readout",rec); }
   finally{ busy=false; } }
 setInterval(readout,20000); setTimeout(readout,5000);
+try{ tgDlHover(); }catch(e){}   // 2026-11-13 Delta map hover / tap card
 })();
 
 })();

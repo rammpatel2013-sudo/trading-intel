@@ -513,6 +513,16 @@ body.phone .phead{padding:6px 10px 2px}body.phone .pane{max-width:100vw;overflow
 .tip{position:absolute;pointer-events:none;background:#06101FEE;border:1px solid var(--rule);border-radius:6px;padding:7px 9px;font-size:12px;line-height:1.45;display:none;z-index:5;min-width:150px}
 .tip b{font-weight:600}
 .hint{color:#B9C6D8;font-size:12.5px}
+.rangestrip{grid-column:1/-1;padding:4px 2px 2px;font-size:16px;line-height:1.5;color:#EEF3FA}   /* 2026-11-13 Range card */
+.rangestrip .rl{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline}.rangestrip .rl b{font-size:19px;color:#fff;font-weight:700}
+.rangestrip .rl .rg{color:#58D68D}.rangestrip .rl .ry{color:#FFD84D}.rangestrip .rl .rw{color:#FF8A8A;font-weight:700}.rangestrip .rl i{font-style:normal;color:#C9D4E3}
+.rbar{position:relative;height:24px;margin:8px 0 22px;background:#16213A;border-radius:4px}
+.rbar .rs{position:absolute;top:0;height:11px}.rbar .rf{position:absolute;top:13px;height:11px;background:#2ECC71;border-radius:2px}
+.rbar .rband{position:absolute;top:0;height:24px;background:#FFD84D30;border-left:1px solid #FFD84D;border-right:1px solid #FFD84D}
+.rbar .rmk{position:absolute;top:-5px;width:2px;height:34px;background:#fff}.rbar .rgs{position:absolute;top:-5px;width:4px;height:34px;background:#FFD84D;margin-left:-1px}
+.rbar .rlab{position:absolute;top:27px;font-size:13px;color:#DCE4F0;white-space:nowrap;transform:translateX(-50%)}.rbar .rlab.l0{transform:none}
+.rangedet{margin:2px 0 4px;padding:8px 10px;background:#0B1730;border:1px solid var(--rule);border-radius:6px;font-size:15px;line-height:1.55}.rangedet b{color:#fff}.rangedet .rw{color:#FF8A8A;font-weight:700}.rangedet .rq{color:#9FB3CF}
+#rangeDetBtn{font-size:13px;padding:1px 8px}
 .gapstrip{padding:4px 12px 6px;font-size:15px;line-height:1.45;color:#EEF3FA;border-bottom:1px solid var(--rule)}.gapstrip b{color:#D9B3FF;font-weight:700}.gapstrip .up{color:#58D68D}.gapstrip .dn{color:#FF8A8A}.gapstrip i{font-style:normal;color:#C9D4E3}
 select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:5px;padding:2px 6px;color:var(--ink);font-size:13px;font-weight:600}
 
@@ -966,7 +976,8 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     <div class="regime na" id="regime">No read yet</div>
     <div class="readtxt" id="readtxt">Waiting for the live feed.</div>
     <div class="levels" id="levels"></div>
-    <span style="display:flex;gap:6px"><button class="btn" id="pulseBtn" aria-pressed="false" title="Expand the signed-flow strip: cards, implied close, mood by expiry">Pulse</button><button class="btn" id="robBtn" aria-pressed="false" title="Lean after removing the biggest prints: one program or broad?">Robustness</button></span>
+    <span style="display:flex;gap:6px"><button class="btn" id="pulseBtn" aria-pressed="false" title="Expand the signed-flow strip: cards, implied close, mood by expiry">Pulse</button><button class="btn" id="robBtn" aria-pressed="false" title="Lean after removing the biggest prints: one program or broad?">Robustness</button><button class="btn" id="rangeBtn" aria-pressed="false" title="Range (off by default): how big today's SPX high-to-low is likely to be, from yesterday's VIX and VIX vs 3-month VIX - typical, quiet (1 day in 10 is smaller), big (1 in 10 is bigger) and 1 in 50 - with the range so far, the pace and a best guess for the full day. Size only, never direction.">Range</button></span>
+    <div class="rangestrip" id="rangeStrip" hidden></div>
   </section>
 
   <main id="tabFlow" class="tab">
@@ -1322,6 +1333,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
           <dt>Level strip</dt><dd><b>Put wall</b>, <b>Gamma flip</b>, <b>Pin magnet</b>, <b>Call wall</b>, <b>Report pivot</b> and <b>Move left</b> (how many points options still price for the rest of today). The small % under each = distance from price.</dd>
           <dt>Pulse</dt><dd>Opens the full flow strip on the Flow page: the cards, both sliders and the mood by expiry.</dd>
           <dt>Robustness</dt><dd>Re-checks the lean after removing the biggest trades. <b>Broad</b> = many traders agree. <b>One program</b> = a few big trades are driving it.</dd>
+          <dt>Range</dt><dd>Button next to Robustness, <b>off</b> by default. How big today&rsquo;s SPX high-to-low is likely to be, in points. The bar: <b>grey</b> = a quiet day (1 day in 10 is smaller), <b>blue</b> = normal, <b>orange</b> = big (1 in 10 is bigger), <b>red</b> = past 1 in 50; the <b>white</b> tick is the typical day. The <b>green</b> bar under it is the range so far. The <b>yellow</b> tick is the best guess for the whole day, with its 1-in-10 band as a light yellow box: early on it leans on the morning number, later on the pace (how much a typical day has made by this time). It comes from yesterday&rsquo;s close of VIX and of VIX &divide; 3-month VIX (&ldquo;the curve&rdquo;): an upward curve means calmer days, an inverted one bigger days at the same VIX. Measured on Cboe daily data: fit 2010&ndash;2017, checked 2018&ndash;now, where it explains about half of how big a day gets. <b>Details</b> shows the inputs, the last six days (typical &rarr; actual) and how often the bands held. <b>Size only, never direction.</b> About 1 day in 20 runs past twice its typical at any VIX and nothing here sees it coming (Nov 5: typical 67, actual 331). Written each evening by <code>range_feed</code>.</dd>
         </dl>
 
         <h3 class="pg" id="h-flow">Flow</h3>
@@ -1783,7 +1795,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
           <dt>All names</dt><dd>The bar under each heading adds up every name in that group, not only the five shown.</dd>
           <dt>Biggest</dt><dd>The name&rsquo;s largest single trade by net dollars. A spread or other package is shown with all its legs (for example <i>19Mar27 170C buy &middot; 185C sell &times;35K</i>: one expiry, two strikes, 35,000 each), then its net and the New York time it printed.</dd>
           <dt>Spreads</dt><dd>A package is judged by its legs, never by the sign of its price: a put spread sold for a credit is a bullish bet. A negative package price only says which way the cash went.</dd>
-          <dt>Left out</dt><dd><b>Financing, not bets</b>: deep in-the-money prints (boxes, conversions, dividend and stock-loan trades). A print counts as one when its delta is 0.85 or more, or when it is in the money and less than a tenth of its price is time value (a print that came without a stock price takes the stock&rsquo;s nearest one). A high-IV option that is out of the money stays a bet. Also left out: prints at the mid (no way to tell who paid), index and ETF names, and names with no market cap. The line at the bottom counts them.</dd>
+          <dt>Left out</dt><dd><b>Financing, not bets</b>: deep in-the-money prints (boxes, conversions, dividend and stock-loan trades). A print counts as one when its delta is 0.85 or more, when it is in the money and less than a tenth of its price is time value, or when it is more than 25% in the money (a print that came without a stock price takes the stock&rsquo;s nearest one). A high-IV option that is out of the money stays a bet. Also left out: prints at the mid (no way to tell who paid), index and ETF names, and names with no market cap. The line at the bottom counts them.</dd>
           <dt>Market cap</dt><dd>From FMP, refreshed once a day. Mega = $200B and up. Small = $300M to $2B. Micro = under $300M.</dd>
           <dt>Limits</dt><dd>&ldquo;Bought&rdquo; and &ldquo;sold&rdquo; come from where each print traded against the quote: right most of the time, not always. A big bullish print can be a hedge: calls bought can cap a short in the stock or in futures, so the trader is bearish overall. Not scored yet.</dd>
         </dl>
@@ -1921,6 +1933,7 @@ if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.mapZone=load("mapZone","0")==="1"; st.mapFlipLine=load("mapFlipLine","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1"; st.ruleRead=load("ruleRead","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex");
+st.rangeOn=load("rangeOn","0")==="1"; st.rangeDet=load("rangeDet","0")==="1";   // 2026-11-13 Range card, OFF by default
 // 2026-11-09: Density options DN1-DN6 and VIX options VX1 / VX2 / VIX map - all OFF by default (moved from the test cockpit)
 st.dno=(()=>{ try{ const j=JSON.parse(load("dnOpt","{}"))||{}; return {dn1:!!j.dn1,dn2:!!j.dn2,dn3:!!j.dn3,dn5:!!j.dn5,dn6:!!j.dn6}; }catch(e){ return {dn1:false,dn2:false,dn3:false,dn5:false,dn6:false}; } })();
 st.vxo=(()=>{ try{ const j=JSON.parse(load("vxOpt","{}"))||{}; return {vx1:!!j.vx1,vx2:!!j.vx2,vmap:!!j.vmap}; }catch(e){ return {vx1:false,vx2:false,vmap:false}; } })(); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
@@ -3391,7 +3404,7 @@ function render(){
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
   const se=series(st.sym); const {d,book}=currentBook(se);
   if(st.sel==null&&book){ const b=bursts(se)[0]; st.sel=b?b.k:book.pin; }
-  renderHeader(d,book,se); renderRead(se,book);
+  renderHeader(d,book,se); renderRead(se,book); try{ rangeRender(); }catch(e){ console.error(e); }   // 2026-11-13 Range card
   if(st.tab==="flow"){ renderMap(se,book); renderLadder(se,book);
     if(!st.max){ renderFlow2(se,d,book); if(st.focus!=="map"){ renderPicker(se,d); renderWatch(se); renderContract(se,d); } renderReads(se,book); } }
   else if(st.tab==="strikes") renderStrikes(se,d);
@@ -4366,6 +4379,71 @@ document.getElementById("robBtn").setAttribute("aria-pressed",st.rob);
 function syncPulse(){ document.body.classList.toggle("f2full",st.f2full); document.getElementById("pulseBtn").setAttribute("aria-pressed",st.f2full); }
 document.getElementById("pulseBtn").addEventListener("click",()=>{ st.f2full=!st.f2full; save("f2full",st.f2full?"1":"0"); syncPulse(); render(); });
 syncPulse();
+
+/* ============================================================ RANGE card (2026-11-13, Mithil's yes 11/12 22:5x to QuantNug's
+   "How big is today likely to be? (VIX + curve)"). Button "Range" in the read strip, OFF by default; nothing is fetched while off.
+   range_card.json (scripts/range_feed.py, each evening): typical / quiet / big / 1-in-50 SPX range for the session, from the prior
+   close of VIX and VIX / VIX3M (model range-v1, fit 2010-2017, checked 2018-now), the last six days, the scores, and the pace store
+   (share of its range a session has made by each 5 minutes after 09:30, blend weight w and a 1-in-10 band per mark).
+   Here: so far = SPX minute prices after 09:30 (the 09:30 row carries the prior close) plus live spot; pace = so far / curve;
+   best guess G = exp(w ln pace + (1-w) ln typical), never below so far; band = G * exp(lo..hi), never below so far.
+   Display only: no other number on the page changes. */
+var RANGE=null, RANGE_AT=0;   // var: render() may run before this line on page load
+function rangeFetch(){ if(!st.rangeOn) return; if(DEMO){ RANGE={_demo:1}; render(); return; }
+  fetch("range_card.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(j=>{ RANGE=j; RANGE_AT=Date.now(); render(); }).catch(e=>{ RANGE={_err:String(e)}; render(); }); }
+setInterval(()=>{ if(st.rangeOn) rangeFetch(); }, 5*60*1000);
+function rangeSoFar(R){ // SPX high-low after 09:30 from the minute log + live spot; null before the open
+  const c=liveClock(), now=c.h*60+c.m, close=R&&R.early_close&&R.for_date===c.date?13*60:16*60;
+  let lo=Infinity, hi=-Infinity, n=0;
+  for(const s of (st.flow.SPX||[])){ const t=tmin(s.t); if(t>RTH_OPEN&&t<=close&&s.x>0){ lo=Math.min(lo,s.x); hi=Math.max(hi,s.x); n++; } }
+  const sp=st.live&&st.live.SPX&&st.live.SPX.spot; if(sp>0&&now>RTH_OPEN&&now<=close){ lo=Math.min(lo,sp); hi=Math.max(hi,sp); n++; }
+  return n?{v:hi-lo,lo,hi,t:Math.min(now,close)-RTH_OPEN,done:now>=close,close}:null; }
+function rangeLive(R,sf){ // pace + best guess at the last completed 5-minute mark
+  const P=R.pace; if(!sf||!P||!P.curve||!P.curve.length||!(R.typical>0)||sf.t<10) return null;
+  const i=Math.max(0,Math.min(P.curve.length-1,Math.floor(sf.t/5)-1)), cu=P.curve[i], w=P.w[i]; if(!(cu>0)) return null;
+  if(sf.done) return {i,mark:P.marks[i],share:1,pace:sf.v,G:sf.v,lo:sf.v,hi:sf.v};
+  const pace=sf.v/cu, G=Math.max(sf.v,Math.exp(w*Math.log(pace)+(1-w)*Math.log(R.typical)));
+  return {i,mark:P.marks[i],share:cu,pace,G,lo:Math.max(sf.v,G*Math.exp(P.lo[i])),hi:Math.max(sf.v,G*Math.exp(P.hi[i])),w}; }
+function rangeDay(iso){ try{ return new Date(iso+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}); }catch(e){ return iso; } }
+function rangeStripHTML(){
+  if(!st.rangeOn) return "";
+  const R=RANGE; if(!R) return "<i>Range: loading…</i>"; if(R._demo) return "<i>Range: not in the demo (it reads range_card.json).</i>";
+  if(R._err||!(R.typical>0)) return `<i>Range: range_card.json not available yet${R._err?" ("+R._err+")":""} — written each evening by range_feed.</i>`;
+  const c=liveClock(), f=x=>fmtN(Math.round(x)), sf=rangeSoFar(R), L=rangeLive(R,sf);
+  const stale=R.for_date<c.date, ahead=R.for_date>c.date, pct=x=>Math.round(x*100)+"%";
+  const curve=R.ratio<1?`upward (VIX is ${pct(R.ratio)} of 3-month VIX)`:`inverted (VIX is ${pct(R.ratio)} of 3-month VIX)`;
+  let line=`<b>Range ${ahead?rangeDay(R.for_date):"today"}</b>`;
+  if(stale) line+=` <span class="rw">⚠ card is for ${rangeDay(R.for_date)} — today's not written yet</span>`;
+  if(sf&&!ahead&&!stale) line+=`<span>so far <b class="rg">${f(sf.v)}</b></span>`;
+  line+=`<span>typical <b>${f(R.typical)}</b></span>`;
+  if(L&&!ahead&&!stale){ line+=sf.done?`<span>day done: <b class="ry">${f(sf.v)}</b> vs typical ${f(R.typical)}</span>`
+      :`<span>by ${tlabel(RTH_OPEN+L.mark)} a typical day has made <b>${pct(L.share)}</b> of its range → on pace for <b>${f(L.pace)}</b></span><span>best guess <b class="ry">${f(L.G)}</b> <i>(1 in 10: ${f(L.lo)}–${f(L.hi)})</i>${R.pace.rough?' <i>rough</i>':""}</span>`; }
+  else line+=`<span><i>quiet under ${f(R.quiet)} · big over ${f(R.big)} · 1 in 50 over ${f(R.p98)}</i></span>`;
+  line+=`<button class="btn" id="rangeDetBtn" aria-pressed="${!!st.rangeDet}">Details</button>`;
+  const top=Math.max(R.p98*1.08, sf&&!ahead&&!stale?sf.v*1.05:0, L&&!ahead&&!stale?L.hi*1.03:0), X=v=>Math.max(0,Math.min(100,v/top*100)).toFixed(2)+"%";
+  const seg=(a,b,col)=>`<div class="rs" style="left:${X(a)};width:calc(${X(b)} - ${X(a)});background:${col}"></div>`;
+  let bar=seg(0,R.quiet,"#3A4560")+seg(R.quiet,R.big,"#2F62B5")+seg(R.big,R.p98,"#C9811F")+seg(R.p98,top,"#B8323A");
+  if(L&&!ahead&&!stale&&!sf.done) bar+=`<div class="rband" style="left:${X(L.lo)};width:calc(${X(L.hi)} - ${X(L.lo)})"></div>`;
+  if(sf&&!ahead&&!stale) bar+=`<div class="rf" style="left:0;width:${X(sf.v)}"></div>`;
+  bar+=`<div class="rmk" style="left:${X(R.typical)}"></div>`;
+  if(L&&!ahead&&!stale) bar+=`<div class="rgs" style="left:${X(L.G)}"></div>`;
+  bar+=`<span class="rlab l0" style="left:0">0</span><span class="rlab" style="left:${X(R.quiet)}">quiet ${f(R.quiet)}</span><span class="rlab" style="left:${X(R.typical)}">typical ${f(R.typical)}</span><span class="rlab" style="left:${X(R.big)}">big ${f(R.big)}</span><span class="rlab" style="left:${X(R.p98)}">1 in 50: ${f(R.p98)}</span>`;
+  let h=`<div class="rl">${line}</div><div class="rbar" role="img" aria-label="Today's range against the typical, quiet, big and 1-in-50 day">${bar}</div>`;
+  if(st.rangeDet){ const rec=(R.recent||[]).map(x=>{ const out=x.actual<x.quiet||x.actual>x.big; return `${rangeDay(x.date).replace(/^\w+, /,"")} ${f(x.typical)}→<span class="${out?"rw":""}">${f(x.actual)}</span>`; }).join(" · ");
+    const so=R.scores&&R.scores.oos, sl=R.scores&&R.scores.live, P=R.pace||{};
+    const ps=R.scores&&(R.scores.pace_live&&R.scores.pace_live["10:00"]&&R.scores.pace_live["10:00"].n?R.scores.pace_live:R.scores.pace_stored);
+    const psTxt=ps?Object.entries(ps).filter(([k,v])=>v&&v.n).map(([k,v])=>`${k}: ${v.guess_closer} of ${v.n}`).join(" · "):"";
+    h+=`<div class="rangedet"><div><b>Why this size:</b> VIX ${R.vix.toFixed(2)} at the ${rangeDay(R.inputs_date)} close; the curve is ${curve}. Days like this: typical <b>${f(R.typical)}</b> SPX pts high to low; 1 in 10 quieter than ${f(R.quiet)}; 1 in 10 bigger than ${f(R.big)}; 1 in 50 bigger than ${f(R.p98)}.</div>
+      <div><b>Recent days</b>, typical → actual: ${rec||"–"} <span class="rq">(red = outside quiet–big)</span></div>
+      <div><b>How often the bands held:</b> 2018–now ${so&&so.n?`${so.in_band_pct}% of ${fmtN(so.n)} days between quiet and big (aim 80%), ${fmtN(so.over_1in50)} past 1 in 50`:"–"}${sl&&sl.n?` · live since ${rangeDay(sl.since)}: ${sl.in_band} of ${sl.n}`:" · live scoring starts "+rangeDay((sl&&sl.since)||"2026-11-13")}.</div>
+      <div><b>Pace:</b> from ${fmtN(P.n||0)} sessions${P.src?" ("+Object.entries(P.src).map(([k,v])=>`${k==="spy_1m"?"SPY 1-min bars":k==="spx_log"?"our SPX minute log":k} ${v}`).join(", ")+")":""}${P.rough?" — <b>rough</b> until 60 sessions (best guess leans on the curve alone, band = the morning band)":""}.${psTxt?` Best guess closer to the day's actual range than the morning typical — ${psTxt}${R.scores.pace_live&&R.scores.pace_live["10:00"]&&R.scores.pace_live["10:00"].n?" (live)":" (stored sessions)"}.`:""}</div>
+      <div class="rq">Size only, never direction. About 1 day in 20 runs past twice its typical at any VIX and nothing here sees those coming (Nov 5: typical 67, actual 331). Model ${R.v}: log(range ÷ prior close) from log VIX and log(VIX ÷ VIX3M) of the prior close; fit ${R.model.fit}, R² ${R.model.r2_check} on ${R.model.check}. Written ${R.generated}.</div></div>`; }
+  return h; }
+function rangeRender(){ const el=document.getElementById("rangeStrip"); if(!el) return; const b=document.getElementById("rangeBtn"); if(b) b.setAttribute("aria-pressed",!!st.rangeOn);
+  const h=st.rangeOn?rangeStripHTML():""; el.hidden=!h; if(el._h!==h){ el.innerHTML=h; el._h=h; const d=document.getElementById("rangeDetBtn"); if(d) d.addEventListener("click",()=>{ st.rangeDet=!st.rangeDet; save("rangeDet",st.rangeDet?"1":"0"); render(); }); } }
+document.getElementById("rangeBtn").addEventListener("click",()=>{ st.rangeOn=!st.rangeOn; save("rangeOn",st.rangeOn?"1":"0"); if(st.rangeOn) rangeFetch(); render(); window.dispatchEvent(new Event("resize")); });
+if(st.rangeOn) rangeFetch();
 
 /* ============================================================ MAP tab — OptionsDepth-style projection heat maps (gamma / charm / vanna) + breakdown by strike
    Left of the "now" line: the dealer book as it stood each minute (OI basis + that minute's volume, that minute's IV), repriced across the price grid.

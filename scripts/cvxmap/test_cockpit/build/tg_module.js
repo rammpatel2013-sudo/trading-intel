@@ -16,14 +16,15 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["c2","IV path","C2","v0","IV at a map price moves along β from the anchor spot: σ(S) = σ₀ + ∫ β/x dx. Greeks are computed at that IV. Smile ON adds the slope terms on top. Needs the β file."],
   ["d4","Real 5-min charm","D4","v1","Charm = the actual change in delta over the next 5 minutes (instead of rate × 5 min, which overstates the last 10–30 minutes)."],
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
-  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."]];
+  ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
+  ["sg","Shadow","SG","v0","Alma's shadow greeks (2026-11-13): IV moves with price by our measured β (the Smile button's β file) along the path from that minute's price. Gamma = gamma + vanna × (IV change per point); Delta pane = the plain option delta at that moving IV, computed directly; charm / vanna use the path IV. Overrides Smile while on (Smile measures the min-variance hedge, a different object - never both). Needs the β file."]];
 // 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
 const TG_SEL={b2:["","1600","1615"]};
 let TG={}; for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false;
 let TG_ANYG=false, TG_GEND=16*60;
 const TG_STATS={rej:0,fill:0,wkLive:0,wkFb:0};
 const FEED_END=16*60+15;   // cvx_live.py EXPIRY_MIN: the writer solves 0DTE IV to 16:15
-function tgApply(){ TG_ANYG=!!(TG.c2||TG.d1||TG.d4); }
+function tgApply(){ TG_ANYG=!!(TG.c2||TG.d1||TG.d4||TG.sg); }
 function tgLoad(){ try{ const j=JSON.parse(localStorage.getItem("tg_v1")||"{}"); for(const k in TG) if(k in j) TG[k]=j[k]; }catch(e){} tgApply(); }
 function tgSave(){ try{ localStorage.setItem("tg_v1",JSON.stringify(TG)); }catch(e){} }
 function tgOn(){ return TG_DEF.filter(([id])=>!!TG[id]).map(([id,lb,tid])=>tid+(TG_SEL[id]?" "+TG[id].slice(0,2)+":"+TG[id].slice(2):"")); }
@@ -98,14 +99,30 @@ function tgPathSg(r,S){ const s0=r.s0||(st.live&&st.live[st.sym]&&st.live[st.sym
   const n=8, dte=r.dte||0; let integ=0, prev=null;
   for(let i=0;i<=n;i++){ const x=s0+(S-s0)*i/n; const b=smileBeta(r.k,x,dte); const f=(b==null?0:b)/x; if(prev!=null) integ+=(prev+f)/2*(S-s0)/n; prev=f; }
   const v=Math.max(0.01,r.sg+integ); r._c2.set(key,v); return v; }
-function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 options (same maths as greekCol when all three are off)
-  const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sm=!!st.smileOn; if(sm) smileSlopes(rows); const c2=TG.c2&&!!SB;
+/* SG (2026-11-13): IV along the measured-β path from the row's anchor s0 (Alma's shadow greeks), integrated EXACTLY:
+   β is constant inside each moneyness zone (m = 100(k/x - 1)), so σ(S) = σ0 + Σ β_zone · ln(x_b / x_a) over the zone pieces
+   between s0 and S; with E2 (smooth β) Simpson's rule, 64 steps. Its slope is β(S)/S at every price, so the shadow gamma
+   (gamma + vanna·β/S) is exactly the derivative of the shadow delta. C2's 8-step path (tgPathSg) is left as it was. */
+function tgShadowSg(r,S){ const s0=r.s0||(st.live&&st.live[st.sym]&&st.live[st.sym].spot)||S; if(!SB||Math.abs(S-s0)<1e-9) return r.sg;
+  const ck="sg"+(TG.e2?"e":"h")+(SB&&SB.generated)+"|"+s0+"|"+r.sg; if(!r._sg||r._sgk!==ck){ r._sg=new Map(); r._sgk=ck; }
+  const key=Math.round(S*1e4); const hit=r._sg.get(key); if(hit!==undefined) return hit;
+  const dte=r.dte||0; let integ=0;
+  if(TG.e2){ const n=64, h=(S-s0)/n; for(let i=0;i<=n;i++){ const x=s0+h*i, b=smileBeta(r.k,x,dte), w=(i===0||i===n)?1:(i%2?4:2); integ+=w*((b==null?0:b)/x); } integ*=h/3; }
+  else { const E=dte>=1?(SB.multi&&SB.multi.edges_pct)||[]:(SB.dte0&&SB.dte0.edges_pct)||[]; const lo=Math.min(s0,S), hi=Math.max(s0,S);
+    const xs=E.map(e=>r.k/(1+e/100)).filter(x=>x>lo&&x<hi).sort((a,b)=>a-b); const pts=[lo,...xs,hi];
+    for(let i=0;i<pts.length-1;i++){ const a=pts[i], b2=pts[i+1], bm=smileBeta(r.k,(a+b2)/2,dte); integ+=(bm==null?0:bm)*Math.log(b2/a); }
+    if(S<s0) integ=-integ; }
+  const v=Math.max(0.01,r.sg+integ); r._sg.set(key,v); return v; }
+function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / SG options (same maths as greekCol when all are off) + kind "delta"
+  const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sgOn=!!TG.sg&&!!SB, sm=!!st.smileOn&&!sgOn; if(sm) smileSlopes(rows); const c2=TG.c2&&!!SB;
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue;
-    const sg=c2?tgPathSg(r,S):r.sg;
+    const sg=sgOn?tgShadowSg(r,S):c2?tgPathSg(r,S):r.sg;
     const d1=(Math.log(S/r.k)+0.5*sg*sg*ty)/(sg*sq), d2=d1-sg*sq, p=PHI(d1);
+    if(kind==="delta"){ tot+=pos*tgN(d1); continue; }   // TEST DL: dealer delta in contracts, the part that moves (calls and puts share N(d1); a put's -1 is a constant)
     const sS=sm?smileSS(r,S):0;
     if(kind==="gamma"){ let g=p/(S*sg*sq) + (sm? 2*sS*(-p*d2/sg) + sS*sS*(S*p*sq*d1*d2/sg) : 0);
       if(sm&&TG.d1) g+=S*p*sq*tgDbdS(r,S);                          // + Vega · db/dS
+      if(sgOn){ const b=smileBeta(r.k,S,r.dte||0); if(b!=null) g+=(-p*d2/sg)*(b/S); }   // TEST SG: + Vanna · dσ/dS along the β path (Alma's shadow gamma)
       tot+=pos*g*2.5; }
     else if(kind==="charm"){ const smc=sm? sS*S*p*(d1*d2+1)/(2*sq)*(5/525600) : 0; let dd;
       if(TG.d4){ const t2=ty-5/525600; const n1=t2>0?tgN((Math.log(S/r.k)+0.5*sg*sg*t2)/(sg*Math.sqrt(t2))):(S>r.k?1:(S<r.k?0:0.5)); dd=n1-tgN(d1); }
@@ -127,7 +144,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 op
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
 const TG_SCORE_V="score-v1"; const TG_PAGE_V="__TG_PAGE_V__";
-const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}]];
+const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
 function tgCross(prices,col,i,lev){ const a=col[i-1], b=col[i]; return prices[i-1]+(prices[i]-prices[i-1])*(lev-a)/((b-a)||1); }

@@ -436,6 +436,11 @@ def main():
         json.dump(board, fh, indent=1)
     print("scored %d day(s); %d S5 groups (%d pending) -> %s" % (
         len(days), len(s5), sum(1 for v in s5.values() if v["status"] == "pending"), sdir))
+    try:   # 2026-11-13: the Delta map levels (rules dl-v0) score in the same nightly run; a failure there never stops v1
+        import delta_score
+        delta_score.main(["--data", a.data, "--out", outdir])
+    except Exception as exc:  # noqa: BLE001
+        print("delta_score failed: %s" % str(exc)[:200])
     return 0
 
 

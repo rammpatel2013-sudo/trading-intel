@@ -51,7 +51,7 @@ def test_financing_unsigned_and_index_prints_are_left_out() -> None:
     per, out = bf.classify(rows)
     assert set(per) == {"NVDA", "ABCL"} and per["NVDA"]["bull"] == 59_000_000
     assert out["fin_n"] == 4 and out["fin_prem"] == 197_300_000
-    assert out["fin_by"] == {"tagged": 1, "delta": 1, "itm": 2, "iv": 0}
+    assert out["fin_by"] == {"tagged": 1, "delta": 1, "itm": 2, "deep": 0, "iv": 0}
     assert out["uns_n"] == 1 and out["nonstock_n"] == 1
     # 2nd run 11/12: that DELL print came with no spot; it takes DELL's nearest print's spot
     dell = [_p("DELL", "P", "sell", 22_300_000, strike=550, expiry="2028-01-21", price=223,
@@ -62,6 +62,11 @@ def test_financing_unsigned_and_index_prints_are_left_out() -> None:
     assert dell[0]["spot"] == 347.0 and out["spot_filled"] == 1
     assert bf.classify(dell)[1]["spot_filled"] == 1                   # same count on a second build
     assert out["fin_by"]["itm"] == 1 and per["DELL"]["bull"] == 700_000 and per["DELL"]["bear"] == 0
+    # 3rd look 11/12: at spot $350 the DELL put keeps ~10.3% time value (over the itm line) but is
+    # 57% in the money -> "deep"; a call 20% in the money with 17% time value stays a bet
+    assert bf.fin_reason(_p("DELL", "P", "sell", 22_300_000, strike=550, expiry="2028-01-21", spot=350.0,
+                            price=223, delta=None, iv=None, size=1000)) == "deep"
+    assert bf.fin_reason(_p("X", "C", "buy", 1, strike=80, spot=100.0, price=24.0, delta=0.8, iv=0.4)) is None
     # IV >= 150% only counts as financing on an in-the-money print with some time value left
     assert bf.fin_reason(_p("X", "C", "buy", 1, strike=10, spot=12, price=3.0, delta=0.6, iv=1.9)) == "iv"
     assert bf.fin_reason(_p("X", "C", "buy", 1, strike=10, spot=8, price=0.9, delta=0.3, iv=1.9)) is None
@@ -76,7 +81,7 @@ def test_tape_times_on_utc_become_new_york_times() -> None:
     assert [r["ts"].strftime("%H:%M") for r in et] == ["09:41", "15:59"]      # already New York time
     pay = bf.build(utc, {"NVDA": 4e12}, "2026-11-12", datetime(2026, 11, 12, 16, 0))
     assert pay["asof"] == "15:59" and pay["mega"]["top"][0]["big"]["t"] == "10:42"
-    assert pay["totals"]["fin_by"] == {"tagged": 0, "delta": 0, "itm": 0, "iv": 0}
+    assert pay["totals"]["fin_by"] == {"tagged": 0, "delta": 0, "itm": 0, "deep": 0, "iv": 0}
 
 
 def test_biggest_bet_is_the_largest_package_and_mixed_size_clusters_split() -> None:

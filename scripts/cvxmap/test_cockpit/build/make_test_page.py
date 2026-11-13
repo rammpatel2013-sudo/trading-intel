@@ -1,17 +1,18 @@
 """Build scripts/cvxmap/test_cockpit/cvx_cockpit_test.html from the production cockpit (2026-11-08).
 Every edit is an exact, single-occurrence replacement; the script stops if production text is not as expected.
-2026-11-09: MAP toggles only. The Density (DN1-DN6) and VIX (VX1/VX2) toggles moved to the production page as options
+2026-11-09: MAP toggles only. 2026-11-13: + the Delta map (tg_delta.js, right pane "Delta", section 14). The Density (DN1-DN6) and VIX (VX1/VX2) toggles moved to the production page as options
 (OFF by default), so the test page simply inherits them from production; tg_den.js / tg_vix.js are gone.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("4c4dccaae19a23b4"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("dc154c553ccd5ce9"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI).encode("utf-8")).hexdigest()[:12])
+DL = open(os.path.join(HERE, "tg_delta.js"), encoding="utf-8").read()   # 2026-11-13 Delta map
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -46,13 +47,13 @@ rep("const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
 # 5. greekCol dispatch
 rep("function greekCol(kind, rows, S, ty, cm){ // one price point: sum over strikes\n",
-    "function greekCol(kind, rows, S, ty, cm){ // one price point: sum over strikes\n  if(TG_ANYG) return greekColTG(kind,rows,S,ty,cm);   // TEST toggles C2 / D1 / D4\n")
+    "function greekCol(kind, rows, S, ty, cm){ // one price point: sum over strikes\n  if(TG_ANYG||kind===\"delta\") return greekColTG(kind,rows,S,ty,cm);   // TEST toggles C2 / D1 / D4 / SG + the Delta map\n")
 # 6. mapRowsAt: tobs, B3/B2/A5 IV, s0, B6
 rep("  const ks=snap?snap.k:[...live.keys()]; const out=[];\n",
     "  const ks=snap?snap.k:[...live.keys()]; const out=[]; const TGR=tgRowsOn(), isLive=snapIdx==null, tobs=TGR?(snap?tmin(snap.t):tgLiveTobs(d)):0; if(isLive) TG_STATS._rej=0;\n")
@@ -68,7 +69,7 @@ rep("out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||\"PM\",exp_t:r.exp_t||(
     "out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||\"PM\",exp_t:r.exp_t||(r.e+\"T16:00\"),cal_ok:r.cal_ok!==false,s0:S}); }\n  if(TG.b5){ TG_STATS.wkLive=nL; TG_STATS.wkFb=nF; }\n  return out.length?out:null; }")
 # 8. Week fast path off when a greek toggle is on
 rep("function greekColWeek(kind,rows,S,t,day){ let tot=0;\n  if(st.smileOn){",
-    "function greekColWeek(kind,rows,S,t,day){ let tot=0;\n  if(st.smileOn||TG_ANYG){")
+    "function greekColWeek(kind,rows,S,t,day){ let tot=0;\n  if(st.smileOn||TG_ANYG||kind===\"delta\"){")
 # 9. Week field cache key
 rep("wkHash(rows),prices.length,prices[0],prices[prices.length-1]].join(\"|\");",
     "wkHash(rows),tgKey(),prices.length,prices[0],prices[prices.length-1]].join(\"|\");")
@@ -134,6 +135,25 @@ ROLD = """:(st.mapRight==="vanna"?"Dealer Δ per +1 vol pt":"Dealer Δ per 5 min
 RNEW = """:(st.mapRight==="vanna"?"Dealer Δ per +1 vol pt":"Dealer Δ per 5 min")+(TG.fx?((r&&r.base?" · colour = vs this column's median, NOT buy/sell":" · orange = dealer buys · cyan = sells")+" · "+(st.mapScale==="col"?"COLUMN scale: brightness not comparable across times":"one scale for the whole map")+" · green peak · yellow trough · dotted = raw zero"+(r&&r.base?" (not the colour edge)":"")+" · "):" · orange = dealer buys · cyan = sells · green peak · yellow trough · dotted zero · ")+(bk!=="0dte"&&!(r&&r.near)?"week book not loaded (am_feed near_book)":bkTxt));"""
 rep(ROLD, RNEW)
 # 13. (2026-11-08 evening) Density DN1-DN6 / VIX VX1-VX2 hooks: removed 2026-11-09 - they are production options now.
+# 14. (2026-11-13) DELTA map - right pane "Delta" (tg_delta.js). Display only; the read-out keeps Charm as when Charm is selected.
+rep('title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div>',
+    'title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button><button data-v="delta" aria-pressed="false" title="TEST Delta map: ES contracts dealers would buy (green) or sell (red) on the way if SPX went from that minute&#39;s price to each level - built from the gamma map of the same book. #1-#6 = where they hedge the most per 5 pts now.">Delta</button></div><div class="seg" role="group" id="tgDlModeSeg" style="display:none" title="TEST Delta view: From here = all strikes, dealer buy/sell to reach each level from the price at that minute; By strike = each strike\'s own buy/sell as price reaches it (QuantNug-style bands)."><button data-v="here" aria-pressed="true">From here</button><button data-v="strike" aria-pressed="false">By strike</button></div>')
+rep("""  const g=buildMap("gamma",se,d,undefined,V), r=st.mapRight==="chg"?changeMap(se,d,bookR,V):buildMap(st.mapRight||"charm",se,d,bookR,V);
+  const gF=V?buildMap("gamma",se,d):g, rF=V?(st.mapRight==="chg"?changeMap(se,d,bookR):buildMap(st.mapRight||"charm",se,d,bookR)):r;   // the read always uses the full map""",
+    """  const DL=st.mapRight==="delta";   // TEST DL: the pane shows Delta; the read-out keeps Charm (as when Charm is selected)
+  const g=buildMap("gamma",se,d,undefined,V), r=DL?tgDeltaMap(se,d,bookR,V):st.mapRight==="chg"?changeMap(se,d,bookR,V):buildMap(st.mapRight||"charm",se,d,bookR,V);
+  const gF=V?buildMap("gamma",se,d):g, rF=DL?buildMap("charm",se,d,bookR):V?(st.mapRight==="chg"?changeMap(se,d,bookR):buildMap(st.mapRight||"charm",se,d,bookR)):r;   // the read always uses the full map""")
+rep("""  if(st.mapRight==="chg"&&r&&r.blocked){ drawChgBlocked("mapRightC"); }
+  else drawHeat("mapRightC",r,se,d,st.mapRight==="chg\"""",
+    """  if(st.mapRight==="chg"&&r&&r.blocked){ drawChgBlocked("mapRightC"); }
+  else if(DL) drawHeat("mapRightC",r,se,d,tgDeltaLegend(r,bkTxt));
+  else drawHeat("mapRightC",r,se,d,st.mapRight==="chg\"""")
+rep('if(hh) hh.textContent=st.mapRight==="chg"?', 'if(hh) hh.textContent=DL?(st.dlMode==="strike"?"Delta by strike (each strike\'s own buy / sell)":"Delta (dealer buy / sell to reach each level)")+(TG.sg&&SB?" · shadow":""):st.mapRight==="chg"?')
+rep('const hh=document.getElementById("mapRightH");', 'tgDlSeg(); const hh=document.getElementById("mapRightH");')
+rep('const R=kind==="gamma"?(x>=0?HRAMP.pos_g:HRAMP.neg_g)', 'const R=kind==="delta"?(x>=0?TG_DL_RAMP.pos:TG_DL_RAMP.neg):kind==="gamma"?(x>=0?HRAMP.pos_g:HRAMP.neg_g)')
+rep('  const c = kind!=="gamma" ? (x>=0?[245,166,35]:[64,196,232])', '  const c = kind==="delta" ? (x>=0?[46,204,113]:[214,52,52]) : kind!=="gamma" ? (x>=0?[245,166,35]:[64,196,232])')
+rep('  if(typeof premOverlay==="function"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); premOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }',
+    '  if(m.kind==="delta"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); tgDlOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }   // TEST DL\n  if(typeof premOverlay==="function"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); premOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }')
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)
