@@ -1776,15 +1776,16 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
 
         <h3 class="pg" id="h-bets">Bets</h3>
         <p class="what">Today&rsquo;s biggest option bets on single stocks: <b>mega caps</b> (over $200B) on the left, <b>small + micro caps</b> (under $2B) on the right, the top 5 of each. Off by default; press <b>ON</b>. Rebuilt every 5 minutes from 09:35 to 16:05 ET from the market-wide tape (every option print of $25k or more), so it reads best late in the day, around 3:30. It shows which way the money leaned, not a trade signal.</p>
+        <figure class="hshot"><a href="help/bets.webp" target="_blank" rel="noopener"><img src="help/bets.webp" loading="lazy" alt="Bets tab, 11/12 15:59 ET"></a><figcaption>Real screen, Thu Nov 12, as of 15:59 ET. Both groups were <b>balanced</b>: mega caps +$122M net on about $2B a side, small + micro caps +$1.9M on about $12M a side. NVDA was the biggest bullish name (+$138M net), AMD and ORCL the bearish ones. DELL&rsquo;s biggest is a Jan 2028 550 put sold far in the money, almost all intrinsic value: close to financing, so read a name like that with care.</figcaption></figure>
         <dl>
           <dt>The bar</dt><dd>One bar per name. <b style="color:var(--shortg)">Red, to the left</b> = bearish dollars: puts bought plus calls sold. <b style="color:var(--longg)">Green, to the right</b> = bullish dollars: calls bought plus puts sold. The <b>white dot</b> = the net (bullish minus bearish). The five bars in a column share one scale; the two columns each have their own.</dd>
           <dt>Top 5</dt><dd>The five names with the largest net, either way. The line at the top says which way each group leans: <b>balanced</b> when the net is under a tenth of all its dollars.</dd>
           <dt>All names</dt><dd>The bar under each heading adds up every name in that group, not only the five shown.</dd>
-          <dt>Biggest</dt><dd>The name&rsquo;s largest single trade by net dollars. A spread or other package is shown with all its legs (for example <i>19Mar27 170C buy &middot; 185C sell &times;35K</i>: one expiry, two strikes, 35,000 each), then its net and the time.</dd>
+          <dt>Biggest</dt><dd>The name&rsquo;s largest single trade by net dollars. A spread or other package is shown with all its legs (for example <i>19Mar27 170C buy &middot; 185C sell &times;35K</i>: one expiry, two strikes, 35,000 each), then its net and the New York time it printed.</dd>
           <dt>Spreads</dt><dd>A package is judged by its legs, never by the sign of its price: a put spread sold for a credit is a bullish bet. A negative package price only says which way the cash went.</dd>
-          <dt>Left out</dt><dd>Deep in-the-money prints (boxes, conversions, dividend and stock-loan trades: financing, not bets), prints at the mid (no way to tell who paid), index and ETF names, and names with no market cap. The line at the bottom counts them.</dd>
+          <dt>Left out</dt><dd><b>Financing, not bets</b>: deep in-the-money prints (boxes, conversions, dividend and stock-loan trades). A print counts as one when its delta is 0.85 or more, or when it is in the money and less than a tenth of its price is time value (a print that came without a stock price takes the stock&rsquo;s nearest one). A high-IV option that is out of the money stays a bet. Also left out: prints at the mid (no way to tell who paid), index and ETF names, and names with no market cap. The line at the bottom counts them.</dd>
           <dt>Market cap</dt><dd>From FMP, refreshed once a day. Mega = $200B and up. Small = $300M to $2B. Micro = under $300M.</dd>
-          <dt>Limits</dt><dd>&ldquo;Bought&rdquo; and &ldquo;sold&rdquo; come from where each print traded against the quote: right most of the time, not always. A big bullish print can be a hedge against stock the trader is short. Not scored yet.</dd>
+          <dt>Limits</dt><dd>&ldquo;Bought&rdquo; and &ldquo;sold&rdquo; come from where each print traded against the quote: right most of the time, not always. A big bullish print can be a hedge: calls bought can cap a short in the stock or in futures, so the trader is bearish overall. Not scored yet.</dd>
         </dl>
 
         <h3 class="pg" id="h-levels">Levels</h3>
@@ -8090,7 +8091,7 @@ function btCap(c){ c=+c||0; if(!c) return ""; return c>=1e12?"$"+(c/1e12).toFixe
 function btLean(bu,be){ bu=+bu||0; be=+be||0; const g=bu+be, n=bu-be; if(g<=0) return ["mix","no bets yet"];
   const s=n/g; return Math.abs(s)<0.1?["mix","balanced"]:s>0?["up","bullish"]:["dn","bearish"]; }
 function btSays(w){ return w==="balanced"?"are":w==="no bets yet"?"have":"lean"; }   // "Mega caps lean bullish"
-function btPl(n,w,ws){ n=+n||0; return n+" "+(n===1?w:(ws||w+"s")); }
+function btPl(n,w,ws){ n=+n||0; return n.toLocaleString("en-US")+" "+(n===1?w:(ws||w+"s")); }
 function btToday(){ try{ return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York"}).format(new Date()); }catch(e){ return ""; } }
 function btBar(bu,be,sc,tip){ bu=+bu||0; be=+be||0; sc=Math.max(1,sc||1);
   const w=v=>Math.min(50,50*v/sc).toFixed(2)+"%", dx=Math.max(-50,Math.min(50,50*(bu-be)/sc));
