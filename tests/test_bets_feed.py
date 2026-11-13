@@ -53,6 +53,15 @@ def test_financing_unsigned_and_index_prints_are_left_out() -> None:
     assert out["fin_n"] == 4 and out["fin_prem"] == 197_300_000
     assert out["fin_by"] == {"tagged": 1, "delta": 1, "itm": 2, "iv": 0}
     assert out["uns_n"] == 1 and out["nonstock_n"] == 1
+    # 2nd run 11/12: that DELL print came with no spot; it takes DELL's nearest print's spot
+    dell = [_p("DELL", "P", "sell", 22_300_000, strike=550, expiry="2028-01-21", price=223,
+               delta=None, iv=None, size=1000, t="15:56"),
+            _p("DELL", "C", "buy", 400_000, strike=350, spot=340.0, price=8.0, t="15:41"),
+            _p("DELL", "C", "buy", 300_000, strike=350, spot=347.0, price=9.0, t="15:58")]
+    per, out = bf.classify(dell)
+    assert dell[0]["spot"] == 347.0 and out["spot_filled"] == 1
+    assert bf.classify(dell)[1]["spot_filled"] == 1                   # same count on a second build
+    assert out["fin_by"]["itm"] == 1 and per["DELL"]["bull"] == 700_000 and per["DELL"]["bear"] == 0
     # IV >= 150% only counts as financing on an in-the-money print with some time value left
     assert bf.fin_reason(_p("X", "C", "buy", 1, strike=10, spot=12, price=3.0, delta=0.6, iv=1.9)) == "iv"
     assert bf.fin_reason(_p("X", "C", "buy", 1, strike=10, spot=8, price=0.9, delta=0.3, iv=1.9)) is None

@@ -19,7 +19,8 @@ HOW A PRINT COUNTS (each leg on its own, then summed per name)
     financing   - deep in the money: boxes, conversions, dividend and stock-loan trades, not bets.
                   tagged: is_financing (tas_capture: |delta| >= 0.85, or >= 0.70 and a year+ out);
                   delta: |delta| >= 0.85; itm: in the money with time value under 10% of the price
-                  (catches prints with no greeks); iv: IV >= 150% on an in-the-money print (a broken
+                  (catches prints with no greeks; a print with no spot takes the same root's
+                  nearest spot first); iv: IV >= 150% on an in-the-money print (a broken
                   IV fit). A high-IV OTM option (small caps, wings) stays a bet. [11/12 night fix:
                   the first real run counted a DELL Jan28 550 put, ~all intrinsic, as a +$22M bet
                   and dropped every IV >= 150% print, ITM or not.]
@@ -46,6 +47,7 @@ Descriptive only (rule 4): which way the money leaned, not a signal. No AI (rule
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import os
 import sys
@@ -105,6 +107,30 @@ def fin_reason(r: dict) -> str | None:
     if iv is not None and iv >= BAD_IV and itm:
         return "iv"
     return None
+
+
+def fill_spot(rows: list[dict]) -> int:
+    """A print with no spot takes the spot of the same root's nearest print in time (the vendor
+    leaves it blank on some prints: 11/12 DELL 21Jan28 550P at 15:56 kept counting as a +$22M
+    bet because its intrinsic value could not be seen). Returns how many were filled."""
+    by: dict[str, list] = defaultdict(list)
+    for r in rows:
+        if r.get("spot") and r.get("ts") is not None:
+            by[(r.get("root") or "").upper()].append((r["ts"], r["spot"]))
+    for v in by.values():
+        v.sort(key=lambda c: c[0])
+    times = {k: [c[0] for c in v] for k, v in by.items()}
+    n = 0
+    for r in rows:
+        t, k = r.get("ts"), (r.get("root") or "").upper()
+        if r.get("spot") or t is None or k not in by:
+            continue
+        v, i = by[k], bisect.bisect_left(times[k], t)
+        j = min((j for j in (i - 1, i) if 0 <= j < len(v)),
+                key=lambda j: abs((v[j][0] - t).total_seconds()))
+        r["spot"], r["_spot_filled"] = v[j][1], True
+        n += 1
+    return n
 
 
 def tape_clock(rows: list[dict], now: datetime | None = None) -> str:
@@ -197,7 +223,9 @@ def classify(rows: list[dict]) -> tuple[dict, dict]:
     """Per-name bullish / bearish premium + the biggest bet; plus the left-out totals."""
     names: dict[str, dict] = defaultdict(lambda: {"bull": 0.0, "bear": 0.0, "n": 0, "groups": {}})
     out = {"fin_n": 0, "fin_prem": 0.0, "uns_n": 0, "uns_prem": 0.0, "nonstock_n": 0,
-           "fin_by": {"tagged": 0, "delta": 0, "itm": 0, "iv": 0}}
+           "fin_by": {"tagged": 0, "delta": 0, "itm": 0, "iv": 0}, "spot_filled": 0}
+    fill_spot(rows)                       # idempotent: run_once may build more than once
+    out["spot_filled"] = sum(1 for r in rows if r.get("_spot_filled"))
     for i, r in enumerate(rows):
         root = (r.get("root") or "").upper()
         prem = float(r.get("notional") or 0.0)
@@ -267,6 +295,7 @@ def build(rows: list[dict], caps: dict, day: str, now: datetime) -> dict:
     totals = {"names": len(per), "bull": round(sum(x["bull"] for x in per.values())),
               "bear": round(sum(x["bear"] for x in per.values())), "nocap": nocap,
               "fin_n": out["fin_n"], "fin_prem": round(out["fin_prem"]), "fin_by": out["fin_by"],
+              "spot_filled": out["spot_filled"],
               "uns_n": out["uns_n"], "uns_prem": round(out["uns_prem"])}
     return {"v": 1, "day": day, "asof": _hhmm(asof), "gen": now.isoformat(timespec="seconds"),
             "src": "tas_prints - market-wide option prints >= $25k (equity roots only)",
