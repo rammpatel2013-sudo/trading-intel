@@ -1,18 +1,19 @@
 """Build scripts/cvxmap/test_cockpit/cvx_cockpit_test.html from the production cockpit (2026-11-08).
 Every edit is an exact, single-occurrence replacement; the script stops if production text is not as expected.
-2026-11-09: MAP toggles only. 2026-11-13: + the Delta map (tg_delta.js, right pane "Delta", section 14). The Density (DN1-DN6) and VIX (VX1/VX2) toggles moved to the production page as options
+2026-11-09: MAP toggles only. 2026-11-13: + the Delta map (tg_delta.js, right pane "Delta", section 14). 2026-11-13 (afternoon): + Strike lines on the Flow map and the Zero line on the right Vanna / Charm map (tg_lines.js, section 15). The Density (DN1-DN6) and VIX (VX1/VX2) toggles moved to the production page as options
 (OFF by default), so the test page simply inherits them from production; tg_den.js / tg_vix.js are gone.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("d3bc8040ee6c0b96"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("e78e7de4611c4dd5"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
 DL = open(os.path.join(HERE, "tg_delta.js"), encoding="utf-8").read()   # 2026-11-13 Delta map
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL).encode("utf-8")).hexdigest()[:12])
+LN = open(os.path.join(HERE, "tg_lines.js"), encoding="utf-8").read()   # 2026-11-13 Strike lines + Zero line
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -47,7 +48,7 @@ rep("const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -149,11 +150,24 @@ rep("""  if(st.mapRight==="chg"&&r&&r.blocked){ drawChgBlocked("mapRightC"); }
   else if(DL) drawHeat("mapRightC",r,se,d,tgDeltaLegend(r,bkTxt));
   else drawHeat("mapRightC",r,se,d,st.mapRight==="chg\"""")
 rep('if(hh) hh.textContent=st.mapRight==="chg"?', 'if(hh) hh.textContent=DL?(st.dlMode==="strike"?"Delta by strike (each strike\'s own buy / sell)":"Delta (dealer buy / sell to reach each level)")+(TG.sg&&SB?" · shadow":""):st.mapRight==="chg"?')
-rep('const hh=document.getElementById("mapRightH");', 'tgDlSeg(); const hh=document.getElementById("mapRightH");')
+rep('const hh=document.getElementById("mapRightH");', 'tgDlSeg(); tgZeroSync(); const hh=document.getElementById("mapRightH");')
 rep('const R=kind==="gamma"?(x>=0?HRAMP.pos_g:HRAMP.neg_g)', 'const R=kind==="delta"?(x>=0?TG_DL_RAMP.pos:TG_DL_RAMP.neg):kind==="gamma"?(x>=0?HRAMP.pos_g:HRAMP.neg_g)')
 rep('  const c = kind!=="gamma" ? (x>=0?[245,166,35]:[64,196,232])', '  const c = kind==="delta" ? (x>=0?[46,204,113]:[214,52,52]) : kind!=="gamma" ? (x>=0?[245,166,35]:[64,196,232])')
 rep('  if(typeof premOverlay==="function"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); premOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }',
     '  if(m.kind==="delta"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); tgDlOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }   // TEST DL\n  if(typeof premOverlay==="function"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); premOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }')
+# 15. (2026-11-13 afternoon) STRIKE LINES on the Flow map + ZERO LINE on the right Vanna / Charm map (tg_lines.js). Display only.
+rep('<div class="seg" role="group" aria-label="Layout" id="focusSeg">',
+    '<button class="btn" id="tgSlBtn" aria-pressed="false" title="TEST Strike lines: the 10 biggest strikes NOW as full-width lines with a value label at the right edge (star = biggest). Delta = each strike\'s own dealer buy / sell if price goes there (the Delta map By strike); Gamma = dealer gamma at the strike, $ per 1% (Orbs). Map book + basis. Off by default.">Strike lines</button><div class="seg" role="group" id="tgSlSrcSeg" style="display:none" title="TEST Strike lines source"><button data-v="delta" aria-pressed="true">Delta</button><button data-v="gamma" aria-pressed="false">Gamma</button></div>\n        <div class="seg" role="group" aria-label="Layout" id="focusSeg">')
+rep("  const docL=docMapLines(ctx,Yk,padL,w-padR,padT,h-padB);\n",
+    "  const docL=docMapLines(ctx,Yk,padL,w-padR,padT,h-padB);\n  tgStrikeLines(ctx,{Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},\"lines\");   // TEST SL\n")
+rep("  docMapLabels(ctx,docL,w-padR-6,padT+10,h-padB,true);\n",
+    "  docMapLabels(ctx,docL,w-padR-6,padT+10,h-padB,true);\n  tgStrikeLines(ctx,{Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},\"labels\");   // TEST SL\n")
+rep('  document.getElementById("mapLegend").innerHTML += fbLegend(fbD) + seqLegend(sqR);',
+    '  document.getElementById("mapLegend").innerHTML += fbLegend(fbD) + seqLegend(sqR) + tgSlLegend();   // TEST SL')
+rep('<div class="seg" role="group" id="mapBookRSeg"',
+    '<button class="btn" id="tgZeroBtn" aria-pressed="false" title="TEST Zero line: where vanna (or charm) changes sign, nearest to price each minute - the same rule and look as the Gamma Flip line. Off by default.">Zero line</button><div class="seg" role="group" id="mapBookRSeg"')
+rep('    if(st.mapFlipLine&&m.kind==="gamma"&&id==="mapGammaC") zoneOverlay(ctx,m,X,Y,padL,padT,W,H,{band:false,legend:false}); }   // 2026-11-12 Flip line',
+    '    if(st.mapFlipLine&&m.kind==="gamma"&&id==="mapGammaC") zoneOverlay(ctx,m,X,Y,padL,padT,W,H,{band:false,legend:false});   // 2026-11-12 Flip line\n    if(st.zeroR&&id==="mapRightC"&&(m.kind==="vanna"||m.kind==="charm")) tgZeroOverlay(ctx,m,X,Y,padL,padT,W,H); }   // TEST ZR')
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)

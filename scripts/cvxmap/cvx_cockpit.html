@@ -1621,6 +1621,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
             <b>Split axis</b>: levels far from price go into a strip under the cone so the cone is not squashed.
             <b>Odds extras</b>: 25% / 75% marks on the odds chart and the chance of closing below breakdown, inside the pin, between the pin top and the flip, or above the flip.
             <b>Replay summary</b>: one line comparing the latest cone with the day's open, high and low, time spent in the pin, and whether support held.
+            <b>09:30 cone</b>: the cone from the open (fixed for the day) drawn over the whole day as dashed white lines (its 8-in-10 range) and a dotted middle, next to the live cone; left of the cursor the heat already is the 09:30 cone.
             <b>Status extras</b>: leveraged-ETF rebalancing at the current price, the date of the 1&ndash;7 day book, a <i>thin book</i> warning when little open interest sits near price, and for QQQ with Width = VIX the Nasdaq volatility index. Needs the vol poller running.</dd>
         </dl>
 
@@ -1972,7 +1973,7 @@ st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load(
 st.weekSrc=load("weekSrc","convex");
 st.rangeOn=load("rangeOn","0")==="1"; st.rangeDet=load("rangeDet","0")==="1";   // 2026-11-13 Range card, OFF by default
 // 2026-11-09: Density options DN1-DN6 and VIX options VX1 / VX2 / VIX map - all OFF by default (moved from the test cockpit)
-st.dno=(()=>{ try{ const j=JSON.parse(load("dnOpt","{}"))||{}; return {dn1:!!j.dn1,dn2:!!j.dn2,dn3:!!j.dn3,dn5:!!j.dn5,dn6:!!j.dn6}; }catch(e){ return {dn1:false,dn2:false,dn3:false,dn5:false,dn6:false}; } })();
+st.dno=(()=>{ try{ const j=JSON.parse(load("dnOpt","{}"))||{}; return {dn1:!!j.dn1,dn2:!!j.dn2,dn3:!!j.dn3,dn5:!!j.dn5,dn6:!!j.dn6,dn7:!!j.dn7}; }catch(e){ return {dn1:false,dn2:false,dn3:false,dn5:false,dn6:false,dn7:false}; } })();
 st.vxo=(()=>{ try{ const j=JSON.parse(load("vxOpt","{}"))||{}; return {vx1:!!j.vx1,vx2:!!j.vx2,vmap:!!j.vmap}; }catch(e){ return {vx1:false,vx2:false,vmap:false}; } })(); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
 function saveSlots(){ try{ localStorage.setItem(NS+"slots", JSON.stringify(st.slots)); }catch(e){} }
 function load(k,d){ try{ return localStorage.getItem(NS+k) || d; }catch(e){ return d; } }
@@ -5844,6 +5845,7 @@ function denDraw(cv,L,cur,g0,now,d,B,SH,X0){
     if(lastV!=null){ ctx.setLineDash([3,4]); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(X(lastM),Y(lastV)); ctx.lineTo(X(390),Y(lastV)); ctx.stroke(); ctx.setLineDash([]); } return lastV; };
   const labs=[]; const lv=(k,c,n)=>{ const v=line(k,c); if(v!=null) labs.push([v,`${n} ${fmtN(v,1)}`,c]); };
   lv("gz","#38C6E8","FRONT FLIP (0DTE γ zero)"); lv("vt","#9DFF6B","VANNA TOP"); lv("vb","#C9A7FF","VANNA BOTTOM");
+  dnoFixedCone(ctx,X,Y,labs,g0);   // DN7 (2026-11-13)
   if(L&&L.proj!=null){ ctx.fillStyle="#38C6E8"; const x=X(390), y=Y(L.proj); ctx.beginPath(); ctx.moveTo(x,y-7); ctx.lineTo(x+7,y); ctx.lineTo(x,y+7); ctx.lineTo(x-7,y); ctx.closePath(); ctx.fill(); labs.push([L.proj,`◆ γ-zero @15:50 ${fmtN(L.proj,1)}`,"#38C6E8"]); }
   labs.sort((a,b)=>a[0]-b[0]); const ys=labs.map(l=>Y(l[0])); for(let i=ys.length-2;i>=0;i--) if(ys[i]-ys[i+1]<18) ys[i]=ys[i+1]+18;
   ctx.font="bold 14px system-ui"; ctx.textAlign="right"; const labDraw=()=>labs.forEach((l,i)=>{ const tw=ctx.measureText(l[1]).width; ctx.fillStyle="#05080fd9"; ctx.fillRect(padL+W-tw-12,ys[i]-21,tw+10,20); ctx.fillStyle=l[2]; ctx.fillText(l[1],padL+W-7,ys[i]-6); }); ctx.textAlign="left";
@@ -7554,6 +7556,18 @@ function dnoLines(hl,B){ if(!st.dno.dn1||!B) return; const W=dnoWalls(B); if(!W)
 // histogram helpers (odds chart): quantile and mass of the drawn closes
 function dnoHq(H,q){ const tot=H.c.reduce((a,b)=>a+b,0)||1; let cum=0; for(let i=0;i<H.c.length;i++){ const c=H.c[i]/tot; if(cum+c>=q) return H.lo+(i+(q-cum)/(c||1))*H.w; cum+=c; } return H.lo+H.c.length*H.w; }
 function dnoHm(H,a,b){ const tot=H.c.reduce((x,y)=>x+y,0)||1; let m=0; for(let i=0;i<H.c.length;i++){ const x0=H.lo+i*H.w, x1=x0+H.w, ov=Math.max(0,Math.min(b,x1)-Math.max(a,x0)); m+=H.c[i]*ov/H.w; } return m/tot; }
+function dnoFixedCone(ctx,X,Y,labs,g0){ // DN7 (2026-11-13, Mithil: "two cones, one fixed from the day and one from live data; draw the fixed cone on/off")
+  // the 09:30 cone's own density (DEN.dens[0], one row per minute from the open): 10% / 50% / 90% per minute, whole day
+  if(!st.dno.dn7||!g0||!g0.nb) return; const D=DEN.dens[0]; if(!D) return; const nb=g0.nb, b0=g0.b0, bdp=g0.bdp, rows=Math.min(390,Math.floor(D.length/nb));
+  const q=(o,tot,p)=>{ let acc=0; const want=p*tot; for(let b=0;b<nb;b++){ const c=D[o+b]; if(c>0&&acc+c>=want) return b0+(b-0.5+(want-acc)/c)*bdp; acc+=c; } return null; };
+  const L10=[], L50=[], L90=[];
+  for(let m=0;m<rows;m++){ const o=m*nb; let tot=0; for(let b=0;b<nb;b++) tot+=D[o+b]; if(!(tot>0)) continue; L10.push([m,q(o,tot,0.1)]); L50.push([m,q(o,tot,0.5)]); L90.push([m,q(o,tot,0.9)]); }
+  if(!L10.length) return;
+  const path=(pts,dash,w)=>{ for(const [lw,c] of [[w+3,"rgba(0,0,0,0.65)"],[w,"#F4F7FB"]]){ ctx.strokeStyle=c; ctx.lineWidth=lw; ctx.setLineDash(dash); ctx.beginPath(); let on=false;
+      for(const [m,v] of pts){ if(v==null){ on=false; continue; } const x=X(m), y=Y(v); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; } ctx.stroke(); } ctx.setLineDash([]); };
+  path(L10,[9,6],1.8); path(L90,[9,6],1.8); path(L50,[2,4],1.4);
+  const e10=L10[L10.length-1][1], e90=L90[L90.length-1][1];
+  if(e90!=null) labs.push([e90,`09:30 CONE top ${fmtN(e90,0)}`,"#F4F7FB"]); if(e10!=null) labs.push([e10,`09:30 CONE bottom ${fmtN(e10,0)}`,"#F4F7FB"]); }
 function dnoOddsLines(vl,B){ if(!st.dno.dn1) return; const W=dnoWalls(B); if(!W) return; vl.push([W.support,"#FF5070","support"],[W.cw,"#E07BFF","call wall"],[W.pw,"#FF9AC8","put wall"]); }
 function dnoOddsDraw(ctx,o,X,padT,H){ if(!st.dno.dn3||!o||!o.hist) return; const Hh=o.hist;
   ctx.font="bold 11px system-ui"; ctx.textAlign="center";
@@ -7686,7 +7700,8 @@ var DNO_DEF=[["dn1","Support + walls","Call wall = largest 1–7 DTE call open i
   ["dn2","Split axis","Levels far outside the chart's price range are drawn in a strip under the cone instead of squashing it."],
   ["dn3","Odds extras","Odds chart: 25th / 75th percentile marks, and the chance of closing below breakdown / in the pin / between pin top and flip / above the flip."],
   ["dn5","Replay summary","One line: the latest cone's middle and 10–90% range, chance of closing in the pin or above the flip, next to the day's open / high / low, time in the pin, and whether round-number support held."],
-  ["dn6","Status extras","Leveraged-ETF rebalancing at the current price in the chart's status box, the date of the 1–7 DTE book, a 'thin book' warning when open interest near price is small, and for QQQ with Width = VIX the Nasdaq volatility index instead of VIX. Needs the vol poller (cvxmap-volx)."]];
+  ["dn6","Status extras","Leveraged-ETF rebalancing at the current price in the chart's status box, the date of the 1–7 DTE book, a 'thin book' warning when open interest near price is small, and for QQQ with Width = VIX the Nasdaq volatility index instead of VIX. Needs the vol poller (cvxmap-volx)."],
+  ["dn7","09:30 cone","The cone from the open (fixed for the day) drawn across the whole day: dashed white = its 8-in-10 range, dotted = its middle, so you can compare it with the live cone. Left of the cursor the heat already is the 09:30 cone."]];
 var VXO_DEF=[["vx1","Regime gauge","VIXM / VIXY ratio, 8-day vs 21-day average, with two confirmations (VIX9D above VIX, SPX below its 21-day average). Untested predictor. Needs the vol poller (cvxmap-volx)."],
   ["vx2","Variance stack","VIX² + DSPX² ≈ VIXEQ² through the day: how much of single-stock volatility is reaching the index. Needs the vol poller (cvxmap-volx)."],
   ["vmap","VIX map","Dealer gamma and vanna in VIX options by VIX level and time of day, like the SPX Map. Written by the Orbs feed (cvxmap-wide)."]];

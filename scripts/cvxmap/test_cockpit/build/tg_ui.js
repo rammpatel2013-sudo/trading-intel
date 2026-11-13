@@ -47,4 +47,5 @@ async function readout(){ if(busy||!st.live||!st.live.SPX) return; const c=liveC
   finally{ busy=false; } }
 setInterval(readout,20000); setTimeout(readout,5000);
 try{ tgDlHover(); }catch(e){}   // 2026-11-13 Delta map hover / tap card
+try{ tgSlInit(); tgZeroSync(); }catch(e){}   // 2026-11-13 Strike lines + Zero line buttons
 })();
