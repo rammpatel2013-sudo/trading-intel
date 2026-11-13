@@ -501,6 +501,21 @@ body.phone .phead{padding:6px 10px 2px}body.phone .pane{max-width:100vw;overflow
 .exdesc{font-size:12px;color:var(--mute);line-height:1.5;margin:4px 0 2px;text-align:center}
 .exdesc b{color:var(--ink)}
 .btn.live{border-color:var(--r4);color:var(--r4)}
+/* 2026-11-13 snapshot button: big, labelled, colour = result (copied / saved / failed) */
+.snapbtn{display:inline-flex;align-items:center;gap:7px;margin-left:auto;padding:6px 14px;border:1.5px solid #2BB8D9;border-radius:8px;background:linear-gradient(180deg,#1F8FC466,#1F8FC426);color:#fff;font:700 14px/1.1 var(--font);letter-spacing:.02em;cursor:pointer;box-shadow:0 0 0 1px #2BB8D933 inset,0 1px 6px #0006;transition:background .15s,box-shadow .15s,border-color .15s}
+.snapbtn:hover{border-color:#8CEBFA;background:linear-gradient(180deg,#1F8FC499,#1F8FC444);box-shadow:0 0 12px #2BB8D977}
+.snapbtn:active{transform:translateY(1px)}
+.snapbtn:focus-visible{outline:2px solid #8CEBFA;outline-offset:2px}
+.snapbtn .ic{font-size:17px;line-height:1}
+.snapbtn:disabled{cursor:progress}
+.snapbtn.ok{border-color:#58D68D;background:#58D68D33;box-shadow:0 0 12px #58D68D66}
+.snapbtn.saved{border-color:var(--warn);background:#FFC24A2e;color:#FFE7A8}
+.snapbtn.bad{border-color:var(--shortg);background:#FF6B5A2e}
+.snapbtn+.fresh{margin-left:0}
+.snapnote{position:fixed;top:58px;right:16px;z-index:60;max-width:420px;padding:10px 14px;border-radius:8px;background:#1B2A44;border:1.5px solid var(--warn);color:#FFE7A8;font-size:14px;line-height:1.45;box-shadow:0 6px 24px #000a}
+.snapnote a{color:#8CEBFA;font-weight:700}
+.snapnote button{float:right;margin:-4px -6px 0 10px;background:none;border:0;color:#fff;font-size:18px;cursor:pointer}
+body.phone .snapbtn{margin-left:0}body.phone .snapbtn .tx{display:none}
 .btn.on{background:#FFD23F22;border-color:var(--r4);color:var(--r4)}
 .phead .sp{flex:1}
 .body{position:relative;flex:1;min-height:0}
@@ -988,7 +1003,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     </div>
     <div class="clock"><div><b id="clk">–</b> ET</div><div id="ttc">waiting for data</div></div>
     <span class="demo-flag">Demo data</span>
-    <button class="btn" id="screenshotBtn" title="Save a screenshot of the current view" style="font-size:11px;padding:2px 8px;margin-right:6px">📷</button><div class="fresh"><span class="dot" id="fdot"></span><span id="ftxt">connecting…</span></div>
+    <button class="snapbtn" id="screenshotBtn" title="Copy a picture of what you are looking at to the clipboard, ready to paste. If the browser does not allow copying, it downloads a PNG."><span class="ic">📷</span><span class="tx">Copy view</span></button><div class="fresh"><span class="dot" id="fdot"></span><span id="ftxt">connecting…</span></div>
   </header>
 
   <section class="read" aria-live="polite">
@@ -1346,7 +1361,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
           <dt>Page panel (left)</dt><dd>All 21 pages sit in a panel on the left, in 5 groups: <b>Map &amp; levels</b> (Map, Orbs, Surface, Density, Levels), <b>Flow</b> (Flow, Volume, Premium, Bets, Constellation, Ledger), <b>Positioning</b> (Strikes, Exposure, Tenor), <b>Vol &amp; risk</b> (VIX, Skew, Straddle, Vol EOD, Risk) and <b>Plan &amp; help</b> (Plan, Help). It stays a thin strip so the charts keep their width; the lit icon is the group you are in. Click <b>&#9776;</b> or a group icon to open it over the charts; pick a page and it closes. <b>&#128204;</b> keeps it open beside the charts and is remembered; click &#9776; to fold it back. On a phone tap <b>&#9776;</b> at the top left. The keys still work: V Volume, X VIX, $ Premium, N Density, H Help.</dd>
           <dt>Price and time</dt><dd>Live price, change since the open, time, and time left to the close.</dd>
           <dt>SPX&harr;SPY box</dt><dd>Type a level and see the same level on the other index. Above 2000 is read as SPX, anything lower as SPY; the small <b>SPX</b> / <b>SPY</b> buttons force it (<b>Auto</b> = by size). It converts with the <b>live</b> ratio SPX price &divide; SPY price, recomputed every live update; the ratio (3 decimals) and its time are shown. Hover the box for the details: the nearest listed strikes on both (SPX every 5 points, SPY every 1), how far each is from the current price in points and %, today&rsquo;s same-day volume there (calls and puts, bought / sold by the feed&rsquo;s trade tags when it has them), open interest, and dealer gamma at that strike ($ per 1% move, same-day book, the Map&rsquo;s current basis). &ldquo;no data&rdquo; = that number is not in the live feed. Click a strike to jump to it (symbol and selected strike; on Orbs the chart centres on it). The last level you typed is remembered. Nothing extra is downloaded.</dd>
-          <dt>&#128247; (camera)</dt><dd>Takes a picture of the page you are on. It copies to the clipboard where the browser allows it, otherwise it downloads a PNG.</dd>
+          <dt>&#128247; Copy view (top right)</dt><dd>Copies a picture of the tab you are on to the clipboard, ready to paste (Flow tab: the flow map). The button turns green: "Copied". Browsers only allow copying a picture on an https address, so use https://cockpit.tailbb1c89.ts.net (Tailscale on). On a plain http address (192.168.1.211:8899) it downloads a PNG instead, turns amber and says why. The http Tailscale address now switches to https by itself.</dd>
           <dt>Status dot</dt><dd>Green = live. The text says when the feed last updated. &ldquo;Not updating&rdquo; means the numbers are frozen.</dd>
           <dt>Gamma box</dt><dd><b>Long gamma</b> or <b>Short gamma</b> at the current price, with one sentence on what dealers are likely doing, and the morning-report line underneath.</dd>
           <dt>Level strip</dt><dd><b>Put wall</b>, <b>Gamma flip</b>, <b>Pin magnet</b>, <b>Call wall</b>, <b>Report pivot</b> and <b>Move left</b> (how many points options still price for the rest of today). The small % under each = distance from price.</dd>
@@ -1910,6 +1925,8 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
 
 <script type="application/json" id="demoTI">{"asof":"2026-10-21T08:40:00","today":"2026-10-21","doc":{"title":"SPX morning report 10/21","levels":{"SPX":[{"v":7640,"label":"major neg trigger","role":"trig"},{"v":7650,"label":"positive gamma catch","role":"pos"},{"v":7670,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":7690,"label":"STR bot gate","role":"trig"},{"v":7705,"label":"50 DMA","role":"chart"},{"v":7725,"label":"control","role":"piv"},{"v":7740,"label":"20 DMA","role":"chart"},{"v":7750,"label":"ceiling Tue high","role":"pos"},{"v":7765,"label":"positive gamma stall","role":"pos"},{"v":7775,"label":"negative gamma call trigger","role":"trig"},{"v":7805,"label":"upper brake","role":"pos"}],"ES":[{"v":7685,"label":"major neg trigger","role":"trig"},{"v":7695,"label":"positive gamma catch","role":"pos"},{"v":7715,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":7735,"label":"STR bot gate","role":"trig"},{"v":7750,"label":"50 DMA","role":"chart"},{"v":7770,"label":"control","role":"piv"},{"v":7785,"label":"20 DMA","role":"chart"},{"v":7795,"label":"ceiling Tue high","role":"pos"},{"v":7810,"label":"positive gamma stall","role":"pos"},{"v":7820,"label":"negative gamma call trigger","role":"trig"},{"v":7850,"label":"upper brake","role":"pos"}],"SPY":[{"v":761,"label":"major neg trigger","role":"trig"},{"v":762,"label":"positive gamma catch","role":"pos"},{"v":764,"label":"STR 1.5 bot Tue low","role":"rail"},{"v":766,"label":"STR bot gate","role":"trig"},{"v":768,"label":"50 DMA","role":"chart"},{"v":770,"label":"control","role":"piv"},{"v":771,"label":"20 DMA","role":"chart"},{"v":772,"label":"ceiling Tue high","role":"pos"},{"v":774,"label":"positive gamma stall","role":"pos"},{"v":775,"label":"negative gamma call trigger","role":"trig"},{"v":778,"label":"upper brake","role":"pos"}]},"scalper":{"SPX":[{"v":7640,"label":"trigger","action":"lose"},{"v":7650,"label":"catch","action":"hold"},{"v":7690,"label":"gate","action":"lose"},{"v":7725,"label":"pivot","action":"hold"},{"v":7740,"label":"MA","action":"clear"},{"v":7750,"label":"ceiling","action":"reject"},{"v":7765,"label":"stall","action":"fade"},{"v":7775,"label":"trigger","action":"clear"}],"ES":[{"v":7685,"label":"trigger","action":"lose"},{"v":7695,"label":"catch","action":"hold"},{"v":7735,"label":"gate","action":"lose"},{"v":7770,"label":"pivot","action":"hold"},{"v":7785,"label":"MA","action":"clear"},{"v":7795,"label":"ceiling","action":"reject"},{"v":7810,"label":"stall","action":"fade"},{"v":7820,"label":"trigger","action":"clear"}],"SPY":[{"v":761,"label":"trigger","action":"lose"},{"v":762,"label":"catch","action":"hold"},{"v":766,"label":"gate","action":"lose"},{"v":770,"label":"pivot","action":"hold"},{"v":771,"label":"MA","action":"clear"},{"v":772,"label":"ceiling","action":"reject"},{"v":774,"label":"stall","action":"fade"},{"v":775,"label":"trigger","action":"clear"}]},"weekly":{"SPX":[{"v":7510,"label":"Wkly EM bot"},{"v":7810,"label":"Wkly EM top"}]},"premium":{"SPX":[{"v":7620,"label":"IC PS wish"},{"v":7640,"label":"IC PS cons"},{"v":7660,"label":"IC PS agg"},{"v":7790,"label":"IC CS agg"},{"v":7805,"label":"IC CS wish"}]},"rails":[{"name":"STR","lo":7690,"hi":7760},{"name":"1σ","lo":7680,"hi":7770},{"name":"STR 1.5","lo":7670,"hi":7780},{"name":"OVN EM","lo":7695,"hi":7795},{"name":"Weekly EM","lo":7510,"hi":7810},{"name":"½σ","lo":7700,"hi":7750}],"pivot":7725,"chop":null,"working":[7690,7765],"em":[7690,7760],"scenarios":[{"kind":"lean","dir":"up","level":7725,"targets":[[7750,7750],[7765,7770]],"rule":null,"cond":"Holding above 7,725","then":"the 7,750 ceiling and the 7,765–7,770 stall.","text":"Holding above 7,725 leans toward the 7,750 ceiling and the 7,765–7,770 stall.","sect":null,"id":"s1"},{"kind":"lean","dir":"down","level":7725,"targets":[[7690,7690]],"rule":null,"cond":"Losing 7,725","then":"7,690.","text":"Losing 7,725 leans toward 7,690.","sect":null,"id":"s2"},{"kind":"cross","dir":"up","level":7750,"targets":[[7765,7770]],"rule":null,"cond":"7,750 converts","then":"7,765–7,770, where price tends to stall.","text":"IF 7,750 converts, THEN 7,765–7,770, where price tends to stall.","sect":"up","id":"s3"},{"kind":"cross","dir":"up","level":7775,"targets":[[7800,7805]],"rule":null,"cond":"7,775 converts","then":"faster travel toward 7,800–7,805, with the call hedging adding fuel.","text":"IF 7,775 converts, THEN faster travel toward 7,800–7,805, with the call hedging adding fuel.","sect":"up","id":"s4"},{"kind":"fail","dir":"down","level":7750,"targets":[[7725,7725]],"rule":null,"cond":"A failure back under 7,750","then":"the 7,725 pivot.","text":"A failure back under 7,750 sends price toward the 7,725 pivot.","sect":"up","id":"s5"},{"kind":"cross","dir":"down","level":7690,"targets":[[7660,7675]],"rule":null,"cond":"7,690 is lost","then":"7,660–7,675, Tuesday's low.","text":"IF 7,690 is lost, THEN 7,660–7,675, Tuesday's low.","sect":"down","id":"s6"},{"kind":"cross","dir":"down","level":7660,"targets":[[7650,7650]],"rule":null,"cond":"7,660 is lost","then":"7,650, the main catch.","text":"IF 7,660 is lost, THEN 7,650, the main catch.","sect":"down","id":"s7"},{"kind":"cross","dir":"down","level":7640,"targets":[[7620,7620]],"rule":null,"cond":"7,640 is lost","then":"moves can run toward 7,620.","text":"IF 7,640 is lost, THEN moves can run toward 7,620.","sect":"down","id":"s8"},{"kind":"reclaim","dir":"up","level":7690,"targets":[[7725,7725]],"rule":null,"cond":"A reclaim of 7,690","then":"the pivot.","text":"A reclaim of 7,690 sends price back toward the pivot.","sect":"down","id":"s9"},{"kind":"reclaim","dir":"up","level":7650,"targets":[[7670,7670]],"rule":null,"cond":"A reclaim of 7,650","then":"7,670.","text":"A reclaim of 7,650 sends it back toward 7,670.","sect":"down","id":"s10"}],"context":["Futures sit near 7,735, just above the pivot and at the 20-day, inside the morning's expected-move framework.","With little positioning between the major clusters, local trading sets the direction until price reaches a stronger level.","The question: can SPX hold 7,725 and work through the 20-day toward 7,765–7,775, or does a failure send it back toward 7,690?"],"up_path":[[7750,7750],[7770,7770],[7775,7775],[7805,7805]],"down_path":[[7690,7690],[7670,7670],[7650,7650]],"one_thing":"Hold 7,725 and work through the 20-day toward 7,765–7,775, or fail and slide back toward 7,690. Through 7,775, the call block adds fuel.","conv_rule":"5m","warnings":[],"md":[10,21],"date":"2026-10-21","source":"email","received":"2026-10-21T08:03"},"ti":{"market_read":{"regime":{"state":"bull-intact","bull_bear_line":7060.07,"breadth_health":"breadth building","clock_session":141,"clock_open":true},"mechanics":{"state":"short-gamma (amplify)","amplifying":true,"gex_flip":7735.96,"dist_to_flip":-0.00116,"spot":7727.03,"dex_lean":"net short delta","expected_move":{"pct":0.00626,"dollar":48.33,"lower":7678.7,"upper":7775.36,"atm_iv":0.1497,"atm_strike":7725,"dte":1}},"weather":{"state":"calm-contango","vix":18.44,"vvix":97.15,"term_9d_3m":-2.72,"vvix_elevated":false},"path":"twitchy / amplified — respect momentum, thin liquidity","triggers":[{"source":"ours","trigger":"close below the gamma flip 7736","consequence":"flips to short gamma → moves amplify","direction":"bearish"},{"source":"ours","trigger":"VIX term flips to backwardation (9d > 3m)","consequence":"weather turns to stress","direction":"bearish"},{"source":"ours · trend model","trigger":"weekly close below the Bull/Bear Line 7060","consequence":"trend model bear-prepare (a 10% close = a test)","direction":"bearish"}],"confluence":{"score":"mixed","aligned":false,"tension":"regime still bullish but dealer gamma is amplifying — respect both sides"},"narrative":"short-gamma (amplify) → twitchy / amplified — respect momentum, thin liquidity. Regime bull-intact, breadth building, NMT clock S141 (open); weather calm-contango.","as_of":"2026-10-21T09:45:00+00:00"},"profile":{"as_of":"2026-10-21","spot":7727.03,"grid":[7649.76,7653.62,7657.49,7661.35,7665.21,7669.08,7672.94,7676.8,7680.67,7684.53,7688.39,7692.26,7696.12,7699.99,7703.85,7707.71,7711.58,7715.44,7719.3,7723.17,7727.03,7730.89,7734.76,7738.62,7742.48,7746.35,7750.21,7754.07,7757.94,7761.8,7765.67,7769.53,7773.39,7777.26,7781.12,7784.98,7788.85,7792.71,7796.57,7800.44,7804.3],"all":[-52.6797,-50.7035,-48.7274,-46.7512,-44.7751,-42.7989,-40.529,-38.2591,-35.9892,-33.7193,-31.4493,-28.8586,-26.2678,-23.677,-21.0863,-18.4955,-15.596,-12.6965,-9.797,-6.8975,-3.998,-0.8598,2.2784,5.4165,8.5547,11.6929,14.9522,18.2115,21.4709,24.7302,27.9895,31.2381,34.4867,37.7353,40.984,44.2326,47.354,50.4754,53.5968,56.7182,59.8396],"near":{"2026-10-22":[-5.6351,-5.5055,-5.376,-5.2464,-5.1169,-4.9873,-4.7721,-4.5568,-4.3415,-4.1262,-3.9109,-3.5831,-3.2553,-2.9275,-2.5996,-2.2718,-1.8322,-1.3927,-0.9531,-0.5135,-0.074,0.4348,0.9436,1.4524,1.9612,2.47,2.9768,3.4835,3.9903,4.497,5.0038,5.4416,5.8794,6.3172,6.755,7.1928,7.5255,7.8583,8.1911,8.5239,8.8567],"2026-10-23":[-13.6894,-13.3318,-12.9741,-12.6165,-12.2588,-11.9012,-11.4521,-11.003,-10.5539,-10.1048,-9.6556,-9.112,-8.5683,-8.0246,-7.4809,-6.9373,-6.3028,-5.6683,-5.0339,-4.3994,-3.765,-3.0531,-2.3412,-1.6293,-0.9174,-0.2055,0.559,1.3236,2.0881,2.8526,3.6172,4.3978,5.1785,5.9591,6.7398,7.5204,8.2706,9.0209,9.7711,10.5213,11.2716]},"flip":7731.95,"found":true},"walls":{"as_of":"2026-10-21","spot":7727.03,"call_wall":7800,"put_wall":7700,"call_top_strikes":[{"strike":7800,"oi":3823},{"strike":7750,"oi":2746}],"put_top_strikes":[{"strike":7700,"oi":2361},{"strike":7725,"oi":2111}],"found":true}},"errors":[]}</script>
 <script>
+// the Tailscale name on plain http -> same page on https, where copying works (2026-11-13)
+if(location.protocol==="http:"&&/\.ts\.net$/i.test(location.hostname)) location.replace("https://"+location.host.replace(/:\d+$/,"")+location.pathname+location.search+location.hash);
 (()=>{
 "use strict";
 /* ============================================================ config */
@@ -2066,7 +2083,8 @@ const pubTxt = t => String(t==null?"":t).replace(/Norseman(\s+method)?/gi,"trend
 const realDoc = () => st.ti&&st.ti.doc || null, ownDoc = () => st.ti&&st.ti.own || null;
 const isToday = d => !!(d&&d.date&&d.date===liveClock().date);
 // AM levels source (2026-11-05): Doc by default; if Doc's report is not in for today, OUR levels (am_feed build_own) step in automatically
-const docObj = () => { const r=realDoc(), o=ownDoc(); if(st.amSrc==="ours") return o||r; if(isToday(r)) return r; return isToday(o)?o:r; };
+const docUsable = r => !!(r&&(((r.levels||{}).SPX||[]).length||(r.scenarios||[]).length));   // 2026-11-13: today's report with nothing readable in it does not count as "in"
+const docObj = () => { const r=realDoc(), o=ownDoc(); if(st.amSrc==="ours") return o||r; if(isToday(r)&&docUsable(r)) return r; return isToday(o)?o:r; };
 const amFallback = () => { const d=docObj(); return !!(d&&d.source==="ours"&&st.amSrc!=="ours"); };
 const srcName = () => { const d=docObj(); return d&&d.source==="ours"?"Ours":"Report"; };
 const OWN_COL = "#c77dff";
@@ -2076,6 +2094,17 @@ function amLevels(sym){ const d=docObj(), mine=!!(d&&d.source==="ours");
   return L; }
 function docFresh(){ const d=docObj(); return !!(d&&d.date&&d.date===liveClock().date); }
 function docLevels(sym){ const d=docObj(); return d&&d.levels&&d.levels[sym] || []; }
+// 2026-11-13: why today's report is not in - read from the morning feed itself (ti.json asof + its errors), shown on the Plan tab and the Map's AM button
+function docWhy(){ const t=st.ti, r=realDoc(), now=etNow();
+  if(isToday(r)&&docUsable(r)) return "";
+  if(isToday(r)) return `Today's report came in${r.received?" at "+esc(String(r.received).slice(11,16))+" ET":""}, but the reader found no levels or IF/THEN lines in it (new layout?).`;
+  if(!t) return "The morning feed file is not loading, so the report cannot come in.";
+  const m=String(t.asof||"").match(/(\d{4}-\d\d-\d\d)T(\d\d):(\d\d)/); const out=[];
+  if(m&&(m[1]!==now.date||(now.h*60+now.m)-(+m[2]*60+ +m[3])>5)) out.push(`The morning feed stopped writing at ${m[1]!==now.date?m[1]+" ":""}${m[2]}:${m[3]} ET, so it is not checking for the report.`);
+  const errs=(t.errors||[]).filter(e=>/^(gmail|paste|db doc|db:)/i.test(String(e)));
+  if(errs.length) out.push("Feed says: "+errs.map(e=>esc(pubTxt(String(e).replace(/^(gmail|paste|db doc|db)\s*:\s*/i,"")))).join(" · ")+".");
+  if(!out.length) out.push(r&&r.date?`Newest report the feed can see is ${esc(r.date)}${r.received?" (received "+esc(String(r.received).replace("T"," "))+")":""}; nothing newer from the sender yet.`:"The feed has not found any report from the sender.");
+  return out.join(" "); }
 const ROLE_COL = r => r==="piv"?C("--r4"):r==="pos"?C("--longg"):r==="trig"?C("--shortg"):r==="rail"?C("--faint"):"#8197B3";
 const ROLE_NAME = {piv:"pivot",pos:"positive / sticky",trig:"trigger / gate",rail:"expected-move rail",chart:"chart level"};
 let _dp={key:null,p:[]};
@@ -2225,6 +2254,7 @@ function renderPlan(){
   if(!fresh) notes.push(`This is the ${esc(d.date||"last")} report. Today's hasn't arrived yet (usually 8:00–8:30 ET; the feed checks every 3 minutes). Nothing is drawn or graded until it lands.`);
   else { (d.warnings||[]).forEach(w=>notes.push(esc(w)));
     if(path.length&&path[0].t>575) notes.push(`The minute log starts at ${tlabel(path[0].t)}, so anything before that is not graded.`); }
+  if(st.amSrc!=="ours"){ const why=docWhy(); if(why) notes.push(`<b style="color:var(--warn)">Why:</b> ${why}`); }   // 2026-11-13
   if(amFallback()) notes.unshift("The morning report is not in for today, so these are OUR levels, built at 08:35 from our dealer book: pivot = gamma flip, walls = biggest dealer gamma strikes, edges = today's straddle range. Graded the same way as the report's.");
   ban.innerHTML=notes.length?`<div class="banner">${notes.join("<br>")}</div>`:"";
   one.innerHTML=d.one_thing?`<small>THE ONE THING&nbsp;</small>${esc(d.one_thing)}`:"";
@@ -5323,7 +5353,8 @@ function renderMapTab(se,d){
     :(st.mapRight==="vanna"?"Dealer Δ per +1 vol pt":"Dealer Δ per 5 min")+(TG.fx?((r&&r.base?" · colour = vs this column's median, NOT buy/sell":" · orange = dealer buys · cyan = sells")+" · "+(st.mapScale==="col"?"COLUMN scale: brightness not comparable across times":"one scale for the whole map")+" · green peak · yellow trough · dotted = raw zero"+(r&&r.base?" (not the colour edge)":"")+" · "):" · orange = dealer buys · cyan = sells · green peak · yellow trough · dotted zero · ")+(bk!=="0dte"&&!(r&&r.near)?"week book not loaded (am_feed near_book)":bkTxt));
   drawBreakdown("mapBreakC",se,d,g);
   tgDlSeg(); const hh=document.getElementById("mapRightH"); if(hh) hh.textContent=DL?(st.dlMode==="strike"?"Delta by strike (each strike's own buy / sell)":"Delta (dealer buy / sell to reach each level)")+(TG.sg&&SB?" · shadow":""):st.mapRight==="chg"?"Change (gamma built in the last 30 min)":st.mapRight==="vanna"?"Vanna (hedge flow per +1 vol pt)":"Charm (hedge flow per 5 min)";
-  document.getElementById("mapDocBtn").setAttribute("aria-pressed",st.docOn);
+  { const mb=document.getElementById("mapDocBtn"); mb.setAttribute("aria-pressed",st.docOn); const why=docWhy();
+    if(mb._w!==why){ mb._w=why; mb.title=why?"Report not in for today. "+why.replace(/<[^>]+>/g,""):"Draw AM levels on the maps (D)"; mb.style.color=why&&st.docOn?"var(--warn)":""; } }
   { const pb=document.getElementById("mapPremBtn"); if(pb) pb.setAttribute("aria-pressed",!!st.premOv); }
   { const rb=document.getElementById("ruleReadBtn"); if(rb) rb.setAttribute("aria-pressed",!!st.ruleRead); }
   { const gb=document.getElementById("gDetBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gDet); }
@@ -5356,20 +5387,39 @@ document.querySelectorAll("#mapBookRSeg button").forEach(b=>b.addEventListener("
 syncSeg("mapBookSeg",st.mapBook||"all");
 syncSeg("mapRightSeg",st.mapRight||"charm");
 
-/* ---- screenshot */
-document.getElementById("screenshotBtn").addEventListener("click",()=>{
-  const btn=document.getElementById("screenshotBtn"); btn.disabled=true; btn.textContent="⏳";
+/* ---- screenshot (2026-11-13: big labelled button, copy first; says WHY when it had to save a PNG) */
+const SNAP_HTTPS = "https://cockpit.tailbb1c89.ts.net";   // Tailscale https address: browsers only allow copying a picture on https (or localhost)
+const snapIdle = () => '<span class="ic">📷</span><span class="tx">Copy view</span>';
+function snapNote(html){ let n=document.getElementById("snapNote"); if(!html){ if(n) n.remove(); return; }
+  if(!n){ n=document.createElement("div"); n.id="snapNote"; n.className="snapnote"; n.setAttribute("role","status"); document.body.appendChild(n); }
+  n.innerHTML='<button aria-label="Close" onclick="this.parentNode.remove()">×</button>'+html; clearTimeout(n._t); n._t=setTimeout(()=>n.remove(),12000); }
+function snapWhy(){   // why copying is not possible on this page, or "" if it should work
+  if(!window.isSecureContext){ const here=location.pathname+location.search;
+    return `Saved as a PNG. Copying a picture only works on the <b>https</b> address — open <a href="${SNAP_HTTPS}${esc(here)}">${SNAP_HTTPS.replace("https://","")}</a> (Tailscale on) and the button copies again.`; }
+  if(!(navigator.clipboard&&navigator.clipboard.write&&window.ClipboardItem)) return "Saved as a PNG. This browser cannot copy pictures (needs Chrome, Edge or Safari, or Firefox 127+).";
+  return ""; }
+function takeSnap(){
+  const btn=document.getElementById("screenshotBtn"); if(!btn||btn.disabled) return;
+  if(typeof html2canvas!=="function"){ snapNote("The picture tool did not load (no internet to cdnjs?). Reload the page and try again."); return; }
+  btn.disabled=true; btn.classList.remove("ok","saved","bad"); btn.innerHTML='<span class="ic">⏳</span><span class="tx">Copying…</span>';
   const el=st.tab==="flow"?document.getElementById("mapPane"):(document.querySelector("main.tab:not([hidden])")||document.body);
   const name="cockpit_"+st.sym+"_"+st.tab+"_"+(liveClock().date||"snap")+".png";
-  const png=html2canvas(el,{backgroundColor:"#0A1426",scale:2,logging:false,useCORS:true}).then(c=>new Promise(r=>c.toBlob(r,"image/png")));
-  const save=()=>png.then(b=>{ const a=document.createElement("a"); a.download=name; a.href=URL.createObjectURL(b); a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); return "✓ saved"; });
-  const done=t=>{ btn.textContent=t; setTimeout(()=>{ btn.disabled=false; btn.textContent="📷"; },1400); };
-  let job;   // clipboard needs HTTPS (or localhost); the ClipboardItem is created inside the click so Safari allows it
-  if(window.isSecureContext&&navigator.clipboard&&navigator.clipboard.write&&window.ClipboardItem){
-    job=navigator.clipboard.write([new ClipboardItem({"image/png":png})]).then(()=>"✓ copied").catch(e=>{ console.warn("clipboard:",e); return save(); }); }
-  else job=save();
-  job.then(done).catch(e=>{ console.error("screenshot:",e); done("✗"); });
-});
+  const r=el.getBoundingClientRect(), scale=Math.max(1,Math.min(2,Math.sqrt(30e6/Math.max(1,r.width*Math.max(r.height,el.scrollHeight||0)))));   // keep the picture under ~30 MP so the browser can encode it
+  const png=html2canvas(el,{backgroundColor:"#0A1426",scale,logging:false,useCORS:true})
+    .then(c=>new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(new Error("picture too large")),"image/png")));
+  const save=()=>png.then(b=>{ const a=document.createElement("a"); a.download=name; a.href=URL.createObjectURL(b); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); return "saved"; });
+  const done=(kind,why)=>{ btn.classList.add(kind==="copied"?"ok":kind==="saved"?"saved":"bad");
+    btn.innerHTML=kind==="copied"?'<span class="ic">✓</span><span class="tx">Copied — paste it</span>':kind==="saved"?'<span class="ic">↓</span><span class="tx">Saved PNG</span>':'<span class="ic">✗</span><span class="tx">Failed</span>';
+    if(why) snapNote(why);
+    setTimeout(()=>{ btn.disabled=false; btn.classList.remove("ok","saved","bad"); btn.innerHTML=snapIdle(); },kind==="copied"?1800:2600); };
+  const why=snapWhy();
+  let job;   // the ClipboardItem is created inside the click (Safari needs that); its picture is filled in when ready
+  if(!why) job=navigator.clipboard.write([new ClipboardItem({"image/png":png})]).then(()=>["copied",""])
+    .catch(e=>{ console.warn("clipboard:",e); return save().then(k=>[k,`Saved as a PNG — the browser blocked the copy (${esc(e&&e.name||"error")}${e&&e.message?": "+esc(e.message):""}). If it says "not allowed", click the page once and try again; check the site's Clipboard permission in the address bar.`]); });
+  else job=save().then(k=>[k,why]);
+  job.then(([k,w])=>done(k,w)).catch(e=>{ console.error("screenshot:",e); done("bad",`Could not take the picture (${esc(e&&e.message||e)}).`); });
+}
+document.getElementById("screenshotBtn").addEventListener("click",takeSnap);
 
 /* ============================================================ boot */
 if(DEMO){ demo(); pollFlowPrev(); render(); }

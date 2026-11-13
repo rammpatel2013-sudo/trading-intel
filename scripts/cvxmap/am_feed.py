@@ -83,15 +83,27 @@ def _first(s: str):
 def role_of(label: str) -> str:
     """Doc's vocabulary -> how the level behaves (colour on the map)."""
     l = label.lower()
-    if re.search(r"pivot|control", l):
+    if re.search(r"pivot|control|equilibrium", l):
         return "piv"
-    if re.search(r"neg|trigger|gate|-gex", l):
+    if re.search(r"neg|trigger|gate|-gex|transition|warning|risk|accelerat|chute", l):
         return "trig"
-    if re.search(r"pos|\+gex|catch|stall|brake|sticky|lid|ceiling|cluster|support|floor|magnet", l):
+    if re.search(r"pos|\+gex|catch|stall|brake|sticky|lid|ceiling|cluster|support|floor|magnet|cushion|resist", l):
         return "pos"
     if re.search(r"str|σ|\bem\b|straddle|sigma", l):
         return "rail"
     return "chart"
+
+
+def lv_has_piv(lv: list[dict]) -> bool:
+    return any(x.get("role") == "piv" for x in lv)
+
+
+def _next_text(lines: list[str], i: int) -> str:
+    """The first non-empty line after a heading line (2026-11-13: 'THE ONE THING' / 'UP PATH' put the text on the next line)."""
+    for l in lines[i + 1:i + 4]:
+        if l.strip():
+            return l.strip()
+    return ""
 
 
 def _tv_line(rest: str) -> list[dict]:
@@ -106,8 +118,18 @@ def _tv_line(rest: str) -> list[dict]:
     return out
 
 
+def _headerish(l: str) -> bool:
+    """A section heading ('📈 TRADINGVIEW STRINGS'), not a sentence that mentions it
+    (2026-11-13: the '🔒 BELOW THE LINE TODAY' teaser names every paid section in one line)."""
+    letters = [c for c in l if c.isalpha()]
+    if not letters:
+        return False
+    return len(l.strip()) <= 40 or sum(c.isupper() for c in letters) / len(letters) >= 0.8
+
+
 def _section(lines: list[str], start_pat: str, end_pats: list[str]) -> list[str]:
-    s = next((i for i, l in enumerate(lines) if re.search(start_pat, l)), None)
+    hits = [i for i, l in enumerate(lines) if re.search(start_pat, l)]
+    s = next((i for i in hits if _headerish(lines[i])), hits[0] if hits else None)
     if s is None:
         return []
     out = []
@@ -270,11 +292,50 @@ def parse_doc(text: str, subject: str = "") -> dict:
             out["levels"]["SPX"] = lv
             out["warnings"].append("levels from the structure board (no TradingView strings in this copy)")
 
+    # --- 2026-11-13 format: the level ladder ('7,700 — SECONDARY CEILING' under ABOVE THE PIVOT / THE PIVOT / UNDERNEATH)
+    if not out["levels"].get("SPX"):
+        lad = _section(lines, r"LEVELS (?:&|AND) LINES|^\W*ABOVE THE PIVOT\s*$", [r"HOW TO USE", r"BELOW THE LINE", r"CHEAT CARD", r"ROAD MAP", r"TRADINGVIEW"])
+        lv, grp = [], None
+        for l in lad:
+            u = re.sub(r"^[^\w$]+", "", l).strip().upper()
+            if u in ("ABOVE THE PIVOT", "THE PIVOT", "UNDERNEATH", "BELOW THE PIVOT"):
+                grp = u
+                continue
+            m = re.match(rf"^(?:[•*\-]\s*)?({_NUM})(?:\s*[–-]\s*({_NUM}))?\s+[—–-]+\s+(.+)$", l.strip())
+            if not m or grp is None:
+                continue
+            a = _v(m.group(1))
+            b = _v(m.group(2)) if m.group(2) else None
+            lo, hi = (a, a) if b is None else (min(a, b), max(a, b))
+            if not (_ok(lo) and _ok(hi)):
+                continue
+            label = " ".join(w.capitalize() for w in m.group(3).strip().rstrip(".").split())
+            role = "piv" if grp == "THE PIVOT" and not lv_has_piv(lv) else role_of(label)
+            item = {"v": lo if hi == lo else round((lo + hi) / 2), "label": label, "role": role}
+            if hi != lo:
+                item.update({"lo": lo, "v2": hi})
+            lv.append(item)
+        if lv:
+            out["levels"]["SPX"] = lv
+            out["warnings"].append("levels from the level ladder (no TradingView strings in this copy)")
+
     # --- rails (expected-move bands)
     seen = set()
     for l in lines:
         m = re.match(r"^(?:[•\-\*📏📐]\s*)*(?P<n>STR 1\.5|STR|1σ|½σ(?: study)?|OVN EM|Weekly EM|Weekly straddle|Straddle|1\.5x|0DTE EM)\b(?P<q>\s*\([^)]*\))?\s*:\s*(?P<r>.+)$", l)
-        if not m:
+        if not m:   # 2026-11-13 format: 'Expected range: a / b', '1.5× straddle: a / b', '2× RAILS: a / b'
+            m2 = re.match(r"^(?:[•\-\*📏📐]\s*)*(?P<n>expected range|1\.5\s*[×x]\s*(?:straddle|rails?)|2\s*[×x]\s*(?:straddle|rails?))\s*:\s*(?P<r>.+)$", l, re.I)
+            if not m2:
+                continue
+            p = _PAIR.search(m2.group("r"))
+            n = m2.group("n").lower()
+            n = "STR" if n.startswith("expected") else "STR 1.5" if n.startswith("1.5") else "STR 2"
+            if not p or n in seen:
+                continue
+            seen.add(n)
+            lo, hi = sorted([_v(p.group(1)), _v(p.group(2))])
+            if _ok(lo) and _ok(hi):
+                out["rails"].append({"name": n, "lo": lo, "hi": hi})
             continue
         p = _PAIR.search(m.group("r"))
         if not p:
@@ -294,8 +355,8 @@ def parse_doc(text: str, subject: str = "") -> dict:
             out["rails"].append({"name": n + (" " + q if q else ""), "lo": lo, "hi": hi})
 
     # --- expected range / pivot / working area / paths / the one thing
-    for l in lines:
-        if out["em"] is None and re.search(r"Expected range (?:today|from)", l, re.I):
+    for i, l in enumerate(lines):
+        if out["em"] is None and re.search(r"Expected range (?:today|from)|^\W*Expected range\s*:", l, re.I):
             p = _PAIR.search(l)
             if p:
                 out["em"] = sorted([_v(p.group(1)), _v(p.group(2))])
@@ -316,6 +377,17 @@ def parse_doc(text: str, subject: str = "") -> dict:
         m = re.search(r"THE ONE THING\s*:\s*(.+)$", l)
         if m:
             out["one_thing"] = m.group(1).strip()
+        u = re.sub(r"^[^\w]+", "", l).strip().upper()          # heading on its own line, text on the next
+        if u == "THE ONE THING" and not out["one_thing"]:
+            out["one_thing"] = _next_text(lines, i) or None
+        elif u == "UP PATH" and not out["up_path"]:
+            out["up_path"] = zones(_next_text(lines, i))
+        elif u == "DOWN PATH" and not out["down_path"]:
+            out["down_path"] = zones(_next_text(lines, i))
+        elif u == "THE PIVOT" and out["pivot"] is None:
+            z = zones(_next_text(lines, i))
+            if z:
+                out["pivot"] = z[0][0] if z[0][0] == z[0][1] else round((z[0][0] + z[0][1]) / 2)
 
     # --- road map
     rm = _section(lines, r"ROAD MAP|^\W*THE TRADE\s*$", [r"SCALPER MAP", r"PREMIUM SELLERS", r"BOTTOM LINE", r"CHEAT CARD", r"TRADINGVIEW", r"WHY I'M NOT SELLING"])
@@ -332,6 +404,25 @@ def parse_doc(text: str, subject: str = "") -> dict:
         piv = [x["v"] for x in out["levels"].get("SPX", []) if x.get("role") == "piv"]
         out["pivot"] = piv[0] if piv else None
     out["chop"] = hdr.get("chop")
+    if not sc:   # 2026-11-13 format: THE READ lines '🟢 Above 7,620–7,625: ... toward 7,650–7,655' / '🔴 Below 7,585–7,575: ... toward 7,550'
+        for l in lines:
+            m = re.match(rf"^\W*(Above|Below)\s+({_NUM})(?:\s*[–-]\s*({_NUM}))?\s*:\s*(?P<t>.+)$", l, re.I)
+            if m:
+                a = _v(m.group(2))
+                b = _v(m.group(3)) if m.group(3) else a
+                up = m.group(1).lower() == "above"
+                L = max(a, b) if up else min(a, b)
+                then = m.group("t").strip()
+                tz = [z for z in zones(re.split(r"\btoward[s]?\b|\bto\b", then, maxsplit=1)[-1]) if (z[0] > L if up else z[1] < L)]
+                sc.append({"kind": "cross", "dir": "up" if up else "down", "level": L, "targets": tz, "rule": None,
+                           "cond": f"{m.group(1)} {m.group(2)}" + (f"–{m.group(3)}" if m.group(3) else ""), "then": then,
+                           "text": re.sub(r"^[^\w]+", "", l).strip(), "sect": "up" if up else "down", "id": f"s{len(sc) + 1}"})
+                continue
+            m = re.match(rf"^\W*({_NUM})\s*[–-]\s*({_NUM})\s*:\s*(Equilibrium|Chop|Balance|Pin)\b", l, re.I)
+            if m and not out["chop"]:
+                out["chop"] = sorted([_v(m.group(1)), _v(m.group(2))])
+        if sc:
+            out["warnings"].append("IF/THEN lines read from THE READ (Above / Below lines)")
     # 'the pivot' targets parsed before the header was known
     for s in sc:
         if not s["targets"] and re.search(r"pivot", s["then"], re.I) and out["pivot"]:
@@ -385,7 +476,14 @@ def _doc_date(parsed: dict, received: datetime | None) -> str | None:
     return received.date().isoformat() if received else None
 
 
+DAILY_SUBJ = re.compile(r"MARKET REPORT|DAILY PLAN|SPX 0DTE", re.I)
+
+
 def doc_from_gmail(settings) -> tuple[dict | None, str | None]:
+    """Newest daily report from Doc in the last 3 days. 2026-11-13: if the NEWEST email from Doc
+    came in today but its subject is not one of the usual daily titles, it is still used when its
+    body reads as a plan (SPX levels or IF/THEN lines); otherwise the feed says which email it skipped.
+    A dead Gmail sign-in is named plainly (the cockpit shows these lines on the Plan tab)."""
     try:
         from trading_intel.letters.gmail_source import _header, _service, _walk_body_and_attachments
     except Exception as exc:
@@ -396,23 +494,43 @@ def doc_from_gmail(settings) -> tuple[dict | None, str | None]:
             return None, "gmail: token or google libraries not available"
         res = svc.users().messages().list(userId="me", q=f"from:{DOC_SENDER} newer_than:3d",
                                           maxResults=5, includeSpamTrash=True).execute()
-        best = None
+        best, skipped = None, None
         for ref in res.get("messages", [])[:5]:          # newest first: stop at the first daily report
             msg = svc.users().messages().get(userId="me", id=ref["id"], format="full").execute()
             payload = msg.get("payload", {})
             subj = _header(payload, "Subject")
-            if not re.search(r"MARKET REPORT|DAILY PLAN|SPX 0DTE", subj, re.I):
+            ms = int(msg.get("internalDate") or 0)
+            if not DAILY_SUBJ.search(subj):
+                if skipped is None:
+                    skipped = (ms, subj, payload)
                 continue
             body, _ = _walk_body_and_attachments(payload)
-            best = (int(msg.get("internalDate") or 0), subj, body)
+            best = (ms, subj, body)
             break
+        note = None
+        if skipped and (not best or skipped[0] > best[0]):
+            s_ms, s_subj, s_payload = skipped
+            s_rec = _to_et(s_ms / 1000)
+            label = f"{s_rec:%m/%d %H:%M} '{(s_subj or '').strip()[:70]}'"
+            if s_rec.date() == _et_now().date():
+                body, _ = _walk_body_and_attachments(s_payload)
+                p = parse_doc(body, s_subj)
+                if p["scenarios"] or p["levels"].get("SPX"):
+                    best, note = (s_ms, s_subj, body), f"gmail: used today's email {label} (unusual subject)"
+                else:
+                    note = f"gmail: today's email {label} is not a daily plan (no levels or IF/THEN lines in it)"
+            else:
+                note = f"gmail: skipped {label} (not a daily report title)"
         if not best:
-            return None, "gmail: no Doc report in the last 3 days"
+            return None, note or "gmail: no Doc report in the last 3 days"
         ms, subj, body = best
         rec = _to_et(ms / 1000)
-        return {"text": body, "subject": subj, "received": rec, "source": "gmail"}, None
+        return {"text": body, "subject": subj, "received": rec, "source": "gmail"}, note
     except Exception as exc:
-        return None, f"gmail: {type(exc).__name__}"
+        name = type(exc).__name__
+        if name == "RefreshError" or "invalid_grant" in str(exc):
+            return None, f"gmail: sign-in expired ({name}) - the email sign-in token must be renewed"
+        return None, f"gmail: {name}"
 
 
 def doc_from_paste() -> tuple[dict | None, str | None]:
