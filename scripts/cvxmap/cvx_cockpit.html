@@ -786,6 +786,8 @@ body.phone #tabLevels .vxwrap{padding:8px 8px 40px}
 .ortime{display:flex;align-items:center;gap:12px;margin:8px 0}
 .ortime input[type=range]{flex:1;accent-color:#FFD23F;height:28px;min-width:120px}
 .ort{font-size:20px;font-weight:700;color:#fff;min-width:110px}
+.frbar{display:inline-flex;align-items:center;gap:10px;flex:1 1 380px;min-width:0}.frbar:empty{display:none}   /* 2026-11-12 Replay */
+.frbar input[type=range]{flex:1;accent-color:#FFD23F;height:24px;min-width:120px}.frbar .ort{font-size:17px;min-width:56px}.frbar .orbadge{font-size:13px}
 .orbadge{font-size:15px;font-weight:700;padding:3px 9px;border-radius:5px;background:#7c3aed;color:#fff}
 .orbadge.live{background:#1f9d55}
 .orgrid{display:grid;grid-template-columns:minmax(0,1fr) 230px 260px;border:1px solid var(--rule);border-radius:8px;background:var(--pane)}
@@ -1002,7 +1004,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 
   <main id="tabSkew" class="tab" hidden>
     <div class="phead tabbar">
-      <h2>Skew</h2>
+      <h2>Skew</h2><span class="frbar" id="frBarSkew"></span>
       <div class="seg" role="group" aria-label="Compare the smile with" id="smileCmp">
         <span class="lbl">Compare with</span><button data-v="open" aria-pressed="true">First log</button><button data-v="60" aria-pressed="false">60m ago</button><button data-v="30" aria-pressed="false">30m ago</button><button data-v="15" aria-pressed="false">15m ago</button>
       </div>
@@ -1027,7 +1029,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
     <section class="pane" id="mapRightPane"><div class="phead"><h2 id="mapRightH">Charm</h2><span class="sp"></span><div class="seg" role="group" id="mapRightSeg"><button data-v="charm" aria-pressed="true">Charm</button><button data-v="vanna" aria-pressed="false">Vanna</button><button data-v="chg" aria-pressed="false" title="Change in gamma over the last 30 minutes - where the book has been built. Needs the Vol or OI + vol basis.">Change</button></div><div class="seg" role="group" id="mapBookRSeg" title="Which dealer book THIS map uses. Independent of the Gamma map on the left, so you can read gamma on 0DTE and vanna on All at the same time."><button data-v="0dte" aria-pressed="false">0DTE</button><button data-v="week" aria-pressed="false">Week</button><button data-v="all" aria-pressed="false">All</button></div><button class="btn" id="zoomBtn" aria-pressed="false" title="Zoom all three map panes: a price window around spot, finer rows and 1-minute columns inside it. Mouse wheel = wider/narrower · drag = move up/down · double-click = back to spot.">Zoom</button><div class="seg" role="group" id="zoomWSeg" title="Zoom price window around spot"><button data-v="25">±25</button><button data-v="50">±50</button><button data-v="100">±100</button></div><div class="seg" role="group" id="zoomTSeg" title="Zoom time window"><button data-v="rth">9:30 →</button><button data-v="2h">Last 2h →</button></div><div class="seg" role="group" id="mapColSeg" title="Colour: Classic = one colour per side, brighter = bigger. Gradient = a ramp of colours (dark at zero, then blue/cyan or amber/gold to near-white) so each size has its own colour, with a faint line where the value is half the column's strongest."><button data-v="classic">Classic</button><button data-v="grad">Gradient</button></div><div class="seg" role="group" id="mapScaleSeg" title="Colour scale: Day = one scale for the whole map (afternoon charm is far bigger, so mornings look dim). Column = each minute scaled to its own strongest value, so the shape shows all day; sizes are still in the read-out."><button data-v="day">Day</button><button data-v="col">Column</button></div></div><div class="body"><canvas id="mapRightC"></canvas></div></section>
   </main>
   <main id="tabVol" class="tab" hidden>
-    <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span></div><div class="volread" id="volRead"></div></section>
+    <section class="pane" id="volReadPane"><div class="phead"><h2>Tape read</h2><span class="hint">rules over the three ladders · live line + one entry every 30 min (kept for the day)</span><span class="frbar" id="frBarVol"></span></div><div class="volread" id="volRead"></div></section>
     <section class="pane"><div class="phead"><h2 id="volDayH">Today</h2><div class="seg" role="group" id="volWinSeg" title="Recent activity (2026-11-09): show only the contracts added in the last 5 / 15 / 30 minutes at each strike, from the minute log (now minus then), split bought / sold by the Flow tab's Side setting. Day = everything traded today (default)."><button data-v="5" aria-pressed="false">Last 5 min</button><button data-v="15" aria-pressed="false">15 min</button><button data-v="30" aria-pressed="false">30 min</button><button data-v="day" aria-pressed="true">Day</button></div><div class="seg" role="group" id="volColSeg" title="Colour the volume ladders by option type (calls / puts) or by direction (green = calls bought + puts sold, red = calls sold + puts bought). Sides follow the Flow tab's Side setting (Quote or Trade tag)."><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">top 5 per side labelled</span><span class="sp"></span><button class="btn" id="volHowBtn" aria-pressed="true" title="Show / hide the plain-English how-to-read lines under each ladder">How to read</button></div><div class="volhow"><b>Bar length</b> = contracts traded today at that strike. <b>Solid</b> = bought · <b>striped</b> = sold. <b>Calls|Puts</b>: <span class="pu">pink, left = puts</span> · <span class="ca">blue, right = calls</span> · %B = share bought (40–60% = no signal). <b>Bull|Bear</b>: <span class="gr">right = bullish</span> (calls bought + puts sold) · <span class="rd">left = bearish</span> (puts bought + calls sold). <b>Net</b>: one bar = bullish minus bearish. Dotted vertical lines = size guides. <b>CW / PW</b> = call / put wall · <b>PIN</b> = pin magnet · <b>yellow dashed</b> = gamma flip · white dotted = price now. <b>This panel = where the money went today.</b> <b>Last 5 / 15 / 30 min</b>: only the contracts added in that window; the 3 strikes with the most new contracts get a yellow frame.</div><div class="volwin" id="volWinLine" hidden></div><div class="body"><canvas id="volDayC"></canvas></div></section>
     <section class="pane"><div class="phead"><h2>Last 30 min</h2><div class="seg" role="group" id="volCol30Seg"><button data-v="cp" aria-pressed="true">Calls|Puts</button><button data-v="bb" aria-pressed="false">Bull|Bear</button><button data-v="net" aria-pressed="false">Net</button></div><span class="hint">own scale</span></div><div class="volhow">Same bars, but <b>only the last 30 minutes</b>. Own scale: compare strikes <b>inside this panel only</b>, not with Today. <b>This panel = where trading is happening now.</b></div><div class="body"><canvas id="vol30C"></canvas></div></section>
     <div id="volTip" role="tooltip" hidden></div>
@@ -1340,6 +1342,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
         <figure class="hshot"><a href="help/skew.webp" target="_blank" rel="noopener"><img src="help/skew.webp" loading="lazy" alt="Skew page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: the smile now vs the first log (left), skew through the day (right), term structure (bottom).</figcaption></figure>
         <dl>
           <dt>Compare with</dt><dd>First log / 60m / 30m / 15m ago: what &ldquo;then&rdquo; means in the charts.</dd>
+          <dt>Replay</dt><dd>Button in the header, <b>off</b> by default. <b>&#9654; Play</b> or the slider steps through today&rsquo;s minutes: the smile, the read and the skew chart as they stood then (the same minute as on the Volume tab). <b>Now</b> = back to live. The term structure stays live.</dd>
           <dt>Smile by: Strike / Moneyness</dt><dd>Plot by strike price, or by distance from price in %.</dd>
           <dt>Smile now vs then</dt><dd>IV at each strike now (solid) and then (dotted). Puts on the left, calls on the right.</dd>
           <dt>Skew through the day</dt><dd>A one-line read (for example &ldquo;Fear: put skew bid into the drop&rdquo;), then ATM IV, <b>put skew</b> (25-delta put IV minus ATM), <b>call skew</b> (25-delta call IV minus ATM) and <b>normalized skew</b> (put minus call, divided by ATM). Numbers in brackets = change.</dd>
@@ -1408,6 +1411,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
         <figure class="hshot"><a href="help/vol.webp" target="_blank" rel="noopener"><img src="help/vol.webp" loading="lazy" alt="Volume page"></a><figcaption>Real screen, Thu Nov 12, 12:06 ET: today (left), the last 30 minutes (middle), last 30 vs the 30 before (right); calls right, puts left, solid = bought, striped = sold.</figcaption></figure>
         <dl>
           <dt>Tape read</dt><dd>A plain summary of the three ladders, refreshed live. Earlier entries (one every 30 minutes) fold under <b>Earlier &#9656;</b>; click to open.</dd>
+          <dt>Replay</dt><dd>Button next to Tape read, <b>off</b> by default. <b>&#9654; Play</b> or drag the slider to see the read and the three ladders as they stood at any minute today (from the minute log); <b>Now</b> = back to live. A replay never adds to the 30-minute log.</dd>
           <dt>Today</dt><dd>Everything traded today. <b>%B</b> = share bought; 40&ndash;60% is no signal. <b>Where the money went today.</b></dd>
           <dt>Last 5 min / 15 min / 30 min / Day</dt><dd>Switch on the first ladder (Day to start). In a window mode each bar shows only the contracts <b>added in that window</b> at that strike (now minus then, from the minute log), split calls bought / calls sold / puts bought / puts sold in the usual colours, using the Flow page&rsquo;s <b>Side</b> setting. The 3 strikes with the most new contracts get a yellow frame, and one sentence on top names the busiest, for example &ldquo;Last 15 min: most new activity at 7400 puts bought (+3.2k), then 7450 calls sold (+2.1k)&rdquo;. Hovering any ladder shows that strike&rsquo;s day totals and its last 5, 15 and 30 minutes.</dd>
           <dt>Last 30 min</dt><dd>Only the last 30 minutes, with its own scale. <b>Where trading is happening now.</b></dd>
@@ -1644,6 +1648,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Gamma + vanna (&beta;)</dt><dd>Gamma once implied vol moves with price the way it has today (&beta; = vol points per +1% move, fitted from the last 60 minutes; a typical value until about 10:00). Same sign as plain gamma = the level survives a vol move. <b>Opposite sign</b> (the hover card says so) = a vol move can break it.</dd>
           <dt>Gamma + vanna (shape)</dt><dd>Each greek scaled to its own largest value and added: no dollar meaning. Where both peak together the level is strongest.</dd>
           <dt>Positions from</dt><dd>The Map&rsquo;s four: OI, Vol, OI + vol, OI + signed.</dd>
+          <dt>Replay</dt><dd>Button in the header, <b>off</b> by default. Steps through the surfaces saved every 5 minutes today (<b>&#9654; Play</b> or the slider); <b>Now</b> = the live surface. The hover reads the surface shown.</dd>
           <dt>Expiries / Strikes / Smooth</dt><dd>Which expiries (Today, 3 days, 7 days, All), how far from price (&plusmn;50 / 100 / 200 points), and smoothing (the picture only; the hover always reads the raw numbers).</dd>
           <dt>Surface vs Map</dt><dd>The Surface is the book <b>now</b>, across expiries. The Map carries that book to 4 pm, so the pin and close reads live on the Map.</dd>
           <dt>Limits</dt><dd>Positions use the simple rule (calls +, puts &minus;) unless OI + signed: trust where the peaks sit more than how tall they are. Not scored nightly yet.</dd>
@@ -2663,9 +2668,48 @@ function volLogUpdate(line){ // one entry per 30-min slot, kept for the day
   if(line&&!log.some(e=>e.slot===slot)){ log.push({slot,t:`${String(Math.floor(slot/60)).padStart(2,"0")}:${String(slot%60).padStart(2,"0")}`,text:line.replace(/<[^>]+>/g,"")}); save(volLogKey(),JSON.stringify(log.slice(-16))); }
   return log;
 }
+/* 2026-11-12 Replay (Volume + Skew tabs; Mithil 11/12 18:40 "build skew surface volume"): step back through today's
+   minute flow log, like the Orbs tab. The view at minute j is rebuilt from the log's first j+1 minutes (buildSeries)
+   plus that minute's own volumes and IVs on today's OI (bookAt), so the tab shows what it showed then. Off by
+   default and not saved; while off nothing changes. A replay never writes the Volume tab's 30-minute log. */
+const FR={on:false,j:null,play:null,key:"",R:null};
+function bookAt(se,s){ // the book as it stood at one logged minute
+  const d=st.live&&st.live[st.sym]; if(!d||!d.rows||!s||!(s.x>0)) return null;
+  const oi=new Map(d.rows.map(r=>[r.k,r])), S=s.x, jn=se.m-1, mins=Math.max(960-se.T[jn],1);
+  const rows=s.k.map((k,q)=>{ const o=oi.get(k)||{}, sg=otmIV(k,S,s.ci[q]||0,s.pi[q]||0);
+    const [cp,pp]=bookCP(o.cOI||0,o.pOI||0,s.cv[q],s.pv[q],s.cvb?s.cvb[q]:null,s.cvs?s.cvs[q]:null,s.pvb?s.pvb[q]:null,s.pvs?s.pvs[q]:null);
+    const ivrel=se.idx.has(k)?ivRel(se,se.idx.get(k),jn,k>=S):null;
+    return {k,sg,cp,pp,cm:s.cm&&s.cm[q]>0?s.cm[q]:null,pm:s.pm&&s.pm[q]>0?s.pm[q]:null,cv:s.cv[q],pv:s.pv[q],ivrel}; });
+  const book=readBook(rows,S,mins); book.S=S; book.rows=rows; return book; }
+function frAt(se){ // null = live
+  if(!FR.on||FR.j==null||!se) return null; const snaps=st.flow[st.sym]||[]; const j=Math.min(FR.j,snaps.length-1);
+  if(j<1||j>=snaps.length-1) return null;
+  const key=_memo.key+"|"+j+"|"+st.basis+"|"+st.sideSrc; if(FR.key===key&&FR.R) return FR.R;
+  const seJ=buildSeries(snaps.slice(0,j+1)); seJ._rp=true; FR.R={se:seJ,book:bookAt(seJ,snaps[j]),j}; FR.key=key; return FR.R; }
+function frStop(){ if(FR.play){ clearInterval(FR.play); FR.play=null; } }
+function frBar(id,se){
+  const el=document.getElementById(id); if(!el) return; const n=se?se.m:0;
+  if(el.dataset.on!==String(FR.on)){ el.dataset.on=String(FR.on);
+    el.innerHTML=`<button class="sxbtn" data-fr="on" aria-pressed="${FR.on}" title="Replay (off by default): step back through today's minutes from the minute flow log, like the Orbs tab. Off = live.">Replay</button>`+
+      (FR.on?`<button class="sxbtn" data-fr="play">▶ Play</button><input type="range" data-fr="sl" min="0" max="0" value="0" aria-label="Time"><span class="ort" data-fr="t">--:--</span><button class="sxbtn" data-fr="now">Now</button><span class="orbadge" data-fr="b"></span>`:"");
+    el.querySelector('[data-fr="on"]').onclick=()=>{ FR.on=!FR.on; frStop(); FR.j=null; FR.R=null; FR.key=""; render(); };
+    if(FR.on){ const sl=el.querySelector('[data-fr="sl"]');
+      sl.addEventListener("input",()=>{ frStop(); const v=+sl.value; FR.j=v>=+sl.max?null:v; render(); });
+      el.querySelector('[data-fr="now"]').onclick=()=>{ frStop(); FR.j=null; render(); };
+      el.querySelector('[data-fr="play"]').onclick=()=>{ if(FR.play){ frStop(); render(); return; } const s0=series(st.sym); if(!s0||s0.m<3) return;
+        if(FR.j==null||FR.j>=s0.m-2) FR.j=1;
+        FR.play=setInterval(()=>{ const s1=series(st.sym); if(!s1||!FR.on||!["vol","skew"].includes(st.tab)){ frStop(); render(); return; }
+          if(FR.j>=s1.m-2){ frStop(); FR.j=null; render(); return; } FR.j++; render(); },300); render(); }; } }
+  if(!FR.on) return;
+  const sl=el.querySelector('[data-fr="sl"]'), live=FR.j==null||FR.j>=n-1; sl.max=String(Math.max(0,n-1)); sl.value=String(live?Math.max(0,n-1):FR.j);
+  el.querySelector('[data-fr="play"]').textContent=FR.play?"❚❚ Pause":"▶ Play";
+  const tj=se&&n?se.T[live?n-1:FR.j]:null; el.querySelector('[data-fr="t"]').textContent=tj!=null?tlabel(tj):"--:--";
+  const bd=el.querySelector('[data-fr="b"]'); bd.className="orbadge"+(live?" live":"");
+  bd.textContent=live?"LIVE":"REPLAY · "+(tj!=null?tlabel(tj):"");
+  bd.title=id==="frBarSkew"&&!live?"The term structure stays live: it is not in the minute log.":""; }
 /* ============================================================ render: Volume tab (three ladders side by side) */
 function renderVolTab(se,book){
-  const rd=document.getElementById("volRead"); if(rd){ const line=volReadLine(se,book); const log=volLogUpdate(line);
+  const rd=document.getElementById("volRead"); if(rd){ const line=volReadLine(se,book); const log=se&&se._rp?[]:volLogUpdate(line);   // 2026-11-12: a replay never writes the 30-min log
     rd.innerHTML=(line?`<div class="now">${line}</div>`:`<div class="now">Needs a live chain and the minute log.</div>`)+
       (log.length?`<details class="vlog"${st.volLogOpen?" open":""}><summary>Earlier (${log.length}) — one entry every 30 min</summary><div class="log">${log.slice().reverse().map(e=>`<div><span class="t">${e.t}</span>${esc(e.text)}</div>`).join("")}</div></details>`:"");
     if(!rd.__vlogBound){ rd.__vlogBound=true; rd.addEventListener("toggle",e=>{ if(e.target&&e.target.classList&&e.target.classList.contains("vlog")) st.volLogOpen=e.target.open; },true); } }
@@ -2898,7 +2942,7 @@ function interpAt(pairs,target){ for(let q=1;q<pairs.length;q++){ const [d0,v0]=
     if((d0-target)*(d1-target)<=0&&d0!==d1) return v0+(v1-v0)*(target-d0)/(d1-d0); } return null; }
 let _sk={key:null,v:null};
 function skewSeries(se){ // 25-delta put/call IV each minute (Black-Scholes deltas with minutes to the close)
-  if(_sk.key===_memo.key&&_sk.v) return _sk.v;
+  if(!se._rp&&_sk.key===_memo.key&&_sk.v) return _sk.v;   // 2026-11-12: a replay series is never cached
   const m=se.m, c25=new Array(m).fill(null), p25=new Array(m).fill(null);
   for(let j=0;j<m;j++){ const S=se.spot[j], ty=Math.max(1,960-se.T[j])/525600, sq=Math.sqrt(ty), calls=[], puts=[];
     for(let i=se.n-1;i>=0;i--){ const k=se.ks[i], ci=se.ivC[i][j], pi=se.ivP[i][j];   // ascending strikes
@@ -2909,7 +2953,7 @@ function skewSeries(se){ // 25-delta put/call IV each minute (Black-Scholes delt
   const v={c25,p25,atm,
     pskew:f(p25,atm,(p,a)=>(p-a)*100), cskew:f(c25,atm,(c,a)=>(c-a)*100),
     norm:f(p25,c25,(p,c)=>null).map((_,j)=>p25[j]!=null&&c25[j]!=null&&atm[j]>0?(p25[j]-c25[j])/atm[j]:null)};
-  _sk={key:_memo.key,v}; return v; }
+  if(!se._rp) _sk={key:_memo.key,v}; return v; }
 function skewRead(se,sk){
   const jn=se.m-1; let jb=0; for(let j=jn;j>=0;j--){ if(se.T[jn]-se.T[j]>=LOOKBACK){jb=j;break;} }
   const dd=a=>a[jn]!=null&&a[jb]!=null?a[jn]-a[jb]:null;
@@ -2924,7 +2968,7 @@ function skewRead(se,sk){
   else if(pb&&!cb) label="Put skew bid while price is flat: hedging demand building";
   else if(cb&&!pb) label="Call skew bid while price is flat: upside demand building";
   else label="Skew steady, price flat";
-  const mtc=minsToClose(liveClock());
+  const mtc=se._rp?960-se.T[jn]:minsToClose(liveClock());   // 2026-11-12 replay: that minute's time to the close
   if(mtc<=0) label="After the close: today's 0DTE skew no longer means anything";
   return {ds,dn,dps,dcs,da,label,late:mtc<45&&mtc>0,L:se.T[jn]-se.T[jb]}; }
 function bandChart(canvas, se, bands){ // stacked line bands that share the time window
@@ -3244,7 +3288,7 @@ function render(){
   else if(st.tab==="strikes") renderStrikes(se,d);
   else if(st.tab==="plan"){ renderPlan(); renderYday(); drawHump("humpPlanC",se,book,true); }
   else if(st.tab==="map") renderMapTab(se,d);
-  else if(st.tab==="vol") renderVolTab(se,book);
+  else if(st.tab==="vol"){ const R=frAt(se); renderVolTab(R?R.se:se,R?R.book:book); frBar("frBarVol",se); }   // 2026-11-12 Replay
   else if(st.tab==="premium") renderPremium(se);
   else if(st.tab==="vix") renderVix();
   else if(st.tab==="exposure"){ exRender(); }
@@ -3258,7 +3302,7 @@ function render(){
   else if(st.tab==="levels") renderLevels();
   else if(st.tab==="orbs"){ if(typeof OR!=="undefined"&&OR) renderOrbs(); }
   else if(st.tab==="surface"){ if(typeof SF!=="undefined"&&SF) renderSurface(); }
-  else renderSkew(se,d);
+  else { const R=frAt(se); renderSkew(R?R.se:se,d); frBar("frBarSkew",se); }   // 2026-11-12 Replay
 }
 
 /* ============================================================ signed-position ledger */
@@ -7765,7 +7809,8 @@ window.addEventListener("mouseup",()=>{ OR.drag=null; });
    hover always reports the raw value at the nearest real strike and expiry.
    Off until ON. Plotly (2.27.0, cdnjs) loads the first time the tab is switched ON. */
 var SF={on:load("sfOn","0")==="1", greek:load("sfGreek","g"), basis:load("sfBasis","oi"), win:load("sfWin","100"),
-  exp:load("sfExp","7"), smooth:load("sfSmooth","1"), J:null, err:null, at:0, timer:null, key:"", busy:false, plotly:null};
+  exp:load("sfExp","7"), smooth:load("sfSmooth","1"), J:null, err:null, at:0, timer:null, key:"", busy:false, plotly:null,
+  R:{on:false,F:null,day:null,i:0,follow:true,play:null,err:null,tried:0,busy:false}};   // 2026-11-12 R = replay
 const SF_URL="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js";
 const SF_COLORS=[[0,"#3b0f70"],[0.12,"#4a3fbf"],[0.28,"#2f8fe0"],[0.42,"#3fd1d6"],[0.5,"#9cf2c8"],
   [0.58,"#f2e86b"],[0.72,"#fbb33c"],[0.86,"#f2672a"],[1,"#c81e3a"]];
@@ -7778,7 +7823,7 @@ function sfLoadPlotly(){
 }
 async function sfPoll(){
   if(!SF.on||st.tab!=="surface"||SF.busy) return; SF.busy=true;
-  try{ const J=await orGet("surface_live_SPX.json"); const changed=!SF.J||J.t!==SF.J.t||J.day!==SF.J.day; SF.J=J; SF.err=null; SF.at=Date.now(); if(changed){ SF.key=""; renderSurface(); } }
+  try{ const J=await orGet("surface_live_SPX.json"); const changed=!SF.J||J.t!==SF.J.t||J.day!==SF.J.day; SF.J=J; SF.err=null; SF.at=Date.now(); if(changed){ SF.key=""; renderSurface(); } if(SF.R.on) sfRpLoad(); }
   catch(e){ SF.err="Waiting for surface_live_SPX.json — it is written every minute from 09:30 ET by the Orbs feed (cvxmap-wide)."; if(!SF.J) renderSurface(); }
   finally{ SF.busy=false; }
 }
@@ -7817,7 +7862,7 @@ function sfSmooth(g){
    a vol rise makes them sell; charm + = time passing makes them sell; gamma + vanna (beta) + = they absorb a 1% move. */
 function sfWhen(e){ const dt=new Date(e.e+"T12:00:00"); const d=isNaN(dt)?e.e:dt.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
   return d+(e.dte===0?" · today (0DTE)":` · ${e.dte} day${e.dte===1?"":"s"} left`)+(e.fam==="AM"?" · AM-settled":""); }
-function sfTip(g,i,j){ const J=SF.J, e=g.ex[i], k=g.x[j], ri=g.ri[i], ci=g.ci[j];
+function sfTip(g,i,j){ const J=sfCur(), e=g.ex[i], k=g.x[j], ri=g.ri[i], ci=g.ci[j];
   const val=f=>{ const B=sfBook(J,f); return B&&B[ri]?(B[ri][ci]||0):0; }, gv=val("g"), va=val("va"), ch=val("ch");
   const amt=v=>orMoney(Math.abs(v)).slice(1), dk=k-J.x; let main;
   if(SF.greek==="g") main=`<b>Gamma ${orMoney(gv)} per 1% move</b><br>`+(gv>=0?"dealers are LONG gamma here: they sell rallies and buy dips,<br>so price tends to slow or stick":"dealers are SHORT gamma here: they sell drops and buy rallies,<br>so price can speed up through it");
@@ -7827,27 +7872,57 @@ function sfTip(g,i,j){ const J=SF.J, e=g.ex[i], k=g.x[j], ri=g.ri[i], ci=g.ci[j]
   else { const s=g.z[i][j]; main=`<b>Shape ${s>=0?"+":"−"}${Math.abs(s).toFixed(2)}</b> (scale −2 to +2)<br>`+(s>=1?"gamma and vanna both strongly positive here":s<=-1?"gamma and vanna both strongly negative here":"gamma and vanna only partly agree here"); }
   const rest=[SF.greek!=="g"?`gamma ${orMoney(gv)} per 1%`:"",SF.greek!=="va"?`vanna ${orMoney(va)} per vol pt`:"",SF.greek!=="ch"?`charm ${orMoney(ch)} per hour`:""].filter(Boolean).join(" · ");
   return `<b>${esc(sfWhen(e))}</b><br><b>Strike ${fmtN(k)}</b> (${Math.round(Math.abs(dk))} pts ${dk>=0?"above":"below"} price ${fmtN(Math.round(J.x))})<br>${main}<br>${rest}<br><span style="color:#9FB2CC">positions: ${esc(OR_BASIS_TXT[SF.basis]||SF.basis)}</span>`; }
+/* 2026-11-12 Surface replay: one saved surface every 5 minutes (surface_SPX_YYYYMMDD.json, written by wide_feed.py from
+   the same minute files). Off by default and not saved; while off the tab draws the live surface exactly as before. */
+function sfCur(){ const R=SF.R; return R&&R.on&&!R.follow&&R.F&&R.F.length?R.F[Math.min(R.i,R.F.length-1)]:SF.J; }
+function sfRpStop(){ const R=SF.R; if(R&&R.play){ clearInterval(R.play); R.play=null; } }
+async function sfRpLoad(force){ const R=SF.R; if(!R.on||R.busy||!SF.J) return; const ymd=String(SF.J.day||"").replace(/-/g,""); if(!ymd) return;
+  if(!force&&Date.now()-R.tried<60000) return; R.tried=Date.now(); R.busy=true;
+  try{ const J=await orGet(`surface_SPX_${ymd}.json`); R.F=Array.isArray(J.frames)?J.frames:[]; R.day=ymd; R.err=R.F.length?null:`No saved surfaces for ${SF.J.day} yet.`; }
+  catch(e){ R.F=null; R.err=`No saved surfaces for ${SF.J.day} yet: one is saved every 5 minutes from 09:30 (a stored day can be rebuilt on the NAS: run_wide.sh days).`; }
+  finally{ R.busy=false; if(st.tab==="surface"){ SF.key=""; renderSurface(); } } }
+function sfRpBar(){ const w=document.getElementById("sfRpWrap"); if(!w) return; const R=SF.R;
+  if(!R.on){ if(w.innerHTML) w.innerHTML=""; return; }
+  if(!w.querySelector("#sfRpSl")){
+    w.innerHTML=`<div class="ortime"><button class="sxbtn" id="sfRpPlay">▶ Play</button><input type="range" id="sfRpSl" min="0" max="0" value="0" aria-label="Time"><span class="ort" id="sfRpT">--:--</span><button class="sxbtn" id="sfRpNow">Now</button><span class="orbadge" id="sfRpB"></span></div><div class="sfnote" id="sfRpErr"></div>`;
+    const sl=document.getElementById("sfRpSl");
+    sl.addEventListener("input",()=>{ sfRpStop(); const v=+sl.value, n=(R.F||[]).length; R.follow=v>=n; R.i=Math.min(v,Math.max(0,n-1)); SF.key=""; renderSurface(); });
+    document.getElementById("sfRpNow").onclick=()=>{ sfRpStop(); R.follow=true; SF.key=""; renderSurface(); };
+    document.getElementById("sfRpPlay").onclick=()=>{ if(R.play){ sfRpStop(); sfRpBar(); return; } const n=(R.F||[]).length; if(!n) return;
+      if(R.follow||R.i>=n-1) R.i=0; R.follow=false;
+      R.play=setInterval(()=>{ const m=(R.F||[]).length; if(!R.on||!SF.on||st.tab!=="surface"){ sfRpStop(); return; }
+        if(R.i>=m-1){ sfRpStop(); R.follow=true; SF.key=""; renderSurface(); return; } R.i++; SF.key=""; renderSurface(); },900);
+      SF.key=""; renderSurface(); }; }
+  const n=(R.F||[]).length, sl=document.getElementById("sfRpSl"); sl.max=String(n); sl.value=String(R.follow?n:Math.min(R.i,Math.max(0,n-1)));
+  document.getElementById("sfRpPlay").textContent=R.play?"❚❚ Pause":"▶ Play";
+  const J=sfCur(); document.getElementById("sfRpT").textContent=J?J.t:"--:--";
+  const b=document.getElementById("sfRpB"); b.className="orbadge"+(R.follow?" live":"");
+  b.textContent=R.follow?"LIVE":"REPLAY · "+(J?J.t:"")+" · one surface every 5 min";
+  document.getElementById("sfRpErr").textContent=R.err||(n?"":"Loading the saved surfaces…"); }
 function renderSurface(){
   const head=document.getElementById("sfHead"), body=document.getElementById("sfBody"); if(!head||!body) return; sfTimer();
-  const hk=[SF.on,SF.greek,SF.basis,SF.win,SF.exp,SF.smooth].join("|");
+  const hk=[SF.on,SF.greek,SF.basis,SF.win,SF.exp,SF.smooth,SF.R.on].join("|");
   if(head.dataset.k!==hk){ head.dataset.k=hk;
     head.innerHTML=`<span class="big">Surface</span><button class="sxbtn" id="sfOnBtn" aria-pressed="${SF.on}">${SF.on?"ON":"OFF"}</button>`+(SF.on?
       sfSeg("greek","Show",[["g","Gamma","Dealer gamma: how much they must buy or sell per 1% move"],["va","Vanna","How dealer hedges change when volatility moves 1 point"],["ch","Charm","How much dealers' delta changes each hour from time passing alone"],["gvb","Gamma + vanna (β)","Gamma plus vanna times today's spot-vol beta: the dealer delta change for a 1% move once implied vol moves with price, in $bn"],["gvn","Gamma + vanna (shape)","Each greek scaled to its own largest value, then added: where both point the same way, no $ meaning"]])+
       sfSeg("basis","Positions from",[["oi","OI","Open interest, simple rule: dealers long calls, short puts (the Map's OI)"],["vol","Vol","Today's volume, same rule"],["oiv","OI + vol","Open interest plus today's volume"],["ois","OI + signed","Open interest plus today's tagged buys and sells (customer buy = dealer short)"]])+
       sfSeg("exp","Expiries",[["0","Today"],["3","3 days"],["7","7 days"],["all","All"]])+
       sfSeg("win","Strikes",[["50","±50"],["100","±100"],["200","±200"]])+
-      sfSeg("smooth","Smooth",[["1","On","Smoothed for the picture; hover shows raw values"],["0","Off","Raw strike x expiry grid"]])
+      sfSeg("smooth","Smooth",[["1","On","Smoothed for the picture; hover shows raw values"],["0","Off","Raw strike x expiry grid"]])+`<button class="sxbtn" id="sfRpBtn" aria-pressed="${SF.R.on}" title="Replay (off by default): step through today's saved surfaces, one every 5 minutes, like the Orbs tab.">Replay</button>`
       :`<span>Off: nothing is fetched or drawn.</span>`);
-    document.getElementById("sfOnBtn").onclick=()=>{ SF.on=!SF.on; save("sfOn",SF.on?"1":"0"); SF.key=""; if(!SF.on){ SF.J=null; sfTimer(); } renderSurface(); };
-    head.querySelectorAll("button[data-sk]").forEach(b=>b.onclick=()=>{ const k=b.dataset.sk; SF[k]=b.dataset.v; save("sf"+k[0].toUpperCase()+k.slice(1),SF[k]); SF.key=""; head.dataset.k=""; renderSurface(); }); }
+    document.getElementById("sfOnBtn").onclick=()=>{ SF.on=!SF.on; save("sfOn",SF.on?"1":"0"); SF.key=""; if(!SF.on){ SF.J=null; sfTimer(); sfRpStop(); SF.R.on=false; } renderSurface(); };
+    head.querySelectorAll("button[data-sk]").forEach(b=>b.onclick=()=>{ const k=b.dataset.sk; SF[k]=b.dataset.v; save("sf"+k[0].toUpperCase()+k.slice(1),SF[k]); SF.key=""; head.dataset.k=""; renderSurface(); });
+    { const rb=document.getElementById("sfRpBtn"); if(rb) rb.onclick=()=>{ SF.R.on=!SF.R.on; sfRpStop(); SF.R.follow=true; SF.key=""; head.dataset.k=""; if(SF.R.on) sfRpLoad(true); renderSurface(); }; } }
   if(!SF.on){ body.innerHTML='<p class="veread">Off. Press <b>ON</b> for the 3D surface of dealer gamma, vanna or charm by strike and expiry.</p>'; SF.key=""; return; }
   if(!SF.J){ body.innerHTML=`<p class="veread">${esc(SF.err||"Loading…")}</p>`; return; }
-  const g=sfGrid(SF.J); if(!g){ body.innerHTML='<p class="veread">No strikes or expiries in this window.</p>'; return; }
-  const key=[hk,SF.J.day,SF.J.t].join("|"); if(key===SF.key&&body.querySelector("#sfPlot")) return; SF.key=key;
-  if(!body.querySelector("#sfPlot")) body.innerHTML=`<div class="sfnote" id="sfNote"></div><div id="sfPlot" style="width:100%;height:min(74vh,720px);min-height:420px"></div>`;
+  const J=sfCur();   // 2026-11-12: the replay frame being shown, else the live surface
+  const g=sfGrid(J); if(!g){ body.innerHTML='<p class="veread">No strikes or expiries in this window.</p>'; return; }
+  const key=[hk,J.day,J.t].join("|"); if(key===SF.key&&body.querySelector("#sfPlot")){ sfRpBar(); return; } SF.key=key;
+  if(!body.querySelector("#sfPlot")) body.innerHTML=`<div id="sfRpWrap"></div><div class="sfnote" id="sfNote"></div><div id="sfPlot" style="width:100%;height:min(74vh,720px);min-height:420px"></div>`;
+  sfRpBar();
   const note=document.getElementById("sfNote");
-  const bsrc=SF.J.beta_src==="default"?"typical value, too few minutes to fit yet":SF.J.beta_src;
-  note.innerHTML=`<span class="big">${esc(SF.J.t)} ET</span> <span>SPX ${SF.J.x.toFixed(2)}</span> <span>${esc(g.name)} · ${esc(g.unit)}</span>`+(SF.greek==="gvb"?` <span>β = ${SF.J.beta.toFixed(2)} vol pts per +1% (${esc(bsrc)})</span>`:"");
+  const bsrc=J.beta_src==="default"?"typical value, too few minutes to fit yet":J.beta_src;
+  note.innerHTML=`<span class="big">${esc(J.t)} ET</span> <span>SPX ${J.x.toFixed(2)}</span> <span>${esc(g.name)} · ${esc(g.unit)}</span>`+(SF.greek==="gvb"?` <span>β = ${J.beta.toFixed(2)} vol pts per +1% (${esc(bsrc)})</span>`:"");
   sfLoadPlotly().then(P=>{
     let x=g.x, yv=g.y.map((_,i)=>i), z=g.z;
     if(SF.smooth==="1"){ const s=sfSmooth(g); x=s.x; yv=s.yIdx; z=s.z; }
@@ -7863,7 +7938,7 @@ function renderSurface(){
       contours:{z:{show:true,usecolormap:false,color:"rgba(230,236,245,.55)",project:{z:true},width:1}},
       lighting:{ambient:.55,diffuse:.75,specular:.35,roughness:.5,fresnel:.2},
       colorbar:{thickness:12,len:.65,tickfont:{color:"#DCE6F2",size:14},outlinewidth:0}};
-    const spot={type:"scatter3d",mode:"lines",x:[SF.J.x,SF.J.x],y:[yv[0],yv[yv.length-1]],z:[0,0],line:{color:"#ffffff",width:6},hoverinfo:"skip",name:"spot"};
+    const spot={type:"scatter3d",mode:"lines",x:[J.x,J.x],y:[yv[0],yv[yv.length-1]],z:[0,0],line:{color:"#ffffff",width:6},hoverinfo:"skip",name:"spot"};
     const ax=t=>({title:{text:t,font:{color:"#DCE6F2",size:15}},color:"#DCE6F2",gridcolor:"#2a3442",zerolinecolor:"#56657a",backgroundcolor:"#05070b",showbackground:true,tickfont:{size:13,color:"#DCE6F2"}});
     const tick=g.y.length<=8?g.y.map((_,i)=>i):g.y.map((_,i)=>i).filter(i=>i%2===0);
     const lay={paper_bgcolor:"#05070b",margin:{l:0,r:0,t:0,b:0},showlegend:false,font:{color:"#DCE6F2"},uirevision:"sf",

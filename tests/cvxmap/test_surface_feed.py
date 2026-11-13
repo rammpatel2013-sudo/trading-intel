@@ -69,3 +69,33 @@ def test_live_feed_writes_surface_file(tmp_path, monkeypatch):
     assert day.feed(rec)
     j = json.loads((tmp_path / "surface_live_SPX.json").read_text())
     assert j["t"] == "10:35" and j["sym"] == "SPX" and len(j["g"]["oi"]) == len(j["ex"])
+
+
+def test_replay_frames_keep_first_minute_of_each_5_min_bucket(tmp_path, monkeypatch):
+    """2026-11-12 Surface replay: one saved surface per 5-minute bucket (its first minute);
+    written only when a new bucket starts; the rebuild of a stored day writes the same file."""
+    import gzip
+    import json
+    monkeypatch.setattr(W, "DATA", str(tmp_path))
+    monkeypatch.setattr(L, "now_et", lambda: datetime.datetime(2026, 11, 6, 16, 30, 0))
+    times = ["10:33", "10:34", "10:35", "10:36", "10:39", "10:40", "10:40", "10:46"]
+    day = W.Day("20261106")
+    for t in times:
+        assert day.feed(make_rec("2026-11-06T%s:00" % t, n_exp=3))
+    # buckets 10:30, 10:35, 10:40, 10:45
+    assert [b for b, _f in day.sframes["SPX"]] == [630, 635, 640, 645]
+    day.write()
+    j = json.loads((tmp_path / "surface_SPX_20261106.json").read_text())
+    assert j["v"] == 1 and j["every_min"] == 5 and j["n"] == 4
+    assert [f["t"] for f in j["frames"]] == ["10:33", "10:35", "10:40", "10:46"]
+    assert all(len(f["g"]["oi"]) == len(f["ex"]) for f in j["frames"])
+    (tmp_path / "surface_SPX_20261106.json").unlink()
+    day.write()                                   # nothing new -> not rewritten
+    assert not (tmp_path / "surface_SPX_20261106.json").exists()
+    raw = tmp_path / "raw_20261106.ndjson.gz"     # --date rebuild: same frames
+    for t in times:
+        with gzip.open(raw, "at", encoding="utf-8") as fh:
+            fh.write(json.dumps(make_rec("2026-11-06T%s:00" % t, n_exp=3)) + "\n")
+    assert W.rebuild("20261106") == 0
+    j2 = json.loads((tmp_path / "surface_SPX_20261106.json").read_text())
+    assert [f["t"] for f in j2["frames"]] == ["10:33", "10:35", "10:40", "10:46"]

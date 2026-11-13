@@ -14,6 +14,10 @@ WHAT IT DOES
   written the moment a new pull is read (the live loop looks for new pulls every POLL_S = 3 s), so the cockpit
   polls a small file every 3 s and loads the day file once. And data/vixmap_YYYYMMDD.json: the VIX tab's dealer
   gamma / vanna map from the collector's VIX pull (vix_map.py) - same raw file, no extra vendor calls.
+  2026-11-12 (Surface replay): also data/surface_<SYM>_YYYYMMDD.json = one Surface tab payload
+  (the same dict as surface_live_<SYM>.json) for the first minute of every SURF_EVERY_MIN-minute
+  bucket (09:30, 09:35, ...), so the cockpit can step back through the day. Written when a new
+  bucket starts; --date rebuilds it for a stored day.
 
 DAY FILE v2 (2026-11-09, Mithil: 1-minute candles/blocks; the page aggregates 1 / 3 / 5 min)
   Every slot = one pull. Strikes = k0 + i * step (n of them). Fields g / gv / gt / va are that minute's
@@ -88,6 +92,7 @@ DAY_PREM = False
 # per-minute snapshot greeks; 2026-11-09: vanna + charm on all three bases ("BASES" above)
 SNAP = ("g", "gv", "gt", "va", "vav", "vat", "ch", "chv", "cht")
 LIVE_MAX_AGE_S = 150            # a pull older than this (catch-up after a late start) does not write live files
+SURF_EVERY_MIN = 5              # 2026-11-12 Surface replay: one saved surface per 5-min bucket
 WANT = (b'"idx"', b'"vix"')     # cheap pre-filter; feed() checks the pull name
 try:
     import vix_map                                  # VIX tab map (2026-11-09); the Orbs feed runs without it
@@ -393,6 +398,8 @@ class Day:
         self.dirty = False
         self.beta = {s: SF.BetaTracker() for s in SF.SURFACE_SYMS} if SF is not None else {}
         self.surf = {}
+        self.sframes = {}       # 2026-11-12 Surface replay: sym -> [(bucket minute, payload)]
+        self.sf_dirty = False
 
     def feed(self, rec):
         pull = rec.get("pull")
@@ -421,6 +428,7 @@ class Day:
             if s in self.beta:
                 try:   # 2026-11-10 Surface tab: every expiry kept apart; a failure never stops the Orbs feed
                     self.surf[s] = SF.build_surface(sys.modules[__name__], L, s, d, self.today, now, self.beta[s])
+                    self.keep_frame(s, t)
                 except Exception as exc:
                     log("surface %s %s: %s" % (s, t, str(exc)[:120]))
             sl, px = self.slots[s], self.px[s]
@@ -441,6 +449,22 @@ class Day:
                     L.atomic_write(os.path.join(DATA, "surface_live_%s.json" % s), self.surf[s])
         self.n_recs += 1
         return True
+
+    def keep_frame(self, s, t):
+        """2026-11-12 Surface replay: keep the first minute seen in each 5-minute bucket."""
+        m = int(t[:2]) * 60 + int(t[3:5])
+        b = m - m % SURF_EVERY_MIN
+        fr = self.sframes.setdefault(s, [])
+        if fr and fr[-1][0] >= b:
+            return
+        fr.append((b, self.surf[s]))
+        self.sf_dirty = True
+
+    def surface_payload(self, s):
+        fr = self.sframes.get(s) or []
+        return {"v": 1, "day": self.today.isoformat(), "sym": s, "every_min": SURF_EVERY_MIN,
+                "gen": L.now_et().isoformat(timespec="seconds"), "n": len(fr),
+                "frames": [f for _b, f in fr]}
 
     def feed_vix(self, rec, now):
         if self.vix is None:
@@ -500,6 +524,12 @@ class Day:
             self.vix.changed = False
             if new:
                 write_index()          # the VIX map's day list (vix_days) for the page's fallback
+        if self.sf_dirty:              # 2026-11-12 Surface replay: only on a new 5-minute frame
+            self.sf_dirty = False
+            for s, fr in self.sframes.items():
+                if fr:
+                    path = os.path.join(DATA, "surface_%s_%s.json" % (s, self.ymd))
+                    L.atomic_write(path, self.surface_payload(s))
 
 
 def write_index():
