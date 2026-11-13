@@ -589,6 +589,54 @@ def best_doc(settings, factory, use_gmail=True) -> tuple[dict | None, list[str]]
     return cands[0], errs
 
 
+# ===================================================================== the AI read (doc_ai.py, 2026-11-13)
+_DAI_CACHE: dict = {}
+
+
+def load_doc_ai(today: str) -> dict | None:
+    """scripts/cvxmap/data/doc_ai_YYYYMMDD.json written by the 08:00 Doc AI read (re-read only when it changes)."""
+    p = DASH / f"doc_ai_{today.replace('-', '')}.json"
+    try:
+        mt = p.stat().st_mtime
+    except OSError:
+        return None
+    if _DAI_CACHE.get("path") == p and _DAI_CACHE.get("mtime") == mt:
+        return _DAI_CACHE.get("obj")
+    try:
+        obj = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    _DAI_CACHE.update(path=p, mtime=mt, obj=obj)
+    return obj
+
+
+def merge_doc_ai(doc: dict | None, dai: dict | None, own: dict | None, spot: float | None) -> tuple[dict | None, dict | None]:
+    """-> (the doc the cockpit draws, the 'doc_ai' block: the AI read + Doc vs OUR map).
+    When the rule reader found no SPX levels in today's report, the AI read's levels and
+    rules stand in (marked in the warnings)."""
+    if not dai:
+        return doc, None
+    import doc_ai as _da   # same folder
+
+    block = {k: dai.get(k) for k in ("date", "received", "subject", "model", "read_at", "secs", "dropped", "error")}
+    ai = dai.get("ai")
+    if not ai:
+        return doc, block
+    block["ai"] = ai
+    block["vs_ours"] = _da.compare(ai, own, spot)
+    if doc and doc.get("date") == dai.get("date") and not (doc.get("levels") or {}).get("SPX") and ai.get("levels"):
+        doc = dict(doc)
+        doc["levels"] = dict(doc.get("levels") or {})
+        doc["levels"]["SPX"] = _da.to_doc_levels(ai)
+        if not doc.get("scenarios"):
+            doc["scenarios"] = _da.to_scenarios(ai)
+        if doc.get("pivot") is None:
+            doc["pivot"] = ai.get("pivot")
+        doc["warnings"] = list(doc.get("warnings") or []) + ["levels and IF/THEN lines from the AI read (the rule reader found none)"]
+        doc["levels_from"] = "ai"
+    return doc, block
+
+
 def _clean(o):
     if isinstance(o, float):
         return o if math.isfinite(o) else None
@@ -1283,7 +1331,12 @@ def main(argv: list[str]) -> int:
             except Exception as exc:
                 oiv_errs = [f"oi_verdict: {type(exc).__name__}"]
             oiv_at = time.time()
-        payload = {"asof": now.isoformat(timespec="seconds"), "today": today, "session": _session_info(today), "doc": doc, "own": own, "ti": ti,
+        doc_out, dai = doc, None
+        try:
+            doc_out, dai = merge_doc_ai(doc, load_doc_ai(today), own, live_spx() or (own or {}).get("built_spot"))
+        except Exception as exc:
+            doc_errs = doc_errs + [f"doc ai: {type(exc).__name__}"]
+        payload = {"asof": now.isoformat(timespec="seconds"), "today": today, "session": _session_info(today), "doc": doc_out, "doc_ai": dai, "own": own, "ti": ti,
                    "tape": tape, "oi_verdict": oiv, "near_book": near, "errors": doc_errs + ti_errs + tape_errs + oiv_errs + ([own_err] if own_err else [])}
         try:
             write_json(payload)

@@ -604,6 +604,25 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
 #planRoad{grid-column:1;grid-row:1}#planChartPane{grid-column:1;grid-row:2}#planSide{grid-column:2;grid-row:1/3;border-right:0}
 .scroll{overflow:auto}
 .banner{margin:4px 12px 6px;padding:6px 10px;border-radius:6px;background:#FFC24A14;border:1px solid #FFC24A55;color:var(--warn);font-size:12px;line-height:1.45}
+/* 2026-11-13 Doc's read by the laptop AI, next to OUR map (Plan tab) */
+.aicard{margin:6px 12px 10px;padding:10px 14px 12px;border-radius:8px;background:#11213A;border:1px solid #2BB8D966;color:#E8EEF6;font-size:15px;line-height:1.5}
+.aicard .aih{display:flex;align-items:baseline;gap:10px;font-size:13px;color:#9FB4CC;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.aicard .aih small{text-transform:none;letter-spacing:0;font-weight:500;color:#9FB4CC}
+.aicard .aiday{font-size:18px;font-weight:700;color:#fff;margin:4px 0 2px}
+.aicard .aib{display:inline-block;padding:1px 8px;border-radius:10px;font-size:13px;font-weight:700;margin-left:6px;vertical-align:2px;background:#2BB8D933;color:#8CEBFA}
+.aicard .aiw{color:#FFE3A3}.aicard .aiw b,.aicard .aivs b{color:#fff}
+.aicard .aiev{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.aicard .aiev span{padding:2px 9px;border-radius:12px;background:#1B2E4D;border:1px solid #33507A;font-size:13px}
+.aicard .aivs{margin:6px 0;padding:6px 10px;border-radius:6px;background:#0B1729}
+.aicard .aiclash{color:var(--warn);font-weight:700}
+.aicard table{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}
+.aicard td,.aicard th{padding:4px 6px;border-bottom:1px solid #22385A;text-align:left;vertical-align:top}
+.aicard th{color:#9FB4CC;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.aicard td.lv{font-weight:700;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums}
+.aicard .ok{color:#58D68D;font-weight:700}.aicard .only{color:#9FB4CC}
+.aicard .airule{margin:3px 0}.aicard .airule b{color:#fff}
+.aicard .airule b.up{color:var(--longg)}.aicard .airule b.dn{color:var(--shortg)}
+.aicard .aimeta{margin-top:6px;font-size:12px;color:#9FB4CC}
 .paths{display:flex;gap:4px 18px;flex-wrap:wrap;font-size:12px;color:var(--mute);padding:0 12px 6px}
 .paths b{color:var(--ink);font-weight:600}
 .onething{padding:0 12px 6px;font-size:13px;line-height:1.45}
@@ -1883,6 +1902,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
         </div>
       </div>
       <div id="docBanner"></div>
+      <div id="docAiCard"></div>
       <div class="onething" id="docOne"></div>
       <div class="paths" id="docPaths"></div>
       <div class="sclist" id="scList"></div>
@@ -2251,7 +2271,27 @@ function renderPlan(){
       const dim=["armed","inactive","waiting"].includes(g.state)&&!nxt.has(s.id);
       return `<div class="sc${nxt.has(s.id)?" next":""}${dim?" dim":""}"><span class="bd ${cls}">${lab}</span><div class="tx">${esc(s.text)}</div><div class="ss">${fresh?scStatus(s,g):"not graded (old report)"}</div></div>`; }).join("")).join("")
     +(G.length?"":`<div class="note">No IF/THEN lines in this copy of the report.</div>`);
-  renderPlanChart(); renderPlanSide(); }
+  renderDocAi(); renderPlanChart(); renderPlanSide(); }
+// 2026-11-13: Doc's report read by the laptop's local AI (doc_ai.py, 08:00-09:30), next to OUR 08:35 map
+function renderDocAi(){
+  const el=document.getElementById("docAiCard"); if(!el) return;
+  const b=st.ti&&st.ti.doc_ai; let h="";
+  if(b&&b.date===liveClock().date){
+    const a=b.ai, roleTxt={piv:"pivot",pos:"support / ceiling",trig:"trigger",rail:"range edge",chart:"chart level"};
+    const lvTxt=x=>x.lo===x.hi?fmtN(x.lo):`${fmtN(x.lo)}–${fmtN(x.hi)}`;
+    const meta=`${esc(b.model||"local AI")}${b.read_at?" · read at "+esc(String(b.read_at).slice(11,16))+" ET":""}${b.secs!=null?" in "+b.secs+" s":""}${b.dropped?` · ${b.dropped} item${b.dropped>1?"s":""} dropped (not in the email)`:""}`;
+    if(!a) h=`<div class="aicard"><div class="aih">Doc's read · laptop AI</div><div class="aiw">The AI read did not finish: ${esc(pubTxt(b.error||"no answer"))}. The levels below come from the rule reader.</div><div class="aimeta">${meta}</div></div>`;
+    else{
+      const vs=b.vs_ours||{}, rows=vs.rows||[];
+      h=`<div class="aicard"><div class="aih">Doc's read · laptop AI <small>${vs.n?`${vs.agree} of ${vs.n} of his levels match our map`:""}</small></div>
+        <div class="aiday">${esc(a.day||"")}${a.bias?`<span class="aib">${esc(a.bias)}</span>`:""}</div>
+        ${a.worry?`<div class="aiw"><b>Main worry:</b> ${esc(a.worry)}</div>`:""}
+        ${(a.events||[]).length?`<div class="aiev">${a.events.map(e=>`<span>${esc(e)}</span>`).join("")}</div>`:""}
+        ${vs.regime||vs.clash?`<div class="aivs">${vs.regime?esc(vs.regime):""}${vs.clash?`<div class="aiclash">⚠ ${esc(vs.clash)}</div>`:""}</div>`:""}
+        ${(a.rules||[]).map(r=>`<div class="airule"><b class="${r.side==="above"?"up":"dn"}">${r.side==="above"?"▲ Above":"▼ Below"} ${fmtN(r.level)}</b> → ${(r.targets||[]).map(t=>fmtN(t)).join(" → ")||"…"} <span class="only">${esc(r.says||"")}</span></div>`).join("")}
+        ${rows.length?`<table><tr><th>Level</th><th>What Doc says</th><th>Our map</th></tr>${rows.map(x=>`<tr><td class="lv">${lvTxt(x)}</td><td>${esc(x.says||roleTxt[x.role]||"")}</td><td class="${x.agree?"ok":"only"}">${x.agree?"✓ "+esc(x.ours):(esc(x.ours)||"Doc only")}</td></tr>`).join("")}</table>`:""}
+        <div class="aimeta">${meta}</div></div>`; } }
+  if(el._h!==h){ el.innerHTML=h; el._h=h; } }
 
 let planGeo=null;
 function renderPlanChart(){

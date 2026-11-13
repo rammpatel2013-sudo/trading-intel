@@ -1,8 +1,10 @@
 <#
   ollama_guard.ps1  -  made 2026-11-12 (trading-intel, LAPTOP only)
 
-  Keeps Ollama CLOSED on weekdays 08:00-16:15 (trading hours) and OPEN the rest
-  of the time. Ollama is the local AI that the NAS report jobs call (newsletter
+  Keeps Ollama CLOSED on weekdays 09:30-16:15 (trading hours) and OPEN the rest
+  of the time. 2026-11-13: the quiet window starts at 09:30 (was 08:00) so the
+  08:00-09:30 morning Doc read can use the AI; in that window the NAS side lets
+  ONLY the Doc read call Ollama (trading_intel/synthesis/ollama_lock.py). Ollama is the local AI that the NAS report jobs call (newsletter
   levels, Jaguar summaries, evening report comments). While it is closed those
   jobs skip their AI part, so no AI work lands on this laptop while you trade.
 
@@ -12,7 +14,7 @@
     ollama_guard.ps1 -Uninstall   undo everything and start Ollama
 
   -Install adds the Windows task "Ollama trading-hours guard (2026-11-12)"
-  (Mon-Fri 08:00 and 16:15; runs late if the laptop was asleep or off) and puts
+  (Mon-Fri 09:30 and 16:15; runs late if the laptop was asleep or off) and puts
   a guard shortcut in the Startup folder in place of Ollama's own (the original
   is kept next to this file for -Uninstall).
   Log: %LOCALAPPDATA%\ollama_guard.log
@@ -26,7 +28,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $TaskName   = 'Ollama trading-hours guard (2026-11-12)'
-$QuietFrom  = New-TimeSpan -Hours 8
+$QuietFrom  = New-TimeSpan -Hours 9 -Minutes 30
 $QuietUntil = New-TimeSpan -Hours 16 -Minutes 15
 $Startup    = [Environment]::GetFolderPath('Startup')
 $OllamaLnk  = Join-Path $Startup 'Ollama.lnk'
@@ -97,13 +99,13 @@ function Install-Guard {
     $me = $env:USERDOMAIN + '\' + $env:USERNAME
     $days = @('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
     $triggers = @(
-        (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '08:00'),
+        (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '09:30'),
         (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $days -At '16:15')
     )
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $guardArgs
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
     $principal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Limited
-    $desc = 'trading-intel 2026-11-12: Ollama closed Mon-Fri 08:00-16:15, open otherwise. Undo: ollama_guard.ps1 -Uninstall'
+    $desc = 'trading-intel 2026-11-13: Ollama closed Mon-Fri 09:30-16:15, open otherwise (08:00-09:30 = morning Doc read only). Undo: ollama_guard.ps1 -Uninstall'
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers -Settings $settings -Principal $principal -Description $desc -Force | Out-Null
 
     # Log-in: the guard shortcut replaces Ollama's own (kept here for -Uninstall).
@@ -118,7 +120,7 @@ function Install-Guard {
     $sc.WindowStyle = 7
     $sc.Description = $TaskName
     $sc.Save()
-    Write-GuardLog ('installed: task "' + $TaskName + '" (Mon-Fri 08:00 + 16:15) and log-in shortcut; Ollama starts via ' + (Get-OllamaLauncher))
+    Write-GuardLog ('installed: task "' + $TaskName + '" (Mon-Fri 09:30 + 16:15) and log-in shortcut; Ollama starts via ' + (Get-OllamaLauncher))
     Invoke-Guard
 }
 

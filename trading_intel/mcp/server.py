@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.mcp import em_tools as em
+from trading_intel.mcp import cockpit_live as ckl
 from trading_intel.mcp import extra_tools as et
 from trading_intel.mcp import tools as t
 from trading_intel.mcp import profile_tool as pt
@@ -273,6 +274,21 @@ def build_server(
         """Intraday cumulative call/put delta-notional series for one ticker."""
         with session_factory() as session:
             return et.get_delta_flow(session, symbol, days=days)
+
+    @mcp.tool()
+    def get_cockpit_live(symbol: str = "SPX") -> dict[str, Any]:
+        """LIVE market read from the cockpit's own files (updated every minute) - use this for
+        "what is the market doing now". Price, 0DTE expected move, dealer gamma at spot (long /
+        short), flip, call / put walls, today's 0DTE flow (calls & puts bought vs sold, lean),
+        live 0DTE skew (25-delta risk reversal, put wing), term structure, VIX. SPX, SPY or QQQ.
+        (get_live_gex / get_intraday_flow / get_delta_flow read DB tables that are no longer fed.)"""
+        return ckl.get_cockpit_live(settings, symbol)
+
+    @mcp.tool()
+    def get_cockpit_surface(symbol: str = "SPX") -> dict[str, Any]:
+        """LIVE gamma / vanna by expiry and ATM IV by expiry from the cockpit's Surface feed, plus the
+        measured spot-vol beta (vol points per +1% move). SPX only."""
+        return ckl.get_cockpit_surface(settings, symbol)
 
     # ── Vol complex ────────────────────────────────────────────────────
 

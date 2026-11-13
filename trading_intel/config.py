@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     # headroom for the always-on TAS daemon (~2/min) running concurrently.
     CONVEX_MAX_PER_MIN: int = 7
 
+    # ── Live cockpit files (2026-11-13) — read-only, for the get_cockpit_* MCP tools ─
+    # The cockpit's live numbers are files served by serve_cvx.py on the NAS; never in the DB.
+    COCKPIT_URL: str = "http://192.168.1.211:8899"  # LAN
+    COCKPIT_URL_ALT: str = "https://cockpit.tailbb1c89.ts.net"  # Tailscale, when off the LAN
+
     # ── Intraday 0DTE/1DTE volume flow (DISABLED — was SPX/SPY/QQQ index) ─
     # Empty = delta_flow / intraday_flow no-op (index flow removed).
     INTRADAY_SYMBOLS: str = ""
