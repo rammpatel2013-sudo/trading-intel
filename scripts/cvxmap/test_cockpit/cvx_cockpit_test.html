@@ -774,6 +774,36 @@ body.phone #tabLevels .vxwrap{padding:8px 8px 40px}
 #tabSurface{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
 #tabSurface .vxhead{align-items:center;flex-wrap:wrap;gap:10px 16px}
 #tabSurface .vxhead span:not(.big){font-size:16px;color:#fff}
+/* 2026-11-12 Bets tab: biggest bullish / bearish option bets, mega caps vs small + micro caps */
+#tabBets{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
+#tabBets .vxhead{align-items:center;gap:10px 16px}
+#tabBets .vxhead span:not(.big){font-size:16px;color:#fff}
+#tabBets .vxhead .btwarn{color:var(--warn);font-weight:700}
+.btread{font-size:19px;line-height:1.5;color:#fff;margin:8px 2px 4px}
+.btread b.up,.btnet.up,.btbig .up{color:var(--longg)}.btread b.dn,.btnet.dn,.btbig .dn{color:var(--shortg)}.btread b.mix,.btnet.mix{color:var(--warn)}
+.btkey{font-size:15px;color:var(--ink);margin:0 2px 10px}.btkey i{display:inline-block;width:14px;height:10px;border-radius:2px;margin:0 4px 0 10px;vertical-align:baseline}
+.btkey i.be{background:var(--shortg);margin-left:0}.btkey i.bu{background:var(--longg)}.btkey i.dt{width:11px;height:11px;border-radius:50%;background:#fff}
+.btgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.btgrid{grid-template-columns:1fr}}
+body.phone .btgrid{grid-template-columns:1fr}
+.btcol{background:var(--pane);border:1px solid var(--rule);border-radius:8px;padding:10px 14px 6px;min-width:0}
+.btcol h3{margin:0;font-size:21px;font-weight:700;color:#fff}.btcol h3 span{font-size:15px;font-weight:500;color:var(--ink)}
+.btgrp{padding:4px 0 10px;border-bottom:2px solid var(--rule)}
+.btrow{padding:10px 0 9px;border-bottom:1px solid var(--rule)}.btrow:last-child{border-bottom:0}
+.btl1{display:flex;align-items:baseline;gap:10px;min-width:0}
+.btsym{font-size:22px;font-weight:700;color:#fff}.btcap{font-size:15px;color:var(--mute)}
+.btnet{margin-left:auto;font-size:18px;font-weight:700;white-space:nowrap}
+.btbar{display:grid;grid-template-columns:72px minmax(0,1fr) 72px;align-items:center;gap:8px;margin:5px 0 3px}
+.btbar .bv{font-size:15px}.btbar .bv.l{text-align:right;color:var(--shortg)}.btbar .bv.r{color:var(--longg)}
+.btrk{position:relative;height:20px;background:var(--night);border-radius:4px}
+.btrk i{position:absolute;display:block}
+.btrk .be{right:50%;top:3px;bottom:3px;background:var(--shortg);border-radius:3px 0 0 3px}
+.btrk .bu{left:50%;top:3px;bottom:3px;background:var(--longg);border-radius:0 3px 3px 0}
+.btrk .ax{left:50%;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--mute)}
+.btrk .dt{top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#fff;border:2px solid var(--night)}
+.btbig{font-size:16px;color:var(--ink);overflow-wrap:anywhere}.btbig b{color:#fff;font-weight:600}
+.btnone{font-size:17px;color:var(--ink);padding:12px 0}
+.btnote{font-size:15px;line-height:1.5;color:var(--ink);margin:12px 2px 0}
 .sfnote{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin:6px 0 4px;font-size:17px;color:#fff}
 .sfnote .big{font-size:20px;font-weight:700}
 #tabOrbs .vxhead{align-items:center}
@@ -878,6 +908,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
       <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
       <button data-tab="tenor" aria-pressed="false" title="Dealer gamma and vega split by expiry bucket (1 day, up to 1 week, up to 1 month, longer) across SPX levels, its daily history, and six factor cards with their past record. Built each evening.">Tenor</button>
       <button data-tab="surface" aria-pressed="false" title="3D dealer gamma, vanna, charm or gamma + vanna by strike and expiry, every minute (the ConvexValue surface view). Off until you press ON.">Surface</button>
+      <button data-tab="bets" aria-pressed="false" title="Today&rsquo;s biggest bullish and bearish option bets on single stocks: mega caps next to small + micro caps, top 5 each, from the market-wide tape. Updated every 5 minutes. Off until you press ON.">Bets</button>
       <button data-tab="levels" aria-pressed="false" title="Price levels where several independent views agree (options positioning, open interest, VIX options, price history, crowded strikes), drawn over the last 60 sessions. Hover or tap a band for the details. Built each evening.">Levels</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
@@ -1158,6 +1189,12 @@ body.phone .vxmgrid{grid-template-columns:1fr}
       <div id="sfBody"></div>
     </div>
   </main>
+  <main id="tabBets" class="tab" hidden>
+    <div class="vxwrap vewrap">
+      <section class="vxhead" id="btHead"></section>
+      <div id="btBody"></div>
+    </div>
+  </main>
   <main id="tabTenor" class="tab" hidden>
     <div class="vxwrap vewrap">
       <section class="vxhead" id="tnHead"></section>
@@ -1196,7 +1233,7 @@ body.phone .vxmgrid{grid-template-columns:1fr}
 
         <p class="hintro">This cockpit shows how options traders, and the dealers who take the other side of their trades, are positioned in SPX (and SPY, QQQ) through the day. Every page is explained below: what it shows, how to read it, and what each button does. <b>Nothing here is a trade signal</b> &mdash; it describes positioning so you can make your own call.</p>
         <nav class="hjump">
-          <a href="#h-words">Words</a><a href="#h-days">Different days</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-orbs">Orbs</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-surface">Surface</a><a href="#h-levels">Levels</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
+          <a href="#h-words">Words</a><a href="#h-days">Different days</a><a href="#h-top">Top bar</a><a href="#h-flow">Flow</a><a href="#h-orbs">Orbs</a><a href="#h-strikes">Strikes</a><a href="#h-skew">Skew</a><a href="#h-map">Map</a><a href="#h-vol">Volume</a><a href="#h-prem">Premium</a><a href="#h-exp">Exposure</a><a href="#h-den">Density</a><a href="#h-vix">VIX</a><a href="#h-plan">Plan</a><a href="#h-eod">Vol EOD</a><a href="#h-led">Ledger</a><a href="#h-str">Straddle</a><a href="#h-con">Constellation</a><a href="#h-risk">Risk</a><a href="#h-tenor">Tenor</a><a href="#h-surface">Surface</a><a href="#h-bets">Bets</a><a href="#h-levels">Levels</a><a href="#h-trust">What to trust</a><a href="#h-keys">Keys</a>
         </nav>
 
         <h3 class="pg" id="h-words">Words used on this page</h3>
@@ -1698,6 +1735,19 @@ body.phone .vxmgrid{grid-template-columns:1fr}
           <dt>Trend day</dt><dd>With OI + vol the ridge moves with price as new trades come in. Re-check every half hour; a ridge left far behind no longer matters.</dd>
         </dl>
 
+        <h3 class="pg" id="h-bets">Bets</h3>
+        <p class="what">Today&rsquo;s biggest option bets on single stocks: <b>mega caps</b> (over $200B) on the left, <b>small + micro caps</b> (under $2B) on the right, the top 5 of each. Off by default; press <b>ON</b>. Rebuilt every 5 minutes from 09:35 to 16:05 ET from the market-wide tape (every option print of $25k or more), so it reads best late in the day, around 3:30. It shows which way the money leaned, not a trade signal.</p>
+        <dl>
+          <dt>The bar</dt><dd>One bar per name. <b style="color:var(--shortg)">Red, to the left</b> = bearish dollars: puts bought plus calls sold. <b style="color:var(--longg)">Green, to the right</b> = bullish dollars: calls bought plus puts sold. The <b>white dot</b> = the net (bullish minus bearish). The five bars in a column share one scale; the two columns each have their own.</dd>
+          <dt>Top 5</dt><dd>The five names with the largest net, either way. The line at the top says which way each group leans: <b>balanced</b> when the net is under a tenth of all its dollars.</dd>
+          <dt>All names</dt><dd>The bar under each heading adds up every name in that group, not only the five shown.</dd>
+          <dt>Biggest</dt><dd>The name&rsquo;s largest single trade by net dollars. A spread or other package is shown with all its legs (for example <i>19Mar27 170C buy &middot; 185C sell &times;35K</i>: one expiry, two strikes, 35,000 each), then its net and the time.</dd>
+          <dt>Spreads</dt><dd>A package is judged by its legs, never by the sign of its price: a put spread sold for a credit is a bullish bet. A negative package price only says which way the cash went.</dd>
+          <dt>Left out</dt><dd>Deep in-the-money prints (boxes, conversions, dividend and stock-loan trades: financing, not bets), prints at the mid (no way to tell who paid), index and ETF names, and names with no market cap. The line at the bottom counts them.</dd>
+          <dt>Market cap</dt><dd>From FMP, refreshed once a day. Mega = $200B and up. Small = $300M to $2B. Micro = under $300M.</dd>
+          <dt>Limits</dt><dd>&ldquo;Bought&rdquo; and &ldquo;sold&rdquo; come from where each print traded against the quote: right most of the time, not always. A big bullish print can be a hedge against stock the trader is short. Not scored yet.</dd>
+        </dl>
+
         <h3 class="pg" id="h-levels">Levels</h3>
         <p class="what">Price levels where several different ways of finding a level point at the same place, rebuilt every evening after the close. Off by default; press <b>ON</b>. A positioning read, not a trade signal: it shows where the views agree, not which way price will go or whether a level will hold.</p>
         <figure class="hshot"><a href="help/levels.webp" target="_blank" rel="noopener"><img src="help/levels.webp" loading="lazy" alt="Levels page"></a><figcaption>Built last night from the 11/11 book: yellow bands = 3 or more views agree. Price (7,633 at noon) sits between the two 4-view zones, 7,584 below and 7,638 above.</figcaption></figure>
@@ -1827,7 +1877,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volWin=load("volWin","day"); if(!["5","15","30","day"].includes(st.volWin)) st.volWin="day"; st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface"].includes(st.tab)) st.tab="flow";
+if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface","bets"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.mapZone=load("mapZone","0")==="1"; st.mapFlipLine=load("mapFlipLine","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1"; st.ruleRead=load("ruleRead","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex");
@@ -3295,7 +3345,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab));
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); document.getElementById("tabBets").hidden=st.tab!=="bets"; if(st.tab!=="bets"&&typeof BT!=="undefined"&&BT) btTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -3321,6 +3371,7 @@ function render(){
   else if(st.tab==="levels") renderLevels();
   else if(st.tab==="orbs"){ if(typeof OR!=="undefined"&&OR) renderOrbs(); }
   else if(st.tab==="surface"){ if(typeof SF!=="undefined"&&SF) renderSurface(); }
+  else if(st.tab==="bets"){ if(typeof BT!=="undefined"&&BT) renderBets(); }   // 2026-11-12 Bets
   else { const R=frAt(se); renderSkew(R?R.se:se,d); frBar("frBarSkew",se); }   // 2026-11-12 Replay
 }
 
@@ -4250,7 +4301,7 @@ function renderYday(){
     `<div class="note">${esc(V.trade_date)} prints vs the ${esc(String(V.as_of).slice(0,10))} book. Opened = OI added ≥ half the print; closed/rolled = ≤ a fifth. Bought/sold from the strike's IV change minus its expiry's ATM move.</div>`;
 }
 /* ---- phone-width view */
-function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"&&st.tab!=="levels"&&st.tab!=="orbs"&&st.tab!=="surface"){ st.tab="flow"; } }
+function phoneMode(){ const on=new URLSearchParams(location.search).has("m")||window.innerWidth<=480; document.body.classList.toggle("phone",on); if(on&&st.tab!=="flow"&&st.tab!=="levels"&&st.tab!=="orbs"&&st.tab!=="surface"&&st.tab!=="bets"){ st.tab="flow"; } }
 window.addEventListener("resize",()=>{ phoneMode(); render(); }); phoneMode();
 document.getElementById("robBtn").addEventListener("click",()=>{ st.rob=!st.rob; save("rob",st.rob?"1":"0"); document.getElementById("robBtn").setAttribute("aria-pressed",st.rob); render(); });
 document.getElementById("robBtn").setAttribute("aria-pressed",st.rob);
@@ -8186,6 +8237,72 @@ function renderSurface(){
     P.react("sfPlot",[tr,spot],lay,{responsive:true,displaylogo:false});
   }).catch(e=>{ body.innerHTML=`<p class="veread">${esc(e.message)}</p>`; });
 }
+
+
+/* ============================================================ Bets (2026-11-12)
+   [Mithil 11/12 18:40] "any way to better visualize bullish vs bearish bet" + "see in cockpit around 3:30: mega vs small
+   or micro cap. Show only top 5"; 19:04 "Yes". Reads bets_live.json, written every 5 min (09:35-16:05 ET) by
+   scripts/bets_feed.py from the equity tape (tas_prints). One diverging bar per name: bearish $ to the left (puts bought +
+   calls sold), bullish $ to the right (calls bought + puts sold), a dot for the net; packages judged by their legs.
+   Off until ON: nothing is fetched while off. Polls once a minute while the tab is open. */
+var BT={on:load("btOn","0")==="1", J:null, err:null, timer:null, busy:false, key:"", msg:""};
+function btUsd(x){ const a=Math.abs(+x||0), s=(+x||0)<0?"−":"";
+  return s+"$"+(a>=1e9?(a/1e9).toFixed(a>=1e10?0:1)+"B":a>=1e6?(a/1e6).toFixed(a>=1e7?0:1)+"M":a>=1e3?Math.round(a/1e3)+"K":String(Math.round(a))); }
+function btSigned(x){ return ((+x||0)>0?"+":"")+btUsd(x); }
+function btCap(c){ c=+c||0; if(!c) return ""; return c>=1e12?"$"+(c/1e12).toFixed(1)+"T":c>=1e9?"$"+(c/1e9).toFixed(c>=1e10?0:1)+"B":"$"+Math.round(c/1e6)+"M"; }
+function btLean(bu,be){ bu=+bu||0; be=+be||0; const g=bu+be, n=bu-be; if(g<=0) return ["mix","no bets yet"];
+  const s=n/g; return Math.abs(s)<0.1?["mix","balanced"]:s>0?["up","bullish"]:["dn","bearish"]; }
+function btSays(w){ return w==="balanced"?"are":w==="no bets yet"?"have":"lean"; }   // "Mega caps lean bullish"
+function btPl(n,w,ws){ n=+n||0; return n+" "+(n===1?w:(ws||w+"s")); }
+function btToday(){ try{ return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York"}).format(new Date()); }catch(e){ return ""; } }
+function btBar(bu,be,sc,tip){ bu=+bu||0; be=+be||0; sc=Math.max(1,sc||1);
+  const w=v=>Math.min(50,50*v/sc).toFixed(2)+"%", dx=Math.max(-50,Math.min(50,50*(bu-be)/sc));
+  return `<div class="btbar" title="${esc(tip)}"><span class="bv l">${btUsd(be)}</span><div class="btrk"><i class="be" style="width:${w(be)}"></i>`+
+    `<i class="bu" style="width:${w(bu)}"></i><i class="ax"></i><i class="dt" style="left:${(50+dx).toFixed(2)}%"></i></div><span class="bv r">${btUsd(bu)}</span></div>`; }
+function btRow(r,sc){ const net=+r.net||0, cls=net>0?"up":net<0?"dn":"mix", bg=r.big||{}, bn=+bg.net||0;
+  const tip=`${r.s}: bullish ${btUsd(r.bull)} · bearish ${btUsd(r.bear)} · net ${btSigned(net)} · ${r.n||0} prints`;
+  return `<div class="btrow"><div class="btl1"><span class="btsym">${esc(r.s)}</span><span class="btcap">${btCap(r.cap)}</span>`+
+    `<span class="btnet ${cls}">${btSigned(net)}${net?(net>0?" bullish":" bearish"):""}</span></div>`+btBar(r.bull,r.bear,sc,tip)+
+    (bg.txt?`<div class="btbig">Biggest: <b>${esc(bg.txt)}</b> <span class="${bn>0?"up":bn<0?"dn":""}">${btSigned(bn)}</span>${bg.t?" · "+esc(bg.t):""}</div>`:"")+`</div>`; }
+function btCol(title,sub,G){ G=G||{}; const top=G.top||[], sc=Math.max(1,...top.map(r=>Math.max(+r.bull||0,+r.bear||0)));
+  const [lc,lw]=btLean(G.bull,G.bear), gn=(+G.bull||0)-(+G.bear||0);
+  return `<section class="btcol"><h3>${title} <span>${sub}</span></h3><div class="btgrp"><div class="btl1"><span class="btcap">All ${G.names||0} names</span>`+
+    `<span class="btnet ${lc}">${lw}${(+G.bull||0)+(+G.bear||0)>0?" · net "+btSigned(gn):""}</span></div>`+
+    btBar(G.bull,G.bear,Math.max(+G.bull||0,+G.bear||0),`All ${G.names||0} names: bullish ${btUsd(G.bull)} · bearish ${btUsd(G.bear)} · net ${btSigned(gn)}`)+`</div>`+
+    (top.length?top.map(r=>btRow(r,sc)).join(""):`<div class="btnone">No bets in this group yet.</div>`)+`</section>`; }
+async function btPoll(){
+  if(!BT.on||st.tab!=="bets"||BT.busy) return; BT.busy=true;
+  try{ const J=await orGet("bets_live.json"); const ch=!BT.J||J.gen!==BT.J.gen; BT.J=J; BT.err=null; if(ch&&st.tab==="bets") renderBets(); }
+  catch(e){ BT.err="Waiting for bets_live.json: the NAS writes it every 5 minutes from 09:35 ET (task “TI bets feed”)."; if(!BT.J&&st.tab==="bets") renderBets(); }
+  finally{ BT.busy=false; } }
+function btTimer(){ const want=BT.on&&st.tab==="bets"; if(want&&!BT.timer){ BT.timer=setInterval(btPoll,60000); btPoll(); } if(!want&&BT.timer){ clearInterval(BT.timer); BT.timer=null; } }
+function btLate(J){ // today, market open, and no new run for 12+ minutes
+  if(!J||J.day!==btToday()) return false; const g=Date.parse(J.gen||""); if(!(g>0)) return false;
+  const hm=+new Intl.DateTimeFormat("en-GB",{timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date()).replace(":","");
+  return hm>=945&&hm<=1610&&Date.now()-g>12*60e3; }
+function renderBets(){
+  const head=document.getElementById("btHead"), body=document.getElementById("btBody"); if(!head||!body) return; btTimer();
+  const J=BT.J, late=btLate(J), hk=[BT.on,J?J.gen:"",late].join("|");
+  if(head.dataset.k!==hk){ head.dataset.k=hk;
+    const day=J&&J.day&&J.day!==btToday()?` · from ${esc(String(J.day).slice(5).replace("-","/"))}`:"";
+    head.innerHTML=`<span class="big">Bets</span><button class="sxbtn" id="btOnBtn" aria-pressed="${BT.on}">${BT.on?"ON":"OFF"}</button>`+
+      (!BT.on?`<span>Off: nothing is fetched.</span>`:J?`<span>As of ${esc(J.asof||"–")} ET${day}</span><span>Rebuilt every 5 min, 09:35–16:05</span>`+
+        (late?`<span class="btwarn">No new run since ${esc(String(J.gen).slice(11,16))}: the feed may have stopped</span>`:""):"");
+    document.getElementById("btOnBtn").onclick=()=>{ BT.on=!BT.on; save("btOn",BT.on?"1":"0"); BT.key=""; BT.msg="";
+      if(!BT.on){ BT.J=null; BT.err=null; } btTimer(); head.dataset.k=""; renderBets(); }; }
+  const say=m=>{ if(BT.msg!==m){ BT.msg=m; body.innerHTML=m; } BT.key=""; };
+  if(!BT.on){ say('<p class="veread">Off. Press <b>ON</b> for today&rsquo;s biggest bullish and bearish option bets: mega caps next to small + micro caps, top 5 each.</p>'); return; }
+  if(!J){ say(`<p class="veread">${esc(BT.err||"Loading…")}</p>`); return; }
+  const key=J.gen+"|"+J.asof; if(key===BT.key) return; BT.key=key; BT.msg="";
+  const M=J.mega||{}, S=J.smallmicro||{}, T=J.totals||{}, [mc,mw]=btLean(M.bull,M.bear), [sc,sw]=btLean(S.bull,S.bear);
+  const btNet=G=>(+G.bull||0)+(+G.bear||0)>0?` (net ${btSigned((+G.bull||0)-(+G.bear||0))})`:"";
+  body.innerHTML=`<p class="btread">Mega caps ${btSays(mw)} <b class="${mc}">${mw}</b>${btNet(M)} &nbsp;·&nbsp; small + micro caps ${btSays(sw)} <b class="${sc}">${sw}</b>${btNet(S)}</p>`+
+    `<p class="btkey"><i class="be"></i>bearish $: puts bought + calls sold <i class="bu"></i>bullish $: calls bought + puts sold <i class="dt"></i> net. Spreads count by their legs.</p>`+
+    `<div class="btgrid">${btCol("Mega caps","over $200B",M)}${btCol("Small + micro caps","under $2B",S)}</div>`+
+    `<p class="btnote">Left out: ${btPl(T.fin_n,"deep in-the-money print")} (${btUsd(T.fin_prem)}: financing, not bets), ${btPl(T.uns_n,"print")} at the mid (${btUsd(T.uns_prem)}: buyer unknown), index and ETF names, ${btPl(T.nocap,"name")} with no market cap. `+
+    `From the market-wide tape: option prints of $25k or more, ${btPl(T.names,"name")} with a bet. Which way the money leaned, not a signal.</p>`;
+}
+if(st.tab==="bets") renderBets();
 
 /* TEST COCKPIT bar (2026-11-08): toggles, ALL OFF, link back to production, live stats, "My read" notes,
    and the 15-minute read-outs (proof test + per-toggle forward scoring). Everything posts to the TEST server only. */

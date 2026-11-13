@@ -7,7 +7,7 @@ import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("cfbe2b4a1bbf2e62"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("b434999466406a22"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
