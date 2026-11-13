@@ -469,8 +469,36 @@ def fetch_cboe() -> tuple:
     return vix, v3, ohlc
 
 
-def pull_spy_pace(store: dict, years: float = 2.0, client=None, sleep: float = 0.4) -> dict:  # noqa: ANN001
-    """One-off: SPY 1-minute bars from CVForge /mas -> per-session shares (our log days kept)."""
+# sessions per call, all within 4 calendar days: SPY minute bars run 04:00-20:00 (~960 a day),
+# and one call returns at most 5000 bars
+PULL_CHUNK = 4
+
+
+def _pull_chunks(days: list) -> list:
+    """Group sessions into calls of at most PULL_CHUNK sessions spanning at most 4 calendar days."""
+    out: list = []
+    for d in days:
+        if out and len(out[-1]) < PULL_CHUNK and (d - out[-1][0]).days <= 3:
+            out[-1].append(d)
+        else:
+            out.append([d])
+    return out
+
+
+def pull_spy_pace(
+    store: dict,
+    years: float = 2.0,
+    client=None,  # noqa: ANN001
+    sleep: float = 0.4,
+    tries: int = 3,
+    retry_wait: tuple = (3.0, 10.0),
+) -> dict:
+    """One-off, resumable: SPY 1-minute bars from CVForge /mas -> per-session shares.
+
+    Asks only for full sessions not already in the store (so a re-run fills the holes), in small
+    calls that stay under the 5000-bar limit, each tried up to ``tries`` times (the first pull on
+    2026-11-13 got 502s on most 10-day calls). Our SPX log days are never touched.
+    """
     from zoneinfo import ZoneInfo
 
     et = ZoneInfo("America/New_York")
@@ -479,48 +507,64 @@ def pull_spy_pace(store: dict, years: float = 2.0, client=None, sleep: float = 0
         from trading_intel.config import Settings
 
         client = CVForgeClient(Settings())
-    end = dt.date.today()
+    end = dt.date.today() - dt.timedelta(days=1)  # today is added from our own log after the close
     start = end - dt.timedelta(days=int(365 * years))
-    bars_by_day: dict = {}
-    a, calls, errs = start, 0, []
-    while a <= end:
-        b = min(end, a + dt.timedelta(days=9))
-        try:
-            df = client.aggs(
-                "SPY",
-                frm=a.isoformat(),
-                to=b.isoformat(),
-                multiplier=1,
-                timespan="minute",
-                limit=5000,
-            )
-            calls += 1
-        except Exception as exc:
-            errs.append(f"{a}: {str(exc)[:80]}")
-            df = None
-        if df is not None and len(df) and {"t", "h", "l"} <= set(df.columns):
-            for t, h, lo in zip(df["t"], df["h"], df["l"], strict=False):
-                ts = dt.datetime.fromtimestamp(int(t) / 1000, tz=dt.UTC).astimezone(et)
-                bars_by_day.setdefault(ts.date(), []).append(
-                    (ts.hour * 60 + ts.minute, float(h), float(lo))
+    need = []
+    d = start
+    while d <= end:
+        if (
+            market_cal.is_session(d)
+            and close_min_of(d) - OPEN == 390
+            and d.isoformat() not in store["days"]
+        ):
+            need.append(d)
+        d += dt.timedelta(days=1)
+    calls, errs, added, trunc = 0, [], 0, 0
+    limit = 5000
+    for chunk in _pull_chunks(need):
+        a, b = chunk[0], chunk[-1]
+        df = None
+        for k in range(tries):
+            try:
+                df = client.aggs(
+                    "SPY",
+                    frm=a.isoformat(),
+                    to=b.isoformat(),
+                    multiplier=1,
+                    timespan="minute",
+                    limit=limit,
                 )
-        a = b + dt.timedelta(days=1)
+                calls += 1
+                break
+            except Exception as exc:
+                if k == tries - 1:
+                    errs.append(f"{a}: {str(exc)[:80]}")
+                else:
+                    time.sleep(retry_wait[min(k, len(retry_wait) - 1)])
         time.sleep(sleep)
-    added = 0
-    for d, bars in bars_by_day.items():
-        key = d.isoformat()
-        if (store["days"].get(key) or {}).get("src") == "spx_log" or not market_cal.is_session(d):
+        if df is None or not len(df) or not {"t", "h", "l"} <= set(df.columns):
             continue
-        sh = shares_from_bars(bars, close_min_of(d))
-        if sh:
-            store["days"][key] = {"src": "spy_1m", "sh": sh}
-            added += 1
+        if len(df) >= limit:
+            trunc += 1
+        bars_by_day: dict = {}
+        for t, h, lo in zip(df["t"], df["h"], df["l"], strict=False):
+            ts = dt.datetime.fromtimestamp(int(t) / 1000, tz=dt.UTC).astimezone(et)
+            bars_by_day.setdefault(ts.date(), []).append(
+                (ts.hour * 60 + ts.minute, float(h), float(lo))
+            )
+        for day in chunk:
+            sh = shares_from_bars(bars_by_day.get(day, []), close_min_of(day))
+            if sh:
+                store["days"][day.isoformat()] = {"src": "spy_1m", "sh": sh}
+                added += 1
     return {
+        "asked": len(need),
         "calls": calls,
-        "days_with_bars": len(bars_by_day),
         "added": added,
-        "errors": errs[:5],
+        "missing": len(need) - added,
         "n_errors": len(errs),
+        "truncated": trunc,
+        "errors": errs[:3],
     }
 
 
@@ -560,12 +604,21 @@ def run(
     return card
 
 
+def _pull_txt(pp: dict | None) -> str:
+    if not pp:
+        return ""
+    return (
+        f"pull asked={pp.get('asked')} added={pp.get('added')} missing={pp.get('missing')} "
+        f"calls={pp.get('calls')} errors={pp.get('n_errors')} truncated={pp.get('truncated')} | "
+    )
+
+
 def main(argv: list | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument(
         "--pace",
         action="store_true",
-        help="also pull ~2 years of SPY 1-minute bars from CVForge (one-off)",
+        help="also pull ~2 years of SPY 1-minute bars from CVForge (fills only missing days)",
     )
     ap.add_argument("--data", default=DATA)
     ap.add_argument("--no-wait", action="store_true", help="don't wait for today's Cboe close")
@@ -585,6 +638,7 @@ def main(argv: list | None = None) -> int:
         f"pace n={p.get('n')} fit={p.get('n_fit')} rough={p.get('rough')} src={p.get('src')} "
         f"share@10:00={curve[i30]} w@10:00={w[i30]} | "
         f"oos in band {sc.get('in_band_pct')}% n={sc.get('n')} | "
+        f"{_pull_txt((card.get('feed') or {}).get('pace_pull'))}"
         f"feed={json.dumps(card.get('feed'))[:300]}",
         flush=True,
     )

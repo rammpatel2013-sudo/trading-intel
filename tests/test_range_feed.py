@@ -135,28 +135,60 @@ def test_run_writes_card_and_store_and_is_repeatable(tmp_path) -> None:
         {k: v for k, v in card.items() if k != "feed"}
 
 
-def test_spy_pull_from_a_fake_client_keeps_our_log_days() -> None:
+def _fake_spy(fail_first: int = 0, calls: list | None = None):
     from zoneinfo import ZoneInfo
 
     class Fake:
-        def aggs(self, ticker, *, frm, to, multiplier, timespan, limit):  # noqa: ANN001, ANN201
+        n = 0
+
+        def aggs(self, ticker, *, frm, to, multiplier, timespan, limit):
             assert ticker == "SPY" and timespan == "minute"
+            Fake.n += 1
+            if Fake.n <= fail_first:
+                raise RuntimeError("CVForge GET /mas -> 502:")
+            if calls is not None:
+                calls.append((frm, to))
             rows = []
             d = dt.date.fromisoformat(frm)
             while d <= dt.date.fromisoformat(to):
                 if rf.market_cal.is_session(d) and rf.market_cal.session_close(d) == (16, 0):
-                    for m in range(560, 970):
+                    for m in range(240, 1200):  # 04:00-20:00, as SPY minute bars come
                         ts = dt.datetime(d.year, d.month, d.day, m // 60, m % 60, tzinfo=ZoneInfo("America/New_York"))
-                        rows.append({"t": int(ts.timestamp() * 1000), "h": 700.0 + (m - 560) * 0.01, "l": 699.0})
+                        rows.append({"t": int(ts.timestamp() * 1000), "h": 700.0 + (m - 240) * 0.01, "l": 699.0})
                 d += dt.timedelta(days=1)
+            assert len(rows) < limit  # each call stays under the bar limit
             return pd.DataFrame(rows)
 
-    store = {"v": rf.V, "days": {"2026-11-11": {"src": "spx_log", "sh": [1.0] * len(rf.MARKS)}}}
-    info = rf.pull_spy_pace(store, years=0.05, client=Fake(), sleep=0)
-    assert info["added"] > 5 and info["n_errors"] == 0
-    assert store["days"]["2026-11-11"]["src"] == "spx_log"
+    return Fake()
+
+
+def test_spy_pull_from_a_fake_client_keeps_our_log_days() -> None:
+    log_day = rf.prev_session(dt.date.today())
+    store = {"v": rf.V, "days": {log_day.isoformat(): {"src": "spx_log", "sh": [1.0] * len(rf.MARKS)}}}
+    info = rf.pull_spy_pace(store, years=0.05, client=_fake_spy(), sleep=0)
+    assert info["added"] > 5 and info["n_errors"] == 0 and info["missing"] == 0 and info["truncated"] == 0
+    assert store["days"][log_day.isoformat()]["src"] == "spx_log"
     some = next(v for k, v in store["days"].items() if v["src"] == "spy_1m")
     assert some["sh"][-1] == 1.0 and some["sh"][0] < some["sh"][-1]
+
+
+def test_spy_pull_retries_and_only_asks_for_missing_days() -> None:
+    store = {"v": rf.V, "days": {}}
+    info = rf.pull_spy_pace(store, years=0.05, client=_fake_spy(fail_first=2), sleep=0, retry_wait=(0, 0))
+    assert info["n_errors"] == 0 and info["missing"] == 0 and info["added"] == info["asked"] > 5
+    calls: list = []
+    again = rf.pull_spy_pace(store, years=0.05, client=_fake_spy(calls=calls), sleep=0)
+    assert again["asked"] == 0 and calls == []  # a re-run asks for nothing it already has
+    gone = sorted(store["days"])[:3]
+    for k in gone:
+        del store["days"][k]
+    third = rf.pull_spy_pace(store, years=0.05, client=_fake_spy(calls=calls), sleep=0)
+    assert third["asked"] == 3 and third["added"] == 3 and len(calls) <= 2
+    bad = rf.pull_spy_pace({"v": rf.V, "days": {}}, years=0.05, client=_fake_spy(fail_first=999), sleep=0,
+                           retry_wait=(0, 0))
+    assert bad["added"] == 0 and bad["calls"] == 0 and bad["n_errors"] == len(rf._pull_chunks(
+        [dt.date.fromisoformat(k) for k in sorted(store["days"])]))
+    assert bad["missing"] == bad["asked"] and bad["errors"][0].endswith("502:")
 
 
 def test_make_card_joins_the_pace_store_to_cboe_days() -> None:
