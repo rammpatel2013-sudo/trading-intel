@@ -2,12 +2,13 @@
 Every edit is an exact, single-occurrence replacement; the script stops if production text is not as expected.
 2026-11-09: MAP toggles only. 2026-11-13: + the Delta map (tg_delta.js, right pane "Delta", section 14). 2026-11-13 (afternoon): + Strike lines on the Flow map and the Zero line on the right Vanna / Charm map (tg_lines.js, section 15). The Density (DN1-DN6) and VIX (VX1/VX2) toggles moved to the production page as options
 (OFF by default), so the test page simply inherits them from production; tg_den.js / tg_vix.js are gone.
+2026-11-13 (evening): production gained the Map > Gamma "Hedge" curve (OFF by default, display only); the test page inherits it - no test-side edit.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("e78e7de4611c4dd5"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("6f1f71f1076ea97a"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
