@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vol board</title>
+<!--
+  vol_board.html - 2026-11-14. The cross-asset vol board + vol funds + spike-fade states.
+  Reads volx.json (scripts/cvxmap/volx.py, its own container cvxmap-volx) and, for the VIX curve,
+  live.json (VIXR, written by cvx_live.py). volx.py copies this file into scripts/cvxmap/data/ so
+  cvxmap-serve shows it at http://192.168.1.211:8899/vol_board.html. Read-only, descriptive (rule 4).
+  Will move into the cockpit's VIX tab (behind a toggle) once the cockpit is free to change.
+-->
+<style>
+  :root{--bg:#0B1220;--card:#131D31;--line:#24324D;--txt:#F2F6FC;--mute:#B9C6DA;--red:#FF5A5F;--org:#FF8A3D;
+        --yel:#FFD23F;--grn:#3FD0B0;--blue:#6AB7FF}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:18px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;flex-wrap:wrap;gap:22px;align-items:baseline;padding:16px 22px;border-bottom:2px solid var(--line)}
+  header h1{margin:0;font-size:28px}
+  .big{font-size:34px;font-weight:700}
+  .chip{display:inline-block;padding:3px 12px;border-radius:14px;font-weight:700;color:#0B1220}
+  main{display:grid;grid-template-columns:repeat(auto-fit,minmax(560px,1fr));gap:18px;padding:18px 22px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  section h2{margin:0 0 10px;font-size:24px}
+  .note{color:var(--mute);font-size:16px}
+  table{width:100%;border-collapse:collapse;font-size:18px}
+  th{color:var(--mute);font-weight:600;text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);font-size:16px}
+  td{padding:7px 6px;border-bottom:1px solid #1C2840;vertical-align:middle}
+  td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr.grp td{color:var(--blue);font-weight:700;padding-top:12px;border-bottom:none}
+  tr:hover td{background:#1A2742}
+  .up{color:var(--red)} .dn{color:var(--grn)}
+  .bar{position:relative;height:18px;background:#0E1626;border-radius:9px;min-width:90px}
+  .scroll{overflow-x:auto}
+  .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:9px}
+  .bar b{position:absolute;right:6px;top:-1px;font-size:14px}
+  .line{margin:8px 0;font-size:19px}
+  .line b.k{display:inline-block;min-width:150px;color:var(--mute);font-weight:600}
+  #tip{position:fixed;display:none;pointer-events:none;background:#0E1626;border:1px solid var(--blue);border-radius:10px;
+       padding:10px 14px;font-size:17px;max-width:420px;z-index:9;box-shadow:0 6px 24px #0008}
+  .err{color:var(--org);padding:10px 22px}
+  footer{color:var(--mute);font-size:15px;padding:4px 22px 22px}
+  @media (max-width:640px){main{grid-template-columns:1fr;padding:10px}body{font-size:17px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Vol board</h1>
+  <span><span class="note">VIX </span><span class="big" id="hVix">–</span></span>
+  <span id="hCurve" class="note"></span>
+  <span id="hBucket"></span>
+  <span class="note" id="hAsof"></span>
+</header>
+<div class="err" id="err" style="display:none"></div>
+<main>
+  <section>
+    <h2>Spike-fade set-ups</h2>
+    <div id="fade" class="note">Waiting for volx.json…</div>
+    <h2 style="margin-top:16px;font-size:20px">What history says (60-session hold)</h2>
+    <div id="bt"></div>
+  </section>
+  <section>
+    <h2>VIX curve</h2>
+    <div id="curve" class="note">Waiting for live.json…</div>
+  </section>
+  <section>
+    <h2>Volatility across markets</h2>
+    <div id="xv"></div>
+  </section>
+  <section>
+    <h2>Vol funds</h2>
+    <div id="etp"></div>
+    <p class="note">Long-vol funds (UVXY, UVIX, VXX, VIXY) hold VIX futures and lose value while the curve is in
+      contango; short-vol funds (SVXY, SVIX) gain then, and can lose most of their value in one spike
+      (SVXY fell 83% on 2018-02-05 at its old -1x).</p>
+  </section>
+</main>
+<footer id="foot">Free Cboe delayed quotes (~15 min) and daily closes. Descriptive only: no alert, no trade.
+  Backtest: claude/vol-etp-backtest-20261114.md.</footer>
+<div id="tip"></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fx=(v,d=2)=>v==null||isNaN(v)?"–":(+v).toFixed(d);
+const sg=(v,d=2,u="")=>v==null||isNaN(v)?"–":`<span class="${v>0?"up":v<0?"dn":""}">${v>0?"+":""}${(+v).toFixed(d)}${u}</span>`;
+// returns / prices: up = green, down = red (vol LEVELS use sg: up = red = more stress)
+const rt=(v,d=1,u="%")=>v==null||isNaN(v)?"–":`<span class="${v>0?"dn":v<0?"up":""}">${v>0?"+":""}${(+v).toFixed(d)}${u}</span>`;
+const ord=n=>{ n=Math.round(n); const t=n%100, u=n%10; return n+((t>=11&&t<=13)?"th":u===1?"st":u===2?"nd":u===3?"rd":"th"); };
+const pcCol=p=>p==null?"#55657F":p>=90?"var(--red)":p>=67?"var(--org)":p>=33?"var(--yel)":"var(--grn)";
+const dt=s=>{ if(!s) return "–"; const d=new Date(s+"T12:00:00"); return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); };
+
+// hover cards: any element with data-tip
+document.addEventListener("mousemove",e=>{ const t=e.target.closest("[data-tip]"), tip=$("tip");
+  if(!t){ tip.style.display="none"; return; }
+  tip.innerHTML=t.dataset.tip; tip.style.display="block";
+  const x=Math.min(e.clientX+16,innerWidth-tip.offsetWidth-8), y=Math.min(e.clientY+16,innerHeight-tip.offsetHeight-8);
+  tip.style.left=x+"px"; tip.style.top=y+"px"; });
+document.addEventListener("touchstart",e=>{ const t=e.target.closest("[data-tip]"), tip=$("tip");
+  if(!t){ tip.style.display="none"; return; } tip.innerHTML=t.dataset.tip; tip.style.display="block";
+  tip.style.left="10px"; tip.style.top="10px"; },{passive:true});
+
+function spark(vals,w=120,h=30){
+  const v=(vals||[]).filter(x=>x!=null); if(v.length<2) return "";
+  const lo=Math.min(...v), hi=Math.max(...v), r=hi-lo||1;
+  const pts=v.map((x,i)=>`${(i*(w-4)/(v.length-1)+2).toFixed(1)},${(h-3-(x-lo)*(h-6)/r).toFixed(1)}`).join(" ");
+  const last=pts.split(" ").pop().split(",");
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2"/>`+
+         `<circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="var(--yel)"/></svg>`;
+}
+function bar(p,label){
+  if(p==null) return `<span class="note">–</span>`;
+  return `<div class="bar" data-tip="${esc(label)}"><i style="width:${Math.max(4,p)}%;background:${pcCol(p)}"></i><b>${Math.round(p)}%</b></div>`;
+}
+
+function renderFade(B){
+  const F=B&&B.fade; if(!F){ $("fade").innerHTML="No fade data yet."; return; }
+  const r=F.vix_vix3m, shape=r==null?"":(r>=1?`<b style="color:var(--red)">backwardation</b>: near-term vol above 3-month, funds like UVXY gain from the roll`
+        :`<b style="color:var(--grn)">contango</b>: long-vol funds lose a little every day this holds`);
+  const L=[];
+  L.push(["VIX level",`<b>${fx(F.vix)}</b> &rarr; <b>${esc(F.bucket)}</b>: ${esc(F.bucket_note)}.`]);
+  L.push(["First close ≥ 25",F.c25?`${dt(F.c25.d)} (VIX ${fx(F.c25.vix)}), ${F.c25.ago} sessions ago.`:"none in the history we hold."]);
+  L.push(["First close ≥ 30",F.c30?`${dt(F.c30.d)} (VIX ${fx(F.c30.vix)}), ${F.c30.ago} sessions ago.`:"none in the history we hold."]);
+  L.push(["Fear release",`VIX9D &divide; VIX <b>${fx(F.v9r,3)}</b>, ${F.run_above1} close${F.run_above1===1?"":"s"} in a row above 1.00`+
+        (F.run_above1>=3?` <b style="color:var(--org)">(fear on: a release comes when it closes back at or below 1.00)</b>`:"")+
+        `. Last release: ${F.release?`${dt(F.release.d)} after ${F.release.days} days above 1.00`:"none in the history we hold"}.`]);
+  if(r!=null) L.push(["VIX &divide; VIX3M",`<b>${fx(r,3)}</b>: ${shape}.`]);
+  $("fade").innerHTML=L.map(([k,v])=>`<div class="line"><b class="k">${k}</b>${v}</div>`).join("")+
+    `<p class="note">Colours: in the tables a vol LEVEL going up is red (more stress); a return or a fund price going up is green. These are states, not signals. Rule 4: nothing here is an alert or a trade.</p>`;
+  const T=B.bt; if(!T||!T.rows) return;
+  let html=`<table><tr><th>Entry</th><th>Trade</th><th class="n">n</th><th class="n">Avg</th><th class="n">Win</th><th class="n">Worst</th><th class="n">Worst path</th></tr>`;
+  let prev="";
+  for(const [entry,trade,n,avg,win,worst,path] of T.rows){
+    const tip=`<b>${esc(entry)} &rarr; ${esc(trade)}</b><br>${n} trades, held ${T.hold} sessions from the next open.<br>`+
+      `Average ${avg>0?"+":""}${avg}%, won ${win}% of the time.<br>Worst finished trade ${worst}%. `+
+      `Worst move against the position during a hold: ${path}%${trade.startsWith("short")?" (a short can lose more than 100%)":""}.`;
+    html+=`<tr data-tip="${esc(tip)}"><td>${entry===prev?"":esc(entry)}</td><td>${esc(trade)}</td><td class="n">${n}</td>`+
+          `<td class="n">${rt(avg,1)}</td><td class="n">${win}%</td><td class="n">${rt(worst,0)}</td><td class="n">${path}%</td></tr>`;
+    prev=entry;
+  }
+  $("bt").innerHTML=html+`</table><p class="note">Frozen ${esc(T.asof)}: UVXY / SVXY since 2018-03, SVIX since 2022-04; small samples, overlapping years. Avg and Win are the position's return (a short gains when the fund falls).</p>`;
+}
+
+function renderXV(B){
+  const R=(B&&B.rows)||[]; if(!R.length){ $("xv").innerHTML=`<p class="note">No index rows yet.</p>`; return; }
+  let html=`<table><tr><th>Index</th><th>Market</th><th class="n">Level</th><th class="n">1 day</th><th class="n">1 week</th><th class="n">vs VIX</th><th>Where in its year</th><th>20 days</th></tr>`;
+  let g="";
+  for(const r of R){
+    if(r.grp!==g){ html+=`<tr class="grp"><td colspan="8">${esc(r.grp)}</td></tr>`; g=r.grp; }
+    const tip=`<b>${esc(r.s)} &mdash; ${esc(r.name)}</b><br>Level ${fx(r.v)} (${r.src==="live"?"live, ~15 min delayed":"last close"}).<br>`+
+      `Change: 1 day ${r.d1==null?"–":fx(r.d1)}, 1 week ${r.d5==null?"–":fx(r.d5)}, 1 month ${r.d21==null?"–":fx(r.d21)}.<br>`+
+      (r.pct!=null?`Higher than ${Math.round(r.pct)}% of the last year's closes.<br>`:"")+
+      (r.ratio!=null?`${fx(r.ratio)} &times; VIX; that ratio is above ${r.ratio_pct==null?"–":Math.round(r.ratio_pct)}% of the last year.`:"");
+    html+=`<tr data-tip="${esc(tip)}"><td><b>${esc(r.s)}</b></td><td>${esc(r.name)}</td><td class="n"><b>${fx(r.v)}</b></td>`+
+          `<td class="n">${sg(r.d1)}</td><td class="n">${sg(r.d5)}</td>`+
+          `<td class="n">${r.ratio==null?"–":fx(r.ratio)}${r.ratio_pct==null?"":`<span class="note"> (${ord(r.ratio_pct)})</span>`}</td>`+
+          `<td>${bar(r.pct,`Level percentile over the last year: ${r.pct==null?"–":Math.round(r.pct)}`)}</td><td>${spark(r.spark,90)}</td></tr>`;
+  }
+  $("xv").innerHTML=`<div class="scroll">`+html+`</table></div><p class="note">"vs VIX" = this index &divide; VIX, with its 1-year percentile in brackets (high = this market is unusually nervous next to the S&amp;P). Bar = where today's level sits in its own last year.</p>`;
+}
+
+function renderETP(B){
+  const R=(B&&B.etp)||[]; if(!R.length){ $("etp").innerHTML=`<p class="note">No fund rows yet.</p>`; return; }
+  let html=`<table><tr><th>Fund</th><th>Holds</th><th class="n">Price</th><th class="n">1 day</th><th class="n">1 week</th><th class="n">1 month</th><th>20 days</th></tr>`;
+  for(const r of R){
+    const tip=`<b>${esc(r.s)}</b>: ${esc(r.name)}.<br>Price ${fx(r.v)} (${r.src==="live"?"live, ~15 min delayed":"last close"}).<br>`+
+      `1 day ${r.d1==null?"–":fx(r.d1)+"%"}, 1 week ${r.d5==null?"–":fx(r.d5)+"%"}, 1 month ${r.d21==null?"–":fx(r.d21)+"%"}.`;
+    html+=`<tr data-tip="${esc(tip)}"><td><b>${esc(r.s)}</b></td><td>${esc(r.name)}</td><td class="n"><b>${fx(r.v)}</b></td>`+
+          `<td class="n">${rt(r.d1)}</td><td class="n">${rt(r.d5)}</td><td class="n">${rt(r.d21)}</td><td>${spark(r.spark,90)}</td></tr>`;
+  }
+  $("etp").innerHTML=`<div class="scroll">`+html+`</table></div>`;
+}
+
+function renderCurve(R){
+  if(!R||!R.curves||!R.tenors){ $("curve").innerHTML=`<p class="note">No VIX curve in live.json (the cockpit writer runs on market days).</p>`; return; }
+  const C=R.curves, ten=R.tenors.map(t=>t[0]), sets=[["today",C.today,"var(--yel)",3.5],["1 week ago",C.w,"var(--blue)",2],["1 month ago",C.m,"#8C9BB5",2]];
+  const all=sets.flatMap(s=>s[1]||[]).filter(v=>v!=null); if(!all.length){ $("curve").innerHTML=`<p class="note">No curve values.</p>`; return; }
+  const W=560,H=280,L=46,Rm=34,T=18,Bm=40, lo=Math.floor(Math.min(...all)-1), hi=Math.ceil(Math.max(...all)+1);
+  const X=i=>L+i*(W-L-Rm)/(ten.length-1), Y=v=>T+(hi-v)*(H-T-Bm)/(hi-lo||1);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">`;
+  for(let v=lo; v<=hi; v+=Math.max(1,Math.round((hi-lo)/6))) svg+=`<line x1="${L}" x2="${W-Rm}" y1="${Y(v)}" y2="${Y(v)}" stroke="#24324D"/><text x="${L-8}" y="${Y(v)+5}" fill="#B9C6DA" font-size="14" text-anchor="end">${v}</text>`;
+  ten.forEach((t,i)=>svg+=`<text x="${X(i)}" y="${H-12}" fill="#F2F6FC" font-size="15" text-anchor="middle">${esc(t)}</text>`);
+  for(const [name,vals,col,wd] of sets.slice().reverse()){
+    if(!vals) continue; const p=vals.map((v,i)=>v==null?null:[X(i),Y(v),v,ten[i]]).filter(Boolean);
+    svg+=`<polyline points="${p.map(q=>q[0].toFixed(1)+","+q[1].toFixed(1)).join(" ")}" fill="none" stroke="${col}" stroke-width="${wd}"/>`;
+    for(const q of p) svg+=`<circle cx="${q[0]}" cy="${q[1]}" r="${wd+2}" fill="${col}" data-tip="<b>${esc(name)}</b><br>${esc(q[3])} ${fx(q[2])}"/>`;
+  }
+  svg+=`</svg>`;
+  const t=C.today||[], i30=ten.indexOf("VIX"), i3=ten.indexOf("VIX3M"), r=(t[i30]&&t[i3])?t[i30]/t[i3]:null;
+  const legend=sets.map(s=>`<span style="color:${s[2]};font-weight:700">&#9679; ${s[0]}</span>`).join(" &nbsp; ");
+  $("curve").innerHTML=svg+`<div class="line">${legend}</div>`+
+    (r!=null?`<div class="line">VIX &divide; VIX3M <b>${r.toFixed(3)}</b>: ${r>=1?`<b style="color:var(--red)">upside down (backwardation)</b>: fear is near-term`:`<b style="color:var(--grn)">normal upward slope (contango)</b>`}.</div>`:"");
+}
+
+async function poll(){
+  let ok=true;
+  try{
+    const r=await fetch("volx.json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("volx.json HTTP "+r.status);
+    const V=await r.json(), B=V.board||null;
+    const vix=B&&B.fade?B.fade.vix:(V.q&&V.q.VIX&&V.q.VIX.v);
+    $("hVix").textContent=fx(vix);
+    $("hAsof").textContent="updated "+String(V.asof||"").replace("T"," ").slice(0,16)+" ET";
+    if(B&&B.fade){ const F=B.fade, col=F.vix>=30?"var(--red)":F.vix>=20?"var(--org)":"var(--grn)";
+      $("hBucket").innerHTML=`<span class="chip" style="background:${col}" data-tip="VIX ladder bucket (Cboe closes 2004–2026)">VIX ${esc(F.bucket)}</span>`;
+      $("hCurve").innerHTML=F.vix_vix3m!=null?`VIX &divide; VIX3M <b>${fx(F.vix_vix3m,3)}</b>`:""; }
+    renderFade(B); renderXV(B); renderETP(B);
+    if(!B) { ok=false; $("err").textContent="volx.json has no vol board yet (volx.py older than 2026-11-14, or the board errored)."; }
+  }catch(e){ ok=false; $("err").textContent="Could not read volx.json: "+e.message; }
+  try{ const r=await fetch("live.json?"+Date.now(),{cache:"no-store"}); if(r.ok){ const L=await r.json(); renderCurve(L&&L.VIXR); } else renderCurve(null); }
+  catch(e){ renderCurve(null); }
+  $("err").style.display=ok?"none":"block";
+}
+poll(); setInterval(poll,60000);
+</script>
+</body>
+</html>

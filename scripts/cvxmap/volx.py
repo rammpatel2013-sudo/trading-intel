@@ -22,6 +22,17 @@ VX1 regime gauge (VIXM/VIXY ratio; claude/vol-regime-knowledge-20261108.md):
   Today's row is PROVISIONAL (live quotes) until the cash close. Not tested by us as a predictor.
 VX2 variance stack: VIX^2 + DSPX^2 ~= VIXEQ^2; transmission share = VIX^2 / (VIX^2 + DSPX^2).
 
+2026-11-14 VOL BOARD (vol_board.html, served at :8899/vol_board.html): volx.json gains "board" =
+  rows  13 more free Cboe vol indices (VXN RVX VXD VIXEQ SKEW VXTLT OVX GVZ VXSLV VXGDX VXEEM
+        VXEWZ VXAZN): level, 1/5/21-day change, 1-year percentile, ratio to VIX + its percentile
+  etp   the vol funds (UVXY UVIX VXX VIXY VIXM SVXY SVIX): price and 1/5/21-day % change
+  fade  descriptor of the spike-fade set-ups tested 11/14 (claude/vol-etp-backtest-20261114.md):
+        VIX ladder bucket, last first-close >= 25 / >= 30, VIX9D/VIX run + last fear release
+  bt    the backtest numbers the page prints next to them (frozen 2026-11-14)
+  Board quotes refresh every 5 min (minute quotes reused where they exist); history once a day.
+  main() copies scripts/cvxmap/vol_board.html into the data folder (like flow_orbs.html).
+  Descriptive only (rule 4): no alert, no trade.
+
 RUN  python scripts/cvxmap/volx.py         one step a minute; exits at 16:30 ET (weekends: once)
      python scripts/cvxmap/volx.py --once  one step, then exit
 NAS  sudo bash .../trading-intel/scripts/nas/run_volx.sh start | stop | status | once
@@ -48,6 +59,48 @@ ETF = ("VIXM", "VIXY")
 INTRA = ("VIX", "VIX9D", "VIXEQ", "DSPX", "COR1M", "COR3M", "SPX")
 H_IDX = ("VIX", "VIX9D", "SPX")
 STK = ("VIX", "DSPX", "VIXEQ")
+# 2026-11-14 vol board: (symbol, plain name, group)
+XV = (("VXN", "Nasdaq 100", "Equity"), ("RVX", "Russell 2000", "Equity"),
+      ("VXD", "Dow 30", "Equity"), ("VIXEQ", "S&P single stocks (avg)", "Equity"),
+      ("SKEW", "S&P crash-tail price", "Equity"),
+      ("VXTLT", "Treasury bonds (TLT)", "Rates"), ("OVX", "Crude oil", "Commodities"),
+      ("GVZ", "Gold", "Commodities"), ("VXSLV", "Silver", "Commodities"),
+      ("VXGDX", "Gold miners", "Commodities"), ("VXEEM", "Emerging markets", "World"),
+      ("VXEWZ", "Brazil", "World"), ("VXAZN", "Amazon", "Single stock"))
+XV_SYMS = tuple(s for s, _, _ in XV)
+# (symbol, what it holds, daily leverage to short-term VIX futures)
+VETP = (("UVXY", "1.5x long VIX futures", 1.5), ("UVIX", "2x long VIX futures", 2.0),
+        ("VXX", "1x long VIX futures (note)", 1.0), ("VIXY", "1x long VIX futures", 1.0),
+        ("VIXM", "1x mid-term VIX futures", 1.0), ("SVXY", "-0.5x short VIX futures", -0.5),
+        ("SVIX", "-1x short VIX futures", -1.0))
+VETP_SYMS = tuple(s for s, _, _ in VETP)
+B_IDX = tuple(s for s in (*XV_SYMS, "VIX3M") if s not in IDX)       # board-only index quotes
+B_ETF = tuple(s for s in VETP_SYMS if s not in ETF)                  # board-only fund quotes
+BOARD_EVERY_S = 300
+PAGE = "vol_board.html"
+# VIX ladder (VIX level -> VIX lower ~84 sessions later; Cboe closes 2004-2026; ledger D, 11/14)
+LADDER = ((20.0, "under 20", "no spike to fade; the funds bleed slowly in calm markets"),
+          (30.0, "20 to 30", "VIX was lower 4 months later 76% of the time (median -16%)"),
+          (40.0, "30 to 40", "lower 4 months later 94% of the time (median -31%)"),
+          (50.0, "40 to 50", "lower 4 months later 99% of the time (median -38%)"),
+          (1e9, "50 and up", "lower 4 months later 100% of the time (median -36%)"))
+# Vol-fund backtest 2026-11-14 (claude/vol-etp-backtest-20261114.md): entry next open, 60 sessions,
+# short = static short incl. 5%/yr borrow; UVXY/SVXY from 2018-03 (current leverage), UVIX/SVIX from
+# 2022-04. path = worst move AGAINST the position during the hold. Frozen numbers, not live.
+BT = {"asof": "2026-11-14", "hold": 60, "rows": [
+    ["any day (baseline)", "short UVXY", 2162, 12.0, 80, -787, 1192],
+    ["any day (baseline)", "long SVXY", 2162, 4.0, 69, -60, 66],
+    ["any day (baseline)", "long SVIX", 1132, 8.7, 67, -61, 66],
+    ["VIX first close >= 25", "short UVXY", 19, 20.5, 84, -156, 804],
+    ["VIX first close >= 25", "long SVXY", 19, 5.5, 68, -45, 60],
+    ["VIX first close >= 25", "long SVIX", 10, 14.8, 70, -22, 51],
+    ["VIX first close >= 30", "short UVXY", 12, 36.2, 92, -40, 431],
+    ["VIX first close >= 30", "long SVXY", 12, 11.9, 75, -31, 51],
+    ["VIX first close >= 30", "long SVIX", 5, 23.9, 100, 8, 33],
+    ["fear release (VIX9D/VIX)", "short UVXY", 59, 15.6, 86, -408, 1060],
+    ["fear release (VIX9D/VIX)", "long SVXY", 59, 6.9, 75, -50, 64],
+    ["fear release (VIX9D/VIX)", "long SVIX", 34, 19.2, 85, -46, 64]],
+    "cols": ["entry", "trade", "n", "avg %", "win %", "worst %", "worst path %"]}
 RTH0, RTH1 = 9 * 60 + 30, 16 * 60 + 15
 END_MIN = 16 * 60 + 30          # the loop exits after this (one final write after 16:15)
 STEP_S = 60
@@ -162,6 +215,127 @@ def stack(v: dict) -> dict | None:
             "gap": round(tot ** 0.5 - c, 3) if c > 0 else None}
 
 
+def _pct(vals: list[float], now: float) -> float | None:
+    """Percentile of `now` inside `vals` (ties count half)."""
+    if not vals:
+        return None
+    below = sum(1 for x in vals if x < now) + 0.5 * sum(1 for x in vals if x == now)
+    return round(100.0 * below / len(vals), 1)
+
+
+def _level(ser: list, x: dict | None, today: datetime.date) -> tuple[float, str, float, bool]:
+    """(value, source, previous close, fresh). fresh = the value is NOT in the history yet.
+    A quote whose session is already in the history is that close (history wins). A quote from a
+    finished session the history doesn't have yet (Cboe's fund history lags a day) uses the quote's
+    `close` field: after the bell `current_price` can be a stale mid (UVXY 11/13: 19.00 vs 17.99).
+    The previous close always comes from the history, never the quote (it rolls after hours)."""
+    v = _f((x or {}).get("v"))
+    last = ser[-1][0] if ser else None
+    if v > 0:
+        d = qday(x, today)
+        if last is None or d > last:
+            c = _f((x or {}).get("c"))
+            val = c if (d < today and c > 0) else v
+            return val, ("live" if d == today else "close"), (ser[-1][1] if ser else 0.0), True
+    if ser:
+        return ser[-1][1], "close", (ser[-2][1] if len(ser) >= 2 else 0.0), False
+    return 0.0, "", 0.0, False
+
+
+def _spark(ser: list, v: float, fresh: bool) -> list[float]:
+    """Last 20 closes, plus the current value when the history doesn't hold it yet."""
+    return [round(c, 2) for _, c in ser[-20:]] + ([round(v, 2)] if fresh else [])
+
+
+def _back(ser: list, n: int, fresh: bool) -> float | None:
+    """The close n sessions before the current value."""
+    k = n if fresh else n + 1
+    return ser[-k][1] if len(ser) >= k else None
+
+
+def fade_state(hist: dict, q: dict, today: datetime.date) -> dict | None:
+    """The spike-fade set-ups, as states (descriptors): VIX ladder bucket, the last FIRST close at
+    or above 25 / 30 (no other close at that level in the 20 sessions before it), the current run
+    of VIX9D/VIX closes above 1.00 and the last fear release (a run of >= 3 that ended <= 1.00)."""
+    vser = list(hist.get("VIX", []))
+    v9 = dict(hist.get("VIX9D", []))
+    vq = q.get("VIX") or {}
+    v = _f(vq.get("v"))
+    d = qday(vq, today)
+    live = v > 0 and (not vser or vser[-1][0] < d)
+    if live:
+        vser.append((d, v))
+        v9now = _f((q.get("VIX9D") or {}).get("v"))
+        if v9now > 0 and d not in v9:
+            v9[d] = v9now
+    if not vser:
+        return None
+    vix = vser[-1][1]
+    band = next(b for b in LADDER if vix < b[0])
+
+    def first_close(level: float) -> dict | None:
+        hits = [i for i, (_, c) in enumerate(vser) if c >= level]
+        starts = [i for k, i in enumerate(hits) if k == 0 or i - hits[k - 1] > 20]
+        if not starts:
+            return None
+        i = starts[-1]
+        return {"d": vser[i][0].isoformat(), "vix": round(vser[i][1], 2), "ago": len(vser) - 1 - i}
+
+    run, last = 0, None
+    ratios = [(dd, v9[dd] / c) for dd, c in vser if v9.get(dd) and c > 0]
+    for dd, r in ratios:
+        if r > 1.0:
+            run += 1
+        else:
+            if run >= 3:
+                last = {"d": dd.isoformat(), "days": run}
+            run = 0
+    v3 = _f((q.get("VIX3M") or {}).get("v")) or (hist.get("VIX3M") or [(None, 0.0)])[-1][1]
+    return {"vix": round(vix, 2), "live": live, "bucket": band[1], "bucket_note": band[2],
+            "c25": first_close(25.0), "c30": first_close(30.0),
+            "v9r": round(ratios[-1][1], 3) if ratios else None, "run_above1": run, "release": last,
+            "vix_vix3m": round(vix / v3, 3) if v3 else None}
+
+
+def board(hist: dict, q: dict, today: datetime.date) -> dict:
+    """Vol board for vol_board.html. q = every quote we hold (minute + 5-minute board quotes)."""
+    vix_now = _f((q.get("VIX") or {}).get("v")) or ((hist.get("VIX") or [(None, 0.0)])[-1][1])
+    vh = dict(hist.get("VIX", []))
+    rows = []
+    for s, name, grp in XV:
+        ser = hist.get(s, [])
+        v, src, prev, fresh = _level(ser, q.get(s), today)
+        if v <= 0:
+            continue
+        yr = [c for _, c in ser[-252:]]
+        b5, b21 = _back(ser, 5, fresh), _back(ser, 21, fresh)
+        row = {"s": s, "name": name, "grp": grp, "v": round(v, 2), "src": src,
+               "d1": round(v - prev, 2) if prev else None,
+               "d5": round(v - b5, 2) if b5 else None,
+               "d21": round(v - b21, 2) if b21 else None,
+               "pct": _pct(yr, v) if len(yr) >= 60 else None,
+               "spark": _spark(ser, v, fresh), "ratio": None, "ratio_pct": None}
+        if s != "SKEW" and vix_now > 0:
+            rat = [c / vh[dd] for dd, c in ser[-252:] if vh.get(dd)]
+            row["ratio"] = round(v / vix_now, 3)
+            row["ratio_pct"] = _pct(rat, v / vix_now) if len(rat) >= 60 else None
+        rows.append(row)
+    etp = []
+    for s, name, lev in VETP:
+        ser = hist.get(s, [])
+        v, src, prev, fresh = _level(ser, q.get(s), today)
+        if v <= 0:
+            continue
+
+        def chg(base: float | None, v: float = v) -> float | None:
+            return round(100.0 * (v / base - 1.0), 2) if base else None
+
+        etp.append({"s": s, "name": name, "lev": lev, "v": round(v, 2), "src": src, "d1": chg(prev),
+                    "d5": chg(_back(ser, 5, fresh)), "d21": chg(_back(ser, 21, fresh)),
+                    "spark": _spark(ser, v, fresh)})
+    return {"rows": rows, "etp": etp, "fade": fade_state(hist, q, today), "bt": BT}
+
+
 # ---------------------------------------------------------------- network + loop
 class VolX:
     def __init__(self, out_dir: str, clock: Callable[[], datetime.datetime]) -> None:
@@ -173,6 +347,8 @@ class VolX:
         self.day: datetime.date | None = None
         self.intra: dict = {"t": []}
         self.err: str | None = None
+        self.bq: dict = {}              # 2026-11-14 board-only quotes (every BOARD_EVERY_S)
+        self.bq_t = 0.0
 
     def _get(self, url: str, timeout: float = 8):  # noqa: ANN202
         import requests
@@ -180,23 +356,23 @@ class VolX:
         r.raise_for_status()
         return r
 
-    def quotes(self) -> dict:
+    def quotes(self, idx: tuple = IDX, etf: tuple = ETF) -> dict:
         q = {}
-        for s in IDX + ETF:
+        for s in idx + etf:
             try:
-                d = (self._get((_Q_IDX if s in IDX else _Q_ETF) % s).json() or {}).get("data") or {}
+                d = (self._get((_Q_IDX if s in idx else _Q_ETF) % s).json() or {}).get("data") or {}
             except Exception as exc:
                 self.err = f"{s}: {str(exc)[:80]}"
                 continue
             v = _f(d.get("current_price") or d.get("last_trade_price"))
             if v > 0:
                 q[s] = {"v": v, "prev": _f(d.get("prev_day_close")),
-                        "t": d.get("last_trade_time") or ""}
+                        "t": d.get("last_trade_time") or "", "c": _f(d.get("close"))}
         return q
 
     def history(self, today: datetime.date) -> dict:
         h = {}
-        for s in H_IDX:
+        for s in (*H_IDX, *XV_SYMS, "VIX3M"):
             try:
                 rows = []
                 for line in self._get(_H_IDX % s, timeout=15).text.splitlines()[1:]:
@@ -210,7 +386,7 @@ class VolX:
                 h[s] = rows[-300:]
             except Exception as exc:
                 self.err = f"history {s}: {str(exc)[:80]}"
-        for s in ETF:
+        for s in ETF + B_ETF:
             try:
                 js = self._get(_H_ETF % s, timeout=15).json() or {}
                 rows = []
@@ -254,6 +430,11 @@ class VolX:
         q = self.quotes()
         if q:
             self.q = q
+        if time.time() - self.bq_t > BOARD_EVERY_S:
+            self.bq_t = time.time()
+            bq = self.quotes(B_IDX, B_ETF)
+            if bq:
+                self.bq = bq
         m = now.hour * 60 + now.minute
         if q and RTH0 <= m <= RTH1 and now.weekday() < 5:
             t = now.strftime("%H:%M")
@@ -278,6 +459,7 @@ class VolX:
                 "stack_prev": stack({s: (self.q.get(s) or {}).get("prev") for s in STK}),
                 "hist_through": {s: (v[-1][0].isoformat() if v else None)
                                  for s, v in self.hist.items()},
+                "board": _safe_board(self.hist, {**self.bq, **self.q}, today),
                 "err": self.err}
 
     def write(self, now: datetime.datetime) -> None:
@@ -298,6 +480,30 @@ class VolX:
                 print("volx: window closed - exiting", flush=True)
                 return
             time.sleep(STEP_S)
+
+
+def _safe_board(hist: dict, q: dict, today: datetime.date) -> dict | None:
+    """The board never takes volx.json down with it."""
+    try:
+        return board(hist, q, today)
+    except Exception as exc:  # descriptive extra: log and carry on
+        print("volx board error:", str(exc)[:200], flush=True)
+        return None
+
+
+def copy_page(out_dir: str) -> bool:
+    """Put scripts/cvxmap/vol_board.html next to volx.json so cvxmap-serve serves it."""
+    src = os.path.join(HERE, PAGE)
+    if not os.path.exists(src):
+        return False
+    try:
+        import shutil
+        os.makedirs(out_dir, exist_ok=True)
+        shutil.copyfile(src, os.path.join(out_dir, PAGE))
+        return True
+    except OSError as exc:
+        print("volx: page copy failed:", str(exc)[:120], flush=True)
+        return False
 
 
 def _atomic(path: str, obj: object) -> None:
@@ -321,6 +527,7 @@ def main(argv: list[str] | None = None) -> int:
         out = argv[argv.index("--out") + 1]
     v = VolX(out, now_et)
     print(f"volx start {now_et():%Y-%m-%d %H:%M} -> {out}", flush=True)
+    copy_page(out)
     if "--once" in argv:
         v.step()
         return 0
