@@ -3,7 +3,9 @@
 DIX (SqueezeMetrics' idea) = dollar-weighted short-volume share of S&P 500 names: off-exchange
 short volume is mostly market makers filling BUY orders, so a high DIX = buying in dark pools.
 Ours: sum(short_vol x price) / sum(total_vol x price) over today's S&P 500 constituents, prices
-from FMP batch-quote (~6 calls). Idempotent upsert into ``finra_dix_daily``. NAS DSM Mon-Fri
+from FMP batch-quote (~6 calls) - and, since batch-quote is not served on our CVForge FMP tier
+(404, found 2026-11-14), from that day's equity_bars closes. 2026-11-14 (desk brief): also keeps
+EVERY symbol's FINRA row in ``finra_short_volume`` (the desk brief's dark-pool leg). Idempotent upsert into ``finra_dix_daily``. NAS DSM Mon-Fri
 18:30 ET (`run_job.sh finra_dix`). Compare with the stored SqueezeMetrics DIX before trusting.
 Descriptor only (rule 4).
 """
@@ -51,6 +53,20 @@ def _prices(cv: object, syms: list[str]) -> dict[str, float]:
     return out
 
 
+def _bar_prices(session: Session, day: date, syms: list[str]) -> dict[str, float]:
+    """Latest close on or before ``day`` from equity_bars (weights only - finra_dix runs at 18:30,
+    before equity_daily refreshes today's bars at 18:45, so this is usually the prior close)."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from trading_intel.memory.models_equity import EquityBar
+    q = (select(EquityBar.symbol, EquityBar.date, EquityBar.close)
+         .where(EquityBar.date <= day, EquityBar.date >= day - timedelta(days=10),
+                EquityBar.symbol.in_(syms)).order_by(EquityBar.date))
+    return {s: float(c) for s, _d, c in session.execute(q).all() if c}  # later dates overwrite
+
+
 def run(session: Session, settings: Settings | None = None, *, cv: object | None = None,
         short: dict | None = None, day: date | None = None) -> dict:
     settings = settings or get_settings()
@@ -64,12 +80,22 @@ def run(session: Session, settings: Settings | None = None, *, cv: object | None
     if not short:
         bound.warning("finra_dix.no_file_yet", day=str(day))
         return {"skipped": "no_file"}
+    try:  # desk brief: keep every symbol (one failure here never blocks the DIX row)
+        from trading_intel.desk import store as desk_store
+        bound.info("finra_dix.symbols_saved", n=desk_store.save_finra(session, day, short))
+    except Exception as exc:  # noqa: BLE001
+        session.rollback()
+        bound.warning("finra_dix.symbols_save_failed", error=str(exc)[:200])
     if cv is None:
         from trading_intel.clients.cvforge import CVForgeClient
         cv = CVForgeClient(settings)
     from trading_intel.market import breadth as bm
     syms = bm.sp500_symbols(cv)
-    vals = compute(short, _prices(cv, syms))
+    prices = _prices(cv, syms)
+    if len(prices) < len(syms) // 2:  # batch-quote 404 on our tier -> use the day's bars
+        prices.update({k: v for k, v in _bar_prices(session, day, syms).items() if k not in prices})
+        bound.info("finra_dix.bar_prices", n=len(prices))
+    vals = compute(short, prices)
     row = {"date": day, **vals}
     ins = sqlite_insert if (session.bind is not None and session.bind.dialect.name == "sqlite") else pg_insert
     stmt = ins(FinraDixDaily).values(row)

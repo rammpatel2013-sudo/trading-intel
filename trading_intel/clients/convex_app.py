@@ -101,6 +101,34 @@ class ConvexAppClient:
         params = ["symbol", "value", "price", "change", "vflowratio"]
         return self._request("POST", "/api/data/und", json={"params": params, "query": query})
 
+    # field names the live und screener accepts (probed 2026-11-14; OHLC fields are NOT in und)
+    UND_FIELDS: tuple[str, ...] = (
+        "symbol", "price", "change", "option_volume", "call_volume", "put_volume",
+        "volm_call_buy", "volm_call_sell", "volm_put_buy", "volm_put_sell", "gxoi", "volatility",
+    )
+
+    def und_snapshot(self, *, min_option_volume: int = 1, limit: int = 20_000) -> list[dict]:
+        """Every underlying with options volume, as ``{field: value}`` dicts (desk brief, 2026-11-14).
+
+        ONE POST to /api/data/und. The buy/sell split is session-cumulative and resets at
+        ~18:00 ET, so call this after the 16:15 close and before ~17:50. Rows come back as
+        ``[[symbol, v1, v2, ...]]`` in ``UND_FIELDS`` order.
+        """
+        query = (
+            f"select symbol from und where option_volume >= {int(min_option_volume)} "  # noqa: S608
+            f"order by option_volume desc nulls last limit {int(limit)}"
+        )
+        data = self._request(
+            "POST", "/api/data/und", json={"params": list(self.UND_FIELDS), "query": query}
+        )
+        block = data.get("data") if isinstance(data, dict) else None
+        rows = block[0] if isinstance(block, list) and block and isinstance(block[0], list) else []
+        out: list[dict] = []
+        for r in rows:
+            if isinstance(r, list) and len(r) == len(self.UND_FIELDS) and r[0]:
+                out.append(dict(zip(self.UND_FIELDS, r)))
+        return out
+
     def flowchart(self, symbol: str, *, d: date | None = None) -> dict:
         """POST /api/data/flowchart -> {data: [header, rows]}. ``day`` needs a real day_id."""
         cols = ["flownet", "vflownet", "value_call_bs", "value_put_bs"]

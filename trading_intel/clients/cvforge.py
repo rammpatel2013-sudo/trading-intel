@@ -237,6 +237,27 @@ class CVForgeClient:
         data = self._post("/query", {"sql": sql, "max_rows": max_rows})
         return pd.DataFrame(data.get("rows", []))
 
+    def gex_by_underlying(self, start: date, st_end: date) -> pd.DataFrame:
+        """Dealer gamma per underlying from the live snapshot (desk brief, 2026-11-14).
+
+        Naive sign (calls +, puts -), in $ per 1% move: gamma x OI x 100 x S^2 x 0.01.
+        ``st_gex`` = expiries ``start``..``st_end``; ``total_gex`` = every expiry from ``start``.
+        One SQL call, ~0.1 s for ~5,900 underlyings (probed 2026-11-14).
+        """
+        s, e = start.isoformat(), st_end.isoformat()  # dates, not user strings -> not injectable
+        term = (
+            "case when contract_type = 'call' then 1 else -1 end * coalesce(gamma, 0)"
+            " * coalesce(open_interest, 0) * coalesce(shares_per_contract, 100)"
+            " * underlying_price * underlying_price * 0.01"
+        )
+        sql = (
+            "select underlying_ticker as symbol, max(underlying_price) as spot, "  # noqa: S608
+            f"sum(case when expiration_date <= '{e}' then {term} else 0 end) as st_gex, "
+            f"sum({term}) as total_gex from options_snapshots "
+            f"where expiration_date >= '{s}' and underlying_price > 0 group by 1"
+        )
+        return self.query(sql, max_rows=20_000)
+
     def health(self) -> dict:
         return {"vendor": "cvforge", "last_call_latency_ms": self._last_latency_ms}
 
