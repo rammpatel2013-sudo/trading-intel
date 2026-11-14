@@ -292,7 +292,29 @@ def main() -> None:
     lv = balance_tests(per_strike_gamma({**start, **fresh}, w, ref, P["spot"]), P["spot"], band)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     stem = OUT_DIR / f"vs_card_{P['session']}_{now:%H%M}"
-    stem.with_suffix(".html").write_text(card_html(P, orders, lv, src), encoding="utf-8")
+    v2 = ""
+    try:  # 2026-11-13 overnight: card v2 (lock/moved, trust, tells + grading, close pressure)
+        import vs_card_v2 as V2
+        st_path = OUT_DIR / "v2_state.json"
+        prev = json.loads(st_path.read_text(encoding="utf-8")) if st_path.exists() else {}
+        lvl = V2.levels(P, lv)
+        graded, score = [], {}
+        if prev.get("tells") and prev.get("session") != P["session"]:
+            graded = V2.grade(prev["tells"], float(P["spot"]))
+            score = V2.update_score(OUT_DIR / "tells_score.json", graded)
+        ch2 = P.get("charm") or {}
+        ct = None
+        if ch2.get("total"):
+            i2 = int(round((P["spot"] - P["grid"]["lo"]) / P["grid"]["step"]))
+            ct = ch2["total"][max(0, min(len(ch2["total"]) - 1, i2))]
+        tl = V2.tells(P, lvl)
+        v2 = V2.block_html(V2.lock_moved(lvl, prev.get("levels") if prev.get("session") != P["session"] else prev.get("prev_levels")),
+                           lvl, V2.trust(P, now), tl, graded, score, V2.close_pressure(ct))
+        keep_prev = prev.get("levels") if prev.get("session") != P["session"] else prev.get("prev_levels")
+        st_path.write_text(json.dumps({"session": P["session"], "levels": lvl, "prev_levels": keep_prev, "tells": tl}), encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001 - the card renders without v2
+        print("vs_morning_card.v2_failed", exc)
+    stem.with_suffix(".html").write_text(card_html(P, orders, lv, src).replace("</div></body>", v2 + "</div></body>", 1), encoding="utf-8")
     png = stem.with_suffix(".png")
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
