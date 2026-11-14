@@ -18,3 +18,17 @@ Restore one item, e.g. the Streamlit pages:
 
     git mv archive/trading_intel/dashboard/pages trading_intel/dashboard/pages
     git mv archive/trading_intel/dashboard/Home.py trading_intel/dashboard/Home.py
+
+## 2026-11-14 (later) - folder cleanup, group B (project doc `claude/folder-cleanup-audit-20261114.md`)
+
+Same rule as above: nothing here is imported, scheduled, tested or run; same relative paths under `archive/`.
+
+| Was | Why it is here |
+|---|---|
+| root `run_*.bat` (9), `setup_cor_vixex.bat`, `scripts/ship1_deploy.bat`, `scripts/add_jaguar_3q26_watchlist.bat` | July laptop launchers and spent one-shot bats; the NAS DSM tasks replaced them. |
+| `COCKPIT_DEPLOY.md`, `DEPLOY_gex_vol.md`, `DEPLOY_vol_surface_cm.md` | Old deploy notes (Jul-Aug); `scripts/nas/deploy.sh` + `DEPLOYMENT.md` cover deploys now. |
+| `scripts/probe_tas_legs.py`, `probe_fmp_fields.py`, `probe_transcripts.py`, `probe_swing_endpoints.py`, `check_oi_chain_spx.py`, `verify_oi_flow.py` | One-off data probes / checks (May-Aug). |
+| `scripts/normalize_watchlist_symbols.py`, `backtest_vol_regime.py`, `tas_export.py` + `tas_signals.py`, `plot_vol_surface.py`, `dashboard_vol_surface.py` + `watchlist_report.py`, `skew_backfill.py` + root `skew_data.xlsx`, `cleanup_nonsession_rows_20261029.py`, `rebuild_vix_history_20261029.py`, `tilt_score.py`, `cvxmap/close_score.py` | Done backfills, replaced reports, one-off tests, the old ToS-vs-Convex close score. |
+| root `Jaguar-3Q-2026-Outlook-DECRYPTED.pdf`, `-Ideas-Table.xlsx`, `-Summary.md` | Copy of the Jaguar 3Q26 outlook (the letters pipeline keeps its own in `research/company/`); nothing reads it. |
+
+Restore one: `git mv archive/<path> <path>`.
