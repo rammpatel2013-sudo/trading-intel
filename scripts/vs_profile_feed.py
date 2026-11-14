@@ -46,6 +46,9 @@ SPAN = 0.04          # grid: spot +/- 4%
 STEP = 1.0           # 1 SPX point
 OPEN = time(9, 30)
 CLOSE = time(16, 0)
+_TRAPZ = getattr(np, "trapezoid", None) or np.trapz   # numpy < 2.0 on older boxes
+MOVES = (-2.0, -1.0, -0.5, 0.5, 1.0, 2.0)   # VS hedge-table moves, % (step 3)
+ES_PER_INDEX = 50.0                           # 1 ES = $50 x index; dealer delta in index units / 50 = ES
 SCALE_NOTE = ("$bn of dealer gamma per 1% move on OUR naive book - about 29x the size VolSignals "
               "prints, so read the percentile, not the dollar size")
 
@@ -106,6 +109,26 @@ def flips(grid: np.ndarray, tot: np.ndarray, spot: float) -> dict[str, Any]:
     near = min(lv, key=lambda x: abs(x - spot)) if lv else None
     r = lambda x: None if x is None else round(x, 1)  # noqa: E731
     return {"all": [[round(x, 1), d] for x, d in cr], "below": r(below), "above": r(above), "nearest": r(near)}
+
+
+def hedge_rows(grid: np.ndarray, tot_bn: np.ndarray, spot: float,
+               moves: tuple[float, ...] = MOVES) -> list[dict[str, Any]]:
+    """VS step 3 - ES contracts dealers must trade to stay hedged if SPX moves from spot by each %.
+    The gamma line ($bn per 1%) is turned back into dealer gamma in index units per point,
+    Gamma(S) = G$ * 1e9 / (0.01 * S^2), and integrated from spot to the new level (trapezoid on the
+    1-pt grid): the dealer delta change. Dealers trade the opposite of it: + = buy ES, - = sell."""
+    gam = tot_bn * 1e9 / (0.01 * grid * grid)
+    out = []
+    for m in moves:
+        s1 = spot * (1 + m / 100.0)
+        if not (grid[0] <= min(spot, s1) and max(spot, s1) <= grid[-1]):
+            continue
+        lo, hi = min(spot, s1), max(spot, s1)
+        xs = np.concatenate(([lo], grid[(grid > lo) & (grid < hi)], [hi]))
+        ys = np.interp(xs, grid, gam)
+        d_delta = float(_TRAPZ(ys, xs)) * (1 if s1 >= spot else -1)
+        out.append({"move_pct": m, "spx": round(s1, 1), "es": int(round(-d_delta / ES_PER_INDEX))})
+    return out
 
 
 def percentile(v: float, hist: list[float]) -> int | None:
@@ -191,6 +214,11 @@ def build(db, now: datetime) -> dict[str, Any]:
         "spot": round(spot, 2), "grid": {"lo": float(grid[0]), "step": STEP, "n": len(grid)},
         "full": [round(float(x), 4) for x in L["full"]], "ex0": [round(float(x), 4) for x in L["ex0"]],
         "at_spot": {k: round(v, 4) for k, v in at.items()}, "pct": pct,
+        "hedge": [dict(r, es_ex0=e["es"]) for r, e in zip(hedge_rows(grid, L["full"], spot),
+                                                         hedge_rows(grid, L["ex0"], spot), strict=True)],
+        "hedge_note": ("ES contracts dealers would trade to stay hedged if SPX moved there from now "
+                       "(+ buy, - sell), naive book: about 30x VolSignals' size - read which way and "
+                       "which side is bigger, not the number"),
         "hist_n": len(past), "flips": fl, "units": SCALE_NOTE,
         "plain": ("Above zero = dealers long gamma at that price (they sell rallies and buy dips, moves get "
                   "absorbed); below zero = short gamma (they chase, moves speed up). The flip is where a line "

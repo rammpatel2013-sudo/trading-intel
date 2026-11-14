@@ -1,6 +1,6 @@
 // Profile check (2026-11-13 night, VS plan step 2), test cockpit Map > Gamma button "Profile".
 // Same harness as parity.js / hedge.js: a folder on :8765 with prod.html + test.html (instrument.py) and one session's
-// data files plus a profile_SPX.json (vs_profile_feed.py output). Checks: OFF = no panel, parity of buildMap/read-out
+// data files plus a profile_SPX.json (vs_profile_feed.py output). Checks (+ the VS step 3 ES hedge table): OFF = no panel, parity of buildMap/read-out
 // prod vs test; ON = panel with both lines, flips, percentiles, no JS error; hover card; OFF again hides it; a missing
 // file shows a plain message, not an error. Screenshots to OUT. Exit 1 on any failure.   node profile.js
 const {chromium}=require('playwright'); const fs=require('fs');
@@ -25,6 +25,9 @@ const maps=o=>o.p.evaluate(()=>{ const {st,buildMap,mapRead}=window.__T; const R
   ok(/83rd percentile/.test(st1.head)&&/41st percentile/.test(st1.head),'ON: both percentiles in plain words');
   ok(/flip 7,482/.test(st1.head)&&/flip 7,481/.test(st1.head),'ON: both flips named ('+st1.head.split("\n").slice(1,3).join(" | ")+')');
   ok(/long gamma/.test(st1.head),'ON: long / short at price in words');
+  { const h=await T.p.evaluate(()=>{ const e=document.getElementById("tgProfHedge"); return e?{n:e.querySelectorAll(".pfh").length,t:e.innerText}:null; });
+    ok(h&&h.n===6,'VS step 3: hedge table has 6 moves ('+(h?h.n:0)+')');
+    ok(h&&/falls 1% to 7,480, dealers buy about 19k ES → they absorb/.test(h.t)&&/rises 1% to 7,631, dealers sell about 50k ES → they absorb/.test(h.t),'VS step 3: plain line says which way and absorb / chase ('+(h?h.t.split("\n").slice(-1)[0]:'')+')'); }
   await T.p.locator('#tgProf').screenshot({path:OUT+'profile_on.png'});
   const box=await T.p.locator('#tgProfC').boundingBox(); await T.p.mouse.move(box.x+box.width*0.3,box.y+box.height*0.5); await T.p.waitForTimeout(300);
   const d2=await T.p.evaluate(()=>document.getElementById("tgProfC").toDataURL().length); ok(d2!==st1.data,'hover card drawn');

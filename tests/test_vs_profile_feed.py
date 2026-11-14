@@ -60,3 +60,29 @@ def test_percentile_and_upsert():
     h = pf.upsert([{"date": "2026-11-12", "full": 1}], {"date": "2026-11-13", "full": 2})
     h = pf.upsert(h, {"date": "2026-11-13", "full": 3})
     assert [x["full"] for x in h] == [1, 3]
+
+
+def test_hedge_rows_match_exact_black_scholes_delta_change():
+    """VS step 3: the ES table from the gamma line = the exact BS dealer delta change / 50."""
+    from math import erf, log, sqrt
+
+    from vs_flip_score import MULT
+    N = lambda x: 0.5 * (1 + erf(x / sqrt(2)))  # noqa: E731
+    ref = datetime(2026, 11, 16, 9, 30)
+    rows = _rows()
+    grid = np.arange(7300.0, 7801.0, 1.0)
+    L = pf.profile_lines(rows, 7550.0, ref, grid)
+    K, sig, t, w = pf.book_arrays(rows, ref, None)
+    cp = [1 if wi > 0 else -1 for wi in w]   # in _rows calls are dealer-long (+), puts dealer-short (-)
+
+    def dealer_delta(S):
+        tot = 0.0
+        for k, s_, tt, wi, c in zip(K, sig, t, w, cp, strict=True):
+            d1 = (log(S / k) + 0.5 * s_ * s_ * tt) / (s_ * sqrt(tt))
+            tot += wi * MULT * (N(d1) if c > 0 else N(d1) - 1)
+        return tot
+
+    H = {r["move_pct"]: r["es"] for r in pf.hedge_rows(grid, L["full"], 7550.0)}
+    for m in (-2.0, -1.0, 1.0, 2.0):
+        exact = -(dealer_delta(7550.0 * (1 + m / 100)) - dealer_delta(7550.0)) / 50.0
+        assert abs(H[m] - exact) <= max(2.0, 0.01 * abs(exact)), (m, H[m], exact)
