@@ -568,7 +568,7 @@ def build_server(
         the realized sector-correlation regime (low = dispersion, single-sector
         bets diversify) plus a sector-breadth-vs-index internals read — then flags
         LEAP-long candidates with rationale. Reads ONLY the CVForge-fed
-        greeks_snapshots (SPDRs), sector_corr_snapshots, and free yfinance history
+        greeks_snapshots (SPDRs), sector_corr_snapshots, and FMP history (CVForge)
         — zero Convex calls (rule 1). Returns the saved HTML path under ``reports/``.
         Descriptive only (FlashAlpha rule 4) — flags/context, not a trade signal.
         """

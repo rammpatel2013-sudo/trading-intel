@@ -506,7 +506,7 @@ class IndexSkewDaily(Base):
     vvix_vix_ratio: Mapped[float | None] = mapped_column(Float)
     vix_options_richness: Mapped[float | None] = mapped_column(Float)
     # Cboe implied-correlation / dispersion family — migration 0025.
-    # ``cor1m`` / ``cor3m`` are Yahoo-sourced (^COR1M, ^COR3M). High = correlation
+    # ``cor1m`` / ``cor3m``: Cboe CDN, then FMP (Yahoo until 2026-11-14). High = correlation
     # (index-vol-led) regime; low = dispersion. ``cor1m - cor3m`` is the
     # correlation-curve slope (positive = near-term correlation stress).
     cor1m: Mapped[float | None] = mapped_column(Float)
@@ -1302,7 +1302,7 @@ class SectorCorrSnapshot(Base):
     n_etfs: Mapped[int | None] = mapped_column(Integer)
     matrix: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     computed_at: Mapped[datetime | None] = mapped_column(DateTime)
-    source: Mapped[str] = mapped_column(String(32), default="yfinance")
+    source: Mapped[str] = mapped_column(String(32), default="fmp")
 
 
 class SectorSnapshot(Base):

@@ -259,7 +259,7 @@ def assemble_sector(rows: list[dict], *, corr: dict, internals: dict, as_of: str
     scan = build_sector_scan(rows, corr=corr, internals=internals, gex_history=gex_history)
     scan["as_of"] = as_of or datetime.now().isoformat(timespec="seconds")
     scan["meta"] = {
-        "source": "cvforge-db + yfinance",
+        "source": "cvforge-db + fmp",
         "n_sectors": scan.get("n_sectors", len(rows)),
         "n_priced": sum(1 for r in rows if r.get("gex_total") is not None),
     }
@@ -268,7 +268,7 @@ def assemble_sector(rows: list[dict], *, corr: dict, internals: dict, as_of: str
 
 def build_sector(session, settings=None) -> dict:
     """Assemble the sector lead/lag payload from the DB + free price history."""
-    from trading_intel.clients.prices import YFinancePriceSource
+    from trading_intel.clients.fmp_prices import fmp_price_source
     from trading_intel.config import get_settings
     from trading_intel.market.sector_correlation import SECTOR_SPDRS
     from trading_intel.market.sector_scan import internals_health
@@ -276,7 +276,7 @@ def build_sector(session, settings=None) -> dict:
     settings = settings or get_settings()
     roots = list(getattr(settings, "sector_roots", None) or SECTOR_SPDRS)
 
-    source = YFinancePriceSource()
+    source = fmp_price_source(settings)
     frame = _wide_close_frame(source, roots, period="1y")
 
     spdr_today: dict[str, float | None] = {}

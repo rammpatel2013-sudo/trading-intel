@@ -1,6 +1,6 @@
 """Scheduled job: snapshot the sector-ETF realized-correlation regime.
 
-Pulls daily closes for the 11 SPDR sector ETFs from the yfinance price source
+Pulls daily closes for the 11 SPDR sector ETFs from the FMP price source (CVForge; Yahoo exit 2026-11-14)
 (free — no IBKR), computes 21d/63d average PAIRWISE correlation + cross-sectional
 dispersion via ``market.sector_correlation`` (pure math), and writes one
 ``sector_corr_snapshots`` row. This is the *realized* complement to the
@@ -20,17 +20,17 @@ import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from trading_intel.clients.prices import YFinancePriceSource
+from trading_intel.clients.fmp_prices import FmpPriceSource, fmp_price_source
 from trading_intel.config import Settings, get_settings
 from trading_intel.market.sector_correlation import SECTOR_SPDRS, latest_snapshot
 from trading_intel.memory.models import SectorCorrSnapshot
 from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
-_SOURCE = "yfinance"
+_SOURCE = "fmp"
 
 
-def _close_frame(source: YFinancePriceSource, symbols: tuple[str, ...], *, period: str) -> pd.DataFrame:
+def _close_frame(source: FmpPriceSource, symbols: tuple[str, ...], *, period: str) -> pd.DataFrame:
     """Wide daily-close frame (index=date, cols=ticker) for ``symbols``; best-effort."""
     cols: dict[str, pd.Series] = {}
     for sym in symbols:
@@ -49,12 +49,12 @@ def run(
     session: Session,
     *,
     settings: Settings | None = None,
-    source: YFinancePriceSource | None = None,
+    source: FmpPriceSource | None = None,
     period: str = "1y",
 ) -> None:
     """Compute + store one sector-correlation snapshot (11 SPDRs)."""
     settings = settings or get_settings()  # noqa: F841 — kept for signature parity with other jobs
-    source = source or YFinancePriceSource()
+    source = source or fmp_price_source()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="sector_corr")
 
     prices = _close_frame(source, SECTOR_SPDRS, period=period)

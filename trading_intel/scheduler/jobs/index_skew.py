@@ -285,15 +285,15 @@ def build_row(
     """Compose one ``index_skew_daily`` row from stored + CBOE data."""
     as_of = as_of or eastern_now().date()
     cboe_skew = cboe.skew_index()
-    # Nations indices via Yahoo. SDEX/TDEX/VOLI are public; CallDex/PutDex/
+    # Nations indices via Yahoo (the only Yahoo use left, 2026-11-14). SDEX/TDEX/VOLI are public; CallDex/PutDex/
     # RiskDex are subscription-only and computed as proxies below.
     sdex = fetch_sdex()
     voli = fetch_voli()
     tdex = fetch_tdex()
-    # Cboe implied correlation (dispersion) via Yahoo — same degrade-to-None path.
+    # Cboe implied correlation (dispersion): Cboe CDN, then FMP — degrade-to-None.
     cor1m = fetch_cor1m()
     cor3m = fetch_cor3m()
-    # Cboe constituent-vol (^VIXEQ) + dispersion index (^DSPX), same Yahoo path.
+    # Cboe constituent-vol (^VIXEQ) + dispersion index (^DSPX): Cboe CDN, then FMP.
     vixeq = fetch_vixeq()
     dspx = fetch_dspx()
 

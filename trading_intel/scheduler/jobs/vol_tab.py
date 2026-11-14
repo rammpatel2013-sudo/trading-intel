@@ -12,7 +12,7 @@ calls. Steps (each idempotent, rule 5):
   V5 Color (time-only change in dealer gamma) · B1 beta-reset summary.
 
 SPX closes come from ``quotes_daily``; dates missing there are filled from
-yfinance (free, via ``clients.prices``). Descriptor only (rule 4).
+FMP via CVForge (``clients.fmp_prices``; Yahoo exit 2026-11-14). Descriptor only (rule 4).
 
 Manual run:
     python -m trading_intel.scheduler.jobs.vol_tab
@@ -409,14 +409,14 @@ def run(
 
 
 def main() -> None:
-    from trading_intel.clients.prices import YFinancePriceSource
+    from trading_intel.clients.fmp_prices import fmp_price_source
     from trading_intel.config import get_settings
     from trading_intel.memory.db import make_session_factory
     from trading_intel.scheduler.jobs._script_report import configure_logging
 
     configure_logging()
     with make_session_factory(get_settings())() as session:
-        obj = run(session, price_source=YFinancePriceSource())
+        obj = run(session, price_source=fmp_price_source())
     print("voltab.json written:", obj["v1"]["read"])
 
 

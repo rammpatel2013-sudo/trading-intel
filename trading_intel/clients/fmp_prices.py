@@ -1,12 +1,11 @@
-"""Daily bars from FMP via the CVForge passthrough - the Yahoo exit, step 1 (2026-11-13 overnight).
+"""Daily bars from FMP via the CVForge passthrough - the only price source since the Yahoo exit.
 
-Mithil 11/13: "we stop using yahoo". ``FmpPriceSource`` satisfies ``PriceDataSource`` with
-FMP ``historical-price-eod/full`` (open/high/low/close/volume) on the existing CVForge key.
-``FmpFirstPriceSource`` = FMP first; Yahoo ONLY when FMP has no rows for a symbol AND
-``PRICES_YAHOO_FALLBACK`` is on (default on for the first week so nothing goes dark); every
-fallback is logged ``prices.yahoo_fallback`` so the last Yahoo-only symbols are visible.
-``scripts/yahoo_exit_check.py`` compares FMP vs the stored Yahoo bars before the fallback is
-switched off. Rule 1: only ``clients/`` talks to vendors.
+Step 1 (2026-11-13): FMP first, Yahoo as a logged fallback. Step 2 (2026-11-14, Mithil
+"why we still use yahoo we have cvforge"): the fallback and Yahoo are gone; every job that
+needs daily OHLCV uses ``fmp_price_source()`` (``FmpPriceSource`` on the CVForge key).
+The 11/14 check (scripts run on the NAS): 665/746 stored symbols matched FMP within 0.2%;
+the rest were stale stored rows, thin OTC/ADR names and corporate actions - none a blocker.
+Rule 1: only ``clients/`` talks to vendors.
 """
 from __future__ import annotations
 
@@ -20,7 +19,8 @@ from trading_intel.errors import DataSourceError
 log = structlog.get_logger(__name__)
 _FMP_SYMBOL_MAP = {"SPX": "^GSPC", "VIX": "^VIX", "NDX": "^NDX", "RUT": "^RUT", "DJI": "^DJI"}
 _COLUMNS = ("date", "open", "high", "low", "close", "volume")
-_PERIOD_DAYS = {"5d": 10, "1mo": 35, "3mo": 100, "6mo": 190, "1y": 370, "2y": 735, "5y": 1830, "10y": 3660}
+_PERIOD_DAYS = {"5d": 10, "1mo": 35, "3mo": 100, "6mo": 190, "1y": 370, "2y": 735, "5y": 1830,
+                "10y": 3660, "max": 36500}
 
 
 class FmpPriceSource:
@@ -54,19 +54,9 @@ class FmpPriceSource:
         return out.sort_values("date").reset_index(drop=True)
 
 
-class FmpFirstPriceSource:
-    """FMP first; Yahoo only for symbols FMP can't serve, while the fallback switch is on."""
+def fmp_price_source(settings: object | None = None, *, timeout: float = 30.0) -> FmpPriceSource:
+    """The default ``PriceDataSource``: FMP bars on the CVForge key (composition helper)."""
+    from trading_intel.clients.cvforge import CVForgeClient
+    from trading_intel.config import get_settings
 
-    def __init__(self, fmp: FmpPriceSource, yahoo: object | None, *, allow_yahoo: bool = True) -> None:
-        self._fmp, self._yahoo, self._allow = fmp, yahoo, allow_yahoo
-
-    def daily_history(self, symbol: str, *, period: str = "5y") -> pd.DataFrame:
-        try:
-            df = self._fmp.daily_history(symbol, period=period)
-        except DataSourceError as exc:
-            log.warning("prices.fmp_failed", symbol=symbol, error=str(exc))
-            df = pd.DataFrame(columns=_COLUMNS)
-        if not df.empty or not self._allow or self._yahoo is None:
-            return df
-        log.warning("prices.yahoo_fallback", symbol=symbol)
-        return self._yahoo.daily_history(symbol, period=period)  # type: ignore[attr-defined]
+    return FmpPriceSource(CVForgeClient(settings or get_settings(), timeout=timeout))  # type: ignore[arg-type]

@@ -81,10 +81,10 @@ def main() -> None:
             intraday_flow.run(session, source, settings=settings)
 
     def run_quotes_daily() -> None:
-        from trading_intel.clients.prices import YFinancePriceSource
+        from trading_intel.clients.fmp_prices import fmp_price_source
 
         with session_factory() as session:
-            quotes_daily.run(session, YFinancePriceSource(), settings=settings)
+            quotes_daily.run(session, fmp_price_source(settings), settings=settings)
 
     def run_flow_snapshot() -> None:
         with session_factory() as session:

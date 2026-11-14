@@ -10,7 +10,7 @@ table, and sparkline is a static HTML/SVG string emitted by Python, NO
 client-side <script>, NO CDN — so it opens in Telegram's in-app phone viewer.
 
 Reads the CVForge-fed ``greeks_snapshots`` (SPDRs) + ``sector_snapshots``, and
-computes correlation / dispersion / breadth TRENDS from free yfinance history —
+computes correlation / dispersion / breadth TRENDS from FMP history (CVForge) —
 NO Convex calls (rule 1). The brain (ranking + LEAP flags) is the pure
 ``market.sector_scan``. Descriptor only (FlashAlpha rule 4).
 

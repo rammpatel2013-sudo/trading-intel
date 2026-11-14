@@ -3,7 +3,7 @@
 Order of preference (no new vendor):
   1. ``CVForgeClient.fmp`` - the FMP passthrough risk_tab already uses
      (``historical-price-eod/dividend-adjusted``, then ``.../light``), deep history.
-  2. ``YFinancePriceSource.daily_history(period="max")`` - the beta_reset job's client.
+  (Yahoo fallback removed 2026-11-14 - FMP only.)
 
 Returns a wide frame (DatetimeIndex x symbol). Never raises for one missing symbol;
 the card for that factor reports "missing prices" instead.
@@ -45,19 +45,6 @@ def _fmp_rows(fmp: Any, sym: str, start: str) -> pd.Series:
     return pd.Series(dtype=float, name=sym)
 
 
-def _yf_rows(src: Any, sym: str) -> pd.Series:
-    try:
-        df = src.daily_history(sym, period="max")
-    except Exception as exc:
-        log.info("factor_prices.yf_failed", symbol=sym, err=str(exc)[:120])
-        return pd.Series(dtype=float, name=sym)
-    if df is None or df.empty:
-        return pd.Series(dtype=float, name=sym)
-    return pd.Series(
-        df["close"].to_numpy(float), index=pd.to_datetime(df["date"]), name=sym
-    ).sort_index()
-
-
 def load_closes(
     symbols: list[str], *, settings: Any = None, use_cvforge: bool = True, start: str = START
 ) -> tuple[pd.DataFrame, dict[str, str]]:
@@ -70,19 +57,11 @@ def load_closes(
             fmp = CVForgeClient(settings, timeout=60.0).fmp
         except Exception as exc:
             log.info("factor_prices.cvforge_unavailable", err=str(exc)[:120])
-    yf = None
     cols, src = {}, {}
-    for s in symbols:
+    for s in symbols:  # FMP only since the 2026-11-14 Yahoo exit (no yfinance fallback)
         ser = _fmp_rows(fmp, s, start) if fmp is not None else pd.Series(dtype=float)
-        tag = "fmp"
-        if len(ser) < 300:
-            if yf is None:
-                from trading_intel.clients.prices import YFinancePriceSource
-
-                yf = YFinancePriceSource()
-            ser, tag = _yf_rows(yf, s), "yfinance"
         if len(ser):
             cols[s] = ser
-            src[s] = tag
+            src[s] = "fmp"
     frame = pd.DataFrame(cols).sort_index() if cols else pd.DataFrame()
     return frame, src

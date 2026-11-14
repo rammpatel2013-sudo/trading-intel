@@ -112,12 +112,12 @@ class OptionsDataSource(Protocol):
 
 
 class PriceDataSource(Protocol):
-    """Contract for any daily price-history vendor (yfinance, Schwab, ...).
+    """Contract for any daily price-history vendor (FMP via CVForge today).
 
     Kept separate from ``OptionsDataSource``: price history is a different
-    concern (and a different vendor) from the options chain. yfinance covers
-    daily bars today; a Schwab implementation can satisfy the same Protocol
-    later to add more granular history.
+    concern from the options chain. ``clients.fmp_prices.FmpPriceSource`` covers
+    daily bars since the 2026-11-14 Yahoo exit; another vendor can satisfy the
+    same Protocol later.
     """
 
     def daily_history(self, symbol: str, *, period: str = "5y") -> pd.DataFrame:

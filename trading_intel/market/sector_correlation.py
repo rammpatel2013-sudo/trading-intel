@@ -9,8 +9,8 @@ Read: high avg pairwise correlation (>~0.7) → sectors move together, barbells/
 don't diversify; low (<~0.4) → dispersion regime, pair trades and barbells work.
 
 Pure transform (a wide close-price frame in, numbers out) so it's unit-testable and
-has no vendor/DB dependency. Prices come from the existing yfinance ``quotes_daily``
-(free) — no IBKR.
+has no vendor/DB dependency. Prices come from ``quotes_daily`` (FMP via CVForge since
+the 2026-11-14 Yahoo exit) — no IBKR.
 """
 from __future__ import annotations
 

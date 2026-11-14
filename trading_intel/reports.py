@@ -141,7 +141,7 @@ def build_sector(*, settings: object = None) -> str:
     Single source of truth is ``scripts/sector_report.py`` (the CLI), so the MCP
     ``generate_sector_report`` tool produces the identical file. Reads the
     CVForge-fed ``greeks_snapshots`` (SPDRs, source ``cvforge``), the
-    ``sector_corr_snapshots`` regime, and free yfinance history — no Convex calls
+    ``sector_corr_snapshots`` regime, and FMP history (CVForge) — no Convex calls
     (rule 1). Ranking + LEAP-setup flags come from the pure ``market.sector_scan``.
     Descriptor only (FlashAlpha rule 4).
     """

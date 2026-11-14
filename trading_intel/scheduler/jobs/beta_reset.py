@@ -1,7 +1,7 @@
 """Nightly beta-reset monitor job (Phase 5 B1, 2026-11-04) -> ``beta_reset_daily``.
 
-Free data only — no Convex: SPLV / SPHB / SPX daily closes from yfinance (via
-``clients.prices``) and Cboe COR3M / COR10D / COR90D index history from the Cboe
+Free data only — no Convex: SPLV / SPHB / SPX daily closes from FMP via CVForge (via
+``clients.fmp_prices``; Yahoo exit 2026-11-14) and Cboe COR3M / COR10D / COR90D index history from the Cboe
 CDN (via ``clients.cboe``). Full recompute each run (5 years), upserted per date,
 so the first run is the backfill and re-runs are idempotent (rule 5). Maths in
 ``market/beta_reset.py``. Descriptor only (rule 4). DSM ~17:50 ET.
@@ -79,14 +79,14 @@ def run(session: Session, price_source: Any, cboe: Any) -> dict:
 
 def main() -> None:
     from trading_intel.clients.cboe import CboeClient
-    from trading_intel.clients.prices import YFinancePriceSource
+    from trading_intel.clients.fmp_prices import fmp_price_source
     from trading_intel.config import get_settings
     from trading_intel.memory.db import make_session_factory
     from trading_intel.scheduler.jobs._script_report import configure_logging
 
     configure_logging()
     with make_session_factory(get_settings())() as session:
-        out = run(session, YFinancePriceSource(), CboeClient())
+        out = run(session, fmp_price_source(), CboeClient())
     print(out["read"])
 
 

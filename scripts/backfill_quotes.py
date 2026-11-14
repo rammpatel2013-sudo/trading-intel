@@ -1,4 +1,4 @@
-"""One-time daily-price backfill into ``quotes_daily`` (yfinance).
+"""One-time daily-price backfill into ``quotes_daily`` (FMP via CVForge since the 2026-11-14 Yahoo exit).
 
 Pulls deep daily history (default ``QUOTES_BACKFILL_PERIOD`` ≈ 5y) for every
 watchlist symbol, computes rv20/rv60, and idempotently upserts into
@@ -17,7 +17,7 @@ import argparse
 
 import structlog
 
-from trading_intel.clients.prices import YFinancePriceSource
+from trading_intel.clients.fmp_prices import fmp_price_source
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.scheduler.jobs import quotes_daily
@@ -25,7 +25,7 @@ from trading_intel.scheduler.jobs import quotes_daily
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backfill daily price history.")
-    parser.add_argument("--period", default=None, help="yfinance period (default: settings 5y)")
+    parser.add_argument("--period", default=None, help="history period (default: settings 5y)")
     parser.add_argument("--symbol", default=None, help="Backfill a single symbol (default: all)")
     args = parser.parse_args()
 
@@ -40,7 +40,7 @@ def main() -> None:
 
     settings = get_settings()
     period = args.period or settings.QUOTES_BACKFILL_PERIOD
-    prices = YFinancePriceSource()
+    prices = fmp_price_source()
     session_factory = make_session_factory(settings)
 
     with session_factory() as session:

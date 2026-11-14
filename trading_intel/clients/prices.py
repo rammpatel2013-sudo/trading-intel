@@ -1,91 +1,26 @@
-"""Daily price-history clients (``PriceDataSource`` implementations).
+"""Index-close helpers + the retired Yahoo path (Yahoo exit, step 2 - 2026-11-14).
 
-yfinance is the default free source for daily OHLCV bars. All vendor calls live
-here so downstream code (the backfill/quotes job, the dashboard) depends only on
-the ``PriceDataSource`` Protocol, mirroring how options data flows through
-``OptionsDataSource`` (CLAUDE.md rule 1). A Schwab implementation can be added
-later for more granular history without touching consumers.
+Mithil 11/13: "we stop using yahoo"; 11/14: "why we still use yahoo we have cvforge".
+Daily OHLCV bars now come from FMP through the CVForge passthrough
+(``clients.fmp_prices.FmpPriceSource`` / ``fmp_price_source()``) - the ``PriceDataSource``
+used by every job. This module keeps the single-value index fetchers:
+
+- Cboe-published indices (COR1M / COR3M / VIXEQ / DSPX): Cboe CDN first, FMP second.
+- Nations SDEX / VOLI / TDEX: the ONLY remaining Yahoo use. Neither FMP (CVForge) nor the
+  Cboe CDN carries them (checked live 2026-11-14), and the vol-regime classifier (LEVEL /
+  SKEW / TAIL) + the skew strategy read them. Every call logs ``prices.yahoo_only_index``.
+
+All vendor calls stay in ``clients/`` (CLAUDE.md rule 1).
 """
 
 from __future__ import annotations
 
-import pandas as pd
 import structlog
-
-from trading_intel.errors import DataSourceError
 
 log = structlog.get_logger(__name__)
 
-# Watchlist symbols that need a different ticker on the price vendor. SPX is the
-# S&P 500 *index* on Convex; yfinance exposes the index level as ``^GSPC``.
-_YF_SYMBOL_MAP = {
-    "SPX": "^GSPC",
-    "VIX": "^VIX",
-    "NDX": "^NDX",
-}
 
-_COLUMNS = ("date", "open", "high", "low", "close", "volume")
-
-
-class YFinancePriceSource:
-    """``PriceDataSource`` backed by yfinance daily bars."""
-
-    def __init__(self, *, symbol_map: dict[str, str] | None = None) -> None:
-        self._symbol_map = symbol_map or dict(_YF_SYMBOL_MAP)
-
-    def vendor_symbol(self, symbol: str) -> str:
-        """Map a watchlist symbol to its yfinance ticker (identity by default)."""
-        return self._symbol_map.get(symbol.upper(), symbol)
-
-    def daily_history(self, symbol: str, *, period: str = "5y") -> pd.DataFrame:
-        """Daily OHLCV for ``symbol`` over ``period``, oldest first.
-
-        Raises ``DataSourceError`` if yfinance is unavailable or the fetch
-        fails. Returns an empty frame (with the expected columns) when the
-        vendor simply has no rows for the symbol.
-        """
-        try:
-            import yfinance as yf
-        except ImportError as exc:  # pragma: no cover - dependency present in prod
-            raise DataSourceError("yfinance is not installed") from exc
-
-        yf_symbol = self.vendor_symbol(symbol)
-        try:
-            raw = yf.Ticker(yf_symbol).history(
-                period=period, interval="1d", auto_adjust=False
-            )
-        except (OSError, ValueError, KeyError, RuntimeError) as exc:
-            raise DataSourceError(f"yfinance history failed for {symbol!r}: {exc}") from exc
-
-        if raw is None or raw.empty:
-            return pd.DataFrame(columns=_COLUMNS)
-
-        df = raw.reset_index().rename(
-            columns={
-                "Date": "date",
-                "Datetime": "date",
-                "Open": "open",
-                "High": "high",
-                "Low": "low",
-                "Close": "close",
-                "Volume": "volume",
-            }
-        )
-        if "date" not in df.columns:
-            raise DataSourceError(f"yfinance returned no date column for {symbol!r}")
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
-        # Drop timezone, normalize to midnight so it maps cleanly to a DB ``date``.
-        if hasattr(df["date"].dtype, "tz") and df["date"].dt.tz is not None:
-            df["date"] = df["date"].dt.tz_localize(None)
-        df["date"] = df["date"].dt.normalize()
-        missing = [c for c in _COLUMNS if c not in df.columns]
-        if missing:
-            raise DataSourceError(f"yfinance frame for {symbol!r} missing {missing}")
-        out = df[list(_COLUMNS)].dropna(subset=["date", "close"])
-        return out.sort_values("date").reset_index(drop=True)
-
-
-#: Plausible value bounds for Yahoo / Cboe index fetches. A value outside these
+#: Plausible value bounds for FMP / Cboe / Yahoo-only index fetches. A value outside these
 #: is almost certainly a data glitch (e.g. SDEX printing 184,467,424 instead of
 #: ~60). Out-of-range prints degrade to None so the z-score pipeline never
 #: ingests garbage (backlog #82).
@@ -114,30 +49,83 @@ def _range_ok(symbol: str, val: float) -> bool:
     return bounds[0] <= val <= bounds[1]
 
 
-def fetch_yf_index_close(symbol: str, *, period: str = "5d") -> float | None:
-    """Latest close for a Yahoo index symbol (e.g. ``^SDEX``, ``^SKEW``).
+def fetch_fmp_index_close(symbol: str) -> float | None:
+    """Latest close for an index from FMP (CVForge passthrough), e.g. ``^COR1M``.
 
-    Degrades to ``None`` on any fetch / shape failure so an upstream Yahoo
-    outage never blocks the calling job. Mirrors ``CboeClient`` semantics.
-
-    Added 2026-11-02: range guard (#82). A bogus print (e.g. SDEX 184M) is
-    rejected and logged so the z-score pipeline never ingests garbage.
+    Replaced the Yahoo path 2026-11-14. Degrades to ``None`` on any fetch / shape
+    failure so a vendor outage never blocks the calling job. Range guard (#82) kept.
     """
     try:
-        import yfinance as yf
-    except ImportError as exc:  # pragma: no cover - dependency present in prod
-        raise DataSourceError("yfinance is not installed") from exc
+        from trading_intel.clients.fmp_prices import fmp_price_source
+
+        df = fmp_price_source().daily_history(symbol, period="5d")
+    except Exception as exc:  # noqa: BLE001 - degrade to None at the vendor edge
+        log.warning("fmp.index_fetch_failed", sym=symbol, error=str(exc)[:200])
+        return None
+    if df is None or df.empty:
+        log.warning("fmp.index_empty", sym=symbol)
+        return None
+    try:
+        val = float(df["close"].iloc[-1])
+    except (TypeError, ValueError, KeyError):
+        return None
+    if not _range_ok(symbol, val):
+        log.warning("fmp.index_out_of_range", sym=symbol, value=val, bounds=_INDEX_RANGE.get(symbol))
+        return None
+    return val
+
+
+def fetch_cboe_index_close(cboe_sym: str, *, fmp_sym: str | None = None) -> float | None:
+    """Latest close for a Cboe-published index, from the Cboe delayed-quote CDN.
+
+    Added 2026-10-25: ``^VIXEQ`` / ``^DSPX`` / ``^COR1M`` / ``^COR3M`` went NULL
+    on the Yahoo path (yfinance returns empty frames for these Cboe indices),
+    which is the "VIXEQ collector" break Mithil flagged. Cboe serves all four
+    on the same CDN as the VIX term structure (verified live 2026-10-25:
+    VIXEQ 41.9, DSPX 36.93, COR1M 11.6, COR3M 15.0, all with full history
+    CSVs). 2026-11-14: the fallback is FMP (CVForge passthrough), not Yahoo -
+    FMP serves ^COR1M / ^COR3M / ^VIXEQ / ^DSPX (checked live). Returns ``None``
+    when both fail.
+    """
+    from trading_intel.clients.cboe import CboeClient
 
     try:
-        raw = yf.Ticker(symbol).history(period=period, interval="1d", auto_adjust=False)
-    except Exception as exc:  # network / shape / parse - degrade to None
-        log.warning("yf.fetch_failed", sym=symbol, error=str(exc))
-        return None
+        val = CboeClient().quote(cboe_sym)
+    except Exception as exc:  # network / shape - fall through to FMP
+        log.warning("cboe.index_fetch_failed", sym=cboe_sym, error=str(exc))
+        val = None
+    if val is not None:
+        if not _range_ok(cboe_sym, val):
+            log.warning("cboe.out_of_range", sym=cboe_sym, value=val,
+                        bounds=_INDEX_RANGE.get(cboe_sym))
+            val = None  # fall through to FMP
+        else:
+            return val
+    if fmp_sym:
+        return fetch_fmp_index_close(fmp_sym)
+    return None
 
+
+def _yahoo_only_index_close(symbol: str, *, period: str = "5d") -> float | None:
+    """Latest close for a Nations index only Yahoo publishes (``^SDEX`` / ``^VOLI`` / ``^TDEX``).
+
+    The last Yahoo use after the 2026-11-14 exit - logged every call so it stays visible.
+    Degrades to ``None`` on any failure; range guard (#82) kept.
+    """
+    log.info("prices.yahoo_only_index", sym=symbol)
+    try:
+        import yfinance as yf
+    except ImportError:  # pragma: no cover - dependency present in prod
+        log.warning("prices.yfinance_missing", sym=symbol)
+        return None
+    try:
+        raw = yf.Ticker(symbol).history(period=period, interval="1d", auto_adjust=False)
+    except Exception as exc:  # noqa: BLE001 - network / shape: degrade to None
+        log.warning("yf.fetch_failed", sym=symbol, error=str(exc)[:200])
+        return None
     if raw is None or raw.empty or "Close" not in raw.columns:
         log.warning("yf.empty", sym=symbol)
         return None
-
     closes = raw["Close"].dropna()
     if closes.empty:
         return None
@@ -151,86 +139,51 @@ def fetch_yf_index_close(symbol: str, *, period: str = "5d") -> float | None:
     return val
 
 
-def fetch_cboe_index_close(cboe_sym: str, *, yahoo_sym: str | None = None) -> float | None:
-    """Latest close for a Cboe-published index, from the Cboe delayed-quote CDN.
-
-    Added 2026-10-25: ``^VIXEQ`` / ``^DSPX`` / ``^COR1M`` / ``^COR3M`` went NULL
-    on the Yahoo path (yfinance returns empty frames for these Cboe indices),
-    which is the "VIXEQ collector" break Mithil flagged. Cboe serves all four
-    on the same CDN as the VIX term structure (verified live 2026-10-25:
-    VIXEQ 41.9, DSPX 36.93, COR1M 11.6, COR3M 15.0, all with full history
-    CSVs). Yahoo stays as the fallback so a CDN outage degrades the same way
-    it did before. Returns ``None`` when both fail.
-    """
-    from trading_intel.clients.cboe import CboeClient
-
-    try:
-        val = CboeClient().quote(cboe_sym)
-    except Exception as exc:  # network / shape - fall through to Yahoo
-        log.warning("cboe.index_fetch_failed", sym=cboe_sym, error=str(exc))
-        val = None
-    if val is not None:
-        if not _range_ok(cboe_sym, val):
-            log.warning("cboe.out_of_range", sym=cboe_sym, value=val,
-                        bounds=_INDEX_RANGE.get(cboe_sym))
-            val = None  # fall through to Yahoo
-        else:
-            return val
-    if yahoo_sym:
-        return fetch_yf_index_close(yahoo_sym)
-    return None
-
-
 def fetch_sdex(*, period: str = "5d") -> float | None:
-    """Nations SkewDex Large-Cap close, via Yahoo (``^SDEX``).
-
-    SDEX is owned by Nations and isn't on the Cboe CDN, so Yahoo is the source
-    of truth here. Returns ``None`` on any fetch failure.
-    """
-    return fetch_yf_index_close("^SDEX", period=period)
+    """Nations SkewDex Large-Cap close (``^SDEX``) - Yahoo-only (not on FMP or the Cboe CDN)."""
+    return _yahoo_only_index_close("^SDEX", period=period)
 
 
 def fetch_voli(*, period: str = "5d") -> float | None:
-    """Nations VolDex Large-Cap close, via Yahoo (``^VOLI``).
+    """Nations VolDex Large-Cap close (``^VOLI``) - Yahoo-only (not on FMP or the Cboe CDN).
 
     VOLI is Nations' ATM-only implied vol gauge for SPY/SPX — a cleaner
     "true IV" read than VIX (which is a strip and is sensitive to wing prices).
     """
-    return fetch_yf_index_close("^VOLI", period=period)
+    return _yahoo_only_index_close("^VOLI", period=period)
 
 
 def fetch_tdex(*, period: str = "5d") -> float | None:
-    """Nations TailDex Large-Cap close, via Yahoo (``^TDEX``).
+    """Nations TailDex Large-Cap close (``^TDEX``) - Yahoo-only (not on FMP or the Cboe CDN).
 
     TDEX normalizes the price of deep-OTM puts — pure tail-hedge demand.
     """
-    return fetch_yf_index_close("^TDEX", period=period)
+    return _yahoo_only_index_close("^TDEX", period=period)
 
 
 def fetch_cor1m(*, period: str = "5d") -> float | None:
-    """Cboe 1-month S&P 500 Implied Correlation close, via Yahoo (``^COR1M``).
+    """Cboe 1-month S&P 500 Implied Correlation close (``^COR1M``): Cboe CDN, then FMP.
 
     The implied-correlation index is the cleanest market-based dispersion gauge:
     high = index-vol-led / correlation regime (single names moving together),
-    low = dispersion regime (idiosyncratic moves). Same Yahoo path as the Nations
-    indices; the Cboe CDN does not expose the correlation symbols. Returns
-    ``None`` on any fetch failure.
+    low = dispersion regime (idiosyncratic moves). Returns ``None`` on any fetch
+    failure.
     """
-    return fetch_cboe_index_close("_COR1M", yahoo_sym="^COR1M")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_COR1M", fmp_sym="^COR1M")  # Cboe CDN first (2026-10-25)
 
 
 def fetch_cor3m(*, period: str = "5d") -> float | None:
-    """Cboe 3-month S&P 500 Implied Correlation close, via Yahoo (``^COR3M``).
+    """Cboe 3-month S&P 500 Implied Correlation close (``^COR3M``): Cboe CDN, then FMP.
 
     The 3-month tenor paired with ``COR1M`` gives a correlation-curve slope:
     1m > 3m (inverted) flags acute near-term correlation stress, the mirror of
     a backwardated VIX term structure.
     """
-    return fetch_cboe_index_close("_COR3M", yahoo_sym="^COR3M")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_COR3M", fmp_sym="^COR3M")  # Cboe CDN first (2026-10-25)
 
 
 def fetch_vixeq(*, period: str = "5d") -> float | None:
-    """Cboe S&P 500 Constituent Volatility Index close, via Yahoo (``^VIXEQ``).
+    """Cboe S&P 500 Constituent Volatility Index close (``^VIXEQ``): Cboe CDN, then FMP.
 
     The single-stock leg of the dispersion trade: a market-cap-weighted 30-day
     implied vol of S&P 500 constituents (a "VIX of the average stock"). It sits
@@ -238,13 +191,13 @@ def fetch_vixeq(*, period: str = "5d") -> float | None:
     flat VIX is dispersion/positioning, not a fundamental index repricing.
     History begins ~Nov 2024 (index launch). Returns ``None`` on fetch failure.
     """
-    return fetch_cboe_index_close("_VIXEQ", yahoo_sym="^VIXEQ")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_VIXEQ", fmp_sym="^VIXEQ")  # Cboe CDN first (2026-10-25)
 
 
 def fetch_dspx(*, period: str = "5d") -> float | None:
-    """Cboe S&P 500 Dispersion Index close, via Yahoo (``^DSPX``).
+    """Cboe S&P 500 Dispersion Index close (``^DSPX``): Cboe CDN, then FMP.
 
     The official 30-day implied-dispersion gauge, tied to the others by the
     identity ``DSPX^2 = VIXEQ^2 - VIX^2``. History begins ~Sep 2023 (launch).
     """
-    return fetch_cboe_index_close("_DSPX", yahoo_sym="^DSPX")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_DSPX", fmp_sym="^DSPX")  # Cboe CDN first (2026-10-25)

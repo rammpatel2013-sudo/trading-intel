@@ -154,6 +154,11 @@ def main() -> None:
         help="comma list of symbols to spare even if they look dead",
     )
     parser.add_argument(
+        "--only",
+        default="",
+        help="comma list: act on exactly these symbols (skip the dead-data test), e.g. RHS,TAVFX",
+    )
+    parser.add_argument(
         "--include-quotes",
         action="store_true",
         help="also treat a recent stock quote as alive (looser; default options-only)",
@@ -172,13 +177,17 @@ def main() -> None:
 
     session_factory = make_session_factory(get_settings())
     with session_factory() as session:
-        dead = [
-            s
-            for s in find_dead(
-                session, stale_days=args.stale_days, include_quotes=args.include_quotes
-            )
-            if s not in keep
-        ]
+        only = [s.strip().upper() for s in args.only.split(",") if s.strip()]
+        if only:  # 2026-11-14: named symbols (mis-mapped / mutual funds), no data test
+            dead = [s for s in only if s not in keep]
+        else:
+            dead = [
+                s
+                for s in find_dead(
+                    session, stale_days=args.stale_days, include_quotes=args.include_quotes
+                )
+                if s not in keep
+            ]
 
         kind = "options/price" if args.include_quotes else "options"
         if not dead:

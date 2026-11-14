@@ -1,7 +1,7 @@
 """Scheduled job: daily price history into ``quotes_daily``.
 
 Pulls daily OHLCV for every watchlist symbol from a ``PriceDataSource``
-(yfinance by default), computes annualized realized vol (rv20/rv60), and upserts
+(FMP via CVForge since the 2026-11-14 Yahoo exit), computes annualized realized vol (rv20/rv60), and upserts
 one ``quotes_daily`` row per (symbol, date). Idempotent: ``INSERT ... ON CONFLICT
 (symbol, date) DO NOTHING`` (CLAUDE.md rule 5), so a re-run — or the daily job
 overlapping the backfill — never duplicates or rewrites a settled bar.
@@ -149,8 +149,8 @@ def run(
 
 
 def main() -> None:
-    """Manual entrypoint: wire Settings -> session -> yfinance, daily refresh."""
-    from trading_intel.clients.prices import YFinancePriceSource
+    """Manual entrypoint: wire Settings -> session -> FMP (CVForge), daily refresh."""
+    from trading_intel.clients.fmp_prices import fmp_price_source
     from trading_intel.memory.db import make_session_factory
 
     settings = get_settings()
@@ -162,12 +162,8 @@ def main() -> None:
             structlog.processors.JSONRenderer(),
         ]
     )
-    # 2026-11-13 Yahoo exit: FMP (CVForge passthrough) first, Yahoo only as a logged fallback.
-    from trading_intel.clients.cvforge import CVForgeClient
-    from trading_intel.clients.fmp_prices import FmpFirstPriceSource, FmpPriceSource
-
-    prices = FmpFirstPriceSource(FmpPriceSource(CVForgeClient(settings)), YFinancePriceSource(),
-                                 allow_yahoo=bool(getattr(settings, "PRICES_YAHOO_FALLBACK", True)))
+    # Yahoo exit (2026-11-13 step 1, 2026-11-14 step 2): FMP via CVForge only.
+    prices = fmp_price_source(settings)
     session_factory = make_session_factory(settings)
     with session_factory() as session:
         run(session, prices, settings=settings)

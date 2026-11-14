@@ -11,7 +11,7 @@ One combined job (gamma by tenor + vega by tenor + daily history + factor cards)
      (``--backfill`` rebuilds every day still in ``oi_chain_eod``). No new DB table.
   4. Factor cards (beta, volatility, size, quality, oil beta, rates beta): z-scores with
      +/-2 sigma zones and an honest base rate. Closes from the existing FMP passthrough
-     (CVForge client), yfinance fallback.
+     (CVForge client); no Yahoo fallback since 2026-11-14.
 Writes scripts/cvxmap/data/tenor.json (the cockpit Tenor tab), reports/tenor/tenor_<date>.html,
 reports/tenor/factor_cards.json, and sends ONE Telegram message (PNG photo with a caption,
 or the HTML document if no PNG could be rendered).

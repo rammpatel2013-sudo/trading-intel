@@ -19,7 +19,7 @@ from pathlib import Path
 
 import structlog
 
-from trading_intel.clients.prices import YFinancePriceSource
+from trading_intel.clients.fmp_prices import fmp_price_source
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.memory.watchlist_ingest import DEFAULT_RESEARCH_DIR, ingest_folder
@@ -60,7 +60,7 @@ def main() -> None:
         if new_symbols and not args.no_backfill:
             quotes_daily.run(
                 session,
-                YFinancePriceSource(),
+                fmp_price_source(settings),
                 settings=settings,
                 period=settings.QUOTES_BACKFILL_PERIOD,
                 symbols=new_symbols,
