@@ -486,6 +486,24 @@ def test_get_vix_options_call_share(session: Session) -> None:
     assert out["call_oi_share"] == pytest.approx(0.75)
 
 
+def test_get_vix_options_past_day_and_phantom(session: Session) -> None:
+    """2026-11-14: ``date`` reads a past session; dead (phantom) expiries are dropped."""
+    old, new = date(2026, 11, 12), date(2026, 11, 13)
+    session.add(VixOptionsChain(ts=old, expiration=date(2026, 11, 18), strike=20.0,
+                                opt_kind="call", iv=1.1, oi=50.0))
+    session.add(VixOptionsChain(ts=new, expiration=date(2026, 11, 24), strike=20.0,
+                                opt_kind="call", iv=1.0, oi=80.0))
+    session.add(VixOptionsChain(ts=new, expiration=date(2026, 11, 25), strike=20.0,
+                                opt_kind="call", iv=0.0, oi=0.0, volume=0.0))
+    session.commit()
+    latest = et.get_vix_options(session)
+    assert {r["expiration"] for r in latest["rows"]} == {"2026-11-24"}
+    past = et.get_vix_options(session, date="2026-11-12")
+    assert past["found"] is True and past["date"] == "2026-11-12"
+    assert [r["expiration"] for r in past["rows"]] == ["2026-11-18"]
+    assert et.get_vix_options(session, date="nope")["found"] is False
+
+
 # ── live gex / intraday / delta flow ───────────────────────────────────
 
 

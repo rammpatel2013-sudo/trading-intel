@@ -30,11 +30,17 @@ from trading_intel.timeutils import eastern_now, is_trading_session
 
 log = structlog.get_logger(__name__)
 
-# 8 front expiries ≈ nearest weeklies + the next two monthlies (VIX lists a
-# weekly every Wednesday, so monthly #2 is ~8 expiries out). ±150% of spot
-# keeps strikes 10..~47 at VIX 19 and still reaches 40 when VIX is 16.
-VIX_EXPS: tuple[int, ...] = tuple(range(1, 9))
-VIX_STRIKE_RANGE = 1.5
+# 10 front expiries ≈ nearest weeklies + the next two monthlies (VIX lists a
+# weekly every Wednesday, so monthly #2 is ~8 expiries out; holiday weeks can
+# also list a PHANTOM expiry - see ``_drop_phantom_expiries`` - so 10 keeps
+# monthly #2 in reach).
+# 2026-11-14: strike range 1.5 -> 5.0, the same request the live cockpit
+# collector (scripts/cvxmap/cvx_collect.py "vix" spec) has used since 10/28.
+# ±150% of spot stopped the calls at 47.5 with VIX at 19, cutting off the right
+# tail of the implied VIX distribution; ±500% reaches the listed ~100 strikes.
+# Still ONE Convex request.
+VIX_EXPS: tuple[int, ...] = tuple(range(1, 11))
+VIX_STRIKE_RANGE = 5.0
 
 _UQ_COLS = ["ts", "expiration", "strike", "opt_kind"]
 _UPDATE_COLS = ("delta", "iv", "oi", "oi_change", "volume")
@@ -52,6 +58,9 @@ def _records_from_chain(chain: pd.DataFrame, *, as_of: date) -> list[dict]:
     if df.empty:
         return []
     df["opt_kind"] = df["opt_kind"].astype(str).str.lower().str[:4]
+    df = _drop_phantom_expiries(df)
+    if df.empty:
+        return []
 
     out: list[dict] = []
     for r in df.itertuples(index=False):
@@ -69,6 +78,23 @@ def _records_from_chain(chain: pd.DataFrame, *, as_of: date) -> list[dict]:
             }
         )
     return out
+
+
+def _drop_phantom_expiries(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop expiries where EVERY row has no IV, no open interest and no volume.
+
+    2026-11-14: Convex listed 2026-11-25 next to the real 2026-11-24 weekly. The
+    Christmas holiday moves that week's paired SPX expiry to Thu 12/24, so Cboe
+    moved the VIX weekly to Tue 11/24 - the Wednesday slot is empty (iv 0,
+    oi 0, volume 0 on all 78 rows). A phantom expiry carries no information,
+    reads as a zero-IV curve, and uses up one of the requested expiry slots.
+    """
+    present = [c for c in ("iv", "oi", "volume") if c in df.columns]
+    if not present:
+        return df
+    vals = df[present].apply(pd.to_numeric, errors="coerce").fillna(0.0).abs()
+    alive = vals.gt(0).any(axis=1).groupby(df["expiration"]).transform("any")
+    return df[alive]
 
 
 def _as_float(v: object) -> float | None:

@@ -166,6 +166,25 @@ def _todays_vix_chain(session: Session, *, as_of: date) -> pd.DataFrame:
     )
 
 
+# The vix_options pull window from 2026-10-25 to 2026-11-13 (8 expiries,
+# strikes up to (1 + 1.5) x VIX spot) - the window vix_call_oi_share history
+# was built on.
+_LEGACY_OI_EXPS = 8
+_LEGACY_OI_STRIKE_MULT = 2.5
+
+
+def _legacy_oi_window(chain: pd.DataFrame, vix_spot: float | None) -> pd.DataFrame:
+    """Restrict the stored VIX chain to the pre-2026-11-14 pull window."""
+    if chain is None or chain.empty:
+        return chain
+    df = chain
+    exps = sorted(pd.to_datetime(df["expiration"]).unique())[:_LEGACY_OI_EXPS]
+    df = df[pd.to_datetime(df["expiration"]).isin(exps)]
+    if vix_spot:
+        df = df[pd.to_numeric(df["strike"], errors="coerce") <= vix_spot * _LEGACY_OI_STRIKE_MULT]
+    return df
+
+
 def _latest_vix_vvix(session: Session, *, as_of: date) -> tuple[float | None, float | None]:
     row = session.execute(
         select(VixData.vix, VixData.vvix)
@@ -362,10 +381,14 @@ def build_row(
     )
 
     vix_chain = _todays_vix_chain(session, as_of=as_of)
-    vix_skew = vix_call_skew(vix_chain, abs_delta=0.25)
-    vix_oi_share = vix_call_oi_share(vix_chain, otm_delta_cutoff=0.30)
-
     _vix, vvix = _latest_vix_vvix(session, as_of=as_of)
+    vix_skew = vix_call_skew(vix_chain, abs_delta=0.25)
+    # OI share keeps the 10/25..11/13 pull window so its z-score history stays
+    # comparable after the 11/14 widening (strikes to ~100, 10 expiries).
+    vix_oi_share = vix_call_oi_share(
+        _legacy_oi_window(vix_chain, _vix), otm_delta_cutoff=0.30
+    )
+
     # We z-score VVIX directly; VIX is in the denominator of the VVIX/VIX
     # ratio but the regime composite is dominated by VVIX moves so a single
     # standardization suffices and avoids a noisy second join (see ADR-003 §3.4).

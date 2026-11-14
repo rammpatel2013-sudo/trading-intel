@@ -379,10 +379,13 @@ def build_server(
             return et.get_rv_rolloff(session, symbol=symbol, window=window, horizon=horizon)
 
     @mcp.tool()
-    def get_vix_options() -> dict[str, Any]:
-        """Latest stored EOD VIX-options chain (per expiry/strike/kind) + call OI share."""
+    def get_vix_options(date: str | None = None) -> dict[str, Any]:
+        """Stored EOD VIX-options chain (per expiry/strike/kind) + call OI share.
+
+        Latest session by default; ``date`` (YYYY-MM-DD) reads a past session.
+        """
         with session_factory() as session:
-            return et.get_vix_options(session)
+            return et.get_vix_options(session, date=date)
 
     # ── Research / narrative / signals ─────────────────────────────────
 

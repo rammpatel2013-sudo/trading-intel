@@ -848,16 +848,23 @@ def get_rv_rolloff(
 # ── vix_options_chain ──────────────────────────────────────────────────
 
 
-def get_vix_options(session: Session) -> dict[str, Any]:
-    """Latest stored EOD VIX-options chain (per expiry/strike/kind).
+def get_vix_options(session: Session, date: str | None = None) -> dict[str, Any]:
+    """Stored EOD VIX-options chain (per expiry/strike/kind) — latest, or one past day.
 
     Reads ``vix_options_chain`` via the dashboard reader. Returns the raw rows
     plus the call-side OI share — a read on VIX upside (tail-hedge) demand.
+    ``date`` (YYYY-MM-DD) reads a past session (2026-11-14: the table keeps
+    every day; the tool used to serve only the latest). Expiries with no IV,
+    OI or volume on any row (holiday phantoms, e.g. 2026-11-25) are dropped.
     Descriptor only (rule 4).
     """
-    df = vix_options_today(session)
+    as_of = _parse_day(date) if date else None
+    if date and as_of is None:
+        return {"rows": [], "count": 0, "found": False, "error": f"bad date {date!r}"}
+    df = vix_options_today(session, as_of=as_of)
     if df is None or df.empty:
-        return {"rows": [], "count": 0, "found": False}
+        return {"rows": [], "count": 0, "found": False, "date": date}
+    df = _drop_phantom_vix_expiries(df)
     rows: list[dict[str, Any]] = []
     for _, r in df.iterrows():
         rows.append(
@@ -880,7 +887,25 @@ def get_vix_options(session: Session) -> dict[str, Any]:
         "count": len(rows),
         "call_oi_share": (call_oi / total) if total > 0 else None,
         "found": True,
+        "date": as_of.isoformat() if as_of else None,
     }
+
+
+def _parse_day(text: str) -> date | None:
+    try:
+        return date.fromisoformat(str(text)[:10])
+    except ValueError:
+        return None
+
+
+def _drop_phantom_vix_expiries(df: pd.DataFrame) -> pd.DataFrame:
+    """Same rule as the vix_options job: drop expiries dead on every row."""
+    cols = [c for c in ("iv", "oi", "volume") if c in df.columns]
+    if not cols or df.empty:
+        return df
+    vals = df[cols].apply(pd.to_numeric, errors="coerce").fillna(0.0).abs()
+    alive = vals.gt(0).any(axis=1).groupby(df["expiration"]).transform("any")
+    return df[alive]
 
 
 # ── live_gex ───────────────────────────────────────────────────────────
