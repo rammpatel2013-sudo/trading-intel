@@ -86,3 +86,56 @@ def test_hedge_rows_match_exact_black_scholes_delta_change():
     for m in (-2.0, -1.0, 1.0, 2.0):
         exact = -(dealer_delta(7550.0 * (1 + m / 100)) - dealer_delta(7550.0)) / 50.0
         assert abs(H[m] - exact) <= max(2.0, 0.01 * abs(exact)), (m, H[m], exact)
+
+
+def test_signed_weights_override_the_naive_sign():
+    """VS step 4: a call the tape says customers BOUGHT is dealer-short - the signed line flips its sign."""
+    ref = datetime(2026, 11, 16, 9, 30)
+    rows = {(date(2026, 12, 18), 7550.0, "C", False): {"oi": 10_000, "iv": 0.13}}
+    grid = np.array([7550.0])
+    naive = pf.profile_lines(rows, 7550.0, ref, grid)["full"][0]
+    signed = pf.signed_line(rows, {(date(2026, 12, 18), 7550.0, "C", False): -10_000.0}, ref, grid)[0]
+    assert naive > 0 and abs(signed + naive) < 1e-9
+
+
+def test_last_trade_day():
+    # Friday evening, reading Monday: Friday's prints. Monday morning: Friday's prints too.
+    assert pf.last_trade_day(datetime(2026, 11, 16, 9, 30), datetime(2026, 11, 13, 17, 35), is_s) == date(2026, 11, 13)
+    assert pf.last_trade_day(datetime(2026, 11, 16, 9, 30), datetime(2026, 11, 16, 8, 45), is_s) == date(2026, 11, 13)
+    assert pf.last_trade_day(datetime(2026, 11, 17, 9, 30), datetime(2026, 11, 17, 8, 45), is_s) == date(2026, 11, 16)
+
+
+class _FakeDb:
+    """Two stored sessions (Thu 11/12, Fri 11/13), no tape."""
+
+    def __init__(self):
+        self.b = [(datetime(2026, 11, 12, 8, 35), "am"), (datetime(2026, 11, 12, 17, 15), "eod"),
+                  (datetime(2026, 11, 13, 8, 35), "am"), (datetime(2026, 11, 13, 17, 15), "eod")]
+
+    def books(self):
+        return self.b
+
+    def days(self):
+        return sorted({t.date() for t, _ in self.b})
+
+    def book_on(self, d, kind):
+        c = [t for t, k in self.b if t.date() == d and k == kind]
+        return min(c) if c else None
+
+    def rows(self, ts, kind):
+        return _rows()
+
+    def spot(self, at):
+        return 7550.0
+
+    def tape(self, d):
+        return []
+
+
+def test_build_end_to_end_with_a_fake_db(tmp_path, monkeypatch):
+    monkeypatch.setattr(pf, "HIST", tmp_path / "hist.json")
+    out = pf.build(_FakeDb(), datetime(2026, 11, 13, 17, 35))
+    assert out["ok"] and out["session"] == "2026-11-16" and out["book"]["kind"] == "eod"
+    assert len(out["full"]) == out["grid"]["n"] == len(out["ex0"]) and len(out["hedge"]) == 6
+    assert out["signed"]["ok"] is False and "no SPX index tape" in out["signed"]["reason"]
+    assert out["pct"]["full"] is None and out["hist_n"] == 2       # backfill gave 2 past sessions (< 10 -> no percentile)

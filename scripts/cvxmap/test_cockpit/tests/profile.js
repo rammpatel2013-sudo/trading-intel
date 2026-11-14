@@ -25,6 +25,7 @@ const maps=o=>o.p.evaluate(()=>{ const {st,buildMap,mapRead}=window.__T; const R
   ok(/83rd percentile/.test(st1.head)&&/41st percentile/.test(st1.head),'ON: both percentiles in plain words');
   ok(/flip 7,482/.test(st1.head)&&/flip 7,481/.test(st1.head),'ON: both flips named ('+st1.head.split("\n").slice(1,3).join(" | ")+')');
   ok(/long gamma/.test(st1.head),'ON: long / short at price in words');
+  ok(/Signed: long gamma at price · flip 7,536 \(positions from 2026-11-12's trades on the tape, packages/.test(st1.head),'VS step 4: signed line named in words ('+(st1.head.split("\n").find(l=>/Signed/.test(l))||'')+')');
   { const h=await T.p.evaluate(()=>{ const e=document.getElementById("tgProfHedge"); return e?{n:e.querySelectorAll(".pfh").length,t:e.innerText}:null; });
     ok(h&&h.n===6,'VS step 3: hedge table has 6 moves ('+(h?h.n:0)+')');
     ok(h&&/falls 1% to 7,480, dealers buy about 19k ES → they absorb/.test(h.t)&&/rises 1% to 7,631, dealers sell about 50k ES → they absorb/.test(h.t),'VS step 3: plain line says which way and absorb / chase ('+(h?h.t.split("\n").slice(-1)[0]:'')+')'); }

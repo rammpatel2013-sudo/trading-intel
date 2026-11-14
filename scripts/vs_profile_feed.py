@@ -68,22 +68,30 @@ def ref_session(now: datetime, is_session) -> datetime:
     return datetime.combine(nd, OPEN)
 
 
-def book_arrays(rows: dict, ref_dt: datetime, drop_exp: date | None) -> tuple[np.ndarray, ...]:
+def book_arrays(rows: dict, ref_dt: datetime, drop_exp: date | None,
+                weights: dict | None = None) -> tuple[np.ndarray, ...]:
     """(K, iv, years left, dealer contracts) for every contract still alive at ref_dt; drop_exp
-    removes that expiry date (ex-0DTE). rows = {(expiry, strike, cp, am): {oi, iv}}."""
+    removes that expiry date (ex-0DTE). rows = {(expiry, strike, cp, am): {oi, iv}}. weights =
+    dealer contracts per key (VS step 4 signed book); default = naive (calls +OI, puts -OI)."""
     from vs_flip_score import expiry_dt, naive_sign, years_left
 
     K, sig, t, w = [], [], [], []
-    for (exp, k, cp, am), v in rows.items():
+    keys = rows.keys() if weights is None else weights.keys()
+    for key in keys:
+        exp, k, cp, am = key
+        v = rows.get(key) or {}
         if drop_exp is not None and exp == drop_exp:
             continue
         e = expiry_dt(exp, am)
-        if e <= ref_dt or not (v.get("iv") or 0) > 0 or not (v.get("oi") or 0) > 0:
+        if e <= ref_dt or not (v.get("iv") or 0) > 0:
+            continue
+        wi = naive_sign(cp) * float(v.get("oi") or 0.0) if weights is None else float(weights[key])
+        if wi == 0:
             continue
         K.append(float(k))
         sig.append(float(v["iv"]))
         t.append(years_left(e, ref_dt))
-        w.append(naive_sign(cp) * float(v["oi"]))
+        w.append(wi)
     return np.array(K), np.array(sig), np.array(t), np.array(w)
 
 
@@ -96,6 +104,26 @@ def profile_lines(rows: dict, spot: float, ref_dt: datetime, grid: np.ndarray) -
         K, sig, t, w = book_arrays(rows, ref_dt, drop)
         out[name] = gamma_profile(K, sig, t, w, grid) if len(K) else np.zeros(len(grid))
     return out
+
+
+def signed_line(rows: dict, weights: dict, ref_dt: datetime, grid: np.ndarray) -> np.ndarray:
+    """VS step 4: the whole book with dealer positions = the start-of-day book (naive) plus the
+    last session's prints signed by the tape (customer buy = dealer short), $bn per 1%."""
+    from vs_flip_score import gamma_profile
+
+    K, sig, t, w = book_arrays(rows, ref_dt, None, weights)
+    return gamma_profile(K, sig, t, w, grid) if len(K) else np.zeros(len(grid))
+
+
+def last_trade_day(ref_dt: datetime, now: datetime, is_session) -> date:
+    """The session whose prints move the book being read: today after the close, else the session
+    before the one being read."""
+    if ref_dt.date() > now.date() and is_session(now.date()) and now.time() >= CLOSE:
+        return now.date()
+    d = ref_dt.date() - timedelta(days=1)
+    while not is_session(d):
+        d -= timedelta(days=1)
+    return d
 
 
 def flips(grid: np.ndarray, tot: np.ndarray, spot: float) -> dict[str, Any]:
@@ -206,6 +234,7 @@ def build(db, now: datetime) -> dict[str, Any]:
     HIST.write_text(json.dumps(hist, separators=(",", ":")), encoding="utf-8")
     exp0 = ref.date()
     n0 = sum(1 for k in rows if k[0] == exp0)
+    signed = signed_view(db, ref, now, rows, grid, spot)
     return {
         "ok": True, "v": 1, "sym": "SPX", "written": f"{now:%Y-%m-%d %H:%M}",
         "ref": f"{ref:%Y-%m-%d %H:%M}", "session": ref.date().isoformat(),
@@ -219,12 +248,38 @@ def build(db, now: datetime) -> dict[str, Any]:
         "hedge_note": ("ES contracts dealers would trade to stay hedged if SPX moved there from now "
                        "(+ buy, - sell), naive book: about 30x VolSignals' size - read which way and "
                        "which side is bigger, not the number"),
-        "hist_n": len(past), "flips": fl, "units": SCALE_NOTE,
+        "hist_n": len(past), "flips": fl, "units": SCALE_NOTE, "signed": signed,
         "plain": ("Above zero = dealers long gamma at that price (they sell rallies and buy dips, moves get "
                   "absorbed); below zero = short gamma (they chase, moves speed up). The flip is where a line "
                   "crosses zero. Ex-0DTE = the same book without the options that expire today - the shape "
                   "that is left once they are gone."),
     }
+
+
+def signed_view(db, ref: datetime, now: datetime, rows: dict, grid: np.ndarray, spot: float) -> dict[str, Any]:
+    """VS step 4 view (separate from the naive lines; the ledger stays unseeded, 11/06 rule)."""
+    from trading_intel.timeutils import is_trading_session
+    from vs_flip_score import tape_methods
+
+    p = last_trade_day(ref, now, is_trading_session)
+    st_ts, kind = db.book_on(p, "am"), "am"
+    if st_ts is None:
+        st_ts, kind = db.book_on(p, "eod"), "eod"
+    if st_ts is None:
+        return {"ok": False, "day": p.isoformat(), "reason": f"no stored book for {p}"}
+    start = db.rows(st_ts, kind)
+    fresh = rows if ref.date() > p else {}
+    try:
+        t1, t2, note = tape_methods(db, p, start, fresh)
+    except Exception as exc:  # noqa: BLE001 - the tape is optional; the naive lines stand alone
+        return {"ok": False, "day": p.isoformat(), "reason": f"tape read failed: {str(exc)[:120]}"}
+    w = t2 or t1
+    if not w:
+        return {"ok": False, "day": p.isoformat(), "reason": note}
+    line = signed_line({**start, **rows}, w, ref, grid)
+    return {"ok": True, "day": p.isoformat(), "how": "packages" if t2 else "single prints", "note": note,
+            "start_book": f"{st_ts:%Y-%m-%d %H:%M} {kind}", "line": [round(float(x), 4) for x in line],
+            "at_spot": round(float(np.interp(spot, grid, line)), 4), "flips": flips(grid, line, spot)}
 
 
 def main() -> None:

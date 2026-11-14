@@ -4,7 +4,7 @@ Every edit is an exact, single-occurrence replacement; the script stops if produ
 (OFF by default), so the test page simply inherits them from production; tg_den.js / tg_vix.js are gone.
 2026-11-13 (evening): production gained the Map > Gamma "Hedge" curve (OFF by default, display only); the test page inherits it - no test-side edit.
 2026-11-13 (night): production read-out fix (Change on the right: the read uses the real charm map; a blocked Change map is never read) - inherited, no test-side edit.
-2026-11-13 (night): + the Map > Gamma Profile button (tg_profile.js, section 16): whole-book gamma profile, Full vs Ex-0DTE, from profile_SPX.json; + the ES hedge table under it (VS step 3).
+2026-11-13 (night): + the Map > Gamma Profile button (tg_profile.js, section 16): whole-book gamma profile, Full vs Ex-0DTE, from profile_SPX.json; + the ES hedge table under it (VS step 3); + the tape-signed line (VS step 4).
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
@@ -44,7 +44,7 @@ CSS = """<style>
 .tgsec{border:2px dashed #ffcc00 !important}
 .tgprof{border:2px dashed #ffcc00;margin:6px 0;padding:8px 10px;background:#0b0f14;color:#f2f5f8;font:16px system-ui,sans-serif}
 .tgprof .pf1{font-size:17px;margin-bottom:3px} .tgprof .pf2{font-size:17px;margin:2px 0} .tgprof .pf3{font-size:15px;color:#dfe6ee;margin-top:4px}
-.tgprof .pfF{color:#3fd0ff;font-weight:800} .tgprof .pfE{color:#ffa64d;font-weight:800} #tgProfC{width:100%;display:block;margin-top:6px;cursor:crosshair}
+.tgprof .pfS{color:#3ddc84;font-weight:800} .tgprof .pfF{color:#3fd0ff;font-weight:800} .tgprof .pfE{color:#ffa64d;font-weight:800} #tgProfC{width:100%;display:block;margin-top:6px;cursor:crosshair}
 #tgProfHedge{margin-top:6px} #tgProfHedge .pfht{font-size:16px} #tgProfHedge .pfhrow{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0} #tgProfHedge .pfh{border:1px solid #556;border-radius:5px;padding:5px 9px;min-width:150px;background:#111820} #tgProfHedge .pfhm{font-size:15px;color:#e8edf2} #tgProfHedge .pfhv{font-size:20px;font-weight:800} #tgProfHedge .pfhx{font-size:15px;font-weight:600} #tgProfHedge .pfhs{font-size:17px}
 #tgProf{grid-column:1/-1} #tabMap.pfon{grid-template-rows:auto minmax(0,1fr)} body.phone #tabMap.pfon{grid-template-rows:auto 420px 300px 420px}
 </style>"""
