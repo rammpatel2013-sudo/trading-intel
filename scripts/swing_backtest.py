@@ -182,7 +182,11 @@ def build(*, years: int = 2, settings=None) -> tuple[Path, dict]:
     path = _OUT / f"swing_backtest_{date.today():%Y-%m-%d}.html"
     path.write_text(page(res), encoding="utf-8")
     path.with_suffix(".json").write_text(json.dumps(res, indent=1, default=str), encoding="utf-8")
-    print(f"Wrote {path} — {res.get('verdict')}: {res.get('why', '')}")
+    msg = f"Wrote {path} - {res.get('verdict')}: {res.get('why', '')}"
+    try:  # 2026-11-13: the MCP server on Windows prints through cp1252 ("≥" crashed the tool after the files were written)
+        print(msg)
+    except UnicodeEncodeError:
+        print(msg.encode("ascii", "replace").decode("ascii"))
     return path, res
 
 
