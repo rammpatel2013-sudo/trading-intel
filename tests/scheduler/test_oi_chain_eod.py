@@ -88,6 +88,8 @@ def test_run_batches_inserts(monkeypatch):
 
     monkeypatch.setattr(job, "effective_symbols", lambda session, settings: ["BIG"])
     monkeypatch.setattr(job, "_INSERT_BATCH", 50)  # 120 rows -> 3 batches
+    # run() skips weekends/holidays (is_trading_session gate) - keep this test date-proof (2026-11-14)
+    monkeypatch.setattr(job, "is_trading_session", lambda d: True)
 
     with Session(engine) as session:
         orig = session.execute

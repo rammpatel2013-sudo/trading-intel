@@ -162,7 +162,12 @@ def main() -> None:
             structlog.processors.JSONRenderer(),
         ]
     )
-    prices = YFinancePriceSource()
+    # 2026-11-13 Yahoo exit: FMP (CVForge passthrough) first, Yahoo only as a logged fallback.
+    from trading_intel.clients.cvforge import CVForgeClient
+    from trading_intel.clients.fmp_prices import FmpFirstPriceSource, FmpPriceSource
+
+    prices = FmpFirstPriceSource(FmpPriceSource(CVForgeClient(settings)), YFinancePriceSource(),
+                                 allow_yahoo=bool(getattr(settings, "PRICES_YAHOO_FALLBACK", True)))
     session_factory = make_session_factory(settings)
     with session_factory() as session:
         run(session, prices, settings=settings)

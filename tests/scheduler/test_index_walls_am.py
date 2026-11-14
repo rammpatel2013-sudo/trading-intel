@@ -147,8 +147,11 @@ def test_index_walls_am_adds_stocks_with_a_0dte_today() -> None:
     assert pulled == ["SPX", "SPY", "QQQ", "NVDA", "AAPL"]
 
 
-def test_oi_chain_eod_replaces_the_morning_pull() -> None:
+def test_oi_chain_eod_replaces_the_morning_pull(monkeypatch) -> None:
     from trading_intel.scheduler.jobs import oi_chain_eod as eod
+
+    # run() skips weekends/holidays (is_trading_session gate) - keep this test date-proof (2026-11-14)
+    monkeypatch.setattr(eod, "is_trading_session", lambda d: True)
 
     engine = create_engine("sqlite://")
     OiChainEod.__table__.create(engine)

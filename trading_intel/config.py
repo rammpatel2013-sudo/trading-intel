@@ -173,6 +173,7 @@ class Settings(BaseSettings):
     TAS_SPX_TAPE_MIN_PREMIUM: float = 5_000.0  # SPX/SPXW prints kept from this $ (retail 0DTE puts, put buy-ratio report); SPY/QQQ use TAS_MIN_PREMIUM (2026-11-05)
     TAS_INDEX_MIN_PREMIUM: float = 250_000.0  # un-exclude big index prints >= this $ (SPX/SPXW; ETFs use 0.4x)
     TAS_CROWD_AGG: bool = True  # 2026-11-13 #97: every SPX/SPXW print (any size) summed per minute x strike into tas_crowd_minute (whales vs crowd); no extra Convex calls
+    PRICES_YAHOO_FALLBACK: bool = True  # 2026-11-13 Yahoo exit: FMP first; Yahoo only where FMP has no rows (logged prices.yahoo_fallback); set False after scripts/yahoo_exit_check.py passes
     TAS_WHALE_MIN_SIZE: int = 20  # #97: a print of >= this many contracts is a 'whale', smaller = 'crowd'
 
     # ── Daily AM report ───────────────────────────────────────────────
