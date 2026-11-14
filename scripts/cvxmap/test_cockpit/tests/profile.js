@@ -34,6 +34,10 @@ const maps=o=>o.p.evaluate(()=>{ const {st,buildMap,mapRead}=window.__T; const R
     ok(c&&/No red flag/.test(c.t)&&/delta a day to (sell|buy)/.test(c.t),'VS step 5: plain charm line + no red flag on this file');
     const rf=await T.p.evaluate(()=>{ const T=window.__T; const P=T.x("TG_PF.d"); P.charm.red_flag={flag:true,changes:2,minor_share:0.4,band:[7540,7570]}; T.x("tgProfDraw()"); return document.getElementById("tgProfCharm").innerText; });
     ok(/RED FLAG: charm changes sign 2× within ±½ straddle \(7,540–7,570/.test(rf),'VS step 5: red flag shown in words when set'); }
+  { const o=await T.p.evaluate(()=>{ const e=document.getElementById("tgProfOdds"); return e?{t:e.innerText,n:e.querySelectorAll(".pfobb").length}:null; });
+    ok(o&&o.n===6&&/59.1%/.test(o.t),'VS step 6: close-odds bar with 6 buckets');
+    ok(o&&/inside one straddle on 68.3% of days vs 57.6%/.test(o.t)&&/SMALLER than priced/.test(o.t),'VS step 6: check 1 in plain words');
+    ok(o&&/deep short 54.2% inside \(n=24\)/.test(o.t)&&/too few days with our gamma to judge/.test(o.t),'VS step 6: checks 2 + 3 with their sample sizes'); }
   await T.p.locator('#tgProf').screenshot({path:OUT+'profile_on.png'});
   const box=await T.p.locator('#tgProfC').boundingBox(); await T.p.mouse.move(box.x+box.width*0.3,box.y+box.height*0.5); await T.p.waitForTimeout(300);
   const d2=await T.p.evaluate(()=>document.getElementById("tgProfC").toDataURL().length); ok(d2!==st1.data,'hover card drawn');

@@ -232,6 +232,48 @@ def red_flag(grid: np.ndarray, tot: np.ndarray, spot: float, straddle: float | N
             "band": [round(spot - half, 1), round(spot + half, 1)]}
 
 
+IN_STRAD, OUT_2STRAD = 0.5763, 0.1096   # normal: P(|z| <= 0.8), P(|z| > 1.6) - an ATM straddle ~ 0.8 sigma
+
+
+def scaled_moves(days: list, close: dict, vix: dict) -> list[tuple[Any, float]]:
+    """VS step 6 check 1: each session's close-to-close move in units of the move the options priced
+    the evening before (VIX / 100 / sqrt(252)); z = 0.8 is one straddle. Days without both closes skip."""
+    out = []
+    for a, b in zip(days, days[1:]):
+        if a in close and b in close and a in vix and vix[a] and close[a] > 0:
+            sd = vix[a] / 100.0 / 252 ** 0.5
+            out.append((b, float(np.log(close[b] / close[a]) / sd)))
+    return out
+
+
+def calib(z: list[float]) -> dict[str, Any] | None:
+    """Realized vs priced: share inside one straddle, share beyond two, mean |z| (normal = 0.80)."""
+    if len(z) < 20:
+        return None
+    a = np.abs(np.array(z))
+    inside, beyond = float(np.mean(a <= 0.8)), float(np.mean(a > 1.6))
+    return {"n": len(z), "inside_pct": round(100 * inside, 1), "inside_priced_pct": round(100 * IN_STRAD, 1),
+            "beyond2_pct": round(100 * beyond, 1), "beyond2_priced_pct": round(100 * OUT_2STRAD, 1),
+            "mean_abs_z": round(float(a.mean()), 2)}
+
+
+def by_gamma(zd: list[tuple[Any, float]], gex_prior: dict) -> dict[str, Any]:
+    """VS step 6 check 2: the same, split by naive dealer gamma at the prior close - long, short
+    (shallow half), short (deep half: the most negative half of the short days)."""
+    rows = [(gex_prior[d], z) for d, z in zd if gex_prior.get(d) is not None]
+    neg = sorted(g for g, _ in rows if g < 0)
+    cut = neg[len(neg) // 2] if neg else 0.0
+    groups = {"long": [z for g, z in rows if g > 0],
+              "short_shallow": [z for g, z in rows if cut < g < 0 or (g < 0 and len(neg) == 1)],
+              "short_deep": [z for g, z in rows if g <= cut and g < 0 and len(neg) > 1]}
+    out = {}
+    for k, v in groups.items():
+        a = np.abs(np.array(v)) if v else np.array([])
+        out[k] = {"n": len(v), "inside_pct": round(100 * float(np.mean(a <= 0.8)), 1) if len(v) else None,
+                  "mean_abs_z": round(float(a.mean()), 2) if len(v) else None}
+    return out
+
+
 def percentile(v: float, hist: list[float]) -> int | None:
     """Share of past values at or below v, 0-100 (None with fewer than 10 past sessions)."""
     h = [x for x in hist if x is not None]
@@ -310,6 +352,7 @@ def build(db, now: datetime) -> dict[str, Any]:
     exp0 = ref.date()
     n0 = sum(1 for k in rows if k[0] == exp0)
     signed = signed_view(db, ref, now, rows, grid, spot)
+    odds = odds_view(db, now) if hasattr(db, "s") else {}
     return {
         "ok": True, "v": 1, "sym": "SPX", "written": f"{now:%Y-%m-%d %H:%M}",
         "ref": f"{ref:%Y-%m-%d %H:%M}", "session": ref.date().isoformat(),
@@ -323,7 +366,7 @@ def build(db, now: datetime) -> dict[str, Any]:
         "hedge_note": ("ES contracts dealers would trade to stay hedged if SPX moved there from now "
                        "(+ buy, - sell), naive book: about 30x VolSignals' size - read which way and "
                        "which side is bigger, not the number"),
-        "hist_n": len(past), "flips": fl, "units": SCALE_NOTE, "signed": signed, "charm": charm,
+        "hist_n": len(past), "flips": fl, "units": SCALE_NOTE, "signed": signed, "charm": charm, "odds": odds,
         "plain": ("Above zero = dealers long gamma at that price (they sell rallies and buy dips, moves get "
                   "absorbed); below zero = short gamma (they chase, moves speed up). The flip is where a line "
                   "crosses zero. Ex-0DTE = the same book without the options that expire today - the shape "
@@ -355,6 +398,48 @@ def signed_view(db, ref: datetime, now: datetime, rows: dict, grid: np.ndarray, 
     return {"ok": True, "day": p.isoformat(), "how": "packages" if t2 else "single prints", "note": note,
             "start_book": f"{st_ts:%Y-%m-%d %H:%M} {kind}", "line": [round(float(x), 4) for x in line],
             "at_spot": round(float(np.interp(spot, grid, line)), 4), "flips": flips(grid, line, spot)}
+
+
+def odds_view(db, now: datetime) -> dict[str, Any]:
+    """VS step 6: get_close_odds (front expiry, cut at the breakevens, the flip and 2x straddle) plus the
+    three calibration checks. Each part fails on its own with a plain reason."""
+    out: dict[str, Any] = {}
+    try:
+        from trading_intel.mcp.event_tools import get_close_odds
+        out["odds"] = get_close_odds(db.s, "SPX")
+    except Exception as exc:  # noqa: BLE001
+        db.s.rollback()
+        out["odds"] = {"found": False, "reason": str(exc)[:160]}
+    # check 1 + 2: SPX closes, VIX closes, gamma at the prior close - all from our own DB
+    try:
+        from trading_intel.mcp import tools as _t
+        gh = _t.get_gamma_history(db.s, "SPX", days=365)
+        qs = db.q("select date, close from quotes_daily where symbol = 'SPX' and date >= :d order by date",
+                  d=(now - timedelta(days=740)).date())
+        close = {r["date"].isoformat(): float(r["close"]) for r in qs if r["close"]}
+        vix_all: dict[str, float] = {}
+        vr = db.q("select date, vix from vix_data where vix is not null and date >= :d", d=(now - timedelta(days=740)).date())
+        vix_all.update({r["date"].isoformat(): float(r["vix"]) for r in vr})
+        days = sorted(close)
+        zd = scaled_moves(days, close, vix_all)
+        out["calib"] = calib([z for _, z in zd])
+        gx = {r["date"]: r.get("gex_total") for r in gh.get("rows", [])}
+        prior = {b: gx.get(a) for a, b in zip(days, days[1:])}
+        out["by_gamma"] = by_gamma(zd, prior)
+        out["calib_span"] = [days[0], days[-1]] if days else None
+    except Exception as exc:  # noqa: BLE001
+        db.s.rollback()
+        out["calib_err"] = str(exc)[:160]
+    try:
+        from trading_intel.clients.fred import FredClient
+        from trading_intel.config import get_settings
+        from trading_intel.mcp.event_tools import get_event_day_stats
+        ev = get_event_day_stats(db.s, fred=FredClient(get_settings()))
+        out["events"] = {"event": ev.get("event"), "summary": ev.get("summary")} if ev.get("found") else {"reason": ev.get("reason")}
+    except Exception as exc:  # noqa: BLE001
+        db.s.rollback()
+        out["events"] = {"reason": str(exc)[:160]}
+    return out
 
 
 def main() -> None:

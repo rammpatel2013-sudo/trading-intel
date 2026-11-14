@@ -169,3 +169,16 @@ def test_charm_view_shape():
     v = pf.charm_view(_rows(), datetime(2026, 11, 16, 9, 30), np.arange(7400.0, 7701.0, 1.0), 7550.0)
     assert list(v["lines"]) == ["0DTE", "next (Fri 12/18)"] and len(v["total"]) == 301
     assert [c["t"] for c in v["clock"]][:2] == ["09:30", "10:00"] and v["clock"][-1]["t"] == "15:00" and v["straddle"] > 0
+
+
+def test_scaled_moves_and_calibration():
+    """VS step 6 checks 1 + 2 on made-up data: a 1% day at VIX 16 is 1.0 sigma (16/sqrt(252) = 1.008%)."""
+    days = [f"2026-01-{d:02d}" for d in range(1, 31)]
+    close = {d: 100.0 * (1.01 if i % 2 else 1.0) for i, d in enumerate(days)}
+    vix = {d: 16.0 for d in days}
+    zd = pf.scaled_moves(days, close, vix)
+    assert len(zd) == 29 and all(abs(abs(z) - 0.987) < 0.01 for _, z in zd)   # ln(1.01) / (0.16 / sqrt(252))
+    c = pf.calib([z for _, z in zd])
+    assert c["inside_pct"] == 0.0 and c["beyond2_pct"] == 0.0 and c["inside_priced_pct"] == 57.6
+    g = pf.by_gamma(zd, {d: (5.0 if i < 10 else -1.0 * i) for i, (d, _) in enumerate(zd)})
+    assert g["long"]["n"] == 10 and g["short_shallow"]["n"] + g["short_deep"]["n"] == 19
