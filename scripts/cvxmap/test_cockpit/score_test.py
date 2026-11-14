@@ -441,6 +441,11 @@ def main():
         delta_score.main(["--data", a.data, "--out", outdir])
     except Exception as exc:  # noqa: BLE001
         print("delta_score failed: %s" % str(exc)[:200])
+    try:   # 2026-11-13 (overnight): V9 Week IV = VIX9D vs production's rule, against the live week chain
+        import v9_score
+        v9_score.main(["--data", a.data, "--out", outdir])
+    except Exception as exc:  # noqa: BLE001
+        print("v9_score failed: %s" % str(exc)[:200])
     return 0
 
 

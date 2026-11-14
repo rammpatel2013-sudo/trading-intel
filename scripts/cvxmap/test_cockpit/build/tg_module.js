@@ -17,6 +17,7 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["d4","Real 5-min charm","D4","v1","Charm = the actual change in delta over the next 5 minutes (instead of rate × 5 min, which overstates the last 10–30 minutes)."],
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
   ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
+  ["v9","Week IV = VIX9D","V9","v0","(2026-11-13 overnight, backlog #21) Week book IV re-marked by the change in VIX9D since the first reading of the day (live.json v9dq) instead of ½ × the change in 0DTE ATM IV. Production writes v9d = 0 (V9D_INTO_MAP = False), so production never uses VIX9D. Recorded every 15 min (config v9) and, separately, both rules are checked against the live week chain IV (v9_score.py, nightly)."],
   ["sg","Shadow","SG","v0","Alma's shadow greeks (2026-11-13): IV moves with price by our measured β (the Smile button's β file) along the path from that minute's price. Gamma = gamma + vanna × (IV change per point); Delta pane = the plain option delta at that moving IV, computed directly; charm / vanna use the path IV. Overrides Smile while on (Smile measures the min-variance hedge, a different object - never both). Needs the β file."]];
 // 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
 const TG_SEL={b2:["","1600","1615"]};
@@ -144,7 +145,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
 const TG_SCORE_V="score-v1"; const TG_PAGE_V="__TG_PAGE_V__";
-const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}]];
+const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
 function tgCross(prices,col,i,lev){ const a=col[i-1], b=col[i]; return prices[i-1]+(prices[i]-prices[i-1])*(lev-a)/((b-a)||1); }
@@ -202,7 +203,18 @@ function tgReadoutMeta(){ const d=st.live&&st.live.SPX; if(!d||!d.rows||!(d.spot
   return {v:TG_SCORE_V,date:day,t:now,hm:tlabel(now),live_ts:st.live.ts,spot:d.spot,step:d.step||5,session_close:close,straddle0:d.straddle||null,
     im30:d.straddle>0&&close-now>=30?+(d.straddle*Math.sqrt(30/mtc)).toFixed(3):null,term_straddle:terms,
     ids:{page:TG_PAGE_V,smilebeta:SB&&SB.generated||null,book_as_of:nb&&(nb.as_of_date||nb.as_of)||null,book_pull:nb&&nb.pull_time||null,book_conflicts:nb&&nb.recon&&nb.recon.n_conflicts||0},
-    basis:"oiv",book:"all"}; }
+    basis:"oiv",book:"all",wkiv:tgWkIvErr()}; }
+/* V9 (2026-11-13 overnight, #21): how close each Week-IV rule gets to the live week chain. For every 1-7 DTE book contract
+   within 2% of spot that has a live IV (same contract, rescaled to its real time left, as B5), error = (morning IV + the
+   rule's shift) - live IV, in vol pts. half = production rule (½ × Δ 0DTE ATM IV), v9 = Δ VIX9D (v9dq). Median |error|. */
+function tgWkIvErr(){ try{ const nb=st.ti&&st.ti.near_book&&st.ti.near_book.SPX, d=st.live&&st.live.SPX; if(!nb||!nb.rows||!d||!(d.spot>0)) return null;
+  const keepS=st.sym, keepV=TG.v9; st.sym="SPX"; let dh=0, d9=null, sh="", s9="";
+  try{ TG.v9=false; const a=weekIVShift(); dh=Math.max(-0.1,Math.min(0.1,a.dv)); sh=a.src; TG.v9=true; const b=weekIVShift(); if(/^TEST VIX9D/.test(b.src)){ d9=Math.max(-0.1,Math.min(0.1,b.dv)); s9=b.src; } }
+  finally{ TG.v9=keepV; st.sym=keepS; }
+  const S=d.spot, eh=[], e9=[]; for(const r of nb.rows){ if(Math.abs(r.k-S)>0.02*S) continue; const sg0=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue;
+    const lv=tgWeekLiveSg(r,S); if(!(lv>0)) continue; eh.push(Math.abs(sg0+dh-lv)*100); if(d9!=null) e9.push(Math.abs(sg0+d9-lv)*100); }
+  const med=a=>{ if(!a.length) return null; const b=a.slice().sort((x,y)=>x-y); return +b[Math.floor(b.length/2)].toFixed(3); };
+  return {n:eh.length,half:med(eh),v9:med(e9),dv_half:+(100*dh).toFixed(3),dv_v9:d9==null?null:+(100*d9).toFixed(3),src_half:sh,src_v9:s9}; }catch(e){ return {err:String(e).slice(0,120)}; } }
 function tgReadoutAll(){ const m=tgReadoutMeta(); if(!m) return null; m.cfgs={}; for(const [name,cfg] of TG_CFGS) for(const sm of [false,true]) m.cfgs[name+(sm?"|S":"|P")]=tgReadoutCfg(cfg,sm); return m; }
 function tgRawP95(grid){ const all=[]; for(const col of grid) for(const v of col) all.push(Math.abs(v)); all.sort((a,b)=>a-b); return Math.max(1e-9, all[Math.floor(all.length*0.95)]||1e-9); }
 tgLoad();

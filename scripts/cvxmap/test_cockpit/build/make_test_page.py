@@ -10,14 +10,15 @@ import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("459a2e2e071ed35f"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("1758e26f93dea9ac"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
 DL = open(os.path.join(HERE, "tg_delta.js"), encoding="utf-8").read()   # 2026-11-13 Delta map
 LN = open(os.path.join(HERE, "tg_lines.js"), encoding="utf-8").read()   # 2026-11-13 Strike lines + Zero line
 PF = open(os.path.join(HERE, "tg_profile.js"), encoding="utf-8").read()   # 2026-11-13 (night) VS step 2: whole-book gamma profile
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF).encode("utf-8")).hexdigest()[:12])
+CO = open(os.path.join(HERE, "tg_color.js"), encoding="utf-8").read()   # 2026-11-13 (overnight) #87 Color strip
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -47,6 +48,7 @@ CSS = """<style>
 .tgprof .pfS{color:#3ddc84;font-weight:800} .tgprof .pfF{color:#3fd0ff;font-weight:800} .tgprof .pfE{color:#ffa64d;font-weight:800} #tgProfC{width:100%;display:block;margin-top:6px;cursor:crosshair}
 #tgProfOdds{margin-top:8px} #tgProf .pfob{display:flex;gap:2px;margin:5px 0;height:54px} #tgProf .pfobb{display:flex;flex-direction:column;justify-content:center;align-items:center;color:#000;border-radius:3px;overflow:hidden;min-width:0} #tgProf .pfobb b{font-size:18px} #tgProf .pfobb span{font-size:13px;white-space:nowrap} #tgProf .pfcal{font-size:16px;line-height:1.5;margin-top:3px} #tgProfCharm{margin-top:8px} #tgProfCharmC{width:100%;display:block;margin-top:4px;cursor:crosshair} #tgProf .pfrf{color:#ff8080;font-weight:600} #tgProf .pfok{color:#7be3a6} #tgProf .pfclk{font-size:15px;margin-top:3px} #tgProf .pfck{display:inline-block;margin-right:10px} #tgProfHedge{margin-top:6px} #tgProfHedge .pfht{font-size:16px} #tgProfHedge .pfhrow{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0} #tgProfHedge .pfh{border:1px solid #556;border-radius:5px;padding:5px 9px;min-width:150px;background:#111820} #tgProfHedge .pfhm{font-size:15px;color:#e8edf2} #tgProfHedge .pfhv{font-size:20px;font-weight:800} #tgProfHedge .pfhx{font-size:15px;font-weight:600} #tgProfHedge .pfhs{font-size:17px}
 #tgProf{grid-column:1/-1} #tabMap.pfon{grid-template-rows:auto minmax(0,1fr)} body.phone #tabMap.pfon{grid-template-rows:auto 420px 300px 420px}
+.tgcolor{border:2px dashed #ffcc00;margin:4px 6px;padding:6px 8px;background:#0b0f14;color:#f2f5f8;font:15px system-ui,sans-serif} .tgcolor #tgColorHead{line-height:1.4} .tgcolor i{font-style:normal;color:#C9D4E3} #tabMap #tgColorC{width:100%;height:110px;display:block;margin-top:4px;cursor:crosshair}
 </style>"""
 
 # 1. title + bar
@@ -57,7 +59,7 @@ rep("const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -183,6 +185,13 @@ rep('<div class="seg" role="group" id="mapBookSeg"',
 rep('<main id="tabMap" class="tab" hidden>\n    <section class="pane" id="mapGammaPane">',
     '<main id="tabMap" class="tab" hidden>\n    <div class="tgprof" id="tgProf" hidden><div id="tgProfHead"></div><canvas id="tgProfC"></canvas></div>\n    <section class="pane" id="mapGammaPane">')
 rep("  hedgeDraw();\n", "  hedgeDraw(); tgProfDraw();   // TEST PF\n")
+# 17. (2026-11-13 overnight) V9 Week IV = VIX9D (#21) inside weekIVShift (toggle v9, in TG_DEF / TG_CFGS of tg_module.js),
+#     and the COLOR strip (#87, tg_color.js) under the gamma map. With v9 and Color off the maths and the page are production's.
+rep('  if(v&&v.v9d>0){ const k="v9d0_"+today;',
+    '  if(TG.v9&&v&&v.v9dq>0){ const k="tg_v9dq0_"+today; let b=+load(k,0); if(!(b>0)){ b=v.v9dq; save(k,String(b)); } return {dv:(v.v9dq-b)/100, src:"TEST VIX9D "+b.toFixed(2)+"→"+v.v9dq.toFixed(2)}; }   // TEST V9\n  if(v&&v.v9d>0){ const k="v9d0_"+today;')
+rep('>VIX strip</button>', '>VIX strip</button><button class="btn" id="tgColorBtn" aria-pressed="false" style="border:1px dashed #ffcc00" title="TEST Color (off by default): how much dealer gamma TIME alone adds or takes away at each price over the next 30 minutes (bars) and to 15:45 (dotted), from this map&#39;s own projection (same book and buttons, no new trades). Green = the level strengthens, pink = it lets go.">Color</button>')
+rep('<div class="vixstrip" id="vixStrip" hidden>', '<div class="tgcolor" id="tgColor" hidden><div id="tgColorHead"></div><canvas id="tgColorC"></canvas></div><div class="vixstrip" id="vixStrip" hidden>')
+rep('if(st.vixStrip) drawVixStrip(g); }catch(e){ console.error(e); }', 'if(st.vixStrip) drawVixStrip(g); }catch(e){ console.error(e); } try{ tgColorDraw(gF); }catch(e){ console.error(e); }   /* TEST CO */')
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)

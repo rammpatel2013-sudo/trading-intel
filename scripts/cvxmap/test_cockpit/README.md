@@ -34,6 +34,7 @@ All toggles are off by default and independent of each other. A **v0** toggle us
 | Levels from raw | F2 | v0 | Peaks and troughs are found from the raw field's scale, not the colour field's. |
 | Display labels | F1, F3–F5 | v1 | The display candidate (`7fd6345a`), reapplied onto `824a06c`: raw vs median-relative labels, flat zones, line rules, Smile OFF/ON check. |
 | Shadow | SG | v0 | (2026-11-13) Alma's shadow greeks: IV moves with price by the measured β; gamma + vanna·β/S; the Delta pane uses the delta at that IV. Overrides Smile while on. See "Delta map + Shadow" below. |
+| Week IV = VIX9D | V9 (#21) | v0 | (2026-11-13 overnight) Week book IV re-marked by the change in VIX9D since the first reading of the day (`live.json` `v9dq`) instead of ½ × the change in 0DTE ATM IV. Production never uses VIX9D (`cvx_live.py` writes `v9d = 0`, `V9D_INTO_MAP = False`). Recorded as config `v9` every 15 min; every read-out also stores `wkiv` = each rule's median error vs the live week chain, judged nightly by `v9_score.py` (called by `score_test.py`, verdict after 10 days). |
 
 The toggles also act on the other tabs that use the Map's maths (Density, Change).
 
@@ -90,3 +91,9 @@ History (2026-11-08):
 - Already in production, so no toggle: Don's "after 14:00" charm number and the 14:00 marker, and tomorrow's book without the front expiry.
 - Not ported: an intraday VIX move split (sticky / parallel / skew / convexity) — it needs a live 30-day SPX chain we don't pull; the daily 08:35 six-factor split on the VIX tab stays. NDX: our QQQ book is not thin, so DN6 only adds VXN for the cone width and a generic thin-book tag.
 - Test (2026-11-08, removed 2026-11-09 with the toggles): `tests/density_vix.js` parity and shots. Map `parity.js eod` still 40/40 identical.
+
+## Color strip (CO, #87) + V9 (#21), added 2026-11-13 (overnight run)
+Mithil 11/13 20:18 "build" (#87, reversing the drop) and the backlog cut (#21 = KEEP, GO; test cockpit, scored vs the current rule).
+- **Color** (Map > Gamma button, dashed TEST outline, OFF by default; code `build/tg_color.js`, section 17 of `make_test_page.py`): a strip under the gamma map with the gamma that **time alone** adds or takes away at each price: bars = gamma at now + 30 min minus gamma now, dotted = now -> 15:45, both read straight from the map's own projection (same book, basis, clock and toggles; no new trades). Green = that level strengthens (dealers lean harder against moves there), pink = it lets go. Display only.
+- **V9 Week IV = VIX9D** (toggle): see the table above. `tests/v9color.js` checks: shift = Δ v9dq, only the Week / All books change (0DTE identical), both rules' errors recorded, config `v9` in the 15-min record.
+- Parity on the 11/13 files: production vs test 40/40, old test vs new test 40/40 with all toggles off.
