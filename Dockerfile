@@ -29,8 +29,7 @@ COPY scripts ./scripts
 COPY alembic ./alembic
 COPY alembic.ini ./
 
-# Expose Streamlit
-EXPOSE 8501
-
-# Default command (overridden by docker-compose for scheduler)
-CMD ["streamlit", "run", "trading_intel/dashboard/Home.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# No default service: every NAS container is started with an explicit command (DSM tasks, scripts/nas/run_*.sh).
+# 2026-11-14 (O4): the Streamlit dashboard (old default CMD, port 8501) was archived -> archive/trading_intel/dashboard/.
+# A bare `docker run --rm trading-intel` now runs the image smoke check.
+CMD ["python", "scripts/nas/image_smoke.py"]

@@ -100,7 +100,7 @@ client = ConvexClient()  # module-level — not allowed
 ```
 
 ### Wiring
-The composition root is `trading_intel/scheduler/runner.py` (for the scheduler) and `trading_intel/dashboard/Home.py` (for the dashboard). All clients/sessions are instantiated there and passed into modules.
+The composition roots are `trading_intel/scheduler/runner.py` (local scheduler), each `scheduler/jobs/*.py` `main` (the NAS runs jobs one by one from DSM tasks) and `trading_intel/mcp/server.py` (MCP tools). All clients/sessions are instantiated there and passed into modules. (The Streamlit `dashboard/Home.py` root was archived 2026-11-14 - see `archive/README.md`.)
 
 ### Config
 `trading_intel/config.py` exposes a single `Settings` pydantic-settings object. All env-derived values flow through it. No `os.getenv()` calls scattered through the codebase.
@@ -126,11 +126,11 @@ The composition root is `trading_intel/scheduler/runner.py` (for the scheduler) 
 4. Update the relevant `greeks/`, `strategies/`, or `dashboard/` consumer
 5. Test that mock and real implementations both return the new field
 
-### Adding a new dashboard page
-1. Create `trading_intel/dashboard/pages/N_Page_Name.py`
-2. Import the data layer from `clients/` and analytics from `greeks/` or `strategies/`
-3. Reuse components from `dashboard/components/`
-4. Add an entry to the page table in `MEMORY.md`
+### Adding a new dashboard view
+The Streamlit pages were archived on 2026-11-14 (unused since 10/28; `archive/trading_intel/dashboard/`). Live views go on the
+Convex cockpit (`scripts/cvxmap/cvx_cockpit.html`, locked: test-cockpit process in `scripts/cvxmap/test_cockpit/`), reports
+go in `scripts/*_report.py`, and ad-hoc views are MCP tools. Data loaders stay in `trading_intel/dashboard/*_data.py` /
+`*_view.py` (MCP tools, jobs and reports import them).
 
 ### Adding a scheduled job
 1. Create `scheduler/jobs/your_job.py` with a `run(session, source) -> None` function
@@ -158,8 +158,8 @@ The composition root is `trading_intel/scheduler/runner.py` (for the scheduler) 
 - **Logging values from `.env`.** See rule 2.
 - **Storing PII or trade-secret content in commit messages.** PDFs in `data/pdfs/` may be proprietary — never copy excerpts into git history.
 - **Adding npm/Node dependencies.** This is a pure Python project.
-- **Assuming the NAS runs `runner.py` or that editing source updates the collector.** The NAS collector is a set of DSM Task Scheduler tasks calling a baked-in Docker image; code changes only take effect after an image rebuild (`sudo sh scripts/nas/deploy.sh`; cached layers since 2026-11-14, `--fresh` forces a full `--no-cache` one) (git isn't installed there — update via GitHub tarball). See MEMORY `### NAS deployment`.
-- **Adding more vendors.** The MASTER_PLAN.md fixes the vendor set. New vendors require an ADR in `docs/decisions/`.
+- **Assuming the NAS runs `runner.py` or that editing source updates the collector.** The NAS collector is a set of DSM Task Scheduler tasks calling a baked-in Docker image; code changes only take effect after an image rebuild (`sudo sh scripts/nas/deploy.sh`; cached layers since 2026-11-14, `--fresh` forces a full `--no-cache` one) (git isn't installed there — update via GitHub tarball). See `archive/MEMORY.md` `### NAS deployment`.
+- **Adding more vendors.** `archive/MASTER_PLAN.md` fixes the vendor set. New vendors require an ADR in `docs/decisions/`.
 
 ---
 
@@ -179,7 +179,7 @@ Example pushback:
 | Convex API errors | `trading_intel/clients/convex.py` + Convex rate-limit metrics in System Health page |
 | Wrong Greek values | `trading_intel/greeks/exposures.py` + sample contract in `tests/greeks/test_exposures.py` |
 | Scheduler not firing (local/dev) | `scheduler/runner.py` job registry + APScheduler logs |
-| Job not running ON THE NAS / new job missing | NAS runs **DSM Task Scheduler** tasks (`docker run ... python -m trading_intel.scheduler.jobs.<X>`), NOT `runner.py`. Rebuild the image (`sudo sh scripts/nas/deploy.sh`) + add a DSM task. See MEMORY `### NAS deployment`. |
+| Job not running ON THE NAS / new job missing | NAS runs **DSM Task Scheduler** tasks (`docker run ... python -m trading_intel.scheduler.jobs.<X>`), NOT `runner.py`. Rebuild the image (`sudo sh scripts/nas/deploy.sh`) + add a DSM task. See `archive/MEMORY.md` `### NAS deployment`. |
 | Dashboard slow | Check page's data loaders — should hit cached/normalized DB tables, not raw Convex calls |
 | Migration drift | `alembic current` vs. `alembic heads` |
 | Discord alerts not sending | `clients/discord.py` + webhook URL in `.env` |
@@ -190,8 +190,8 @@ Example pushback:
 
 ## Quick links
 
-- Master plan: `MASTER_PLAN.md`
-- Working memory: `MEMORY.md`
+- Master plan: `archive/MASTER_PLAN.md` (original 12-week plan; archived 2026-11-14 with `LONG_TERM_PLAN.md`)
+- Working memory: `archive/MEMORY.md` (archived 2026-11-14; current notes live in the claude.ai project docs)
 - Deployment guide: `DEPLOYMENT.md`
 - Decision log: `docs/decisions/`
 - Learning notes for knowledge gaps: `docs/learning/`

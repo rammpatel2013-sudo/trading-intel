@@ -12,12 +12,13 @@ def test_dealer_positioning_builds_static_html(tmp_path):
     OiChainEod.__table__.create(eng)
     GreeksSnapshot.__table__.create(eng)
     s = Session(eng)
+    # 2026-11-14 (O4): source "convex" - the profile reads only convex% books since 2ff77d3 (11/02); "am" found none
     for i in range(7):
         ts = datetime(2026, 9, 24) + timedelta(days=i)
         for k in range(5600, 6000, 25):
             for cp in ("C", "P"):
                 s.add(OiChainEod(symbol="SPX", ts=ts, expiry=date(2026, 10, 16), strike=float(k), cp=cp,
-                                 dte=20 - i, oi=1000 + (k % 100) * (i + 1), iv=0.16, gxoi=1.0, source="am"))
+                                 dte=20 - i, oi=1000 + (k % 100) * (i + 1), iv=0.16, gxoi=1.0, source="convex"))
         s.add(GreeksSnapshot(symbol="SPX", ts=ts, spot=5800.0, source="convex"))
     s.commit()
     rpt = load_script("dealer_positioning_report")

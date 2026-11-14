@@ -1,5 +1,6 @@
 # Local development stack — postgres + pgvector + app placeholder
-# Production uses docker-compose.prod.yml on the DO droplet
+# (docker-compose.prod.yml for the never-used DigitalOcean droplet was archived 2026-11-14 -> archive/;
+#  production is the NAS: scripts/nas/ + DSM tasks)
 
 services:
   postgres:
@@ -32,6 +33,7 @@ services:
   #   volumes:
   #     - ./data:/app/data
   #   command: streamlit run trading_intel/dashboard/Home.py --server.port=8501 --server.address=0.0.0.0
+  #   (the Streamlit dashboard was archived 2026-11-14 -> archive/trading_intel/dashboard/)
 
 volumes:
   postgres_data:

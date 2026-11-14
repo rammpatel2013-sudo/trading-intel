@@ -2,7 +2,7 @@
 
 Institutional-grade stock research intelligence system. Cross-theme analysis tying macro signals to company outcomes, GEX/DEX/VEX/CHEX volatility surfaces, earnings ripple detection, and a daily 7 AM AM-summary brief.
 
-**Status:** Phase 0 (foundation). See `MASTER_PLAN.md` for the full roadmap.
+**Status:** Phase 0 (foundation). The original roadmap is `archive/MASTER_PLAN.md` (archived 2026-11-14, see `archive/README.md`).
 
 ## Quick start (local dev)
 
@@ -22,22 +22,21 @@ docker compose up -d postgres
 pip install -e ".[dev]"
 alembic upgrade head
 
-# 5. Run the dashboard
-streamlit run trading_intel/dashboard/Home.py
-
-# 6. Run the scheduler (in a second terminal)
+# 5. Run the scheduler locally (the NAS runs the same jobs one by one from DSM tasks)
 python -m trading_intel.scheduler.runner
 ```
 
-Dashboard at `http://localhost:8501`. Scheduler runs APScheduler jobs (see `scheduler/jobs/`).
+The live UI is the Convex cockpit (`scripts/cvxmap/cvx_cockpit.html`, served from the NAS); reports are `scripts/*_report.py`;
+ad-hoc analysis is Claude Desktop on the MCP server (`trading_intel/mcp/`). The Streamlit dashboard and the FastAPI app were
+archived on 2026-11-14 (`archive/`).
 
 ## Core docs in this repo
 
 | File | Purpose |
 |---|---|
-| `MASTER_PLAN.md` | Full 12-week build plan, 7 phases |
+| `archive/MASTER_PLAN.md` | Original 12-week build plan, 7 phases (archived 2026-11-14) |
 | `CLAUDE.md` | Rules for AI-assisted development. **Read this before any AI agent touches the code.** |
-| `MEMORY.md` | Working memory: current state, recent decisions, open questions |
+| `archive/MEMORY.md` | Old working memory, incl. the NAS deployment notes (archived 2026-11-14) |
 | `DEPLOYMENT.md` | Local → GitHub → Digital Ocean deployment guide |
 | `docs/decisions/` | Architecture Decision Records (one per non-obvious choice) |
 | `docs/frameworks/` | Reference notes: Thrasher, FlashAlpha, nextSignals |
@@ -50,7 +49,7 @@ Dashboard at `http://localhost:8501`. Scheduler runs APScheduler jobs (see `sche
 - **L3 memory:** JSON snapshots in `data/snapshots/` (mirror to Google Drive optional).
 - **Synthesis:** Claude API (sonnet-4-6 daily, opus-4-6 weekly).
 - **Embeddings:** Voyage-3.
-- **UI:** Streamlit (8–9 tabs). FastAPI in Phase 6+ for mobile/3rd-party.
+- **UI:** the Convex cockpit page + HTML reports + MCP tools in Claude Desktop (Streamlit pages and the FastAPI app archived 2026-11-14).
 - **Schedule:** APScheduler with Postgres-backed JobStore.
 - **Hosting:** Local-first → Digital Ocean droplet ($24/mo) at Phase 7.
 
