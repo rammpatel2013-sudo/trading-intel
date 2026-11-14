@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.market import breadth as bm
+from trading_intel.market import breadth_extra as bx
 from trading_intel.memory.models import BreadthSnapshot
 from trading_intel.timeutils import eastern_now, is_trading_session
 
@@ -136,10 +137,11 @@ def run(session: Session, settings: Settings, *, client: object | None = None) -
         cvforge = CVForgeClient(settings)
     closes: dict[str, list[float]] = {}
     last_dates: dict[str, str] = {}
+    last_volumes: dict[str, float] = {}
     try:
         syms = bm.sp500_symbols(cvforge)
         if syms:
-            closes = bm.fetch_closes(cvforge, syms, last_dates=last_dates)
+            closes = bm.fetch_closes(cvforge, syms, last_dates=last_dates, last_volumes=last_volumes)
     except Exception as exc:  # noqa: BLE001 — degrade to Bull/Bear-Line-only
         log.warning("breadth.constituent_fetch_failed", error=str(exc))
     data_day = bm.data_session(last_dates)
@@ -209,6 +211,8 @@ def run(session: Session, settings: Settings, *, client: object | None = None) -
         "above_bbl": above_bbl,
         "divergence_state": div.get("state"),
         "divergence_len": div.get("length"),
+        # 2026-11-13 overnight: up/down volume, Stockbee counts, % > 40-day, setup supply
+        **(bx.extras(closes, last_volumes) if closes else {}),
     }
 
     stmt = pg_insert(BreadthSnapshot).values(values)

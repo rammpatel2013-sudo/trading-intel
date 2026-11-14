@@ -24,6 +24,7 @@ from trading_intel.synthesis.daily_brief_map_render import (  # noqa: F401
     _usd,
     _usd_signed,
 )
+from trading_intel.synthesis.brief_tape_render import tape_section
 from trading_intel.synthesis.render_utils import _esc, _fmt, _pct  # noqa: F401
 
 
@@ -916,6 +917,7 @@ def render_html(ctx: dict[str, Any]) -> str:
         + _expired_html(ctx)
         + _rolloff_html(ctx)
         + _market_read_section(ctx)
+        + tape_section(ctx)
         + _zero_dte_section(ctx)
         + _index_board(ctx)
         + _mag7_section(ctx)

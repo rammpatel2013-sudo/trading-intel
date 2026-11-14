@@ -119,6 +119,7 @@ def fetch_closes(
     *,
     days: int = 320,
     last_dates: dict[str, str] | None = None,
+    last_volumes: dict[str, float] | None = None,
 ) -> dict[str, list[float]]:
     """EOD close series per symbol via the FMP light history endpoint (best-effort).
 
@@ -142,6 +143,8 @@ def fetch_closes(
             out[sym] = list(reversed(closes[:days]))  # FMP returns newest-first → oldest→newest
             if last_dates is not None and rows[0].get("date"):
                 last_dates[sym] = str(rows[0]["date"])[:10]
+            if last_volumes is not None and rows[0].get("volume") is not None:
+                last_volumes[sym] = float(rows[0]["volume"])  # 2026-11-13: up/down volume
     return out
 
 

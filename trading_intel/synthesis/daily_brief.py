@@ -1246,6 +1246,18 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
                     ctx["rolloff"] = build_rolloff(term.get("term"), today=today)
         except Exception:  # noqa: BLE001 — additive
             log.warning("daily_brief.map_block_failed", exc_info=True)
+    # 2026-11-13 overnight: tape pillar (posture, bottom checklist, washout, FTD, Stockbee
+    # breadth, price board, VIX-shock base rate) + Tao T1 full-book regime line.
+    try:
+        from trading_intel.synthesis.brief_tape import full_book_regime, tape_context
+
+        ctx["tape"] = tape_context(session)
+        ctx["tape"]["full_book"] = full_book_regime(session, _DOC_ROOT)
+        from trading_intel.synthesis.vol_read import brief_line, build as vol_read_build
+
+        ctx["tape"]["vol_read"] = brief_line(vol_read_build(session))
+    except Exception:  # noqa: BLE001 - additive
+        log.warning("daily_brief.tape_failed", exc_info=True)
     try:
         ctx["book_read"] = _book_read(ctx)
     except Exception:  # noqa: BLE001 — additive

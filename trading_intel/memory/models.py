@@ -1424,6 +1424,16 @@ class BreadthSnapshot(Base):
     # breadth-vs-price divergence
     divergence_state: Mapped[str | None] = mapped_column(String(16))
     divergence_len: Mapped[int | None] = mapped_column(Integer)
+    # 2026-11-13 overnight (brief item 5): extra counts from the same constituent bars
+    up_volume: Mapped[int | None] = mapped_column(BigInteger)
+    down_volume: Mapped[int | None] = mapped_column(BigInteger)
+    up4: Mapped[int | None] = mapped_column(Integer)
+    down4: Mapped[int | None] = mapped_column(Integer)
+    up25q: Mapped[int | None] = mapped_column(Integer)
+    down25q: Mapped[int | None] = mapped_column(Integer)
+    pct_above_40: Mapped[int | None] = mapped_column(Integer)
+    setups_base: Mapped[int | None] = mapped_column(Integer)
+    setups_pullback: Mapped[int | None] = mapped_column(Integer)
 
 
 class NewsletterLevel(Base):
