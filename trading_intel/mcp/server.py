@@ -792,6 +792,8 @@ def build_server(
     tgt.register(mcp, settings)
     p5t.register(mcp, settings, session_factory)
     sst.register(mcp, settings, session_factory)
+    from trading_intel.mcp import equity_tools  # equity / swing side E1-E6 (2026-11-14)
+    equity_tools.register(mcp, settings, session_factory)
 
     return mcp
 
