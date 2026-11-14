@@ -141,3 +141,66 @@ def test_board_carries_the_signal_and_vvix_is_pulled():
     assert "VVIX" in X.B_IDX
     b = X.board(_spike_hist(1), {}, TODAY)
     assert b["sig"]["state"]["phase"] == "FIRE"
+
+
+def _calm_hist(n: int = 100) -> dict:
+    """VIX / SPX closes through YESTERDAY where VIX moves -1.5 points per +1% SPX."""
+    import math
+    ds = [TODAY - datetime.timedelta(days=n - i) for i in range(n)]
+    vix, spx, v, s = [], [], 18.0, 6000.0
+    for i, d in enumerate(ds):
+        r = 0.6 if i % 2 else -0.6
+        s *= math.exp(r / 100.0)
+        v += -1.5 * r
+        vix.append((d, v))
+        spx.append((d, s))
+    return {"VIX": vix, "SPX": spx}
+
+
+def test_board_tells_calm_drop_from_todays_live_quotes():
+    h = _calm_hist()
+    v0, s0 = h["VIX"][-1][1], h["SPX"][-1][1]
+    t = "2026-11-13T15:00:00"
+    q = {"VIX": {"v": v0 + 0.5, "t": t}, "SPX": {"v": s0 * 0.985, "t": t}}   # SPX -1.5%, VIX +0.5
+    tl = X.board(h, q, TODAY)["tells"]
+    su = tl["setups"]
+    assert su["provisional"] is True and su["asof"] == TODAY.isoformat()
+    assert su["calm"]["last"]["active"] and su["calm"]["last"]["ago"] == 0
+    assert su["rally"]["last"] is None
+    assert tl["basis"]["found"] is False and "vixmap" in tl["basis"]["reason"]
+    q["SPX"]["t"] = "2026-11-12T16:00:00"                                   # quotes from two days: skip
+    assert X.board(h, q, TODAY)["tells"]["setups"]["provisional"] is False
+
+
+def test_newest_vixmap_and_the_basis_line(tmp_path):
+    import json
+    good = {"exps": [{"e": "2026-11-18", "F": 19.1079}, {"e": "2026-12-16", "F": 19.4379}],
+            "px": [["15:59", 19.25, 19.1], ["16:00", 19.30, 19.1]]}
+    (tmp_path / "vixmap_20261113.json").write_text(json.dumps(good))
+    (tmp_path / "vixmap_20261112.json").write_text(
+        json.dumps({"exps": [{"e": "2026-11-18", "F": 18.0}, {"e": "2026-12-16", "F": 18.5}]}))
+    (tmp_path / "vixmap_20261120.json").write_text(json.dumps(good))         # future file: skipped
+    vxm = X.newest_vixmap(str(tmp_path), TODAY)
+    assert vxm["d"] == TODAY and vxm["vix"] == 19.30
+    b = X.board(_calm_hist(), {}, TODAY, vxm)["tells"]["basis"]
+    assert b["found"] and b["state"] == "normal" and b["basis"] == 0.10 and b["stale"] is False
+    (tmp_path / "vixmap_20261113.json").write_text("{bad json")
+    vxm = X.newest_vixmap(str(tmp_path), TODAY)                            # falls back a day
+    assert vxm["d"] == datetime.date(2026, 11, 12) and vxm["vix"] == 0.0
+    b = X.board(_calm_hist(), {}, TODAY, vxm)["tells"]["basis"]
+    assert b["stale"] is True and b["vix"] == round(_calm_hist()["VIX"][-1][1], 2)
+    assert X.newest_vixmap(str(tmp_path / "none"), TODAY) is None
+
+
+def test_show_tells_one_line(tmp_path, capsys):
+    import json
+    h = _calm_hist()
+    vxm = {"d": TODAY, "exps": [{"e": "2026-11-18", "F": 19.1079}, {"e": "2026-12-16", "F": 19.4379}],
+           "vix": 19.30}
+    (tmp_path / "volx.json").write_text(json.dumps({"board": X.board(h, {}, TODAY, vxm)}))
+    assert X.main(["--out", str(tmp_path), "--show-tells"]) == 0
+    line = capsys.readouterr().out
+    assert "Calm drop off" in line and "Rally + fear up off" in line and "basis +0.10 Normal" in line
+    (tmp_path / "volx.json").write_text(json.dumps({"board": {"tells": {"err": "vol_tells not importable"}}}))
+    assert X.main(["--out", str(tmp_path), "--show-tells"]) == 1
+    assert X.main(["--out", str(tmp_path / "none"), "--show-tells"]) == 1

@@ -932,6 +932,25 @@ body.phone .orpane canvas{height:460px}
 .vbfund{background:#0E1B33;border:1px solid #24324D;border-radius:10px;padding:8px 11px;font-size:15px;color:#fff}
 .vbfund .s{font-size:17px;font-weight:800}.vbfund .p{font-size:22px;font-weight:800}
 .vbfund .h{font-size:13.5px;color:#DCE6F2}
+/* 2026-11-14 (later) Vol board day tells (Calm drop / Rally + fear up) + VIX futures basis line */
+.vbtells{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr));gap:10px}
+.vbtell{display:grid;grid-template-columns:auto 1fr;gap:12px;background:#0E1B33;border:2px solid #24324D;border-radius:12px;padding:10px 14px}
+.vbtell.lit{border-color:var(--tc);box-shadow:0 0 0 3px color-mix(in srgb,var(--tc) 22%,transparent)}
+.vbtchip{display:inline-block;font-size:17px;font-weight:800;padding:3px 10px;border-radius:8px;color:#0A1426;background:#55657F}
+.vbtell.lit .vbtchip{background:var(--tc)}
+.vbtn{font-size:19px;font-weight:800;color:#fff}
+.vbtw{font-size:16px;line-height:1.45;color:#F2F6FC;margin-top:2px}
+.vbtwhen{font-size:15.5px;color:#DCE6F2;margin-top:6px}.vbtwhen b{color:#fff}
+.vbtev{font-size:15px;line-height:1.45;color:#DCE6F2;margin-top:4px}.vbtev b{color:#fff}
+.vbtuse{font-size:16px;line-height:1.45;color:#fff;background:#112141;border-radius:8px;padding:6px 10px;margin-top:8px}
+.vbtuse.dim{color:#C9D6E8;background:none;padding:0;font-size:15px}
+.vbbasis{border:2px solid var(--bc,#2E4470);border-radius:12px;padding:10px 14px;margin-top:12px;background:#0E1B33}
+.vbbasis .lab{display:inline-block;font-size:18px;font-weight:800;padding:3px 12px;border-radius:8px;color:#0A1426;background:var(--bc)}
+.vbbasis .num{font-size:17px;color:#fff;margin-left:10px}
+.vbbas{position:relative;height:16px;background:#1B2C4C;border-radius:8px;margin:12px 0 22px}
+.vbbas i{position:absolute;top:0;bottom:0}
+.vbbas b{position:absolute;top:-5px;width:6px;height:26px;margin-left:-3px;background:#fff;border-radius:3px}
+.vbbas span{position:absolute;top:19px;font-size:13px;color:#C9D6E8;transform:translateX(-50%)}
 #vbTip{position:fixed;z-index:9999;max-width:min(440px,calc(100vw - 16px));background:#0A1426;border:2px solid #5CA8FF;border-radius:12px;padding:10px 14px;color:#fff;font-size:16px;line-height:1.45;box-shadow:0 14px 40px rgba(0,0,0,.75);pointer-events:none}
 #vbTip b{color:#FFD54A}
 @media (max-width:760px){.vbsig{grid-template-columns:1fr}.vbcards{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.vbcard .lv{font-size:25px}}
@@ -8747,6 +8766,8 @@ function vxoStack(el){
    2. Volatility across markets as cards, the most unusual first (rich / calm next to the S&P, then high /
       low for its own year); the coloured left edge = where the level sits in its own last year.
    3. VIX curve (today / 1 week / 1 month ago) and the vol funds strip.
+   4. (2026-11-14 later) Day tells under the signal card: "Calm drop" and "Rally + fear up", and the VIX futures
+      basis line under the curve (board.tells from trading_intel/vol/vol_tells.py).
    Hover (tap on a phone) any card or day for the numbers. Rule 4: the card shows a state; the alert is the
    EOD job's. */
 const VB_PH={IDLE:["#9DB0CA","IDLE"],ARMED:["#FFC24A","ARMED"],FIRE:["#3FE0A0","FIRE"],HOLD:["#5CA8FF","HOLD"]};
@@ -8845,8 +8866,8 @@ function vbFunds(B){
   return `<div class="vbsec"><h3>Vol funds</h3><div class="vbsub">Long-vol funds lose value while the VIX curve slopes up (contango); short-vol funds gain then and can lose most of their value in one spike. A price going up is green.</div><div class="vbfunds">`+
     R.map(r=>`<div class="vbfund"${vbTipAttr(`<b>${esc(r.s)}</b>: ${esc(r.name)}.<br>Price ${(+r.v).toFixed(2)} (${r.src==="live"?"live, ~15 min delayed":"last close"}).<br>1 day ${r.d1==null?"–":(+r.d1).toFixed(2)+"%"}, 1 week ${r.d5==null?"–":(+r.d5).toFixed(2)+"%"}, 1 month ${r.d21==null?"–":(+r.d21).toFixed(2)+"%"}.`)}><span class="s">${esc(r.s)}</span> <span class="p">${(+r.v).toFixed(2)}</span><div class="h">${esc(r.name)}</div><div>1d ${vbRet(r.d1)} · 1w ${vbRet(r.d5)} · 1m ${vbRet(r.d21)}</div>${vbSpark(r.spark,150,28)}</div>`).join("")+`</div></div>`; }
 
-function vbCurve(VR){
-  if(!VR||!VR.curves||!VR.tenors) return `<div class="vbsec"><h3>VIX curve</h3><div class="vbnote">No VIX curve in live.json (the writer fills it on market days).</div></div>`;
+function vbCurve(VR,TB){
+  if(!VR||!VR.curves||!VR.tenors) return `<div class="vbsec"><h3>VIX curve</h3><div class="vbnote">No VIX curve in live.json (the writer fills it on market days).</div>${vbBasis(TB)}</div>`;
   const C=VR.curves, ten=VR.tenors.map(t=>Array.isArray(t)?t[0]:t), sets=[["today",C.today,"#FFD23F",3.5],["1 week ago",C.w,"#6AB7FF",2],["1 month ago",C.m,"#8C9BB5",2]];
   const all=sets.flatMap(s=>s[1]||[]).filter(v=>v!=null); if(!all.length||ten.length<2) return "";
   const W=600,H=230,L=40,Rm=24,T=14,Bm=34, lo=Math.floor(Math.min(...all)-1), hi=Math.ceil(Math.max(...all)+1), X=i=>L+i*(W-L-Rm)/(ten.length-1), Y=v=>T+(hi-v)*(H-T-Bm)/(hi-lo||1);
@@ -8859,13 +8880,49 @@ function vbCurve(VR){
   s+=`</svg>`;
   const t=C.today||[], i30=ten.indexOf("VIX"), i3=ten.indexOf("VIX3M"), r=(t[i30]&&t[i3])?t[i30]/t[i3]:null;
   return `<div class="vbsec"><h3>VIX curve</h3>${s}<div class="vbnote" style="color:#fff">${sets.map(x=>`<b style="color:${x[2]}">&#9679; ${x[0]}</b>`).join(" &nbsp; ")}`+
-    (r!=null?` · VIX &divide; VIX3M <b>${r.toFixed(3)}</b>: ${r>=1?`<b class="vbup">upside down (backwardation)</b>, fear is near-term`:`<b class="vbdn">normal upward slope (contango)</b>`}`:"")+`</div></div>`; }
+    (r!=null?` · VIX &divide; VIX3M <b>${r.toFixed(3)}</b>: ${r>=1?`<b class="vbup">upside down (backwardation)</b>, fear is near-term`:`<b class="vbdn">normal upward slope (contango)</b>`}`:"")+`</div>${vbBasis(TB)}</div>`; }
+
+/* 2026-11-14 (later) day tells + VIX futures basis (Jared H harvest; trading_intel/vol/vol_tells.py via volx.py
+   board.tells). Display only, same Vol board option. The history lines are frozen 2026-11-14 tests on Cboe data. */
+const VB_BAS={cheap:"#3FE0A0",normal:"#9DB0CA",crowded:"#FF8A3D"};
+const vbSg=(v,d=2)=>v==null||!isFinite(v)?"–":(v>0?"+":"")+(+v).toFixed(d);
+const VB_TRULE={calm:"SPX closes down 1% or more AND VIX ends at least 1 point under what that SPX drop alone predicts (VIX overshoot model, refit each day on the prior 126 sessions).",
+  rally:"SPX closes up 1% or more AND VIX still closes higher than the day before."};
+function vbTells(T){
+  const h=`<div class="vbsec"><h3>Day tells</h3>`;
+  if(!T) return h+`<div class="vbnote">No day tells in volx.json yet (volx.py older than this cockpit).</div></div>`;
+  if(T.err) return h+`<div class="vbnote">Day tells not available: ${esc(T.err)}. Rebuild the image (deploy.sh).</div></div>`;
+  const S=T.setups||{};
+  if(!S.found) return h+`<div class="vbnote">${esc(S.reason||"Not enough VIX + SPX history yet.")}</div></div>`;
+  const td=S.today||{}, live=S.provisional&&String((VOLX&&VOLX.asof)||"").slice(11,16)<"16:15";   // after 16:15 the quotes are the close
+  const sub=`<div class="vbsub">${live?"Today so far":S.provisional?"Today (closing quotes)":vbDt(td.d)}: SPX ${vbRet(td.spx,2)}, VIX ${vbLvl(td.vix_chg)} &mdash; the SPX move alone said ${vbSg(td.model_chg)} (gap ${vbSg(td.res)}).${live?" Final at the close.":""} A tell stays on for 5 sessions.</div>`;
+  const row=(k,col)=>{ const x=S[k]||{}, L=x.last, ev=x.ev||{}, R=ev.recent||{}, on=!!(L&&L.active);
+    const when=!L?"Not seen in the last year":on?(L.ago===0?`<b>ON TODAY</b>${live?" (so far &mdash; final at the close)":""}`:`<b>ON: printed ${L.ago} session${L.ago===1?"":"s"} ago</b> (${vbDt(L.d)}), still inside its 5-day read`):`Not now &middot; last ${vbDt(L.d)} (${L.ago} sessions ago) &middot; ${L.count_1y} in the last year`;
+    const evl=`${esc(x.lean||"")}: SPX next 5 days <b>${vbSg(ev.avg,1)}%</b> on average (normal ${vbSg(ev.base_avg,1)}%), up <b>${ev.up}%</b> of the time (normal ${ev.base_up}%) &middot; ${ev.n} days since 1990`;
+    const tip=`<b>${esc(x.name||"")}</b><br>${esc(VB_TRULE[k]||"")}`+(L?`<br><b>Last:</b> ${vbDt(L.d)}: SPX ${vbSg(L.spx)}%, VIX ${vbSg(L.vix_chg)} to ${L.vix} (the SPX move alone said ${vbSg(L.model_chg)}).`:"")+
+      `<br><b>Next 5 days after it:</b> since 1990 SPX ${vbSg(ev.avg)}% avg, up ${ev.up}% (${ev.n} days); ${esc(R.span||"")} ${vbSg(R.avg)}%, up ${R.up}% (${R.n} days). Every day: ${vbSg(ev.base_avg)}%, up ${ev.base_up}%.<br>Days next to each other overlap, so the real sample is smaller. A read, not a signal.`;
+    return `<div class="vbtell${on?" lit":""}" style="--tc:${col}"${vbTipAttr(tip)}><div><span class="vbtchip">${on?"ON":"off"}</span></div><div><div class="vbtn">${esc(x.name||k)}</div><div class="vbtw">${esc(x.what||"")}</div><div class="vbtwhen">${when}</div><div class="vbtev">${evl}</div>`+
+      (on?`<div class="vbtuse">${esc(x.use||"")}</div>`:`<div class="vbtuse dim">If it turns on: ${esc(x.use||"")}</div>`)+`</div></div>`; };
+  return h+sub+`<div class="vbtells">${row("calm","#3FE0A0")}${row("rally","#FF8A3D")}</div></div>`; }
+
+function vbBasis(B){
+  if(!B) return "";
+  if(!B.found) return `<div class="vbnote">VIX futures basis: ${esc(B.reason||"not available")}.</div>`;
+  const col=VB_BAS[B.state]||VB_BAS.normal, E=B.ev||{}, e=E[B.state]||{}, lo=-3, hi=5, P=v=>100*(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo);
+  const bar=`<div class="vbbas"><i style="left:0;width:${P(0)}%;background:#3FE0A066"></i><i style="left:${P(0)}%;width:${P(2)-P(0)}%;background:#9DB0CA44"></i><i style="left:${P(2)}%;right:0;background:#FF8A3D55"></i><b style="left:${P(B.basis)}%"></b><span style="left:${P(-3)+4}%">cheap</span><span style="left:${P(0)}%">0</span><span style="left:${P(1)}%">normal</span><span style="left:${P(2)}%">+2</span><span style="left:${P(4)}%">crowded</span></div>`;
+  const L=B.legs||[], mon=x=>new Date(x.e+"T12:00:00").toLocaleDateString("en-US",{month:"short"});
+  const tb=["cheap","normal","crowded"].map(k=>{ const r=E[k]||{}; return `<tr><td>${k==="cheap"?"&le; 0":k==="normal"?"0 to +2":"&gt; +2"}</td><td>${r.n}</td><td>${vbSg(r.short_vx)}</td><td>${r.win}%</td><td>${r.big_loss}%</td><td>${r.jump}%</td></tr>`; }).join("");
+  const tip=`<b>VIX futures basis</b> = 30-day VIX future minus spot VIX.<br>30-day future = ${L[0]?`${mon(L[0])} ${L[0].F} (${L[0].t} days)`:"–"} and ${L[1]?`${mon(L[1])} ${L[1].F} (${L[1].t} days)`:"–"} blended to 30 days, from the VIX option forwards in our VIX map.<br><br><b>Past days, ${esc(E.span||"")}</b> (short the 2nd VIX future for 10 days):<table class="vbhist"><tr><th>Basis</th><th>days</th><th>avg pts</th><th>won</th><th>lost 3+</th><th>VIX +5 in 20d</th></tr>${tb}</table>`;
+  return `<div class="vbbasis" style="--bc:${col}"${vbTipAttr(tip)}><span class="lab">${esc(B.label||"")}</span><span class="num">VIX futures basis <b>${vbSg(B.basis)}</b> &nbsp;(30-day future ${(+B.vx30).toFixed(2)} &minus; VIX ${(+B.vix).toFixed(2)})</span>`+
+    `<div class="vbtw" style="margin-top:8px">${esc(B.text||"")}</div>${bar}`+
+    `<div class="vbtev">Past days like this (${e.n} since 2013): shorting the 2nd VIX future for 10 days made <b>${vbSg(e.short_vx)} pts</b> on average and won <b>${e.win}%</b>, lost 3+ pts ${e.big_loss}% of the time; VIX jumped 5+ pts within 20 days <b>${e.jump}%</b> of the time.</div>`+
+    (B.stale?`<div class="vbnote">From the ${vbDt(B.asof)} VIX map &mdash; today's is not in yet.</div>`:"")+`</div>`; }
 
 function vbRender(el){
-  const head=`<div class="vbtitle"><h2>Vol board</h2><span>VIX spike-fade signal · volatility across markets · VIX curve · vol funds · free Cboe data, ~15 min delayed</span></div>`;
+  const head=`<div class="vbtitle"><h2>Vol board</h2><span>VIX spike-fade signal · day tells · volatility across markets · VIX curve + futures basis · vol funds · free Cboe data, ~15 min delayed</span></div>`;
   if(!VOLX||!VOLX.board){ el.innerHTML=head+`<div class="vbnote">${VOLX&&VOLX._err?`Could not read volx.json (${esc(VOLX._err)}). Is <code>cvxmap-volx</code> running?`:VOLX?"volx.json has no board yet (volx.py older than 2026-11-14).":"Loading volx.json…"}</div>`; return; }
   const B=VOLX.board;
-  el.innerHTML=head+vbSignal(B.sig,B.fade)+vbCards(B)+`<div class="vbsec" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px"><div>${vbCurve(st.live&&st.live.VIXR)}</div><div>${vbFunds(B)}</div></div>`+
+  el.innerHTML=head+vbSignal(B.sig,B.fade)+vbTells(B.tells)+vbCards(B)+`<div class="vbsec" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px"><div>${vbCurve(st.live&&st.live.VIXR,B.tells&&B.tells.basis)}</div><div>${vbFunds(B)}</div></div>`+
     `<div class="vbnote">Updated ${esc(String(VOLX.asof||"").replace("T"," ").slice(0,16))} ET. History: project doc claude/vol-etp-backtest-20261114.md. Descriptive card; the alert is the EOD job.</div>`;
   vbPath(document.getElementById("vbPath"),B.sig);
   if(!el.dataset.vbTip){ el.dataset.vbTip="1";
@@ -8889,7 +8946,7 @@ var DNO_DEF=[["dn1","Support + walls","Call wall = largest 1–7 DTE call open i
 var VXO_DEF=[["vx1","Regime gauge","VIXM / VIXY ratio, 8-day vs 21-day average, with two confirmations (VIX9D above VIX, SPX below its 21-day average). Untested predictor. Needs the vol poller (cvxmap-volx)."],
   ["vx2","Variance stack","VIX² + DSPX² ≈ VIXEQ² through the day: how much of single-stock volatility is reaching the index. Needs the vol poller (cvxmap-volx)."],
   ["vmap","VIX map","Dealer gamma and vanna in VIX options by VIX level and time of day, like the SPX Map. Written by the Orbs feed (cvxmap-wide)."],
-  ["vb","Vol board","VIX spike-fade signal (rule vf-v2: armed after a VIX close at 25+, fires when VIX9D drops back under VIX inside 20 sessions, strong = VVIX 110+; buy SVXY, hold 20 sessions), volatility across markets as cards (most unusual first), the VIX curve and the vol funds. Display only; the alert is the 17:13 EOD job. Needs the vol poller (cvxmap-volx)."],
+  ["vb","Vol board","VIX spike-fade signal (rule vf-v2: armed after a VIX close at 25+, fires when VIX9D drops back under VIX inside 20 sessions, strong = VVIX 110+; buy SVXY, hold 20 sessions), the day tells (Calm drop, Rally + fear up), volatility across markets as cards (most unusual first), the VIX curve with the VIX futures basis (cheap to enter / normal / crowded & expensive) and the vol funds. Display only; the alert is the 17:13 EOD job. Needs the vol poller (cvxmap-volx)."],
   ["split","SPX IV move split","Today's 0DTE SPX ATM IV change split in two: sliding along the skew (price moved to strikes with a different IV - tends to snap back when price comes back) vs the curve itself moving (the IV of a fixed strike changed - real repricing of fear). From the minute log, no extra data."]];
 function optRow(id,defs,obj){ const el=document.getElementById(id); if(!el) return; const sig=defs.map(([k])=>k+(obj[k]?1:0)).join("");
   if(el.dataset.sig===sig) return; el.dataset.sig=sig;

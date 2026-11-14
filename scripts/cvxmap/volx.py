@@ -33,17 +33,24 @@ VX2 variance stack: VIX^2 + DSPX^2 ~= VIXEQ^2; transmission share = VIX^2 / (VIX
         (the SAME function the EOD job banks into `signals` and pushes to Telegram): VIX / VIX9D /
         VVIX closes + today's quotes as a provisional row until the history files carry today.
         The cockpit card only SHOWS it; the official signal is the EOD job (rule 4).
+  tells 2026-11-14 (Jared H harvest) trading_intel.vol.vol_tells, display only: the day tells
+        "Calm drop" (SPX -1%+ but VIX rose 1+ pt less than the VIX overshoot model says) and
+        "Rally + fear up" (SPX +1%+ and VIX up anyway), lit for 5 sessions, today provisional; and
+        the VIX futures basis (30-day VX from the VIX option forwards in the newest
+        data/vixmap_YYYYMMDD.json minus spot VIX): cheap to enter / normal / crowded & expensive.
   Board quotes refresh every 5 min (minute quotes reused where they exist); history once a day.
   The standalone vol_board.html page (11/14 morning) was retired when the board moved into the
   cockpit.
 
 RUN  python scripts/cvxmap/volx.py         one step a minute; exits at 16:30 ET (weekends: once)
      python scripts/cvxmap/volx.py --once  one step, then exit
+     python scripts/cvxmap/volx.py --show-tells   one line: the day tells + basis in data/volx.json
 NAS  sudo bash .../trading-intel/scripts/nas/run_volx.sh start | stop | status | once
 """
 from __future__ import annotations
 
 import datetime
+import glob
 import json
 import os
 import sys
@@ -300,8 +307,9 @@ def fade_state(hist: dict, q: dict, today: datetime.date) -> dict | None:
             "vix_vix3m": round(vix / v3, 3) if v3 else None}
 
 
-def board(hist: dict, q: dict, today: datetime.date) -> dict:
-    """Vol board for the cockpit VIX tab. q = every quote we hold (minute + 5-minute board quotes)."""
+def board(hist: dict, q: dict, today: datetime.date, vxm: dict | None = None) -> dict:
+    """Vol board for the cockpit VIX tab. q = every quote we hold (minute + 5-minute board quotes);
+    vxm = newest_vixmap() (the VIX option forwards for the futures basis) or None."""
     vix_now = _f((q.get("VIX") or {}).get("v")) or ((hist.get("VIX") or [(None, 0.0)])[-1][1])
     vh = dict(hist.get("VIX", []))
     rows = []
@@ -337,7 +345,7 @@ def board(hist: dict, q: dict, today: datetime.date) -> dict:
                     "d5": chg(_back(ser, 5, fresh)), "d21": chg(_back(ser, 21, fresh)),
                     "spark": _spark(ser, v, fresh)})
     return {"rows": rows, "etp": etp, "fade": fade_state(hist, q, today), "bt": BT,
-            "sig": fade_signal(hist, q, today)}
+            "sig": fade_signal(hist, q, today), "tells": board_tells(hist, q, today, vxm)}
 
 
 def _vf():  # noqa: ANN202 - the strategy module (baked into the image; the repo root on a laptop)
@@ -346,6 +354,55 @@ def _vf():  # noqa: ANN202 - the strategy module (baked into the image; the repo
         sys.path.append(root)
     from trading_intel.strategies import vol_fade
     return vol_fade
+
+
+def _vt():  # noqa: ANN202 - trading_intel.vol.vol_tells (baked into the image; the repo root on a laptop)
+    _vf()  # puts the repo root on sys.path
+    from trading_intel.vol import vol_tells
+    return vol_tells
+
+
+def newest_vixmap(out_dir: str, today: datetime.date) -> dict | None:
+    """The newest data/vixmap_YYYYMMDD.json (today or up to 5 files back) with forwards:
+    {"d", "exps", "vix"}; vix = the map's last minute spot VIX (same moment as the forwards)."""
+    for f in sorted(glob.glob(os.path.join(out_dir, "vixmap_*.json")))[-5:][::-1]:
+        ymd = os.path.basename(f)[7:15]
+        try:
+            d = datetime.date(int(ymd[:4]), int(ymd[4:6]), int(ymd[6:8]))
+            if d > today:
+                continue
+            with open(f) as fh:
+                j = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if isinstance(j, dict) and j.get("exps"):
+            px = j.get("px") or []
+            v = _f(px[-1][1]) if px and isinstance(px[-1], list) and len(px[-1]) > 1 else 0.0
+            return {"d": d, "exps": j["exps"], "vix": v}
+    return None
+
+
+def board_tells(hist: dict, q: dict, today: datetime.date, vxm: dict | None) -> dict | None:
+    """The day tells (+ today's quotes as a provisional session) and the VIX futures basis."""
+    try:
+        vt = _vt()
+    except Exception as exc:  # image older than the module: say so, keep the board
+        return {"err": "vol_tells not importable: " + str(exc)[:120]}
+    vix, spx = dict(hist.get("VIX") or []), dict(hist.get("SPX") or [])
+    vq, sq = q.get("VIX") or {}, q.get("SPX") or {}
+    d, prov = qday(vq, today), None
+    if (_f(vq.get("v")) > 0 and _f(sq.get("v")) > 0 and qday(sq, today) == d and d.weekday() < 5
+            and vix and spx and d > max(vix) and d > max(spx)):
+        vix[d], spx[d], prov = _f(vq.get("v")), _f(sq.get("v")), d
+    out = {"setups": vt.setups(vix, spx, provisional=prov), "basis": None}
+    if vxm:
+        v = vxm.get("vix") or (vix.get(vxm["d"]) if vxm["d"] in vix else 0.0)
+        b = vt.vx_basis(vxm.get("exps") or [], vxm["d"], v or 0.0)
+        b["stale"] = vxm["d"] < today and today.weekday() < 5
+        out["basis"] = b
+    else:
+        out["basis"] = {"found": False, "reason": "no vixmap_*.json (VIX map feed, cvxmap-wide)"}
+    return out
 
 
 def fade_signal(hist: dict, q: dict, today: datetime.date) -> dict | None:
@@ -386,6 +443,8 @@ class VolX:
         self.err: str | None = None
         self.bq: dict = {}              # 2026-11-14 board-only quotes (every BOARD_EVERY_S)
         self.bq_t = 0.0
+        self.vxm: dict | None = None    # 2026-11-14 newest vixmap forwards (every BOARD_EVERY_S)
+        self.vxm_t = 0.0
 
     def _get(self, url: str, timeout: float = 8):  # noqa: ANN202
         import requests
@@ -496,8 +555,14 @@ class VolX:
                 "stack_prev": stack({s: (self.q.get(s) or {}).get("prev") for s in STK}),
                 "hist_through": {s: (v[-1][0].isoformat() if v else None)
                                  for s, v in self.hist.items()},
-                "board": _safe_board(self.hist, {**self.bq, **self.q}, today),
+                "board": _safe_board(self.hist, {**self.bq, **self.q}, today, self._vixmap(today)),
                 "err": self.err}
+
+    def _vixmap(self, today: datetime.date) -> dict | None:
+        if time.time() - self.vxm_t > BOARD_EVERY_S:
+            self.vxm_t = time.time()
+            self.vxm = newest_vixmap(self.out, today)
+        return self.vxm
 
     def write(self, now: datetime.datetime) -> None:
         os.makedirs(self.out, exist_ok=True)
@@ -519,10 +584,10 @@ class VolX:
             time.sleep(STEP_S)
 
 
-def _safe_board(hist: dict, q: dict, today: datetime.date) -> dict | None:
+def _safe_board(hist: dict, q: dict, today: datetime.date, vxm: dict | None = None) -> dict | None:
     """The board never takes volx.json down with it."""
     try:
-        return board(hist, q, today)
+        return board(hist, q, today, vxm)
     except Exception as exc:  # descriptive extra: log and carry on
         print("volx board error:", str(exc)[:200], flush=True)
         return None
@@ -542,11 +607,40 @@ def start(out_dir: str, clock: Callable[[], datetime.datetime]) -> VolX:
     return v
 
 
+def show_tells(path: str) -> int:
+    """One line for ship / check sessions: what the Vol board day tells and the basis say now."""
+    try:
+        with open(path) as fh:
+            t = (json.load(fh).get("board") or {}).get("tells") or {}
+    except (OSError, ValueError) as exc:
+        print("tells: cannot read", path, str(exc)[:80])
+        return 1
+    if t.get("err") or not t:
+        print("tells: ERROR", t.get("err") or "no board.tells in volx.json")
+        return 1
+    su, b = t.get("setups") or {}, t.get("basis") or {}
+    if not su.get("found"):
+        print("tells:", su.get("reason"))
+        return 1
+    parts = []
+    for k in ("calm", "rally"):
+        x = su.get(k) or {}
+        last = x.get("last")
+        on = "ON" if last and last.get("active") else "off"
+        parts.append(f"{x.get('name', k)} {on}" + (f" (last {last['d']})" if last else ""))
+    parts.append(f"basis {b['basis']:+.2f} {b['label']} ({b['asof']})" if b.get("found")
+                 else f"basis n/a: {b.get('reason')}")
+    print(f"tells as of {su.get('asof')}:", " | ".join(parts))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     out = DATA
     if "--out" in argv:
         out = argv[argv.index("--out") + 1]
+    if "--show-tells" in argv:
+        return show_tells(os.path.join(out, "volx.json"))
     v = VolX(out, now_et)
     print(f"volx start {now_et():%Y-%m-%d %H:%M} -> {out}", flush=True)
     if "--once" in argv:

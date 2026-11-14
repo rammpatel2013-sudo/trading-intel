@@ -9,12 +9,15 @@ Every edit is an exact, single-occurrence replacement; the script stops if produ
 flow_tail.json, polls paused while the tab is hidden) - data loading only, inherited, no test-side edit.
 2026-11-14 (later): production VIX tab gained the "Vol board" option (vf-v2 fade signal card, vol across markets as
 cards, VIX curve, vol funds; OFF by default, display only, reads volx.json) - inherited, no test-side edit.
+2026-11-14 (evening): the Vol board gained the day tells ("Calm drop", "Rally + fear up") and the VIX futures basis
+line under the VIX curve (cheap to enter / normal / crowded & expensive; volx.json board.tells) - inherited, no
+test-side edit.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("9c68265a658bd60f"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("e18241d5c78b50c6"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
