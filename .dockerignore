@@ -1,0 +1,42 @@
+# .dockerignore - 2026-11-14 (O1, code audit C2), Claude for Mithil.
+# The Dockerfile only COPYs pyproject.toml, trading_intel/, scripts/, alembic/, alembic.ini.
+# Everything below is either runtime data or never copied - keep it out of the build
+# context so a cached build is quick and the image stays small.
+# NEVER add trading_intel, scripts, alembic, alembic.ini or pyproject.toml here.
+
+# Cockpit collector output on the NAS (~600 MB per trading day). Containers bind-mount
+# the host scripts/ folder at run time, so the image never needs these files.
+scripts/cvxmap/data
+scripts/cvxmap/**/bars_cache
+
+# Never copied by the Dockerfile
+.git
+.venv
+venv
+.env
+.env.*
+secrets
+research
+data
+docs
+reports
+tests
+backups
+logs
+_to_delete
+_pending_*
+Claude outputs
+
+# Python / tool caches
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Root-level bundles and documents
+*.tgz
+*.tar.gz
+*.zip
+*.pdf
+*.xlsx
