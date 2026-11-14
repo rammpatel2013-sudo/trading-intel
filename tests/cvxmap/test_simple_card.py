@@ -125,8 +125,12 @@ def test_page_and_telegram(tmp_path):
     root = _root(tmp_path)
     p, D = C.write(root, "2026-11-13", tmp_path / "out.html", seed=SEED, names=NAMES, book=50000.0)
     html = p.read_text(encoding="utf-8")
-    assert "/*__DATA__*/" not in html and '"day":"2026-11-13"' in html and "Friday, Nov 13" in html
     assert html.count("</script>") == 1
+    body = html.split("<script>")[0]                 # 2026-11-14: everything shows with scripts off (phone file viewers)
+    for want in ("Friday, Nov 13", "Is it making money?", "+$890", "Butterfly at the top line", "Ceiling — right",
+                 "Close lands in the morning range", "Game plan hit", '<path d="M'):
+        assert want in body, want
+    assert body.count('class="hit"') > 10 and "data-tip=" in body
     txt = C.telegram_text(D)
     assert txt.startswith("<b>SPX scorecard · Fri 13 Nov</b>")
     assert "Close 6,861 (+0.4%) · moved 41 pts · options expected ±58" in txt
@@ -139,3 +143,4 @@ def test_missing_files_do_not_crash(tmp_path):
     D = C.build(tmp_path, "2026-11-13", seed=SEED, names=NAMES, book=50000.0)
     assert D["money"]["total"] == 700 and D["today"]["checks"] == [] and D["today"]["path"] == []
     assert C.page(D) and C.telegram_text(D).startswith("<b>SPX scorecard")
+    assert "No checks today" in C.page(D) and "No price chart for today" in C.page(D)

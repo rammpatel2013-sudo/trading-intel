@@ -36,7 +36,10 @@ import csv
 import datetime
 import json
 import statistics as stx
+import sys
 from pathlib import Path
+
+import simple_card_html as H   # 2026-11-14: the page is written in Python (no scripts needed to see it)
 
 MIN_NIGHTS = 20
 HIT_PTS = 5.0
@@ -406,7 +409,6 @@ def today(root, day_iso, hist=None):
 # ------------------------------------------------------------------ assemble
 def build(root, day_iso, seed=None, names=None, book=50000.0):
     if names is None or seed is None:
-        import sys
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         import cvx_replay as R           # stdlib-only at import; gives the locked test names and the 10/26-27 seed
         names = names or R.TEST_NAMES
@@ -420,8 +422,8 @@ def build(root, day_iso, seed=None, names=None, book=50000.0):
 
 
 def page(D):
-    data = json.dumps(D, separators=(",", ":")).replace("</", "<\\/")
-    return HTML.replace("/*__DATA__*/null", data).replace("__TITLE__", "SPX Map Scorecard · " + D["label"])
+    """2026-11-14: finished HTML from simple_card_html (was a script-drawn page that phones showed empty)."""
+    return H.render(D)
 
 
 def write(root, day_iso, out_path, **kw):
@@ -462,308 +464,25 @@ def telegram_text(D):
     return "\n".join(L)
 
 
-HTML = r"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>__TITLE__</title>
-<style>
-:root{color-scheme:light;--bg:#eef1f5;--card:#ffffff;--ink:#0b0b0b;--ink2:#3d3c39;--line:#d7dce3;--grid:#e8ebef;
-  --price:#2a78d6;--band:#cde2fb;--gain:#0f8f84;--loss:#dc3f2c;--wait:#fab219;
-  --gainbg:#e3f3f1;--lossbg:#fbe9e6;--waitbg:#fff3d6;--head:#14243a;--headink:#ffffff;
-  --s1:#0f8f84;--s2:#2a78d6;--s3:#6250d6;--s4:#14243a}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0f1012;--card:#1a1a19;--ink:#f0efec;--ink2:#c9c8be;--line:#34342f;--grid:#2a2a27;
-  --price:#3987e5;--band:#1d3b60;--gain:#14a39a;--loss:#e0533b;--wait:#fab219;
-  --gainbg:#10302d;--lossbg:#3a1a14;--waitbg:#3a2f12;--head:#1d3b60;--headink:#ffffff;
-  --s1:#14a39a;--s2:#3987e5;--s3:#9085e9;--s4:#5b6b80}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-main{max-width:780px;margin:0 auto;padding:14px 12px 70px}
-.top{background:var(--head);color:var(--headink);border-radius:16px;padding:18px 20px;margin-bottom:14px}
-.top .kick{font-size:14px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;font-weight:700}
-.top h1{margin:2px 0 4px;font-size:30px;line-height:1.15}
-.top p{margin:0;font-size:17px;opacity:.92}
-section{background:var(--card);border-radius:16px;padding:18px 18px 16px;margin:14px 0;border-top:6px solid var(--sec)}
-.sec1{--sec:var(--s1)}.sec2{--sec:var(--s2)}.sec3{--sec:var(--s3)}.sec4{--sec:var(--s4)}.sec5{--sec:var(--line)}
-h2{margin:0 0 4px;font-size:25px;line-height:1.2;display:flex;align-items:center;gap:10px}
-h2 .n{flex:none;width:34px;height:34px;border-radius:50%;background:var(--sec);color:#fff;font-size:19px;display:grid;place-items:center}
-.lead{margin:0 0 12px;color:var(--ink2);font-size:17px}
-.pill{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:16px;padding:5px 12px;border-radius:99px;border:2px solid}
-.pill.gain{background:var(--gainbg);border-color:var(--gain)}.pill.loss{background:var(--lossbg);border-color:var(--loss)}.pill.wait{background:var(--waitbg);border-color:var(--wait)}
-.ic{font-weight:900}.gain .ic{color:var(--gain)}.loss .ic{color:var(--loss)}.wait .ic{color:#b07700}
-@media (prefers-color-scheme:dark){.wait .ic{color:var(--wait)}}
-.hero{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 18px;margin:10px 0 4px}
-.hero .big{font-size:52px;font-weight:800;line-height:1;letter-spacing:-.02em}
-.hero .what{font-size:18px;color:var(--ink2)}
-.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
-.tile{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-.tile .k{font-size:14px;color:var(--ink2);font-weight:600}
-.tile .v{font-size:24px;font-weight:800;line-height:1.2}
-.tile .s{font-size:14px;color:var(--ink2)}
-.note{font-size:15px;color:var(--ink2);margin:8px 0 0}
-svg{display:block;width:100%;height:auto;touch-action:pan-y}
-svg text{fill:var(--ink2);font-size:14px;font-family:inherit}
-.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:15px;margin:6px 0 2px;color:var(--ink2)}
-.legend i{display:inline-block;vertical-align:middle;margin-right:6px}
-.brow{padding:10px 0;border-top:1px solid var(--line);cursor:pointer}
-.brow:first-child{border-top:0}
-.bname{font-weight:700;font-size:18px;display:flex;justify-content:space-between;gap:10px}
-.bname .amt{font-variant-numeric:tabular-nums;white-space:nowrap}
-.bsub{font-size:15px;color:var(--ink2)}
-.btrack{position:relative;height:14px;margin-top:4px}
-.btrack .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:var(--ink2);opacity:.5}
-.btrack .fill{position:absolute;top:0;height:14px}
-.btrack .fill.g{left:50%;background:var(--gain);border-radius:0 4px 4px 0}
-.btrack .fill.l{right:50%;background:var(--loss);border-radius:4px 0 0 4px}
-.axisrow{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2);margin-top:2px}
-.rule{font-size:16px;color:var(--ink2);border-left:4px solid var(--sec);padding:2px 0 2px 10px;margin:0 0 12px}
-.grp{margin:14px 0 6px;display:flex;align-items:center;gap:10px}
-.grp .cnt{font-size:15px;color:var(--ink2)}
-.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media (max-width:560px){.cards{grid-template-columns:1fr}.hero .big{font-size:44px}}
-.card{border:2px solid var(--line);border-left:8px solid var(--c);border-radius:12px;padding:12px 14px;background:var(--cb)}
-.card.gain{--c:var(--gain);--cb:var(--gainbg)}.card.loss{--c:var(--loss);--cb:var(--lossbg)}.card.wait{--c:var(--wait);--cb:var(--waitbg)}
-.card h3{margin:0 0 2px;font-size:19px}
-.card .what{font-size:15px;color:var(--ink2);margin:0 0 8px}
-.cmp{display:grid;grid-template-columns:96px 1fr 58px;align-items:center;gap:6px;font-size:15px;margin:3px 0}
-.cmp .t{height:12px;background:var(--grid);border-radius:4px;overflow:hidden}
-.cmp .t b{display:block;height:12px;border-radius:4px}
-.cmp .val{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
-.card .foot{font-size:14px;color:var(--ink2);margin-top:6px}
-.card .lean{font-size:15px;font-weight:700;margin-top:4px}
-.checks{list-style:none;margin:6px 0 12px;padding:0}
-.checks li{display:grid;grid-template-columns:34px 1fr;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
-.checks li:first-child{border-top:0}
-.mark{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:900;color:#fff;font-size:17px}
-.mark.y{background:var(--gain)}.mark.n{background:var(--loss)}.mark.z{background:var(--ink2)}
-.checks b{font-size:18px}
-.checks span.tx{display:block;font-size:15px;color:var(--ink2)}
-summary{cursor:pointer;font-weight:700;font-size:18px;padding:4px 0}
-dl{margin:6px 0 0}dt{font-weight:800;margin-top:10px}dd{margin:0;color:var(--ink2);font-size:16px}
-.foot2{font-size:14px;color:var(--ink2);text-align:center;margin-top:18px}
-.empty{font-size:16px;color:var(--ink2);padding:6px 0}
-#tip{position:fixed;z-index:9;pointer-events:none;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;
-  padding:8px 11px;font-size:15px;line-height:1.35;box-shadow:0 6px 24px rgba(0,0,0,.18);max-width:260px;display:none}
-#tip b{font-size:16px}
-.hit{fill:transparent}
-</style>
-</head>
-<body>
-<main>
-<header class="top">
-  <div class="kick">SPX map · nightly scorecard</div>
-  <h1 id="hdate"></h1>
-  <p>How the cockpit's map did, in plain words. Tap any chart or row for numbers.</p>
-</header>
-
-<section class="sec1">
-  <h2><span class="n">1</span>Is it making money?</h2>
-  <p class="lead" id="mlead"></p>
-  <span id="mpill"></span>
-  <div class="hero"><span class="big" id="mbig"></span><span class="what" id="mwhat"></span></div>
-  <div class="tiles" id="mtiles"></div>
-  <svg id="cum" viewBox="0 0 420 200" role="img" aria-label="Running practice profit by day"></svg>
-  <div class="legend"><span><i style="width:22px;height:3px;background:var(--gain)"></i>Running total</span><span><i style="width:10px;height:10px;border-radius:50%;background:var(--gain)"></i>Up day</span><span><i style="width:10px;height:10px;border-radius:50%;background:var(--loss)"></i>Down day</span></div>
-  <p class="note">Paper trades: 1 contract each, real bid/ask prices, no real money. Not advice.</p>
-</section>
-
-<section class="sec2">
-  <h2><span class="n">2</span>Which trades make money?</h2>
-  <p class="lead">Seven fixed trade rules, best at the top. Green = made money, red = lost money.</p>
-  <div id="bars"></div>
-  <div class="axisrow"><span>◀ lost money</span><span>made money ▶</span></div>
-</section>
-
-<section class="sec3">
-  <h2><span class="n">3</span>Which map signals work?</h2>
-  <p class="rule">Each signal is checked against a <b>simple guess</b> anyone could make. <b>Working</b> = beats the simple guess over <span class="mn"></span>+ nights. <b>Too early</b> = fewer than <span class="mn"></span> nights, or too close to call.</p>
-  <div id="sig"></div>
-</section>
-
-<section class="sec4">
-  <h2><span class="n">4</span>Today</h2>
-  <div class="tiles" id="ttiles"></div>
-  <ul class="checks" id="tchecks"></ul>
-  <svg id="day" viewBox="0 0 420 300" role="img" aria-label="SPX price today with the map's levels"></svg>
-  <div class="legend" id="dlegend">
-    <span><i style="width:22px;height:3px;background:var(--price)"></i>SPX price</span>
-    <span><i style="width:18px;height:12px;background:var(--band)"></i>Morning close range</span>
-    <span><i style="width:22px;border-top:3px dashed var(--ink2)"></i>Ceiling / floor</span>
-    <span><i style="width:10px;height:10px;border-radius:50%;background:var(--gain)"></i>Trade won</span>
-    <span><i style="width:10px;height:10px;border-radius:50%;background:var(--loss)"></i>Trade lost</span>
-  </div>
-</section>
-
-<section class="sec5">
-  <details>
-    <summary>What the words mean</summary>
-    <dl>
-      <dt>The map</dt><dd>The cockpit's picture of where big option dealers have to buy or sell as SPX moves.</dd>
-      <dt>Balance line</dt><dd>The map's middle line. Above it, dealers' hedging tends to calm price; below it, it tends to speed moves up.</dd>
-      <dt>Top line / bottom line</dt><dd>The map's outer lines, where price often stalls.</dd>
-      <dt>Ceiling / floor</dt><dd>The lines the map expects to stop the day's high and low.</dd>
-      <dt>Calm day / wild day</dt><dd>Calm: dealers buy dips and sell rips, so moves snap back. Wild: dealers chase the move, so it keeps going.</dd>
-      <dt>Morning close range</dt><dd>At 9:31 the map gives a range where the close should land about 8 days in 10.</dd>
-      <dt>Expected move</dt><dd>How far option prices say SPX will move today. Options usually expect more than really happens.</dd>
-      <dt>Butterfly</dt><dd>A cheap option bet that pays the most if SPX closes near one price.</dd>
-      <dt>Simple guess</dt><dd>What anyone could use without the map: expected-move levels, yesterday's high/low, a coin flip, or today's price.</dd>
-    </dl>
-  </details>
-</section>
-<p class="foot2">Practice results on real prices, not advice. The full technical report is kept separately.</p>
-</main>
-<div id="tip"></div>
-<script>
-const D=/*__DATA__*/null;
-const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const money=v=>(v>=0?"+$":"−$")+Math.abs(Math.round(v)).toLocaleString("en-US");
-const num=v=>Math.round(v).toLocaleString("en-US");
-const hhmm=m=>{let h=Math.floor(m/60),mi=m%60,ap=h>=12?"pm":"am";h=h>12?h-12:h;return h+":"+String(mi).padStart(2,"0")+" "+ap;};
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const NS="http://www.w3.org/2000/svg";
-function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
-const $=id=>document.getElementById(id);
-const tip=$("tip");
-function showTip(html,x,y){tip.innerHTML=html;tip.style.display="block";const w=tip.offsetWidth,h=tip.offsetHeight;
-  let L=x+14,T=y-h-12;if(L+w>innerWidth-8)L=x-w-14;if(L<8)L=8;if(T<8)T=y+16;tip.style.left=L+"px";tip.style.top=T+"px";}
-function hideTip(){tip.style.display="none";}
-document.addEventListener("pointerdown",e=>{if(!e.target.closest("svg,.brow"))hideTip();});
-const OK='<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const NO='<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>';
-const DASH='<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 10h10" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>';
-function tile(k,v,s){return '<div class="tile"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="s">'+(s||"&nbsp;")+'</div></div>';}
-document.querySelectorAll(".mn").forEach(e=>e.textContent=D.min_nights);
-$("hdate").textContent=D.label;
-
-// 1 money
-(function(){
-  const M=D.money;
-  $("mlead").textContent="Practice trades that follow the map's rules, every day since "+D.since+".";
-  const up=M.total>0, early=M.nights<D.min_nights;
-  $("mpill").outerHTML='<span class="pill '+(M.total>0?"gain":M.total<0?"loss":"wait")+'"><span class="ic">'+(up?"▲":M.total<0?"▼":"–")+'</span>'+
-    (up?"YES — up overall":M.total<0?"NO — down overall":"Flat so far")+(early?" (early days)":"")+'</span>';
-  $("mbig").textContent=money(M.total);
-  $("mwhat").textContent="since "+D.since+" · "+M.n+" trades";
-  $("mtiles").innerHTML=tile("Today",M.today_pl==null?"–":money(M.today_pl),M.today_pl==null?"no trades file":M.today_n+" trades")+
-    tile("Up nights",M.up_nights+" of "+M.nights,M.nights?Math.round(100*M.up_nights/M.nights)+"%":"")+
-    tile("Account",M.pct==null?"–":(M.pct>=0?"+":"")+M.pct.toFixed(1)+"%","of $50,000");
-  const svg=$("cum"),W=420,H=200,L=66,R=12,T=12,B=30,days=M.days;
-  if(days.length<2){el("text",{x:W/2,y:H/2,"text-anchor":"middle"},svg).textContent="Chart starts after two nights";return;}
-  let run=0;const cum=days.map(r=>run+=r.pl);
-  const lo=Math.min(0,...cum),hi=Math.max(0,...cum),pad=Math.max(50,(hi-lo)*.12);
-  const y=v=>T+(H-T-B)*(1-(v-(lo-pad))/((hi+pad)-(lo-pad))),x=i=>L+(W-L-R)*i/(days.length-1);
-  const span=(hi+pad)-(lo-pad),step=[100,250,500,1000,2500,5000,10000].find(s=>span/s<=4)||20000;
-  for(let v=Math.ceil((lo-pad)/step)*step;v<=hi+pad;v+=step){el("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css(v===0?"--ink2":"--grid"),"stroke-width":v===0?1.5:1},svg);
-    el("text",{x:L-8,y:y(v)+4,"text-anchor":"end"},svg).textContent=v===0?"$0":money(v);}
-  el("path",{d:["M",x(0),y(0)].concat(cum.flatMap((v,i)=>["L",x(i),y(v)])).concat(["L",x(cum.length-1),y(0),"Z"]).join(" "),fill:css(run>=0?"--gain":"--loss"),opacity:.12},svg);
-  el("path",{d:cum.map((v,i)=>(i?"L":"M")+x(i)+" "+y(v)).join(" "),fill:"none",stroke:css(run>=0?"--gain":"--loss"),"stroke-width":2.5,"stroke-linejoin":"round"},svg);
-  const ticks=[0,Math.floor((days.length-1)/2),days.length-1];
-  ticks.forEach((i,j)=>{el("text",{x:x(i),y:H-8,"text-anchor":j===0?"start":j===2?"end":"middle"},svg).textContent=days[i].d;});
-  const cross=el("line",{y1:T,y2:H-B,stroke:css("--ink2"),"stroke-width":1,opacity:0},svg);
-  cum.forEach((v,i)=>el("circle",{cx:x(i),cy:y(v),r:days.length>40?3:5,fill:css(days[i].pl>=0?"--gain":"--loss"),stroke:css("--card"),"stroke-width":2},svg));
-  const hit=el("rect",{x:L,y:T,width:W-L-R,height:H-T-B,class:"hit"},svg);
-  const pick=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width;const i=Math.max(0,Math.min(cum.length-1,Math.round((px-L)/(W-L-R)*(cum.length-1))));
-    cross.setAttribute("x1",x(i));cross.setAttribute("x2",x(i));cross.setAttribute("opacity",.6);
-    showTip("<b>"+days[i].d+"</b><br>"+(days[i].seed?"Those two days: ":"That day: ")+money(days[i].pl)+" ("+days[i].n+" trades)<br>Running total: "+money(cum[i]),e.clientX,e.clientY);};
-  hit.addEventListener("pointermove",pick);hit.addEventListener("pointerdown",pick);
-  hit.addEventListener("pointerleave",()=>{cross.setAttribute("opacity",0);hideTip();});
-})();
-
-// 2 strategies
-(function(){
-  const box=$("bars"),S=D.money.strats,mx=Math.max(1,...S.map(s=>Math.abs(s.pl)));
-  S.forEach(s=>{
-    const d=document.createElement("div");d.className="brow";
-    const w=(Math.abs(s.pl)/mx*50).toFixed(1);
-    const bits=[s.n+" trades"];if(s.win!=null)bits.push("wins "+s.win+"%");if(s.avg!=null)bits.push("avg "+money(s.avg));if(s.few)bits.push("few trades so far");
-    d.innerHTML='<div class="bname"><span>'+esc(s.name)+'</span><span class="amt">'+(s.pl>=0?'<span style="color:var(--gain)">▲</span> ':'<span style="color:var(--loss)">▼</span> ')+money(s.pl)+'</span></div>'+
-      '<div class="bsub">'+esc(s.sub)+'</div><div class="bsub">'+bits.join(" · ")+'</div>'+
-      '<div class="btrack"><span class="mid"></span><span class="fill '+(s.pl>=0?"g":"l")+'" style="width:'+w+'%"></span></div>';
-    const t=e=>showTip("<b>"+esc(s.name)+"</b><br>"+s.n+" trades"+(s.win!=null?" · wins "+s.win+"% (since Oct 28)":"")+"<br>Total "+money(s.pl)+(s.avg!=null?"<br>Average "+money(s.avg)+" per trade":""),e.clientX,e.clientY);
-    d.addEventListener("pointermove",t);d.addEventListener("pointerdown",t);d.addEventListener("pointerleave",hideTip);
-    box.appendChild(d);
-  });
-})();
-
-// 3 signals
-(function(){
-  const box=$("sig");
-  [["gain","✓","Working"],["wait","⏳","Too early to tell"],["loss","✕","Not working"]].forEach(([st,ic,label])=>{
-    const list=D.signals.filter(s=>s.st===st);if(!list.length)return;
-    const g=document.createElement("div");g.className="grp";
-    g.innerHTML='<span class="pill '+st+'"><span class="ic">'+ic+'</span>'+label+'</span><span class="cnt">'+list.length+" signal"+(list.length>1?"s":"")+'</span>';
-    box.appendChild(g);
-    const cards=document.createElement("div");cards.className="cards";box.appendChild(cards);
-    list.forEach(s=>{
-      const unit=s.kind==="pct"?"%":" pts",vals=[s.map,s.base].filter(v=>v!=null),top=s.kind==="pct"?100:Math.max(1,...vals)*1.15;
-      const bar=(v,c,o)=>v==null?'<span class="t"></span><span class="val">–</span>':'<span class="t"><b style="width:'+Math.min(100,v/top*100)+'%;background:'+c+';opacity:'+o+'"></b></span><span class="val">'+v+unit+'</span>';
-      const lean=st==="wait"&&s.lean_text?'<div class="lean">'+esc(s.lean_text)+'</div>':"";
-      const c=document.createElement("div");c.className="card "+st;
-      c.innerHTML='<h3>'+esc(s.name)+'</h3><p class="what">'+esc(s.what)+'</p>'+
-        '<div class="cmp"><span><b>Map</b></span>'+bar(s.map,"var(--c)",1)+'</div>'+
-        '<div class="cmp"><span>'+esc(s.baseName)+'</span>'+bar(s.base,"var(--ink2)",.55)+'</div>'+lean+
-        '<div class="foot">'+esc(s.foot)+'</div>';
-      cards.appendChild(c);
-    });
-  });
-})();
-
-// 4 today
-(function(){
-  const T=D.today;
-  $("ttiles").innerHTML=tile("Close",T.close==null?"–":num(T.close),T.chg_pct==null?"":(T.chg_pct>=0?"+":"")+T.chg_pct.toFixed(1)+"%")+
-    tile("Moved",T.moved==null?"–":Math.round(T.moved)+" pts","low to high")+
-    tile("Expected",T.expected==null?"–":"±"+Math.round(T.expected),"pts, by options");
-  $("tchecks").innerHTML=T.checks.length?T.checks.map(c=>'<li><span class="mark '+(c.ok===true?"y":c.ok===false?"n":"z")+'" aria-label="'+(c.ok===true?"right":c.ok===false?"wrong":"no call")+'">'+(c.ok===true?OK:c.ok===false?NO:DASH)+'</span><div><b>'+esc(c.title)+'</b><span class="tx">'+esc(c.text)+'</span></div></li>').join(""):'<li><span></span><div class="empty">No checks today.</div></li>';
-  const svg=$("day"),P=T.path;
-  if(P.length<5){svg.outerHTML='<div class="empty">No price chart for today.</div>';$("dlegend").remove();return;}
-  const W=420,H=300,L=48,R=62,Tp=12,B=30;
-  const ys=P.map(p=>p[1]).concat(T.band||[]).concat([T.ceiling,T.floor].filter(v=>v!=null));
-  const lo=Math.min(...ys)-5,hi=Math.max(...ys)+5,m0=Math.min(570,P[0][0]),m1=Math.max(960,P[P.length-1][0]);
-  const x=m=>L+(W-L-R)*(m-m0)/(m1-m0),y=v=>Tp+(H-Tp-B)*(1-(v-lo)/(hi-lo));
-  if(T.band){el("rect",{x:L,y:y(T.band[1]),width:W-L-R,height:y(T.band[0])-y(T.band[1]),fill:css("--band"),opacity:.6},svg);
-    el("text",{x:W-R+6,y:y(T.band[1])+14,style:"font-size:13px"},svg).textContent="Close";
-    el("text",{x:W-R+6,y:y(T.band[1])+28,style:"font-size:13px"},svg).textContent="range";}
-  const step=[5,10,20,25,50,100].find(s=>(hi-lo)/s<=7)||200;
-  for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step){el("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css("--grid")},svg);
-    el("text",{x:L-6,y:y(v)+4,"text-anchor":"end"},svg).textContent=num(v);}
-  [[T.ceiling,"Ceiling"],[T.floor,"Floor"]].forEach(([v,lab])=>{if(v==null)return;
-    el("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css("--ink2"),"stroke-width":2,"stroke-dasharray":"7 5"},svg);
-    el("text",{x:W-R+6,y:y(v)+4,style:"font-weight:700;fill:"+css("--ink")},svg).textContent=lab;});
-  [570,690,810,960].forEach((m,j)=>{if(m<m0||m>m1)return;el("text",{x:x(m),y:H-8,"text-anchor":j===0?"start":j===3?"end":"middle"},svg).textContent=hhmm(m).replace(":00","");});
-  el("path",{d:P.map((q,i)=>(i?"L":"M")+x(q[0]).toFixed(1)+" "+y(q[1]).toFixed(1)).join(" "),fill:"none",stroke:css("--price"),"stroke-width":2.2,"stroke-linejoin":"round"},svg);
-  const last=P[P.length-1];el("circle",{cx:x(last[0]),cy:y(last[1]),r:5,fill:css("--price")},svg);
-  const pAt=m=>{let best=P[0];for(const q of P){if(q[0]<=m)best=q;else break;}return best[1];};
-  T.trades.forEach(t=>el("circle",{cx:x(t.t),cy:y(t.spot!=null?t.spot:pAt(t.t)),r:7,fill:css(t.pl>=0?"--gain":"--loss"),stroke:css("--card"),"stroke-width":2.5},svg));
-  const cross=el("line",{y1:Tp,y2:H-B,stroke:css("--ink2"),"stroke-width":1,opacity:0},svg);
-  const hit=el("rect",{x:L,y:Tp,width:W-L-R,height:H-Tp-B,class:"hit"},svg);
-  const pick=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width;
-    const m=Math.max(m0,Math.min(m1,Math.round(m0+(px-L)/(W-L-R)*(m1-m0))));
-    cross.setAttribute("x1",x(m));cross.setAttribute("x2",x(m));cross.setAttribute("opacity",.6);
-    let h="<b>"+hhmm(m)+"</b> · SPX "+pAt(m).toFixed(1);
-    T.trades.filter(t=>Math.abs(t.t-m)<=4).forEach(t=>{h+="<br>"+(t.pl>=0?"✓ Won ":"✕ Lost ")+money(t.pl)+" · "+esc(t.name);});
-    showTip(h,e.clientX,e.clientY);};
-  hit.addEventListener("pointermove",pick);hit.addEventListener("pointerdown",pick);
-  hit.addEventListener("pointerleave",()=>{cross.setAttribute("opacity",0);hideTip();});
-})();
-</script>
-</body>
-</html>
-"""
-
-
 def main():
     ap = argparse.ArgumentParser(description="Plain-language nightly scorecard from the replay's saved files.")
     ap.add_argument("--root", required=True, help="replay output root (the folder with history.csv and <ymd>/ folders)")
     ap.add_argument("--day", required=True, help="YYYY-MM-DD")
     ap.add_argument("--out", help="output html (default <root>/<ymd>/scorecard_<ymd>.html)")
+    ap.add_argument("--send", action="store_true", help="also send the text + page to Telegram (2026-11-14, for re-sends)")
     a = ap.parse_args()
     ymd = a.day.replace("-", "")
     out = Path(a.out) if a.out else Path(a.root) / ymd / ("scorecard_%s.html" % ymd)
     p, D = write(a.root, a.day, out)
     print("wrote %s" % p)
     print(telegram_text(D))
+    if a.send:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from trading_intel.clients.telegram import TelegramClient
+        from trading_intel.config import Settings
+        tc = TelegramClient(Settings())
+        ok = tc.enabled and tc.send_message(telegram_text(D)) and tc.send_document(p, caption="SPX scorecard %s" % a.day)
+        print("telegram: %s" % ("sent" if ok else "NOT sent"))
 
 
 if __name__ == "__main__":
