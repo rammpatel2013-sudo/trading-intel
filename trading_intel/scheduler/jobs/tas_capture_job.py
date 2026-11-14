@@ -354,6 +354,17 @@ def run(
         bound.warning("tas_capture.zeroed_tape", rows=int(len(df)))
         return
 
+    # Whales vs crowd (2026-11-13, #97): every SPX/SPXW print, any size, summed per minute.
+    if getattr(settings, "TAS_CROWD_AGG", False):
+        try:
+            from trading_intel.scheduler.jobs import tas_crowd_agg
+            n_crowd = tas_crowd_agg.capture(session, df, trade_date=now.date(),
+                                            whale_min=int(getattr(settings, "TAS_WHALE_MIN_SIZE", 20)))
+            bound.info("tas_capture.crowd", rows=n_crowd)
+        except Exception as exc:  # the raw capture below must never fail because of the summary
+            session.rollback()
+            bound.warning("tas_capture.crowd_failed", error=str(exc))
+
     # Gap check (2026-11-05): the pull is the newest `limit` prints. If its OLDEST print is newer than the
     # previous poll's NEWEST, the seconds in between were never seen -> logged as tas_capture.gap.
     tsr = pd.to_datetime(df.get("time"), errors="coerce").dropna()

@@ -1791,3 +1791,44 @@ class BetaResetDaily(Base):
     sphb_resid: Mapped[float | None] = mapped_column(Float)
     high_beta_state: Mapped[str | None] = mapped_column(String(12))
     label: Mapped[str | None] = mapped_column(String(48))
+
+
+class TasCrowdMinute(Base):
+    """SPX/SPXW tape summed per minute x contract x size bucket (2026-11-13, backlog #97).
+
+    The raw ``tas_prints`` table keeps SPX/SPXW prints only from $5k premium (about 11% of
+    0DTE contracts near spot), so the small "crowd" is missing. ``tas_capture_job`` adds
+    EVERY SPX/SPXW print it sees here instead, summed: one row per (minute, root, expiry,
+    strike, cp, bucket) where bucket = ``whale`` (size >= TAS_WHALE_MIN_SIZE) or ``crowd``.
+    Compact (a few hundred rows a minute), no extra Convex calls. ``signed_delta`` = sum of
+    side x size x delta x 100 (customer share-delta: buy +, sell -; mid/unknown not signed).
+    ``last_ts`` = newest print time in the row (restart guard against double counting).
+    Descriptive flow only (rule 4).
+    """
+
+    __tablename__ = "tas_crowd_minute"
+    __table_args__ = (
+        UniqueConstraint(
+            "trade_date", "minute", "root", "expiry", "strike", "cp", "bucket",
+            name="uq_tas_crowd_minute",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trade_date: Mapped[date] = mapped_column(Date, index=True)
+    minute: Mapped[datetime] = mapped_column(DateTime)  # print time floored to the minute (ET, naive)
+    root: Mapped[str] = mapped_column(String(8))
+    expiry: Mapped[date] = mapped_column(Date)
+    strike: Mapped[float] = mapped_column(Float)
+    cp: Mapped[str] = mapped_column(String(1))
+    bucket: Mapped[str] = mapped_column(String(6))  # whale / crowd
+    n_prints: Mapped[int] = mapped_column(Integer, default=0)
+    buy_contracts: Mapped[int] = mapped_column(Integer, default=0)
+    sell_contracts: Mapped[int] = mapped_column(Integer, default=0)
+    other_contracts: Mapped[int] = mapped_column(Integer, default=0)  # mid / unknown side
+    buy_premium: Mapped[float] = mapped_column(Float, default=0.0)
+    sell_premium: Mapped[float] = mapped_column(Float, default=0.0)
+    signed_delta: Mapped[float] = mapped_column(Float, default=0.0)
+    spot: Mapped[float | None] = mapped_column(Float)  # last spot seen in the row
+    last_ts: Mapped[datetime | None] = mapped_column(DateTime)
+
