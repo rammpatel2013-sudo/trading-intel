@@ -1,6 +1,6 @@
 # ruff: noqa: N812  (house style: L / W / V / X module aliases)
 """volx vol board (2026-11-14): cross-asset vol rows, vol-fund rows, the spike-fade states and the
-page copy - pure functions with synthetic history, no network."""
+vf-v2 signal state - pure functions with synthetic history, no network."""
 import datetime
 import sys
 from pathlib import Path
@@ -95,8 +95,49 @@ def test_fade_state_live_quote_and_buckets():
     assert X.fade_state({}, {}, TODAY) is None
 
 
-def test_board_is_safe_and_page_copies(tmp_path):
+def test_board_is_safe():
     assert X._safe_board({"VIX": "not a list"}, {}, TODAY) is None      # error -> None, no crash
-    assert X.copy_page(str(tmp_path)) is True
-    page = (tmp_path / X.PAGE).read_text(encoding="utf-8")
-    assert "volx.json" in page and "Vol board" in page
+    assert not hasattr(X, "copy_page")                                 # standalone page retired 11/14
+
+
+def _spike_hist(n_after: int = 3) -> dict:
+    """calm, a close at 26, VIX9D above VIX for 3 closes, back under on the last day (a fire)."""
+    vix = [18.0] * 30 + [26.0, 24.0, 22.0] + [20.0] * n_after
+    v9 = [17.0] * 30 + [27.0, 25.0, 23.0] + [19.0] * n_after
+    return _hist(vix, v9, {"VVIX": [100.0] * 32 + [115.0] * (1 + n_after)})
+
+
+def test_fade_signal_fire_from_history():
+    h = _spike_hist(1)
+    s = X.fade_signal(h, {}, TODAY)
+    st = s["state"]
+    assert s["rule"].startswith("vf-v2") and s["provisional"] is False
+    assert st["phase"] == "FIRE" and st["fire"]["strength"] == "strong"
+    assert s["headline"].startswith("FIRE") and s["fires"][-1]["d"] == h["VIX"][-1][0].isoformat()
+    assert s["evidence"]["rows"]["all_20"] and s["hold"] == 20 and s["strong_vvix"] == 110.0
+    assert len(s["path"]) == len(h["VIX"]) and s["path"][-1][4] == "FIRE" and s["path"][-1][3] == 115.0
+
+
+def test_fade_signal_live_quote_is_provisional():
+    h = _spike_hist(0)                                                  # history ends on a VIX9D>VIX day
+    for k in h:
+        h[k] = [(d - datetime.timedelta(days=1), v) for d, v in h[k]]    # ... through yesterday
+    q = {"VIX": {"v": 20.0, "t": "2026-11-13T14:00:00"}, "VIX9D": {"v": 19.0, "t": "2026-11-13T14:00:00"},
+         "VVIX": {"v": 105.0}}
+    s = X.fade_signal(h, q, TODAY)
+    assert s["provisional"] is True and s["state"]["d"] == TODAY.isoformat()
+    assert s["state"]["phase"] == "FIRE" and s["state"]["fire"]["strength"] == "normal"
+    assert X.fade_signal({}, {}, TODAY) is None
+
+
+def test_fade_signal_weekend_quote_not_a_new_day():
+    h = {k: [(d + datetime.timedelta(days=1), v) for d, v in rows] for k, rows in _spike_hist(1).items()}
+    q = {"VIX": {"v": 20.0, "t": "2026-11-13T16:15:00"}}               # Friday's close, history has it
+    s = X.fade_signal(h, q, datetime.date(2026, 11, 14))
+    assert s["provisional"] is False and s["state"]["d"] == TODAY.isoformat()
+
+
+def test_board_carries_the_signal_and_vvix_is_pulled():
+    assert "VVIX" in X.B_IDX
+    b = X.board(_spike_hist(1), {}, TODAY)
+    assert b["sig"]["state"]["phase"] == "FIRE"

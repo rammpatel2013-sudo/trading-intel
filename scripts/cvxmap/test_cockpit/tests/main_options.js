@@ -28,7 +28,7 @@ async function colours(o,id,x0,x1){ return o.p.evaluate(([id,x0,x1])=>{ const c=
      ok(vis.length===1&&vis[0].toLowerCase().includes(t==='voleod'?'voleod':t==='constel'?'constel':t==='premium'?'premium':t==='exposure'?'exposure':t==='strikes'?'strikes':t==='density'?'density':t==='ledger'?'ledger':t),`tab ${t} renders (${vis.join(',')})`); }
    await tab(o,'orbs'); ok(/Off\./.test(await o.p.innerText('#orBody')),'Orbs OFF by default shows the off note');
    await tab(o,'density'); ok((await o.p.$$eval('#denOpts button',bs=>bs.filter(b=>b.getAttribute('aria-pressed')==='true').length))===0&&(await o.p.$$('#denOpts button')).length===5,'Density: 5 option buttons, all OFF');
-   await tab(o,'vix'); ok((await o.p.$$eval('#vxOpts button',bs=>bs.map(b=>b.getAttribute('aria-pressed')).join()))==='false,false,false,false','VIX: 4 option buttons, all OFF');
+   await tab(o,'vix'); ok((await o.p.$$eval('#vxOpts button',bs=>bs.map(b=>b.getAttribute('aria-pressed')).join()))==='false,false,false,false,false','VIX: 5 option buttons (Vol board added 2026-11-14), all OFF');
    ok(await o.p.$eval('#vxMap',e=>e.hidden)&&await o.p.$eval('#vxGauge',e=>e.hidden)&&await o.p.$eval('#vxStack',e=>e.hidden),'VIX: option sections hidden while OFF');
    await o.p.waitForTimeout(3500);
    ok(!o.req.some(u=>/wide_|vixmap_|volx/.test(u)),'OFF: no wide / vixmap / volx file fetched ('+o.req.filter(u=>/wide_|vixmap_|volx/.test(u)).length+')');

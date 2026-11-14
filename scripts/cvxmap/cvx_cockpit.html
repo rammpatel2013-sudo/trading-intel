@@ -892,6 +892,49 @@ body.phone .orpane canvas{height:460px}
 .vxwarn{display:block;margin-top:6px;font-size:16px;font-weight:700;color:#FFD23F}
 #tabVix #vxGauge .vxsub,#tabVix #vxStack .vxsub,#tabVix #vxMap .vxsub{font-size:15px;color:#DCE6F2}
 #tabVix #vxGauge .vxnote,#tabVix #vxStack .vxnote,#tabVix #vxMap .vxnote{font-size:16px;color:#E8EFF8}
+/* ---- VIX tab > Options > Vol board (2026-11-14, OFF by default): vf-v2 fade signal + vol across markets (cards) */
+#vxBoard{padding:12px 14px 16px}
+#vxBoard .vbtitle{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;margin-bottom:10px}
+#vxBoard .vbtitle h2{margin:0;font-size:21px;color:#fff}
+#vxBoard .vbtitle span{font-size:15px;color:#DCE6F2}
+.vbsig{display:grid;grid-template-columns:minmax(300px,1.15fr) minmax(280px,1fr);gap:16px;border:2px solid #2E4470;border-radius:12px;padding:14px 16px;background:#0E1B33}
+.vbsig.ph-ARMED{border-color:#FFC24A}.vbsig.ph-FIRE{border-color:#3FE0A0;box-shadow:0 0 0 3px #3FE0A033}.vbsig.ph-HOLD{border-color:#5CA8FF}
+.vbph{display:inline-block;font-size:23px;font-weight:800;padding:3px 14px;border-radius:8px;color:#0A1426;letter-spacing:.03em}
+.vbhead{font-size:18px;line-height:1.45;color:#fff;margin:10px 0 8px}
+.vbnote{font-size:15px;line-height:1.45;color:#DCE6F2;margin-top:6px}
+.vbprog{display:flex;align-items:center;gap:10px;font-size:15px;color:#fff;margin:6px 0}
+.vbbar{flex:1;height:14px;background:#1B2C4C;border-radius:7px;position:relative;overflow:hidden;min-width:120px}
+.vbbar i{position:absolute;left:0;top:0;bottom:0;border-radius:7px}
+.vbtrade{background:#112141;border-radius:10px;padding:10px 12px;font-size:16px;line-height:1.5;color:#fff}
+.vbtrade b{color:#3FE0A0}
+.vbgauge{display:flex;align-items:center;gap:10px;font-size:16px;color:#fff;margin:10px 0 4px}
+.vbhist{width:100%;border-collapse:collapse;font-size:15px;margin-top:8px}
+.vbhist th{color:#C9D6E8;text-align:right;font-weight:600;padding:3px 6px;border-bottom:1px solid #2E4470;font-size:14px}
+.vbhist td{text-align:right;padding:4px 6px;color:#fff;border-bottom:1px solid #16264380}
+.vbhist td:first-child,.vbhist th:first-child{text-align:left}
+.vbchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:14px;color:#DCE6F2;align-items:center}
+.vbchip{border-radius:12px;padding:2px 9px;font-weight:700;color:#0A1426}
+.vbsec{margin-top:18px}
+.vbsec h3{font-size:19px;margin:0 0 4px;color:#fff}
+.vbsec .vbsub{font-size:15px;color:#DCE6F2;margin-bottom:8px}
+.vbstand{display:flex;flex-wrap:wrap;gap:8px}
+.vbstand span{background:#112141;border:1px solid #2E4470;border-radius:16px;padding:5px 12px;font-size:15.5px;color:#fff}
+.vbcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.vbcard{background:#0E1B33;border:1px solid #24324D;border-left:7px solid var(--e,#55657F);border-radius:10px;padding:9px 12px 7px}
+.vbcard:hover,.vbfund:hover{background:#13254A}
+.vbcard .s{font-size:18px;font-weight:800;color:#fff}.vbcard .n{font-size:14.5px;color:#DCE6F2;margin-left:6px}
+.vbcard .lv{font-size:29px;font-weight:800;color:#fff;line-height:1.15;margin-top:3px}
+.vbcard .ch{font-size:16px;font-weight:700;margin-left:8px}
+.vbcard .rl{font-size:15px;color:#F2F6FC;margin-top:3px;line-height:1.35}
+.vbtag{display:inline-block;font-size:13px;font-weight:800;border-radius:4px;padding:1px 6px;margin:5px 5px 0 0;color:#0A1426}
+.vbup{color:#FF7A6B}.vbdn{color:#3FE0A0}
+.vbfunds{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.vbfund{background:#0E1B33;border:1px solid #24324D;border-radius:10px;padding:8px 11px;font-size:15px;color:#fff}
+.vbfund .s{font-size:17px;font-weight:800}.vbfund .p{font-size:22px;font-weight:800}
+.vbfund .h{font-size:13.5px;color:#DCE6F2}
+#vbTip{position:fixed;z-index:9999;max-width:min(440px,calc(100vw - 16px));background:#0A1426;border:2px solid #5CA8FF;border-radius:12px;padding:10px 14px;color:#fff;font-size:16px;line-height:1.45;box-shadow:0 14px 40px rgba(0,0,0,.75);pointer-events:none}
+#vbTip b{color:#FFD54A}
+@media (max-width:760px){.vbsig{grid-template-columns:1fr}.vbcards{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.vbcard .lv{font-size:25px}}
 #tabVix #vxGauge,#tabVix #vxStack{font-size:16px}
 .vxmctl{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0 10px}
 .vxmgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
@@ -1204,6 +1247,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     <div class="vxwrap">
       <section class="vxhead" id="vxHead"></section>
       <section class="vxsec optsec" id="vxOpts"></section>
+      <section class="vxsec" id="vxBoard" hidden></section>
       <section class="vxsec vxreadbox" id="vxRead"></section>
       <section class="vxsec" id="vxGauge" hidden></section>
       <section class="vxsec" id="vxStack" hidden></section><section class="vxsec vxsplit" id="vxSplit" hidden></section>
@@ -1982,7 +2026,7 @@ st.weekSrc=load("weekSrc","convex");
 st.rangeOn=load("rangeOn","0")==="1"; st.rangeDet=load("rangeDet","0")==="1";   // 2026-11-13 Range card, OFF by default
 // 2026-11-09: Density options DN1-DN6 and VIX options VX1 / VX2 / VIX map - all OFF by default (moved from the test cockpit)
 st.dno=(()=>{ try{ const j=JSON.parse(load("dnOpt","{}"))||{}; return {dn1:!!j.dn1,dn2:!!j.dn2,dn3:!!j.dn3,dn5:!!j.dn5,dn6:!!j.dn6,dn7:!!j.dn7}; }catch(e){ return {dn1:false,dn2:false,dn3:false,dn5:false,dn6:false,dn7:false}; } })();
-st.vxo=(()=>{ try{ const j=JSON.parse(load("vxOpt","{}"))||{}; return {vx1:!!j.vx1,vx2:!!j.vx2,vmap:!!j.vmap,split:!!j.split}; }catch(e){ return {vx1:false,vx2:false,vmap:false,split:false}; } })(); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
+st.vxo=(()=>{ try{ const j=JSON.parse(load("vxOpt","{}"))||{}; return {vx1:!!j.vx1,vx2:!!j.vx2,vmap:!!j.vmap,split:!!j.split,vb:!!j.vb}; }catch(e){ return {vx1:false,vx2:false,vmap:false,split:false,vb:false}; } })(); // convex (08:35 OI, VIX9D re-mark) | tos (Week_SPX live) — the 1–7 DTE book source
 function saveSlots(){ try{ localStorage.setItem(NS+"slots", JSON.stringify(st.slots)); }catch(e){} }
 function load(k,d){ try{ return localStorage.getItem(NS+k) || d; }catch(e){ return d; } }
 function save(k,v){ try{ localStorage.setItem(NS+k, v); }catch(e){} }
@@ -7864,7 +7908,7 @@ function dnoStatus(ctx,padL,W,padT,S){ if(!st.dno.dn6) return; const LE=denLetf(
    Data = volx.json, written by volx.py in its own container cvxmap-volx (free delayed index quotes + daily history, no
    options-vendor calls). Fetched only while VX1 or VX2 is on with the VIX tab open, or DN6 with the Density tab open. */
 var VOLX=null, VOLX_AT=0;
-async function volxPoll(){ if(!(((st.vxo.vx1||st.vxo.vx2)&&st.tab==="vix")||(st.dno.dn6&&st.tab==="density"))) return; VOLX_AT=Date.now();
+async function volxPoll(){ if(!(((st.vxo.vx1||st.vxo.vx2||st.vxo.vb)&&st.tab==="vix")||(st.dno.dn6&&st.tab==="density"))) return; VOLX_AT=Date.now();
   try{ const r=await fetch("volx.json",{cache:"no-cache"}); if(!r.ok) throw new Error("HTTP "+r.status); VOLX=await r.json(); VOLX._err=null; }
   catch(e){ VOLX=VOLX||{}; VOLX._err=String(e&&e.message||e); }
   try{ if(st.tab==="vix") renderVix(); else if(st.tab==="density") renderDensity(series(st.sym)); }catch(e){} }
@@ -7881,6 +7925,8 @@ const VXO_PLAY={CALM:["Buy dips / trend-follow long: ES/MES or ATM–slightly IT
   CONFIRMED:["Sell rips / momentum short: bear put debit spreads (0.60/0.30Δ), ITM puts or short ES/MES; scale out when VIX9D/VIX spikes over 1.15.",
     "Pause short puts and condors; only bear calls well above resistance — until VIX9D/VIX has peaked and is back under 1.00 with SPX over its 8d EMA."]};
 function vxoRender(){ const g=document.getElementById("vxGauge"), s=document.getElementById("vxStack"); if(!g||!s) return;
+  const vb=document.getElementById("vxBoard");
+  if(vb){ vb.hidden=!st.vxo.vb; if(st.vxo.vb){ try{ vbRender(vb); }catch(e){ vb.innerHTML=`<div class="vxerr">Vol board error: ${esc(e.message||e)}</div>`; } } else if(vb.innerHTML) vb.innerHTML=""; }
   g.hidden=!st.vxo.vx1; s.hidden=!st.vxo.vx2; if(!st.vxo.vx1&&!st.vxo.vx2) return;
   try{ if(st.vxo.vx1) vxoGauge(g); }catch(e){ g.innerHTML=`<div class="vxerr">VX1 error: ${esc(e.message||e)}</div>`; }
   try{ if(st.vxo.vx2) vxoStack(s); }catch(e){ s.innerHTML=`<div class="vxerr">VX2 error: ${esc(e.message||e)}</div>`; } }
@@ -7951,6 +7997,145 @@ function vxoStack(el){
     let xo=padL+6; for(const [,c,n] of S){ ctx.fillStyle=c; ctx.fillText(n,xo,padT+12); xo+=ctx.measureText(n).width+14; } }
 }
 
+/* ---- VIX tab > Options > "Vol board" (2026-11-14, OFF by default). Display only: reads volx.json "board"
+   (written by volx.py in cvxmap-volx) and live.json VIXR for the curve; nothing is fetched while it is off.
+   1. Spike-fade signal card, rule vf-v2 (trading_intel/strategies/vol_fade.py; the SAME function the EOD job
+      banks into `signals` and pushes to Telegram): ARMED after a VIX close at 25+ (20 sessions), FIRE on a
+      fear release inside the window (VIX9D back under VIX after 3+ closes above), strong = VVIX 110+.
+   2. Volatility across markets as cards, the most unusual first (rich / calm next to the S&P, then high /
+      low for its own year); the coloured left edge = where the level sits in its own last year.
+   3. VIX curve (today / 1 week / 1 month ago) and the vol funds strip.
+   Hover (tap on a phone) any card or day for the numbers. Rule 4: the card shows a state; the alert is the
+   EOD job's. */
+const VB_PH={IDLE:["#9DB0CA","IDLE"],ARMED:["#FFC24A","ARMED"],FIRE:["#3FE0A0","FIRE"],HOLD:["#5CA8FF","HOLD"]};
+const vbOrd=n=>{ n=Math.round(n); const t=n%100,u=n%10; return n+((t>=11&&t<=13)?"th":u===1?"st":u===2?"nd":u===3?"rd":"th"); };
+const vbEdge=p=>p==null?"#55657F":p>=90?"#FF5A5F":p>=67?"#FF8A3D":p>=33?"#FFD23F":"#3FD0B0";
+const vbLvl=(v,d=2)=>v==null||!isFinite(v)?"–":`<span class="${v>0?"vbup":v<0?"vbdn":""}">${v>0?"+":""}${(+v).toFixed(d)}</span>`;   // vol level: up = red
+const vbRet=(v,d=1)=>v==null||!isFinite(v)?"–":`<span class="${v>0?"vbdn":v<0?"vbup":""}">${v>0?"+":""}${(+v).toFixed(d)}%</span>`; // price: up = green
+const vbDt=s=>{ if(!s) return "–"; const d=new Date(s+"T12:00:00"); return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); };
+const vbTipAttr=h=>` data-vt="${esc(h)}"`;
+function vbSpark(vals,w=110,h=30){
+  const v=(vals||[]).filter(x=>x!=null&&isFinite(x)); if(v.length<2) return "";
+  const lo=Math.min(...v), hi=Math.max(...v), r=hi-lo||1, X=i=>(i*(w-6)/(v.length-1)+3), Y=x=>(h-4-(x-lo)*(h-8)/r);
+  const pts=v.map((x,i)=>X(i).toFixed(1)+","+Y(x).toFixed(1)).join(" ");
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin-top:4px"><polyline points="${pts}" fill="none" stroke="#6AB7FF" stroke-width="2"/><circle cx="${X(v.length-1).toFixed(1)}" cy="${Y(v[v.length-1]).toFixed(1)}" r="3.5" fill="#FFD23F"/></svg>`; }
+function vbScore(r){ const rp=r.ratio_pct, p=r.pct;
+  if(rp!=null&&(rp>=80||rp<=10)) return 200+Math.abs(rp-50);
+  if(p!=null&&(p>=90||p<=10)) return 100+Math.abs(p-50);
+  return Math.max(rp!=null?Math.abs(rp-50):0, p!=null?Math.abs(p-50)*0.8:0); }
+function vbTags(r){ const t=[];
+  if(r.ratio_pct!=null&&r.ratio_pct>=80) t.push(["RICH vs S&P","#FF8A3D"]); else if(r.ratio_pct!=null&&r.ratio_pct<=10) t.push(["CALM vs S&P","#3FD0B0"]);
+  if(r.pct!=null&&r.pct>=90) t.push(["HIGH for its year","#FF5A5F"]); else if(r.pct!=null&&r.pct<=10) t.push(["LOW for its year","#3FD0B0"]);
+  return t; }
+function vbStandText(r){
+  if(r.ratio_pct!=null&&r.ratio_pct>=80) return `<b>${esc(r.name)}</b> vol is rich next to the S&amp;P: ${(+r.ratio).toFixed(2)}&times; VIX, higher than ${Math.round(r.ratio_pct)}% of the year`;
+  if(r.ratio_pct!=null&&r.ratio_pct<=10) return `<b>${esc(r.name)}</b> vol is calm next to the S&amp;P: ${(+r.ratio).toFixed(2)}&times; VIX, lower than ${100-Math.round(r.ratio_pct)}% of the year`;
+  if(r.pct!=null&&r.pct>=90) return `<b>${esc(r.name)}</b> vol ${(+r.v).toFixed(1)} is near its 1-year high (${vbOrd(r.pct)} percentile)`;
+  if(r.pct!=null&&r.pct<=10) return `<b>${esc(r.name)}</b> vol ${(+r.v).toFixed(1)} is near its 1-year low (${vbOrd(r.pct)} percentile)`;
+  return ""; }
+
+function vbSignal(S,F){
+  if(!S) return `<div class="vbsig"><div class="vbnote">No signal state in volx.json yet (volx.py older than this cockpit, or the board errored).</div></div>`;
+  if(S.err) return `<div class="vbsig"><div class="vbnote">Signal not available: ${esc(S.err)}. Rebuild the image (deploy.sh) so volx.py can load the strategy module.</div></div>`;
+  const st=S.state||{}, ph=VB_PH[st.phase]||VB_PH.IDLE, ev=S.evidence||{}, R=ev.rows||{}, win=S.window||20, hold=S.hold||20, cut=S.strong_vvix||110;
+  let prog="";
+  if(st.phase==="ARMED"&&st.armed){ const a=st.armed, pct=100*a.days_left/win;
+    prog=`<div class="vbprog"${vbTipAttr(`<b>Window</b><br>VIX closed at ${a.last25_vix} on ${vbDt(a.last25_d)} (${a.ago} session${a.ago===1?"":"s"} ago).<br>A fear release in the next ${a.days_left} session${a.days_left===1?"":"s"} fires the trade.<br>Any new VIX close at 25+ restarts the 20.`)}>window <div class="vbbar"><i style="width:${pct}%;background:#FFC24A"></i></div><b>${a.days_left}</b>&nbsp;of ${win} left</div>`; }
+  if((st.phase==="HOLD"||st.phase==="FIRE")&&st.trades&&st.trades.length){ prog=st.trades.map(t=>`<div class="vbprog"${vbTipAttr(`<b>SVXY trade from ${vbDt(t.d)}</b><br>Fired at VIX ${t.vix}, VVIX ${t.vvix} (${t.strength}).<br>Bought at the next open; sold at the close of session ${hold}.<br>${t.left} session${t.left===1?"":"s"} left.`)}>trade ${vbDt(t.d)} <div class="vbbar"><i style="width:${100*t.hold_day/hold}%;background:#5CA8FF"></i></div><b>day ${t.hold_day}</b>&nbsp;of ${hold}</div>`).join(""); }
+  const v9=st.v9r, vv=st.vvix;
+  const run=st.run_above1||0;
+  const fear=v9==null?"–":`VIX9D &divide; VIX <b>${(+v9).toFixed(3)}</b> ${v9>1?`<b class="vbup">above 1.00</b> (${run} close${run===1?"":"s"} in a row; a release needs 3+ then a close back at or under 1.00)`:`<b class="vbdn">under 1.00</b>${run?"":" (no fear run now)"}`}`;
+  const vvPct=vv?Math.max(0,Math.min(100,100*(vv-70)/(150-70))):0, cutPct=100*(cut-70)/(150-70);
+  const gauge=`<div class="vbgauge"${vbTipAttr(`<b>VVIX = the volatility of VIX</b><br>High VVIX means the market pays a lot for VIX upside, so the most likely path for VIX is DOWN (the 11/05 UX1 distribution: peak well under the future, long right tail).<br>Fires with VVIX ${cut}+ were the strong ones: 20 sessions short VIXY +12.2%, up 95% (21 trades since 2011) vs +5.0%, up 71% under ${cut} (28).`)}>VVIX <b>${vv?(+vv).toFixed(1):"–"}</b><div class="vbbar"><i style="width:${vvPct}%;background:${vv>=cut?"#3FE0A0":"#9DB0CA"}"></i><span style="position:absolute;left:${cutPct}%;top:-2px;bottom:-2px;width:3px;background:#fff"></span></div><span>${vv>=cut?"<b class='vbdn'>strong</b>":"normal"} (${cut} = strong)</span></div>`;
+  const row=(lab,r)=>r?`<tr${vbTipAttr(`<b>${lab}: ${esc(r[0])}</b><br>${r[2]} trades since ${r[1]}, held 20 sessions from the next open.<br>Average ${r[3]>0?"+":""}${r[3]}%, up ${r[4]}% of the time, worst ${r[5]}%.`)}><td>${lab}</td><td>${esc(r[0])}</td><td>${r[2]}</td><td>${vbRet(r[3])}</td><td>${r[4]}%</td><td>${vbRet(r[5],0)}</td></tr>`:"";
+  const pick=(k,t)=>(R[k]||[]).find(x=>x[0]===t);
+  const hist=`<table class="vbhist"><tr><th>Fires (20 sessions)</th><th>Trade</th><th>n</th><th>Avg</th><th>Up</th><th>Worst</th></tr>`+
+    row("Strong",pick("strong_20","long SVXY"))+row("Normal",pick("normal_20","long SVXY"))+
+    row("All 2011+",pick("all_20","short VIXY"))+row("All, S&amp;P",pick("all_20","long SPY"))+`</table>`;
+  const fires=(S.fires||[]).map(f=>`<span class="vbchip" style="background:${f.strength==="strong"?"#3FE0A0":"#C9D6E8"}"${vbTipAttr(`<b>Fire ${vbDt(f.d)}</b><br>VIX ${f.vix}, VVIX ${f.vvix} = ${f.strength}.`)}>${esc(vbDt(f.d).replace(/, (\d\d)(\d\d)$/," '$2"))}</span>`).join("");
+  const prov=S.provisional?`<div class="vbnote">Includes today's live quotes: final after the 16:15 close. The official signal is the 17:13 EOD job (Telegram).</div>`:"";
+  return `<div class="vbsig ph-${esc(st.phase||"IDLE")}">
+    <div><span class="vbph" style="background:${ph[0]}">${ph[1]}</span> <span style="font-size:15px;color:#DCE6F2;margin-left:8px">rule ${esc(S.rule||"")} · ${esc(st.d||"")}</span>
+      <div class="vbhead">${esc(S.headline||"")}</div>${prog}
+      <div class="vbnote" style="color:#fff">VIX <b>${st.vix!=null?(+st.vix).toFixed(2):"–"}</b>${F&&F.bucket?` (${esc(F.bucket)})`:""} · ${fear}</div>
+      <div id="vbPath" style="margin-top:8px"></div>${prov}</div>
+    <div><div class="vbtrade">When it fires: <b>buy SVXY</b> at the next open, ${S.units||1} unit, sell at the close of the ${hold}th session. Each fire is its own trade. SVIX swings about twice as much. <b style="color:#FF7A6B">No naked short</b> of UVXY / UVIX: a short can lose more than 100%.</div>
+      ${gauge}${hist}
+      <div class="vbchips">Last fires: ${fires||"none in the history held"}</div>
+      <div class="vbnote">${esc(ev.note||"")}</div></div></div>`; }
+
+function vbPath(el,S){
+  const nar=el&&el.clientWidth<520, P=((S&&S.path)||[]).slice(nar?-24:-40); if(!el||P.length<2){ if(el) el.innerHTML=""; return; }
+  const W=nar?380:600,H=nar?230:200,L=36,Rm=6,T=8,mid=nar?136:118,B=nar?212:186, n=P.length, cw=(W-L-Rm)/n, X=i=>L+cw*(i+0.5);
+  const vix=P.map(p=>p[1]); let lo=Math.min(...vix,24), hi=Math.max(...vix,26); lo=Math.floor(lo-1); hi=Math.ceil(hi+1);
+  const Yv=v=>T+(hi-v)*(mid-14-T)/(hi-lo), r0=mid+(B-mid)/2, Yr=r=>r0-(r-1)*(B-mid)/0.3;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W+80}px;display:block">`;
+  P.forEach((p,i)=>{ if(p[4]==="ARMED"||p[4]==="FIRE"||p[4]==="HOLD") s+=`<rect x="${X(i)-cw/2}" y="${T}" width="${cw+0.5}" height="${B-T}" fill="${(VB_PH[p[4]]||VB_PH.IDLE)[0]}" opacity=".13"/>`; });
+  s+=`<line x1="${L}" x2="${W-Rm}" y1="${Yv(25)}" y2="${Yv(25)}" stroke="#FFC24A" stroke-dasharray="6 4" stroke-width="1.5"/><text x="${L-6}" y="${Yv(25)+5}" fill="#FFC24A" font-size="14" text-anchor="end">25</text>`;
+  s+=`<text x="${L-6}" y="${Yv(hi)+12}" fill="#C9D6E8" font-size="13" text-anchor="end">${hi}</text><text x="${L-6}" y="${Yv(lo)}" fill="#C9D6E8" font-size="13" text-anchor="end">${lo}</text>`;
+  s+=`<polyline points="${P.map((p,i)=>X(i).toFixed(1)+","+Yv(p[1]).toFixed(1)).join(" ")}" fill="none" stroke="#fff" stroke-width="2.2"/>`;
+  s+=`<line x1="${L}" x2="${W-Rm}" y1="${r0}" y2="${r0}" stroke="#C9D6E8" stroke-width="1"/><text x="${L-6}" y="${r0+5}" fill="#C9D6E8" font-size="13" text-anchor="end">1.00</text>`;
+  P.forEach((p,i)=>{ const r=p[2]; if(r==null) return; const y=Yr(Math.max(0.85,Math.min(1.15,r))), up=r>1;
+    s+=`<rect x="${X(i)-cw*0.36}" y="${Math.min(y,r0)}" width="${cw*0.72}" height="${Math.max(1,Math.abs(y-r0))}" fill="${up?"#FF5A5F":"#3FD0B0"}"/>`;
+    if(p[4]==="FIRE") s+=`<path d="M${X(i)} ${B-14} l7 12 h-14z" fill="#3FE0A0"/>`; });
+  P.forEach((p,i)=>{ s+=`<rect x="${X(i)-cw/2}" y="${T}" width="${cw}" height="${B-T}" fill="transparent"${vbTipAttr(`<b>${vbDt(p[0])}</b> · ${p[4]}<br>VIX ${p[1]} · VIX9D &divide; VIX ${p[2]==null?"–":p[2]} · VVIX ${p[3]==null?"–":p[3]}`)}/>`; });
+  const fs=nar?15:14;
+  s+=`<text x="${L+4}" y="${T+14}" fill="#fff" font-size="${fs}">VIX, last ${n} sessions · dashed 25 arms it</text><text x="${L+4}" y="${B+15}" fill="#DCE6F2" font-size="${fs}">VIX9D&divide;VIX: red = fear, green = calm · &#9650; fire</text></svg>`;
+  el.innerHTML=s; }
+
+function vbCards(B){
+  const R=((B&&B.rows)||[]).slice().sort((a,b)=>vbScore(b)-vbScore(a));
+  if(!R.length) return `<div class="vbnote">No index rows yet.</div>`;
+  const stand=R.map(vbStandText).filter(Boolean).slice(0,3);
+  const cards=R.map(r=>{ const tags=vbTags(r).map(([t,c])=>`<span class="vbtag" style="background:${c}">${t}</span>`).join("");
+    const rl=r.ratio!=null?`${(+r.ratio).toFixed(2)}&times; VIX${r.ratio_pct!=null?` · higher than ${Math.round(r.ratio_pct)}% of the year`:""}`:(r.s==="SKEW"?"price of S&amp;P crash protection":"");
+    const yl=r.pct!=null?`level higher than ${Math.round(r.pct)}% of its year`:"under 60 days of history";
+    const tip=`<b>${esc(r.s)} &mdash; ${esc(r.name)}</b> (${esc(r.grp)})<br>Level ${(+r.v).toFixed(2)} (${r.src==="live"?"live, ~15 min delayed":"last close"}).<br>Change: 1 day ${r.d1==null?"–":(+r.d1).toFixed(2)}, 1 week ${r.d5==null?"–":(+r.d5).toFixed(2)}, 1 month ${r.d21==null?"–":(+r.d21).toFixed(2)}.<br>`+
+      (r.pct!=null?`Higher than ${Math.round(r.pct)}% of the last year's closes.<br>`:"")+(r.ratio!=null?`${(+r.ratio).toFixed(3)} &times; VIX; that ratio is above ${r.ratio_pct==null?"–":Math.round(r.ratio_pct)}% of the last year (high = this market is nervous next to the S&amp;P).`:"");
+    return `<div class="vbcard" style="--e:${vbEdge(r.pct)}"${vbTipAttr(tip)}><div><span class="s">${esc(r.s)}</span><span class="n">${esc(r.name)}</span></div>
+      <div><span class="lv">${(+r.v).toFixed(r.v>=100?1:2)}</span><span class="ch">${vbLvl(r.d1)}</span></div>
+      <div class="rl">${rl}</div><div class="rl" style="color:#DCE6F2">${yl}</div>${tags}${vbSpark(r.spark)}</div>`; }).join("");
+  return `<div class="vbsec"><h3>Volatility across markets</h3><div class="vbsub">Most unusual first. Left edge = where the level sits in its own year (<b style="color:#FF5A5F">top 10%</b> · <b style="color:#FF8A3D">high</b> · <b style="color:#FFD23F">middle</b> · <b style="color:#3FD0B0">low</b>). A vol level going up is red.</div>`+
+    (stand.length?`<div class="vbstand" style="margin-bottom:10px">${stand.map(t=>`<span>${t}</span>`).join("")}</div>`:"")+`<div class="vbcards">${cards}</div></div>`; }
+
+function vbFunds(B){
+  const R=(B&&B.etp)||[]; if(!R.length) return "";
+  return `<div class="vbsec"><h3>Vol funds</h3><div class="vbsub">Long-vol funds lose value while the VIX curve slopes up (contango); short-vol funds gain then and can lose most of their value in one spike. A price going up is green.</div><div class="vbfunds">`+
+    R.map(r=>`<div class="vbfund"${vbTipAttr(`<b>${esc(r.s)}</b>: ${esc(r.name)}.<br>Price ${(+r.v).toFixed(2)} (${r.src==="live"?"live, ~15 min delayed":"last close"}).<br>1 day ${r.d1==null?"–":(+r.d1).toFixed(2)+"%"}, 1 week ${r.d5==null?"–":(+r.d5).toFixed(2)+"%"}, 1 month ${r.d21==null?"–":(+r.d21).toFixed(2)+"%"}.`)}><span class="s">${esc(r.s)}</span> <span class="p">${(+r.v).toFixed(2)}</span><div class="h">${esc(r.name)}</div><div>1d ${vbRet(r.d1)} · 1w ${vbRet(r.d5)} · 1m ${vbRet(r.d21)}</div>${vbSpark(r.spark,150,28)}</div>`).join("")+`</div></div>`; }
+
+function vbCurve(VR){
+  if(!VR||!VR.curves||!VR.tenors) return `<div class="vbsec"><h3>VIX curve</h3><div class="vbnote">No VIX curve in live.json (the writer fills it on market days).</div></div>`;
+  const C=VR.curves, ten=VR.tenors.map(t=>Array.isArray(t)?t[0]:t), sets=[["today",C.today,"#FFD23F",3.5],["1 week ago",C.w,"#6AB7FF",2],["1 month ago",C.m,"#8C9BB5",2]];
+  const all=sets.flatMap(s=>s[1]||[]).filter(v=>v!=null); if(!all.length||ten.length<2) return "";
+  const W=600,H=230,L=40,Rm=24,T=14,Bm=34, lo=Math.floor(Math.min(...all)-1), hi=Math.ceil(Math.max(...all)+1), X=i=>L+i*(W-L-Rm)/(ten.length-1), Y=v=>T+(hi-v)*(H-T-Bm)/(hi-lo||1);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W+80}px;display:block">`;
+  for(let v=lo; v<=hi; v+=Math.max(1,Math.round((hi-lo)/5))) s+=`<line x1="${L}" x2="${W-Rm}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1B2C4C"/><text x="${L-6}" y="${Y(v)+5}" fill="#C9D6E8" font-size="13" text-anchor="end">${v}</text>`;
+  ten.forEach((t,i)=>s+=`<text x="${X(i)}" y="${H-10}" fill="#F2F6FC" font-size="14" text-anchor="middle">${esc(t)}</text>`);
+  for(const [nm,vals,col,wd] of sets.slice().reverse()){ if(!vals) continue; const p=vals.map((v,i)=>v==null?null:[X(i),Y(v),v,ten[i]]).filter(Boolean); if(!p.length) continue;
+    s+=`<polyline points="${p.map(q=>q[0].toFixed(1)+","+q[1].toFixed(1)).join(" ")}" fill="none" stroke="${col}" stroke-width="${wd}"/>`;
+    for(const q of p) s+=`<circle cx="${q[0]}" cy="${q[1]}" r="${wd+2.5}" fill="${col}"${vbTipAttr(`<b>${nm}</b><br>${esc(q[3])} ${(+q[2]).toFixed(2)}`)}/>`; }
+  s+=`</svg>`;
+  const t=C.today||[], i30=ten.indexOf("VIX"), i3=ten.indexOf("VIX3M"), r=(t[i30]&&t[i3])?t[i30]/t[i3]:null;
+  return `<div class="vbsec"><h3>VIX curve</h3>${s}<div class="vbnote" style="color:#fff">${sets.map(x=>`<b style="color:${x[2]}">&#9679; ${x[0]}</b>`).join(" &nbsp; ")}`+
+    (r!=null?` · VIX &divide; VIX3M <b>${r.toFixed(3)}</b>: ${r>=1?`<b class="vbup">upside down (backwardation)</b>, fear is near-term`:`<b class="vbdn">normal upward slope (contango)</b>`}`:"")+`</div></div>`; }
+
+function vbRender(el){
+  const head=`<div class="vbtitle"><h2>Vol board</h2><span>VIX spike-fade signal · volatility across markets · VIX curve · vol funds · free Cboe data, ~15 min delayed</span></div>`;
+  if(!VOLX||!VOLX.board){ el.innerHTML=head+`<div class="vbnote">${VOLX&&VOLX._err?`Could not read volx.json (${esc(VOLX._err)}). Is <code>cvxmap-volx</code> running?`:VOLX?"volx.json has no board yet (volx.py older than 2026-11-14).":"Loading volx.json…"}</div>`; return; }
+  const B=VOLX.board;
+  el.innerHTML=head+vbSignal(B.sig,B.fade)+vbCards(B)+`<div class="vbsec" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px"><div>${vbCurve(st.live&&st.live.VIXR)}</div><div>${vbFunds(B)}</div></div>`+
+    `<div class="vbnote">Updated ${esc(String(VOLX.asof||"").replace("T"," ").slice(0,16))} ET. History: project doc claude/vol-etp-backtest-20261114.md. Descriptive card; the alert is the EOD job.</div>`;
+  vbPath(document.getElementById("vbPath"),B.sig);
+  if(!el.dataset.vbTip){ el.dataset.vbTip="1";
+    const show=(t,x,y)=>{ let tip=document.getElementById("vbTip"); if(!tip){ tip=document.createElement("div"); tip.id="vbTip"; tip.setAttribute("role","tooltip"); document.body.appendChild(tip); }
+      tip.innerHTML=t.getAttribute("data-vt"); tip.hidden=false; const w=tip.offsetWidth, h=tip.offsetHeight;
+      let px=x+16, py=y+14; if(px+w>innerWidth-8) px=x-w-16; if(py+h>innerHeight-8) py=y-h-14; tip.style.left=Math.max(8,px)+"px"; tip.style.top=Math.max(8,py)+"px"; };
+    const hide=()=>{ const tip=document.getElementById("vbTip"); if(tip) tip.hidden=true; };
+    el.addEventListener("mousemove",e=>{ const t=e.target.closest&&e.target.closest("[data-vt]"); if(t&&el.contains(t)) show(t,e.clientX,e.clientY); else hide(); });
+    el.addEventListener("mouseleave",hide);
+    el.addEventListener("touchstart",e=>{ const t=e.target.closest&&e.target.closest("[data-vt]"); if(t&&el.contains(t)){ const p=e.touches[0]; show(t,p.clientX,p.clientY); } else hide(); },{passive:true}); }
+}
+
 /* ---- Density + VIX option buttons (2026-11-09). Each is OFF by default and remembered per browser. OFF = nothing drawn
    or fetched for it. The buttons live in #denOpts (Density tab) and #vxOpts (VIX tab). */
 var DNO_DEF=[["dn1","Support + walls","Call wall = largest 1–7 DTE call open interest above price (to +8%), put wall = largest 1–7 DTE put open interest below (to −8%), round-number support = the round strike below price with the most put open interest (to −8%). Lines on the cone and the odds chart, plus the chance of touching each before the close."],
@@ -7962,6 +8147,7 @@ var DNO_DEF=[["dn1","Support + walls","Call wall = largest 1–7 DTE call open i
 var VXO_DEF=[["vx1","Regime gauge","VIXM / VIXY ratio, 8-day vs 21-day average, with two confirmations (VIX9D above VIX, SPX below its 21-day average). Untested predictor. Needs the vol poller (cvxmap-volx)."],
   ["vx2","Variance stack","VIX² + DSPX² ≈ VIXEQ² through the day: how much of single-stock volatility is reaching the index. Needs the vol poller (cvxmap-volx)."],
   ["vmap","VIX map","Dealer gamma and vanna in VIX options by VIX level and time of day, like the SPX Map. Written by the Orbs feed (cvxmap-wide)."],
+  ["vb","Vol board","VIX spike-fade signal (rule vf-v2: armed after a VIX close at 25+, fires when VIX9D drops back under VIX inside 20 sessions, strong = VVIX 110+; buy SVXY, hold 20 sessions), volatility across markets as cards (most unusual first), the VIX curve and the vol funds. Display only; the alert is the 17:13 EOD job. Needs the vol poller (cvxmap-volx)."],
   ["split","SPX IV move split","Today's 0DTE SPX ATM IV change split in two: sliding along the skew (price moved to strikes with a different IV - tends to snap back when price comes back) vs the curve itself moving (the IV of a fixed strike changed - real repricing of fear). From the minute log, no extra data."]];
 function optRow(id,defs,obj){ const el=document.getElementById(id); if(!el) return; const sig=defs.map(([k])=>k+(obj[k]?1:0)).join("");
   if(el.dataset.sig===sig) return; el.dataset.sig=sig;
@@ -7970,8 +8156,8 @@ function optRow(id,defs,obj){ const el=document.getElementById(id); if(!el) retu
     if(id==="denOpts"){ try{ denStop(); }catch(e){} } st._vxKey=null; st._vxoKey=null; VXM.key=""; if(k==="vmap"&&obj.vmap) vxmFetch(true);
     try{ volxPoll(); }catch(e){} render(); if(id==="denOpts"){ try{ denTick(); }catch(e){} } }); }
 function volxDue(){ if(Date.now()-VOLX_AT>60000) volxPoll(); }   // first open of the tab with an option already on
-function vxoUpdate(){ optRow("vxOpts",VXO_DEF,st.vxo); if(st.vxo.vx1||st.vxo.vx2) volxDue(); try{ vxSplitRender(); }catch(e){ console.error(e); }
-  const key=[st.vxo.vx1,st.vxo.vx2,VOLX&&(VOLX.asof||VOLX._err),(document.getElementById("tabVix")||{}).clientWidth].join("|");
+function vxoUpdate(){ optRow("vxOpts",VXO_DEF,st.vxo); if(st.vxo.vx1||st.vxo.vx2||st.vxo.vb) volxDue(); try{ vxSplitRender(); }catch(e){ console.error(e); }
+  const key=[st.vxo.vx1,st.vxo.vx2,st.vxo.vb,VOLX&&(VOLX.asof||VOLX._err),st.vxo.vb&&st.live&&st.live.VIXR&&st.live.VIXR.asof,(document.getElementById("tabVix")||{}).clientWidth].join("|");
   if(key!==st._vxoKey){ st._vxoKey=key; vxoRender(); }
   vxmRender(); }
 

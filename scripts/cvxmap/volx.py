@@ -22,16 +22,20 @@ VX1 regime gauge (VIXM/VIXY ratio; claude/vol-regime-knowledge-20261108.md):
   Today's row is PROVISIONAL (live quotes) until the cash close. Not tested by us as a predictor.
 VX2 variance stack: VIX^2 + DSPX^2 ~= VIXEQ^2; transmission share = VIX^2 / (VIX^2 + DSPX^2).
 
-2026-11-14 VOL BOARD (vol_board.html, served at :8899/vol_board.html): volx.json gains "board" =
+2026-11-14 VOL BOARD (cockpit VIX tab > Options > "Vol board", OFF by default): volx.json "board" =
   rows  13 more free Cboe vol indices (VXN RVX VXD VIXEQ SKEW VXTLT OVX GVZ VXSLV VXGDX VXEEM
         VXEWZ VXAZN): level, 1/5/21-day change, 1-year percentile, ratio to VIX + its percentile
   etp   the vol funds (UVXY UVIX VXX VIXY VIXM SVXY SVIX): price and 1/5/21-day % change
   fade  descriptor of the spike-fade set-ups tested 11/14 (claude/vol-etp-backtest-20261114.md):
         VIX ladder bucket, last first-close >= 25 / >= 30, VIX9D/VIX run + last fear release
   bt    the backtest numbers the page prints next to them (frozen 2026-11-14)
+  sig   2026-11-14 (later) the vf-v2 spike-fade signal state from trading_intel.strategies.vol_fade
+        (the SAME function the EOD job banks into `signals` and pushes to Telegram): VIX / VIX9D /
+        VVIX closes + today's quotes as a provisional row until the history files carry today.
+        The cockpit card only SHOWS it; the official signal is the EOD job (rule 4).
   Board quotes refresh every 5 min (minute quotes reused where they exist); history once a day.
-  main() copies scripts/cvxmap/vol_board.html into the data folder (like flow_orbs.html).
-  Descriptive only (rule 4): no alert, no trade.
+  The standalone vol_board.html page (11/14 morning) was retired when the board moved into the
+  cockpit.
 
 RUN  python scripts/cvxmap/volx.py         one step a minute; exits at 16:30 ET (weekends: once)
      python scripts/cvxmap/volx.py --once  one step, then exit
@@ -74,10 +78,9 @@ VETP = (("UVXY", "1.5x long VIX futures", 1.5), ("UVIX", "2x long VIX futures", 
         ("VIXM", "1x mid-term VIX futures", 1.0), ("SVXY", "-0.5x short VIX futures", -0.5),
         ("SVIX", "-1x short VIX futures", -1.0))
 VETP_SYMS = tuple(s for s, _, _ in VETP)
-B_IDX = tuple(s for s in (*XV_SYMS, "VIX3M") if s not in IDX)       # board-only index quotes
+B_IDX = tuple(s for s in (*XV_SYMS, "VIX3M", "VVIX") if s not in IDX)   # board-only index quotes
 B_ETF = tuple(s for s in VETP_SYMS if s not in ETF)                  # board-only fund quotes
 BOARD_EVERY_S = 300
-PAGE = "vol_board.html"
 # VIX ladder (VIX level -> VIX lower ~84 sessions later; Cboe closes 2004-2026; ledger D, 11/14)
 LADDER = ((20.0, "under 20", "no spike to fade; the funds bleed slowly in calm markets"),
           (30.0, "20 to 30", "VIX was lower 4 months later 76% of the time (median -16%)"),
@@ -298,7 +301,7 @@ def fade_state(hist: dict, q: dict, today: datetime.date) -> dict | None:
 
 
 def board(hist: dict, q: dict, today: datetime.date) -> dict:
-    """Vol board for vol_board.html. q = every quote we hold (minute + 5-minute board quotes)."""
+    """Vol board for the cockpit VIX tab. q = every quote we hold (minute + 5-minute board quotes)."""
     vix_now = _f((q.get("VIX") or {}).get("v")) or ((hist.get("VIX") or [(None, 0.0)])[-1][1])
     vh = dict(hist.get("VIX", []))
     rows = []
@@ -333,7 +336,41 @@ def board(hist: dict, q: dict, today: datetime.date) -> dict:
         etp.append({"s": s, "name": name, "lev": lev, "v": round(v, 2), "src": src, "d1": chg(prev),
                     "d5": chg(_back(ser, 5, fresh)), "d21": chg(_back(ser, 21, fresh)),
                     "spark": _spark(ser, v, fresh)})
-    return {"rows": rows, "etp": etp, "fade": fade_state(hist, q, today), "bt": BT}
+    return {"rows": rows, "etp": etp, "fade": fade_state(hist, q, today), "bt": BT,
+            "sig": fade_signal(hist, q, today)}
+
+
+def _vf():  # noqa: ANN202 - the strategy module (baked into the image; the repo root on a laptop)
+    root = os.path.dirname(os.path.dirname(HERE))
+    if root not in sys.path:
+        sys.path.append(root)
+    from trading_intel.strategies import vol_fade
+    return vol_fade
+
+
+def fade_signal(hist: dict, q: dict, today: datetime.date) -> dict | None:
+    """vf-v2 state for the cockpit card (descriptive copy of what the EOD job banks). Today's
+    quotes are added as a PROVISIONAL row while the history files do not carry the session yet."""
+    try:
+        vf = _vf()
+    except Exception as exc:  # image older than the strategy module: say so, keep the board
+        return {"err": "vol_fade not importable: " + str(exc)[:120]}
+    vix, v9, vv = hist.get("VIX") or [], hist.get("VIX9D") or [], hist.get("VVIX") or []
+    if not vix:
+        return None
+    vq = q.get("VIX") or {}
+    d = qday(vq, today)
+    tq = None
+    if _f(vq.get("v")) > 0 and d > vix[-1][0] and d.weekday() < 5:
+        v9q, vvq = _f((q.get("VIX9D") or {}).get("v")), _f((q.get("VVIX") or {}).get("v"))
+        tq = (d, _f(vq.get("v")), v9q or None, vvq or None)
+    states = vf.evaluate(vf.merge_closes(vix, v9, vv, today=tq))
+    st = states[-1]
+    return {"rule": vf.RULE_VERSION, "state": st.to_dict(), "headline": vf.headline(st),
+            "provisional": tq is not None, "fires": vf.recent_fires(states, 6),
+            "evidence": vf.EVIDENCE, "strong_vvix": vf.STRONG_VVIX, "hold": vf.HOLD,
+            "window": vf.ARM_WINDOW, "units": vf.UNITS,
+            "path": [[x.d.isoformat(), x.vix, x.v9r, x.vvix, x.phase] for x in states[-40:]]}
 
 
 # ---------------------------------------------------------------- network + loop
@@ -372,7 +409,7 @@ class VolX:
 
     def history(self, today: datetime.date) -> dict:
         h = {}
-        for s in (*H_IDX, *XV_SYMS, "VIX3M"):
+        for s in (*H_IDX, *XV_SYMS, "VIX3M", "VVIX"):
             try:
                 rows = []
                 for line in self._get(_H_IDX % s, timeout=15).text.splitlines()[1:]:
@@ -491,21 +528,6 @@ def _safe_board(hist: dict, q: dict, today: datetime.date) -> dict | None:
         return None
 
 
-def copy_page(out_dir: str) -> bool:
-    """Put scripts/cvxmap/vol_board.html next to volx.json so cvxmap-serve serves it."""
-    src = os.path.join(HERE, PAGE)
-    if not os.path.exists(src):
-        return False
-    try:
-        import shutil
-        os.makedirs(out_dir, exist_ok=True)
-        shutil.copyfile(src, os.path.join(out_dir, PAGE))
-        return True
-    except OSError as exc:
-        print("volx: page copy failed:", str(exc)[:120], flush=True)
-        return False
-
-
 def _atomic(path: str, obj: object) -> None:
     tmp = path + ".tmp"
     with open(tmp, "w") as fh:
@@ -527,7 +549,6 @@ def main(argv: list[str] | None = None) -> int:
         out = argv[argv.index("--out") + 1]
     v = VolX(out, now_et)
     print(f"volx start {now_et():%Y-%m-%d %H:%M} -> {out}", flush=True)
-    copy_page(out)
     if "--once" in argv:
         v.step()
         return 0

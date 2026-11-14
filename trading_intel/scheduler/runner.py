@@ -42,6 +42,7 @@ from trading_intel.scheduler.jobs import (
     vix_expirations,
     vix_options,
     vix_snapshot,
+    vol_fade,
     vol_regime,
     vol_richness,
 )
@@ -146,6 +147,10 @@ def main() -> None:
     def run_vol_regime() -> None:
         with session_factory() as session:
             vol_regime.run(session, settings=settings)
+
+    def run_vol_fade() -> None:
+        with session_factory() as session:
+            vol_fade.run(session, settings=settings)
 
     def run_delta_flow() -> None:
         with session_factory() as session:
@@ -314,6 +319,10 @@ def main() -> None:
     # Vol-regime classifier — 17:00 ET (after index_skew so today's row exists).
     # On the NAS this is a separate DSM task (runner cron is ignored there).
     scheduler.add_job(run_vol_regime, "cron", hour=17, minute=0, name="vol_regime")
+    # vf-v2 VIX spike-fade signal (2026-11-14) -- after the 16:15 VIX close. NAS: DSM task 17:13.
+    scheduler.add_job(
+        run_vol_fade, "cron", day_of_week="mon-fri", hour=17, minute=13, name="vol_fade"
+    )
     # Per-name skew snapshot -- 16:55 ET (after index_skew so SDEX delta is
     # available for the abnormal-RR residual). NAS: separate DSM task.
     scheduler.add_job(run_skew_snapshots, "cron", hour=16, minute=55, name="skew_snapshots")

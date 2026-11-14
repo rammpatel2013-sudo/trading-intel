@@ -34,7 +34,7 @@ const tab=async(o,t)=>{ await o.p.evaluate(t=>{ const T=window.__T; T.st.tab=t; 
     for(const t of ["flow","vix","orbs","exposure"]){ await tab(A,t); await tab(N,t);
       const ta=await A.p.evaluate(t=>{ const el=document.querySelector('main.tab:not([hidden])'); return el?el.innerText.length:0; },t), tn=await N.p.evaluate(()=>{ const el=document.querySelector('main.tab:not([hidden])'); return el?el.innerText.length:0; });
       if(t==="vix") ok(tn-ta>0&&tn-ta<40,`OFF: VIX tab text differs only by the new option button (${ta} vs ${tn})`); else ok(ta===tn,`OFF: ${t} tab text identical (${ta})`); }
-    ok((await N.p.$$eval('#vxOpts button',bs=>bs.map(b=>b.getAttribute('aria-pressed')).join()))==='false,false,false,false','VIX: 4 option buttons, all OFF');
+    ok((await N.p.$$eval('#vxOpts button',bs=>bs.map(b=>b.getAttribute('aria-pressed')).join()))==='false,false,false,false,false','VIX: 5 option buttons (Vol board added 2026-11-14), all OFF');
     ok(await N.p.$eval('#vxSplit',e=>e.hidden),'OFF: SPX IV move split hidden');
     ok(A.errs.length===0&&N.errs.length===0,'0 JS errors old/new '+JSON.stringify(N.errs.slice(0,3)));
     await A.ctx.close(); await N.ctx.close(); }
