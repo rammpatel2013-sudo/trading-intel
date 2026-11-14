@@ -1177,6 +1177,14 @@ def build_own(ti: dict, dma: dict, today: str) -> dict | None:
     lo, hi = sd.get("lower"), sd.get("upper")
     if near(lo) and near(hi):
         cand += [(2, float(lo), "straddle low edge", "trig"), (2, float(hi), "straddle high edge", "trig")]
+    em = mech.get("expected_move") or {}
+    base = ((float(lo), float(hi)) if near(lo) and near(hi) else
+            (float(em["lower"]), float(em["upper"])) if near(em.get("lower")) and near(em.get("upper")) else None)
+    s1 = None
+    if base:   # 2026-11-13: true 1 sigma = 1.25 x the straddle (the straddle edge is ~0.8 sigma: ~58% of closes inside, not 68%)
+        c0, h0 = (base[0] + base[1]) / 2, (base[1] - base[0]) / 2
+        s1 = (c0 - 1.25 * h0, c0 + 1.25 * h0)
+        cand += [(5, s1[0], "1σ low (1.25× straddle)", "rail"), (5, s1[1], "1σ high (1.25× straddle)", "rail")]
     for key, lab in (("dma20", "20 DMA"), ("dma50", "50 DMA")):
         if near(dma.get(key)):
             cand.append((3, float(dma[key]), lab, "chart"))
@@ -1198,14 +1206,13 @@ def build_own(ti: dict, dma: dict, today: str) -> dict | None:
     if not lv:
         return None
     rails = []
-    if near(lo) and near(hi):
-        rails.append({"name": "STR", "lo": round(float(lo), 2), "hi": round(float(hi), 2)})
-    em = mech.get("expected_move") or {}
-    if near(em.get("lower")) and near(em.get("upper")) and not (rails and abs(rails[0]["lo"] - float(em["lower"])) < 3):
-        rails.append({"name": "1σ", "lo": round(float(em["lower"]), 2), "hi": round(float(em["upper"]), 2)})
-    P = pivot or min(lv, key=lambda x: abs(x["v"] - S))["v"]
-    up = [x["v"] for x in lv if x["v"] > P and x["role"] != "chart"]
-    dn = [x["v"] for x in sorted(lv, key=lambda x: -x["v"]) if x["v"] < P and x["role"] != "chart"]
+    if base:   # 2026-11-13: STR = the straddle (was also shown as "1σ"); 1σ = 1.25 x STR (Kris Abdelmessih / band-compare)
+        rails.append({"name": "STR", "lo": round(base[0], 2), "hi": round(base[1], 2)})
+        rails.append({"name": "1σ", "lo": round(s1[0], 2), "hi": round(s1[1], 2)})
+    nonrail = [x for x in lv if x["role"] != "rail"] or lv
+    P = pivot or min(nonrail, key=lambda x: abs(x["v"] - S))["v"]
+    up = [x["v"] for x in lv if x["v"] > P and x["role"] not in ("chart", "rail")]
+    dn = [x["v"] for x in sorted(lv, key=lambda x: -x["v"]) if x["v"] < P and x["role"] not in ("chart", "rail")]
     f = lambda v: f"{v:,.0f}"
     sc = []
     def add(kind, d, L, T, cond, then, sect=None):
@@ -1226,7 +1233,8 @@ def build_own(ti: dict, dma: dict, today: str) -> dict | None:
     regime = "above" if S > P else "below"
     ctx = [f"Pivot {f(P)} = where dealer gamma flips sign. Above it dealers sell rallies and buy dips (moves get damped); below it they chase (moves get bigger).",
            f"The 08:35 spot {f(S)} is {regime} the pivot.",
-           "Walls = strikes with the most dealer gamma; price tends to slow or stall there. Straddle edges = today's priced range; a 5-min close past one says the day is running bigger than priced."]
+           "Walls = strikes with the most dealer gamma; price tends to slow or stall there. Straddle edges = today's priced range; a 5-min close past one says the day is running bigger than priced.",
+           "STR = the straddle = the typical move (about 0.8σ: SPX closes inside it on ~6 days in 10). 1σ = 1.25 × STR (about 2 days in 3)."]
     return {"title": f"Ours — AM levels {today[5:].replace('-', '/')}", "levels": {"SPX": lv}, "scalper": {}, "weekly": {}, "premium": {},
             "rails": rails, "pivot": P, "chop": None, "working": [dn[0], up[0]] if up and dn else None,
             "em": [rails[0]["lo"], rails[0]["hi"]] if rails else None, "scenarios": sc, "context": ctx,

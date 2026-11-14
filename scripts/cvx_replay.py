@@ -1603,6 +1603,11 @@ def main():
                                (dens or {}).get("cone0"), res.get("p1"), doc, gs, ex.get("viv"), spx,
                                ((ex.get("oi") or {}).get("SPX") or {}).get("oi") or {}, window_effect.greek_col, own=own)
             p1["guess"] = mid_guess_score(day_iso, ex.get("q") or {}, p1score)
+            try:   # 2026-11-13 rails: reaction vs transition per rail + the TEST short-strike marker sm-v0 at 09:45 (rail_score.py)
+                import rail_score
+                p1["rails"] = rail_score.score_day(p1score.path_of(spx), spx, ((ex.get("oi") or {}).get("SPX") or {}).get("oi") or {}, doc, own)
+            except Exception:
+                log("rail score failed:\n%s" % traceback.format_exc())
             with open(out_dir / "p1.json", "w", encoding="utf-8") as fh:
                 json.dump(p1, fh, separators=(",", ":"), default=str)
             gate_t = {r["t"]: r for r in ((res.get("p1") or {}).get("gate") or [])}
@@ -1626,6 +1631,11 @@ def main():
                 if pj.get("day") and pj["day"] <= day_iso:
                     days_p1.append((pj["day"], pj))
             p1_html = p1score.html(p1, p1score.running(days_p1))
+            try:   # 2026-11-13 rails section (tonight + running)
+                import rail_score
+                p1_html += rail_score.html(p1.get("rails"), rail_score.running(days_p1))
+            except Exception:
+                log("rail score page failed:\n%s" % traceback.format_exc())
             b_ = p1.get("boundary") or {}
             hist_row.update(regime=b_.get("regime"), gate_median=(p1.get("gate") or {}).get("gate_median"),
                             flip_split_ours=((p1["flip"].get("ours") or {}).get("split") or {}).get("ratio"),

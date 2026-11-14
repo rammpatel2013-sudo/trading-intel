@@ -4,7 +4,7 @@ Every edit is an exact, single-occurrence replacement; the script stops if produ
 (OFF by default), so the test page simply inherits them from production; tg_den.js / tg_vix.js are gone.
 2026-11-13 (evening): production gained the Map > Gamma "Hedge" curve (OFF by default, display only); the test page inherits it - no test-side edit.
 2026-11-13 (night): production read-out fix (Change on the right: the read uses the real charm map; a blocked Change map is never read) - inherited, no test-side edit.
-2026-11-13 (night): + the Map > Gamma Profile button (tg_profile.js, section 16): whole-book gamma profile, Full vs Ex-0DTE, from profile_SPX.json; + the ES hedge table under it (VS step 3); + the tape-signed line (VS step 4); + charm by expiry + red flag (VS step 5); + close odds + 3 calibration checks (VS step 6).
+2026-11-13 (night, later): + Short strikes marker sm-v0 (tg_strike.js, section 18). 2026-11-13 (night): + the Map > Gamma Profile button (tg_profile.js, section 16): whole-book gamma profile, Full vs Ex-0DTE, from profile_SPX.json; + the ES hedge table under it (VS step 3); + the tape-signed line (VS step 4); + charm by expiry + red flag (VS step 5); + close odds + 3 calibration checks (VS step 6).
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
@@ -18,7 +18,8 @@ DL = open(os.path.join(HERE, "tg_delta.js"), encoding="utf-8").read()   # 2026-1
 LN = open(os.path.join(HERE, "tg_lines.js"), encoding="utf-8").read()   # 2026-11-13 Strike lines + Zero line
 PF = open(os.path.join(HERE, "tg_profile.js"), encoding="utf-8").read()   # 2026-11-13 (night) VS step 2: whole-book gamma profile
 CO = open(os.path.join(HERE, "tg_color.js"), encoding="utf-8").read()   # 2026-11-13 (overnight) #87 Color strip
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO).encode("utf-8")).hexdigest()[:12])
+SM = open(os.path.join(HERE, "tg_strike.js"), encoding="utf-8").read()   # 2026-11-13 (night) Short strikes marker sm-v0
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -59,7 +60,7 @@ rep("const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -192,6 +193,17 @@ rep('  if(v&&v.v9d>0){ const k="v9d0_"+today;',
 rep('>VIX strip</button>', '>VIX strip</button><button class="btn" id="tgColorBtn" aria-pressed="false" style="border:1px dashed #ffcc00" title="TEST Color (off by default): how much dealer gamma TIME alone adds or takes away at each price over the next 30 minutes (bars) and to 15:45 (dotted), from this map&#39;s own projection (same book and buttons, no new trades). Green = the level strengthens, pink = it lets go.">Color</button>')
 rep('<div class="vixstrip" id="vixStrip" hidden>', '<div class="tgcolor" id="tgColor" hidden><div id="tgColorHead"></div><canvas id="tgColorC"></canvas></div><div class="vixstrip" id="vixStrip" hidden>')
 rep('if(st.vixStrip) drawVixStrip(g); }catch(e){ console.error(e); }', 'if(st.vixStrip) drawVixStrip(g); }catch(e){ console.error(e); } try{ tgColorDraw(gF); }catch(e){ console.error(e); }   /* TEST CO */')
+# 18. (2026-11-13 night) SHORT STRIKES marker sm-v0 (tg_strike.js): first absorbing 0DTE strike cluster outside the 1.5x (calls) /
+#     1.75x (puts) straddle rail, short one strike behind it. Flow map + Map gamma pane, one switch, OFF by default. Display only.
+rep('<button class="btn" id="tgSlBtn"', '<button class="btn" id="tgSmBtn" aria-pressed="false" title="TEST Short strikes (sm-v0, off by default): where to sell credit spreads. From the 1.5x straddle rail (calls) / 1.75x (puts) out to 3x, the first 0DTE strike cluster where dealers ABSORB (positive gamma, start-of-day OI) = green reaction zone; the short goes one strike behind it (amber). No such strike = red = transition, stand aside. Live; the nightly replay freezes it at 09:45 and scores held / broke.">Short strikes</button><button class="btn" id="tgSlBtn"')
+rep('<button class="btn" id="tgProfBtn"', '<button class="btn" id="tgSmBtn2" aria-pressed="false" title="TEST Short strikes (sm-v0, off by default) - same switch as on the Flow tab: green = first absorbing 0DTE strike cluster outside the 1.5x / 1.75x straddle rail, amber = short strike behind it, red = no absorbing strike (transition).">Short strikes</button><button class="btn" id="tgProfBtn"')
+rep('tgStrikeLines(ctx,{Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},"lines");   // TEST SL\n',
+    'tgStrikeLines(ctx,{Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},"lines");   // TEST SL\n  tgSmDraw(ctx,{Y:Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},"lines");   // TEST SM\n')
+rep('tgStrikeLines(ctx,{Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},"labels");   // TEST SL\n',
+    'tgStrikeLines(ctx,{Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},"labels");   // TEST SL\n  tgSmDraw(ctx,{Y:Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},"labels");   // TEST SM\n')
+rep('+ tgSlLegend();   // TEST SL', '+ tgSlLegend() + tgSmLegend();   // TEST SL')
+rep('tgDlOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }   // TEST DL\n',
+    'tgDlOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }   // TEST DL\n  if(st.smOn&&id==="mapGammaC"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); tgSmDraw(ctx,{Y,x0:padL,x1:padL+W,yMin:padT,yMax:padT+H},"all"); ctx.restore(); }   // TEST SM\n')
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)
