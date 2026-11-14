@@ -55,6 +55,8 @@ except Exception:
     constellation = None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import rawio   # 2026-11-14 O2: read only the new part of the raw file
 DATA = os.path.join(HERE, "data")
 
 # Params the chain endpoint accepts but never returns per contract. Requesting
@@ -704,32 +706,6 @@ def vix9d():
     return _v9d["val"]
 
 
-SHARED = ("ti.json", "blocks.json")
-
-
-def mirror_shared():
-    """Copy the feeds both cockpits share (Doc's levels, the tape) into data/.
-
-    ti.json comes from am_feed.py and blocks.json from blocks_feed.py; both are
-    feed-agnostic, so the Convex cockpit reads the SAME ones rather than a
-    duplicate pipeline. Read-only from our side - we never write the originals.
-    """
-    import shutil
-    # Laptop: _cvxmap sits inside C:\tos-dashboard, so the parent holds them.
-    # NAS: scripts/cvxmap has no such parent, so look in data/ itself (something
-    # else may drop them there) and in an optional sibling 'shared' folder.
-    roots = [os.path.dirname(HERE), os.path.join(os.path.dirname(HERE), "shared"), DATA]
-    for name in SHARED:
-        src = next((os.path.join(r, name) for r in roots
-                    if os.path.exists(os.path.join(r, name))), None)
-        if src is None or os.path.abspath(src) == os.path.abspath(os.path.join(DATA, name)):
-            continue
-        try:
-            shutil.copyfile(src, os.path.join(DATA, name))
-        except Exception as exc:
-            log("mirror %s failed: %s" % (name, exc))
-
-
 def atomic_write(path, obj):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
@@ -752,17 +728,29 @@ def process(rebuild=False):
             state = {}
     done = 0 if rebuild else int(state.get("lines_done", 0))
 
+    # 2026-11-14 O2 (code audit B1): decompress only what the collector added since the last pass.
+    # raw_off = byte offset of the last complete gzip member read, raw_line = its line number. They
+    # used to be re-read from line 0 every pass (1 s at 09:xx -> 9 s at 16:xx on the NAS). A state
+    # file from before O2 (no raw_off) or a rebuild reads from 0 once, exactly as before.
+    off = 0 if rebuild else int(state.get("raw_off", 0))
+    line0 = 0 if rebuild else int(state.get("raw_line", 0))
+    if line0 > done:                      # offset ahead of the lines processed: never trust it
+        off, line0 = 0, 0
+    lines, new_off, new_line = rawio.read_lines(raw, off, line0)
     recs = []
-    with gzip.open(raw, "rt", encoding="utf-8") as fh:
-        for i, line in enumerate(fh):
-            if i < done:
-                continue
-            try:
-                recs.append((i, json.loads(line)))
-            except Exception:
-                continue
+    for i, line in lines:
+        if i < done:
+            continue
+        try:
+            recs.append((i, json.loads(line)))
+        except Exception:
+            continue
     if not recs:
+        if not rebuild and (new_off, new_line) != (off, line0):
+            state["raw_off"], state["raw_line"] = new_off, new_line
+            atomic_write(spath, state)
         return 0
+    state["raw_off"], state["raw_line"] = new_off, new_line
 
     today = today_et()
     flow_path = os.path.join(DATA, "flow_%s.ndjson" % day)
@@ -883,7 +871,6 @@ def process(rebuild=False):
                     _mod.finalize(DATA, today, decode, exp_date)
                 except Exception as exc:
                     log("%s finalize: %s" % (_mod.__name__, str(exc)[:80]))
-    mirror_shared()
     atomic_write(spath, state)
     return n
 
