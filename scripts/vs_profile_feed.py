@@ -159,6 +159,79 @@ def hedge_rows(grid: np.ndarray, tot_bn: np.ndarray, spot: float,
     return out
 
 
+def charm_bn(K, sig, t, w, grid) -> np.ndarray:
+    """Dealer charm on the grid: $bn of dealer delta that time alone adds per DAY (+ = dealers will
+    have delta to SELL, - = to BUY), sticky strike. bs_charm = dDelta/dt per year (calls = puts)."""
+    from trading_intel.greeks.black_scholes import bs_charm
+
+    out = np.zeros(len(grid))
+    if not len(K):
+        return out
+    for i in range(0, len(grid), 150):
+        S = grid[i:i + 150][:, None]
+        c = bs_charm(S, K[None, :], sig[None, :], t[None, :])
+        out[i:i + 150] = (c * w[None, :] * 100.0 * S).sum(axis=1) / 365.0 / 1e9
+    return out
+
+
+def expiry_buckets(rows: dict, ref_dt: datetime) -> list[tuple[str, set]]:
+    """VS step 5 tenors: today (0DTE), the next expiry, the rest of 2-7 days, then 8+ days."""
+    exps = sorted({k[0] for k in rows if k[0] >= ref_dt.date()})
+    d0 = ref_dt.date()
+    today = {e for e in exps if e == d0}
+    later = [e for e in exps if e > d0]
+    nxt = set(later[:1])
+    wk = {e for e in later[1:] if (e - d0).days <= 7}
+    far = {e for e in later if (e - d0).days > 7} - nxt
+    out = [("0DTE", today), (f"next ({later[0]:%a %m/%d})" if later else "next", nxt), ("2-7 days", wk), ("8+ days", far)]
+    return [(n, e) for n, e in out if e]
+
+
+def charm_view(rows: dict, ref_dt: datetime, grid: np.ndarray, spot: float) -> dict[str, Any]:
+    """VS step 5 - charm by tenor across level, charm at price through the session, and the red flag
+    (mixed-sign charm within +/- half a 0DTE straddle of price)."""
+    lines = {}
+    tot = np.zeros(len(grid))
+    for name, exps in expiry_buckets(rows, ref_dt):
+        sub = {k: v for k, v in rows.items() if k[0] in exps}
+        K, sig, t, w = book_arrays(sub, ref_dt, None)
+        ln = charm_bn(K, sig, t, w, grid)
+        lines[name] = [round(float(x), 4) for x in ln]
+        tot += ln
+    # charm at price through the session (frozen spot), whole book
+    clock = []
+    t0 = ref_dt
+    # to 15:00 only: inside the last hour the 0DTE time left hits the 1-hour floor (MIN_T_S) and charm would freeze
+    for hh, mm in ((9, 30), (10, 0), (10, 30), (11, 0), (11, 30), (12, 30), (13, 30), (14, 30), (15, 0)):
+        at = datetime.combine(ref_dt.date(), time(hh, mm))
+        if at < t0.replace(second=0, microsecond=0):
+            continue
+        K, sig, t, w = book_arrays(rows, at, None)
+        clock.append({"t": f"{hh:02d}:{mm:02d}", "bn": round(float(charm_bn(K, sig, t, w, np.array([spot]))[0]), 4)})
+    # 0DTE straddle ~ 0.8 * S * iv * sqrt(time left) at the ATM strike of today's expiry
+    d0 = [(abs(k[1] - spot), v["iv"]) for k, v in rows.items() if k[0] == ref_dt.date() and (v.get("iv") or 0) > 0]
+    tl = max((datetime.combine(ref_dt.date(), CLOSE) - ref_dt).total_seconds(), 3600.0) / (365.0 * 86400.0)
+    strad = 0.8 * spot * min(d0)[1] * tl ** 0.5 if d0 else None
+    return {"lines": lines, "total": [round(float(x), 4) for x in tot], "clock": clock,
+            "straddle": None if strad is None else round(strad, 1), "red_flag": red_flag(grid, tot, spot, strad),
+            "units": "$bn of dealer delta per day from time alone; + = dealers will SELL that delta, - = BUY"}
+
+
+def red_flag(grid: np.ndarray, tot: np.ndarray, spot: float, straddle: float | None) -> dict[str, Any]:
+    """Mixed-sign charm near price (VolSignals' red flag): inside spot +/- half a straddle, count
+    sign changes and the smaller side's share of the area. Flag = >= 1 change and >= 25% share."""
+    half = (straddle or spot * 0.004) / 2.0
+    m = (grid >= spot - half) & (grid <= spot + half)
+    v = tot[m]
+    if len(v) < 3:
+        return {"flag": False, "changes": 0, "minor_share": 0.0, "band": [None, None]}
+    ch = int(np.sum(np.signbit(v[1:]) != np.signbit(v[:-1])))
+    pos, neg = float(v[v > 0].sum()), float(-v[v < 0].sum())
+    share = min(pos, neg) / max(pos, neg) if max(pos, neg) > 0 else 0.0
+    return {"flag": bool(ch >= 1 and share >= 0.25), "changes": ch, "minor_share": round(share, 2),
+            "band": [round(spot - half, 1), round(spot + half, 1)]}
+
+
 def percentile(v: float, hist: list[float]) -> int | None:
     """Share of past values at or below v, 0-100 (None with fewer than 10 past sessions)."""
     h = [x for x in hist if x is not None]
@@ -228,9 +301,11 @@ def build(db, now: datetime) -> dict[str, Any]:
     past = [h for h in hist if h["date"] < ref.date().isoformat()]
     pct = {k: percentile(at[k], [h.get(k) for h in past]) for k in ("full", "ex0")}
     fl = {k: flips(grid, v, spot) for k, v in L.items()}
+    charm = charm_view(rows, ref, grid, spot)
     hist = upsert(hist, {"date": ref.date().isoformat(), "spot": round(spot, 2), "full": round(at["full"], 4),
                          "ex0": round(at["ex0"], 4), "flip_full": fl["full"]["nearest"],
-                         "flip_ex0": fl["ex0"]["nearest"], "book": f"{ts:%Y-%m-%d %H:%M} {kind}"})
+                         "flip_ex0": fl["ex0"]["nearest"], "book": f"{ts:%Y-%m-%d %H:%M} {kind}",
+                         "red_flag": charm["red_flag"]["flag"], "straddle": charm["straddle"]})
     HIST.write_text(json.dumps(hist, separators=(",", ":")), encoding="utf-8")
     exp0 = ref.date()
     n0 = sum(1 for k in rows if k[0] == exp0)
@@ -248,7 +323,7 @@ def build(db, now: datetime) -> dict[str, Any]:
         "hedge_note": ("ES contracts dealers would trade to stay hedged if SPX moved there from now "
                        "(+ buy, - sell), naive book: about 30x VolSignals' size - read which way and "
                        "which side is bigger, not the number"),
-        "hist_n": len(past), "flips": fl, "units": SCALE_NOTE, "signed": signed,
+        "hist_n": len(past), "flips": fl, "units": SCALE_NOTE, "signed": signed, "charm": charm,
         "plain": ("Above zero = dealers long gamma at that price (they sell rallies and buy dips, moves get "
                   "absorbed); below zero = short gamma (they chase, moves speed up). The flip is where a line "
                   "crosses zero. Ex-0DTE = the same book without the options that expire today - the shape "

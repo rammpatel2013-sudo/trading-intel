@@ -139,3 +139,33 @@ def test_build_end_to_end_with_a_fake_db(tmp_path, monkeypatch):
     assert len(out["full"]) == out["grid"]["n"] == len(out["ex0"]) and len(out["hedge"]) == 6
     assert out["signed"]["ok"] is False and "no SPX index tape" in out["signed"]["reason"]
     assert out["pct"]["full"] is None and out["hist_n"] == 2       # backfill gave 2 past sessions (< 10 -> no percentile)
+
+
+def test_charm_matches_a_finite_difference_of_dealer_delta():
+    """VS step 5: charm_bn = (dealer delta tomorrow - today) at a fixed price, in $bn/day."""
+    from math import erf, log, sqrt
+    N = lambda x: 0.5 * (1 + erf(x / sqrt(2)))  # noqa: E731
+    K, sig, t, w = np.array([7600.0]), np.array([0.14]), np.array([20 / 365]), np.array([10_000.0])
+    S = 7550.0
+    c = pf.charm_bn(K, sig, t, w, np.array([S]))[0]
+    d = lambda tt: N((log(S / 7600.0) + 0.5 * 0.14 ** 2 * tt) / (0.14 * sqrt(tt)))  # noqa: E731
+    h = 0.01  # day
+    fd = (d(t[0] - h / 365) - d(t[0])) / h * 10_000 * 100 * S / 1e9
+    assert abs(c - fd) < 0.005 * abs(fd)
+
+
+def test_red_flag_and_buckets():
+    grid = np.arange(7500.0, 7601.0, 1.0)
+    calm = np.full(len(grid), 1.0)
+    mixed = np.where((grid > 7540) & (grid < 7560), -1.0, 1.0)
+    assert pf.red_flag(grid, calm, 7550.0, 40.0)["flag"] is False
+    rf = pf.red_flag(grid, mixed, 7550.0, 40.0)
+    assert rf["flag"] is True and rf["changes"] == 2 and rf["band"] == [7530.0, 7570.0]
+    names = [n for n, _ in pf.expiry_buckets(_rows(), datetime(2026, 11, 16, 9, 30))]
+    assert names == ["0DTE", "next (Fri 12/18)"]   # 11/13 expired; 12/18 is the next expiry
+
+
+def test_charm_view_shape():
+    v = pf.charm_view(_rows(), datetime(2026, 11, 16, 9, 30), np.arange(7400.0, 7701.0, 1.0), 7550.0)
+    assert list(v["lines"]) == ["0DTE", "next (Fri 12/18)"] and len(v["total"]) == 301
+    assert [c["t"] for c in v["clock"]][:2] == ["09:30", "10:00"] and v["clock"][-1]["t"] == "15:00" and v["straddle"] > 0

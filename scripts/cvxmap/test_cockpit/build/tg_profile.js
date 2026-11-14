@@ -9,7 +9,11 @@
    Black-Scholes delta change within 1%), with one plain line: do they chase the move or absorb it.
    VS step 4: a third line (green dotted) = the same book with dealer positions taken from the TAPE: the start-of-day book
    plus the last session's prints signed by the quote / tick rule (spread legs read as one package) - customer buy = dealer
-   short. A separate view: the naive lines and the position ledger are unchanged. */
+   short. A separate view: the naive lines and the position ledger are unchanged.
+   VS step 5: CHARM BY EXPIRY under the hedge table - dealer delta that time alone adds per day ($bn; + = dealers will SELL it,
+   - = BUY), one line per tenor (0DTE / next expiry / rest of 2-7 days / 8+ days) + the total, charm at price through the
+   session, and VolSignals' RED FLAG: the total changes sign within +/- half a 0DTE straddle of price (time decay can push
+   either way there; levels less reliable). */
 st.mapProf=load("tgProf","0")==="1";
 const TG_PF={d:null,at:0,err:null};
 function tgPfFetch(force){ if(!force&&Date.now()-TG_PF.at<300000) return; TG_PF.at=Date.now();
@@ -28,7 +32,7 @@ function tgProfDraw(){ const b=document.getElementById("tgProfBtn"), box=documen
   const head=document.getElementById("tgProfHead"), c=document.getElementById("tgProfC"), P=TG_PF.d;
   if(st.sym!=="SPX"){ head.innerHTML="<b>Profile: SPX only</b> (the whole-book profile is built for SPX)."; c.hidden=true; return; }
   if(!P||!P.ok){ head.innerHTML="<b>Profile:</b> "+esc(TG_PF.err||"loading…"); c.hidden=true; return; }
-  c.hidden=false; tgPfHedge(P); const d=st.live&&st.live.SPX, S=d&&d.spot>0?d.spot:P.spot, f=v=>fmtN(Math.round(v));
+  c.hidden=false; tgPfHedge(P); tgPfCharm(P); const d=st.live&&st.live.SPX, S=d&&d.spot>0?d.spot:P.spot, f=v=>fmtN(Math.round(v));
   const G=P.grid, px=i=>G.lo+i*G.step, n=G.n, F=P.full, E=P.ex0, SG=P.signed&&P.signed.ok?P.signed.line:null;
   const at=k=>{ const i=(S-G.lo)/G.step, i0=Math.max(0,Math.min(n-2,Math.floor(i))), w=Math.max(0,Math.min(1,i-i0)); return P[k][i0]*(1-w)+P[k][i0+1]*w; };
   const aF=at("full"), aE=at("ex0"), fl=P.flips;
@@ -75,4 +79,36 @@ function tgPfHedge(P){ const box=document.getElementById("tgProf"); let el=docum
     return `If SPX ${dir<0?"falls":"rises"} 1% to ${fmtN(Math.round(r.spx))}, dealers <b>${buy?"buy":"sell"}</b> about ${tgPfK(Math.abs(r.es)).slice(1)} ES → they <b>${chase?"chase":"absorb"}</b> the move${chase?" (it can speed up)":" (it tends to slow)"}.`; };
   el.innerHTML=`<div class="pfht"><b>ES hedge table</b> (whole book; ${esc(P.hedge_note||"")})</div><div class="pfhrow">${H.map(cell).join("")}</div>
     <div class="pfhs">${say(dn,-1)} ${say(up,1)}</div>`; }
+const TG_PFC_COL={"0DTE":"#ffd84d","2-7 days":"#3fd0ff","8+ days":"#aab4c0"};
+function tgPfCharm(P){ const box=document.getElementById("tgProf"); let el=document.getElementById("tgProfCharm");
+  if(!el){ el=document.createElement("div"); el.id="tgProfCharm"; el.innerHTML='<div id="tgProfCharmH"></div><canvas id="tgProfCharmC"></canvas>'; box.appendChild(el);
+    const cv=el.querySelector("canvas"), mv=e=>{ const r=cv.getBoundingClientRect(); TG_PF.cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left; tgPfCharm(TG_PF.d); };
+    cv.addEventListener("mousemove",mv); cv.addEventListener("touchstart",mv,{passive:true}); cv.addEventListener("mouseleave",()=>{ TG_PF.cx=null; tgPfCharm(TG_PF.d); }); }
+  const C=P&&P.charm, hd=el.querySelector("#tgProfCharmH"), cv=el.querySelector("canvas"); if(!C||!C.lines){ hd.innerHTML=""; cv.hidden=true; return; } cv.hidden=false;
+  const d=st.live&&st.live.SPX, S=d&&d.spot>0?d.spot:P.spot, G=P.grid, n=G.n, px=i=>G.lo+i*G.step, f=v=>fmtN(Math.round(v)), T=C.total;
+  const at=A=>{ const i=(S-G.lo)/G.step, i0=Math.max(0,Math.min(n-2,Math.floor(i))), w=Math.max(0,Math.min(1,i-i0)); return A[i0]*(1-w)+A[i0+1]*w; };
+  const tS=at(T), rf=C.red_flag||{}, bn=v=>(v>=0?"+":"−")+Math.abs(v).toFixed(2);
+  const clk=(C.clock||[]).map(x=>`<span class="pfck"><b>${x.t}</b> ${x.bn>=0?"sell":"buy"} ${Math.abs(x.bn).toFixed(2)}</span>`).join("");
+  hd.innerHTML=`<div class="pfht"><b>Charm by expiry</b> (${esc(C.units)})</div>
+    <div class="pf2">At ${f(S)}: as time passes dealers will have about <b>$${Math.abs(tS).toFixed(2)}bn</b> of delta a day to <b>${tS>=0?"sell":"buy"}</b> → ${tS>=0?"weighs on price":"supports price"}.</div>
+    <div class="pf2 ${rf.flag?"pfrf":"pfok"}">${rf.flag?`⚑ <b>RED FLAG</b>: charm changes sign ${rf.changes}× within ±½ straddle (${f(rf.band[0])}–${f(rf.band[1])}; straddle ${C.straddle}) — time decay can push either way near price; trust the levels less today.`:`✓ No red flag: charm is one-signed near price (${rf.band[0]!=null?f(rf.band[0])+"–"+f(rf.band[1]):"–"}).`}</div>
+    <div class="pfclk">Charm at price through the day ($bn/day, to 15:00 - the last hour is too sharp for this model): ${clk}</div>`;
+  const W=cv.clientWidth||900, H=240, dpr=window.devicePixelRatio||1; if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.height=H+"px"; }
+  const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const lo=Math.max(G.lo,S*0.975), hi=Math.min(px(n-1),S*1.025), i0=Math.max(0,Math.floor((lo-G.lo)/G.step)), i1=Math.min(n-1,Math.ceil((hi-G.lo)/G.step));
+  const all=[T,...Object.values(C.lines)]; let ymin=0,ymax=0; for(const A of all) for(let i=i0;i<=i1;i++){ ymin=Math.min(ymin,A[i]); ymax=Math.max(ymax,A[i]); } const pad=(ymax-ymin)*0.08||0.1; ymin-=pad; ymax+=pad;
+  const L=70,R=150,Tp=10,B=30, X=v=>L+(v-lo)/(hi-lo)*(W-L-R), Y=v=>Tp+(ymax-v)/(ymax-ymin)*(H-Tp-B);
+  if(rf.band&&rf.band[0]!=null){ ctx.fillStyle=rf.flag?"rgba(255,80,80,0.16)":"rgba(61,220,132,0.10)"; ctx.fillRect(X(Math.max(lo,rf.band[0])),Tp,X(Math.min(hi,rf.band[1]))-X(Math.max(lo,rf.band[0])),H-Tp-B); }
+  ctx.font="600 15px system-ui,sans-serif"; ctx.fillStyle="#e8edf2"; ctx.strokeStyle="rgba(255,255,255,0.18)"; ctx.lineWidth=1; ctx.textAlign="center";
+  const step=[10,25,50,100,200].find(s=>(hi-lo)/s<=10)||200; for(let v=Math.ceil(lo/step)*step; v<=hi; v+=step){ ctx.beginPath(); ctx.moveTo(X(v),Tp); ctx.lineTo(X(v),H-B); ctx.stroke(); ctx.fillText(fmtN(v),X(v),H-9); }
+  ctx.setLineDash([4,4]); ctx.strokeStyle="rgba(255,255,255,0.75)"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(L,Y(0)); ctx.lineTo(W-R,Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.textAlign="right"; ctx.fillText("0",L-8,Y(0)+5); ctx.fillText("sell +"+ymax.toFixed(1),L-8,Tp+13); ctx.fillText("buy "+ymin.toFixed(1),L-8,H-B-2);
+  const draw=(A,col,w,lab,k)=>{ ctx.strokeStyle="rgba(0,0,0,0.7)"; ctx.lineWidth=w+3; ctx.beginPath(); for(let i=i0;i<=i1;i++){ const x=X(px(i)),y=Y(A[i]); i===i0?ctx.moveTo(x,y):ctx.lineTo(x,y); } ctx.stroke(); ctx.strokeStyle=col; ctx.lineWidth=w; ctx.stroke();
+    ctx.font="700 14px system-ui,sans-serif"; ctx.textAlign="left"; ctx.fillStyle=col; ctx.fillText(lab,W-R+8,Tp+16+k*20); };
+  let k=0; for(const [nm,A] of Object.entries(C.lines)) draw(A,TG_PFC_COL[nm]||"#c38bff",2.5,nm,k++); draw(T,"#ffffff",3.5,"total",k);
+  ctx.strokeStyle="#ffffff"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(X(S),Tp); ctx.lineTo(X(S),H-B); ctx.stroke();
+  if(TG_PF.cx!=null&&TG_PF.cx>=L&&TG_PF.cx<=W-R){ const v=lo+(TG_PF.cx-L)/(W-L-R)*(hi-lo), i=Math.max(0,Math.min(n-1,Math.round((v-G.lo)/G.step)));
+    const parts=[`total ${bn(T[i])}`,...Object.entries(C.lines).map(([nm,A])=>`${nm} ${bn(A[i])}`)], t1=`${f(px(i))}: `+parts.join(" · ");
+    ctx.font="700 15px system-ui,sans-serif"; const w=ctx.measureText(t1).width+20, bx=Math.min(Math.max(L,TG_PF.cx+12),W-R-w);
+    ctx.fillStyle="rgba(10,14,20,0.94)"; ctx.fillRect(bx,Tp+6,w,30); ctx.strokeStyle="#fff"; ctx.strokeRect(bx,Tp+6,w,30); ctx.fillStyle="#fff"; ctx.textAlign="left"; ctx.fillText(t1,bx+10,Tp+26); } }
 setTimeout(tgProfInit,0);
