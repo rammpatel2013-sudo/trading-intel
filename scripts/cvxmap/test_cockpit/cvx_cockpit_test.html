@@ -2082,20 +2082,41 @@ const sideTag = s => s==="cp"?"C+P":s.toUpperCase();
 
 /* ============================================================ data: live.json + flow log */
 async function pollLive(){
-  if(DEMO) return;
-  try{ const r=await fetch("live.json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(r.status);
+  if(DEMO||pollPaused()) return;
+  try{ const r=await fetch("live.json",{cache:"no-cache"}); if(!r.ok) throw new Error(r.status);
     const j=JSON.parse(await r.text()); st.live=j; st.liveAt=Date.now();
     if(!st.flowFromFile) accumulateFromLive(j);
     render(); }
   catch(e){ freshness(); }   // half-written file or server down: keep the last good copy
 }
+/* 2026-11-14 O3 (code audit A1/A2/A4): the minute log is loaded whole once, then only its new rows from flow_tail.json
+   (cvx_live.py writes the last ~6 minutes of rows + the log's size and a rewrite counter "gen" after each append). A
+   rewrite of the log (n1 / backfill merge / --rebuild bumps gen), a new day, a missing tail or a page that fell behind
+   = load the whole file again, as before. Every fetch asks the server "changed?" (ETag -> 304 when not). */
+const FT={name:"",size:-1,gen:null,etag:null,idle:0};
+const pollPaused=()=>document.hidden&&!st.seqSnd;   // hidden tab: no polling unless the sound alert is on (it is meant for a background tab)
+async function flowTail(){ try{ const r=await fetch("flow_tail.json",{cache:"no-cache"}); return r.ok?await r.json():null; }catch(e){ return null; } }
+async function flowFull(name){
+  const tj=await flowTail(); const gen=tj&&tj.day===name.slice(5,13)?tj.gen:null;
+  const r=await fetch(name,{cache:"no-cache"}); if(!r.ok) throw new Error(r.status);
+  const et=r.headers.get("ETag"); FT.idle=Date.now();
+  if(et&&et===FT.etag&&FT.name===name&&st.flowFromFile){ FT.gen=gen; return; }   // unchanged since the last whole load
+  const txt=await r.text(); const per={SPX:[],SPY:[],QQQ:[]};
+  for(const line of txt.split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(per[o.s]&&tmin(o.t)>=LOG_FROM) per[o.s].push(o); }catch(e){} }   // pre-open rows carry yesterday's volume
+  FT.name=name; FT.size=new TextEncoder().encode(txt).length; FT.gen=gen; FT.etag=et;
+  if(Object.values(per).some(a=>a.length)){ st.flow=per; st.flowFromFile=true; st.flowFile=name; render(); }
+}
 async function pollFlow(){
-  if(DEMO) return;
+  if(DEMO||pollPaused()) return;
   const c=liveClock(); const name=`flow_${c.date.replace(/-/g,"")}.ndjson`;
-  try{ const r=await fetch(name+"?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(r.status);
-    const txt=await r.text(); const per={SPX:[],SPY:[],QQQ:[]};
-    for(const line of txt.split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(per[o.s]&&tmin(o.t)>=LOG_FROM) per[o.s].push(o); }catch(e){} }   // pre-open rows carry yesterday's volume
-    if(Object.values(per).some(a=>a.length)){ st.flow=per; st.flowFromFile=true; st.flowFile=name; render(); }
+  try{
+    if(FT.name!==name||!st.flowFromFile) return await flowFull(name);
+    const tj=await flowTail();
+    if(!tj||tj.day!==name.slice(5,13)||tj.gen!==FT.gen||tj.size<FT.size||tj.from>FT.size) return await flowFull(name);
+    if(tj.size===FT.size){ if(Date.now()-FT.idle>300000) return await flowFull(name); return; }   // writer idle: a cheap "changed?" check of the whole log every 5 min
+    const off=FT.size-tj.from; if(off>0&&tj.text[off-1]!=="\n") return await flowFull(name);
+    let n=0; for(const line of tj.text.slice(off).split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(st.flow[o.s]&&tmin(o.t)>=LOG_FROM){ st.flow[o.s].push(o); n++; } }catch(e){} }
+    FT.size=tj.size; FT.idle=Date.now(); if(n) render();
   }catch(e){ st.flowFromFile=false; }
 }
 function accumulateFromLive(j){ // fallback: build minute snapshots from live.json while the page is open
@@ -2111,8 +2132,8 @@ function accumulateFromLive(j){ // fallback: build minute snapshots from live.js
 
 /* ============================================================ Doc's plan + trading-intel morning book (ti.json from am_feed.py) */
 async function pollTI(){
-  if(DEMO) return;
-  try{ const r=await fetch("ti.json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(r.status);
+  if(DEMO||pollPaused()) return;
+  try{ const r=await fetch("ti.json",{cache:"no-cache"}); if(!r.ok) throw new Error(r.status);
     st.ti=JSON.parse(await r.text()); st.tiAt=Date.now(); render(); }
   catch(e){ if(!st.ti) setTimeout(pollTI,2000); }   // feed not running: the cockpit works without it; a half-written file on the first read → retry in 2 s
 }
@@ -3916,8 +3937,8 @@ function tradeParts(k,cp,t,n){
   const [qb,qs,tb,ts,u]=S, tot=qb+qs+tb+ts+u; const sc=tot>n&&tot>0?n/tot:1;
   const out=[[qb*sc,1,1],[tb*sc,1,2],[qs*sc,-1,1],[ts*sc,-1,2]].filter(x=>x[0]>0); const rem=n-(qb+qs+tb+ts)*sc; if(rem>0.5) out.push([rem,0,3]); return out; }
 async function pollSides(){
-  if(DEMO) return; const c=liveClock(); const name=`sides_${String(c.date||"").replace(/-/g,"")}.json`;
-  try{ const r=await fetch(name+"?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(r.status); const j=await r.json();
+  if(DEMO||pollPaused()) return; const c=liveClock(); const name=`sides_${String(c.date||"").replace(/-/g,"")}.json`;
+  try{ const r=await fetch(name,{cache:"no-cache"}); if(!r.ok) throw new Error(r.status); const j=await r.json();
     const map=new Map(); for(const x of j.rows||[]) map.set(x[0]+"|"+x[1]+"|"+x[2],x.slice(3));
     const had=st.sides&&st.sides.asof; st.sides={asof:j.asof,day:j.day,floor:j.floor,stats:j.stats||{},map,file:name};
     if(st.sideSrc==="trade"&&had!==j.asof) render(); }
@@ -4445,7 +4466,7 @@ async function pollFlowPrev(){
   const today=new Date(liveClock().date+"T12:00:00"); st.prevShare=st.prevShare||{};
   for(let back=1;back<=4;back++){ const d=new Date(today); d.setDate(d.getDate()-back); if(d.getDay()===0||d.getDay()===6) continue;
     const name=`flow_${d.toISOString().slice(0,10).replace(/-/g,"")}.ndjson`;
-    try{ const r=await fetch(name+"?"+Date.now(),{cache:"no-store"}); if(!r.ok) continue; const txt=await r.text(); const per={SPX:[],SPY:[],QQQ:[]};
+    try{ const r=await fetch(name,{cache:"no-cache"}); if(!r.ok) continue; const txt=await r.text(); const per={SPX:[],SPY:[],QQQ:[]};
       for(const line of txt.split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(per[o.s]&&tmin(o.t)>=LOG_FROM) per[o.s].push(o); }catch(e){} }
       st.prevClose=st.prevClose||{}; for(const s of Object.keys(per)){ if(per[s].length){ st.prevClose[s]=per[s][per[s].length-1].x; } if(per[s].length>2){ const sr=signedRows(buildSeries(per[s])); _f2={key:null,res:null}; if(sr&&sr.share!=null) st.prevShare[s]=sr.share; } }
       st.prevDate=d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
@@ -4500,7 +4521,7 @@ syncPulse();
    Display only: no other number on the page changes. */
 var RANGE=null, RANGE_AT=0;   // var: render() may run before this line on page load
 function rangeFetch(){ if(!st.rangeOn) return; if(DEMO){ RANGE={_demo:1}; render(); return; }
-  fetch("range_card.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject(r.status))
+  fetch("range_card.json",{cache:"no-cache"}).then(r=>r.ok?r.json():Promise.reject(r.status))
     .then(j=>{ RANGE=j; RANGE_AT=Date.now(); render(); }).catch(e=>{ RANGE={_err:String(e)}; render(); }); }
 setInterval(()=>{ if(st.rangeOn) rangeFetch(); }, 5*60*1000);
 function rangeSoFar(R){ // SPX high-low after 09:30 from the minute log + live spot; null before the open
@@ -4565,7 +4586,7 @@ if(st.rangeOn) rangeFetch();
 var WHALES=null, WHALES_AT=0;
 st.whOn=load("whOn","0")==="1"; st.whScope=load("whScope","0dte")==="all"?"all":"0dte";
 function whFetch(){ if(!st.whOn) return;
-  fetch("whales_live.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject("HTTP "+r.status))
+  fetch("whales_live.json",{cache:"no-cache"}).then(r=>r.ok?r.json():Promise.reject("HTTP "+r.status))
     .then(j=>{ WHALES=j; WHALES_AT=Date.now(); render(); }).catch(e=>{ WHALES={_err:String(e)}; render(); }); }
 setInterval(()=>{ if(st.whOn) whFetch(); }, 60*1000);
 function whM(v){ const a=Math.abs(v); return (v>0?"+":v<0?"−":"")+"$"+(a>=100?Math.round(a):a.toFixed(1))+"M"; }
@@ -4612,7 +4633,7 @@ var VXS={px:null, at:0, busy:false, err:null, day:"", mem:[]};
 st.vixStrip=load("vixStrip","0")==="1";
 async function vxsFetch(force){ if(!st.vixStrip||st.tab!=="map"||VXS.busy) return; if(!force&&Date.now()-VXS.at<55000) return;
   VXS.busy=true; VXS.at=Date.now(); const ymd=String(liveClock().date||"").replace(/-/g,"");
-  try{ const r=await fetch("vixmap_"+ymd+".json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); const j=await r.json();
+  try{ const r=await fetch("vixmap_"+ymd+".json",{cache:"no-cache"}); if(!r.ok) throw new Error("HTTP "+r.status); const j=await r.json();
     VXS.px=(j.px&&j.px.length)?j.px:(j.cols||[]).map(c=>[c.t,c.x,c.fF]); VXS.day=ymd; VXS.err=null; }
   catch(e){ VXS.err=String(e&&e.message||e); if(VXS.day!==ymd) VXS.px=null; }
   VXS.busy=false; if(st.tab==="map") render(); }
@@ -5383,7 +5404,7 @@ function smileSlopes(rows){ if(rows._sk) return; const a=rows.filter(r=>r.sg>0).
    sigma_S = beta / S. Falls back to the old formula when the file or a bucket is missing.
    To go back to the old formula: set SMILE_MEASURED=false. */
 const SMILE_MEASURED=true; let SB=null;
-function sbFetch(){ fetch("smilebeta.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.dte0&&(!SB||SB.generated!==j.generated)){ SB=j; if(st.smileOn) render(); } }).catch(()=>{}); }
+function sbFetch(){ fetch("smilebeta.json",{cache:"no-cache"}).then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.dte0&&(!SB||SB.generated!==j.generated)){ SB=j; if(st.smileOn) render(); } }).catch(()=>{}); }
 function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } const m=100*(k/S-1); const idx=e=>{ let i=0; while(i<e.length&&m>=e[i]) i++; return i; };
   if(!(dte>=1)){ const z=SB.dte0; const b=z.beta[idx(z.edges_pct)]; return b==null?null:b; }
   const M=SB.multi; if(!M) return null; let ti=M.tenors.findIndex(([lo,hi])=>dte>=lo&&dte<=hi); if(ti<0) ti=M.tenors.length-1;
@@ -6058,7 +6079,8 @@ document.getElementById("screenshotBtn").addEventListener("click",takeSnap);
 
 /* ============================================================ boot */
 if(DEMO){ demo(); pollFlowPrev(); render(); }
-else { pollLive(); pollFlow(); pollTI(); pollFlowPrev(); setTimeout(pollSides,1500); setInterval(pollLive,POLL_LIVE); setInterval(pollFlow,POLL_FLOW); setInterval(pollTI,POLL_TI); setInterval(pollSides,60000); setInterval(freshness,5000); }
+else { pollLive(); pollFlow(); pollTI(); pollFlowPrev(); setTimeout(pollSides,1500); setInterval(pollLive,POLL_LIVE); setInterval(pollFlow,POLL_FLOW); setInterval(pollTI,POLL_TI); setInterval(pollSides,60000); setInterval(freshness,5000);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ pollLive(); pollFlow(); pollTI(); pollSides(); } }); }   // 2026-11-14 O3 A4: refresh once on return
 
 /* ---- premium.js (v2 release 1) ---- */
 /* ============================================================ Premium tab (v2, 2026-10-25)
@@ -7617,7 +7639,7 @@ window.__cockpit={st,readBook,series,bursts,render,docGrades,gradeScenario,docPa
 let veData=null, veLoaded=false;
 function loadVolEod(){
   if(veLoaded) return; veLoaded=true;
-  fetch("voltab.json?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()})
+  fetch("voltab.json",{cache:"no-cache"}).then(r=>{if(!r.ok) throw r; return r.json()})
     .then(d=>{ veData=d; if(st.tab==="voleod") renderVolEod(); })
     .catch(()=>{ veData={err:"voltab.json not found yet — the nightly vol_tab job (22:50 ET) writes it."}; if(st.tab==="voleod") renderVolEod(); });
 }
@@ -7714,7 +7736,7 @@ let sxData=null, sxAt=0, sxBusy=false;
 st.sxOn=load("sxOn","0")==="1";
 function sxFetch(){
   if(sxBusy) return; sxBusy=true; sxAt=Date.now();
-  fetch("straddle.json?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()})
+  fetch("straddle.json",{cache:"no-cache"}).then(r=>{if(!r.ok) throw r; return r.json()})
     .then(d=>{ sxData=d; sxBusy=false; if(st.tab==="straddle") renderStraddle(); })
     .catch(()=>{ sxData={err:"No straddle data yet — it starts once the 09:25 collection is running."}; sxBusy=false; if(st.tab==="straddle") renderStraddle(); });
 }
@@ -7788,11 +7810,11 @@ st.csDate=""; st.csFrame=-1; st.csExp=null; st.csSel=null;
 function csFile(){ const d=st.csDate||((csIdx&&csIdx.syms&&(csIdx.syms[st.csSym]||[])[0])||""); return d?`const_${st.csSym}_${d}.json`:""; }
 function csFetch(force){
   if(csBusy) return; csBusy=true;
-  fetch("const_index.json?"+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null).then(ix=>{
+  fetch("const_index.json",{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null).then(ix=>{
     if(ix) csIdx=ix; const f=csFile();
     if(!f){ csData={err:"No constellation data yet for this day."}; csBusy=false; if(st.tab==="constel") renderConstel(); return; }
     if(!force&&f===csKey&&st.csDate&&csData&&!csData.err){ csBusy=false; return; }
-    return fetch(f+"?"+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok) throw r; return r.json()}).then(d=>{ csData=d; csKey=f; csAt=Date.now(); })
+    return fetch(f,{cache:"no-cache"}).then(r=>{if(!r.ok) throw r; return r.json()}).then(d=>{ csData=d; csKey=f; csAt=Date.now(); })
       .catch(()=>{ csData={err:"Could not read "+f+"."}; }).then(()=>{ csBusy=false; if(st.tab==="constel") renderConstel(); });
   });
 }
@@ -7877,7 +7899,7 @@ function csDaySummary(D){
 function csHistLoad(){
   const sym=st.csSym, dates=((csIdx&&csIdx.syms&&csIdx.syms[sym])||[]).slice(0,6); if(!dates.length) return;
   csHist[sym]={busy:true,rows:[]}; renderConstel();
-  Promise.all(dates.map(d=>fetch(`const_${sym}_${d}.json?`+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)))
+  Promise.all(dates.map(d=>fetch(`const_${sym}_${d}.json`,{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null)))
     .then(arr=>{ csHist[sym]={busy:false,at:Date.now(),rows:arr.filter(Boolean).map(csDaySummary).filter(Boolean)}; if(st.tab==="constel") renderConstel(); });
 }
 function csHistHtml(){
@@ -7938,7 +7960,7 @@ st.rkOn=load("rkOn","0")==="1"; st.rkRange=load("rkRange","1y"); st.rkTileRange=
 let rkData=null, rkBusy=false;
 function rkFetch(){
   if(rkBusy) return; rkBusy=true;
-  fetch("risktab.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+  fetch("risktab.json",{cache:"no-cache"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
     .then(d=>{ rkData=d; }).catch(()=>{ rkData={err:"No risk data yet. It is rebuilt every evening after the close."}; })
     .then(()=>{ rkBusy=false; if(st.tab==="risk") renderRisk(); });
 }
@@ -8114,7 +8136,7 @@ var TN_LAB={"1d":"1 day","2d_1w":"2 days – 1 week","1w_1m":"1 week – 1 month
 var TN_KEYS=["1d","2d_1w","1w_1m","gt_1m"];
 function tnFetch(){
   if(tnBusy) return; tnBusy=true;
-  fetch("tenor.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+  fetch("tenor.json",{cache:"no-cache"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
     .then(d=>{ tnData=(d&&d.found!==false)?d:{err:"No tenor data yet. It is rebuilt every evening after the close."}; })
     .catch(()=>{ tnData={err:"No tenor data yet. It is rebuilt every evening after the close."}; })
     .then(()=>{ tnBusy=false; tnLastKey=""; if(st.tab==="tenor") renderTenor(); });
@@ -8278,7 +8300,7 @@ var LV_KEYS=["greeks","oi","vix","price","crowd"];
 var LV_NONE="No levels yet. They are rebuilt every evening after the close.";
 function lvFetch(){
   if(lvBusy) return; lvBusy=true;
-  fetch("confluence.json?"+Date.now(),{cache:"no-store"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
+  fetch("confluence.json",{cache:"no-cache"}).then(r=>{ if(!r.ok) throw r; return r.json(); })
     .then(d=>{ lvData=(d&&d.found!==false&&Array.isArray(d.zones))?d:{err:LV_NONE}; })
     .catch(()=>{ lvData={err:LV_NONE}; })
     .then(()=>{ lvBusy=false; lvLastKey=""; if(st.tab==="levels") renderLevels(); });
@@ -8585,7 +8607,7 @@ function dnoStatus(ctx,padL,W,padT,S){ if(!st.dno.dn6) return; const LE=denLetf(
    options-vendor calls). Fetched only while VX1 or VX2 is on with the VIX tab open, or DN6 with the Density tab open. */
 var VOLX=null, VOLX_AT=0;
 async function volxPoll(){ if(!(((st.vxo.vx1||st.vxo.vx2)&&st.tab==="vix")||(st.dno.dn6&&st.tab==="density"))) return; VOLX_AT=Date.now();
-  try{ const r=await fetch("volx.json?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); VOLX=await r.json(); VOLX._err=null; }
+  try{ const r=await fetch("volx.json",{cache:"no-cache"}); if(!r.ok) throw new Error("HTTP "+r.status); VOLX=await r.json(); VOLX._err=null; }
   catch(e){ VOLX=VOLX||{}; VOLX._err=String(e&&e.message||e); }
   try{ if(st.tab==="vix") renderVix(); else if(st.tab==="density") renderDensity(series(st.sym)); }catch(e){} }
 setInterval(volxPoll,60000); setTimeout(volxPoll,1500);
@@ -8717,7 +8739,7 @@ if(!["25","35","50","all","custom"].includes(VXM.rng)) VXM.rng="25";
 async function vxmFetch(force){
   if(!st.vxo.vmap||st.tab!=="vix"||VXM.busy) return; if(!force&&Date.now()-VXM.at<25000) return;
   VXM.busy=true; VXM.at=Date.now(); const ymd=String(liveClock().date||"").replace(/-/g,""); VXM.want="vixmap_"+ymd+".json";
-  const get=async u=>{ const r=await fetch(u+"?"+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); };
+  const get=async u=>{ const r=await fetch(u,{cache:"no-cache"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); };
   const ok=j=>j&&Array.isArray(j.cols)&&Array.isArray(j.levels)&&j.cols.length;
   try{ const j=await get(VXM.want); if(!ok(j)) throw new Error("no columns yet"); VXM.J=j; VXM.day=ymd; VXM.err=null; }
   catch(e){ VXM.err=String(e&&e.message||e);
@@ -8868,7 +8890,7 @@ function orDecode(S){ const out=[], prev={}; const step=S.step||1;
   return out; }
 function orYmd(){ return String(liveClock().date||"").replace(/-/g,""); }
 function orLiveDay(){ const c=liveClock(); const hm=c.h*60+c.m; return !!(OR.day&&OR.day===c.date.replace(/-/g,"")&&hm>=565&&hm<=980); }
-async function orGet(u){ const r=await fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now(),{cache:"no-store"}); if(!r.ok) throw new Error(u+" "+r.status); return r.json(); }
+async function orGet(u){ const r=await fetch(u,{cache:"no-cache"}); if(!r.ok) throw new Error(u+" "+r.status); return r.json(); }
 async function orLoadDay(){
   if(OR.loading) return; OR.loading=true; OR.err=null;
   try{ let ymd=orYmd(), J=null;
@@ -8882,7 +8904,7 @@ async function orLoadDay(){
   OR.loading=false; OR.P=null; OR.key=""; if(st.tab==="orbs") renderOrbs(); }
 function orSym(){ return OR.J&&OR.J.syms&&OR.J.syms[st.sym]||null; }
 async function orPollLive(){
-  if(!OR.on||st.tab!=="orbs"||OR.liveBusy||!OR.J||!orLiveDay()) return; OR.liveBusy=true;
+  if(!OR.on||st.tab!=="orbs"||OR.liveBusy||!OR.J||!orLiveDay()||pollPaused()) return; OR.liveBusy=true;
   try{ const L=await orGet("wide_live_"+st.sym+".json"); OR.liveAt=Date.now();
     const S=orSym(); if(L&&L.slot&&S&&String(L.day||"").replace(/-/g,"")===OR.day){
       const sl=S.slots, last=sl[sl.length-1], t=L.slot.t; let changed=false;
@@ -9111,7 +9133,7 @@ function sfLoadPlotly(){
   return SF.plotly;
 }
 async function sfPoll(){
-  if(!SF.on||st.tab!=="surface"||SF.busy) return; SF.busy=true;
+  if(!SF.on||st.tab!=="surface"||SF.busy||pollPaused()) return; SF.busy=true;
   try{ const J=await orGet("surface_live_SPX.json"); const changed=!SF.J||J.t!==SF.J.t||J.day!==SF.J.day; SF.J=J; SF.err=null; SF.at=Date.now(); if(changed){ SF.key=""; renderSurface(); } if(SF.R.on) sfRpLoad(); }
   catch(e){ SF.err="Waiting for surface_live_SPX.json — it is written every minute from 09:30 ET by the Orbs feed (cvxmap-wide)."; if(!SF.J) renderSurface(); }
   finally{ SF.busy=false; }

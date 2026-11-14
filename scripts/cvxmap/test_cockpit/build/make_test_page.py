@@ -5,12 +5,14 @@ Every edit is an exact, single-occurrence replacement; the script stops if produ
 2026-11-13 (evening): production gained the Map > Gamma "Hedge" curve (OFF by default, display only); the test page inherits it - no test-side edit.
 2026-11-13 (night): production read-out fix (Change on the right: the read uses the real charm map; a blocked Change map is never read) - inherited, no test-side edit.
 2026-11-13 (night, later): + Short strikes marker sm-v0 (tg_strike.js, section 18). 2026-11-13 (night): + the Map > Gamma Profile button (tg_profile.js, section 16): whole-book gamma profile, Full vs Ex-0DTE, from profile_SPX.json; + the ES hedge table under it (VS step 3); + the tape-signed line (VS step 4); + charm by expiry + red flag (VS step 5); + close odds + 3 calibration checks (VS step 6).
+2026-11-14 (O3, code audit A1/A2/A4): production page loading changed (no-cache "changed?" polls, minute log merged from
+flow_tail.json, polls paused while the tab is hidden) - data loading only, inherited, no test-side edit.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("1758e26f93dea9ac"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("1e1c2ecd1ee6a9a5"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()

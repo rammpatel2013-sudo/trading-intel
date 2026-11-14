@@ -713,6 +713,40 @@ def atomic_write(path, obj):
     os.replace(tmp, path)
 
 
+TAIL_LINES, TAIL_WINDOW = 18, 1 << 20
+
+
+def _flow_gen_check(flow_path, state):
+    """2026-11-14 O3: the minute log is only ever appended by this writer. If its size is not what our
+    last append left (n1_backfill / backfill_merge rewrote it), bump the rewrite counter that
+    flow_tail.json carries, so an open page loads the whole log again."""
+    cur = os.path.getsize(flow_path) if os.path.exists(flow_path) else 0
+    if "flow_size" in state and cur != state["flow_size"]:
+        state["flow_gen"] = int(state.get("flow_gen", 0)) + 1
+
+
+def write_flow_tail(flow_path, day, state):
+    """2026-11-14 O3 (code audit A1): the last TAIL_LINES rows of the minute log (~6 minutes x 3 symbols) with
+    the log's byte size, the byte offset the rows start at and the rewrite counter -> data/flow_tail.json.
+    The page loads flow_YYYYMMDD.ndjson whole once (11.5 MB by the close) and then only this file."""
+    size = os.path.getsize(flow_path)
+    state["flow_size"] = size
+    start = max(0, size - TAIL_WINDOW)
+    with open(flow_path, "rb") as fh:
+        fh.seek(start)
+        blob = fh.read(size - start)
+    off0 = start
+    if start > 0:                       # drop the partial first line of the window
+        cut = blob.find(b"\n")
+        off0, blob = (start + cut + 1, blob[cut + 1:]) if cut >= 0 else (size, b"")
+    blob = blob[: blob.rfind(b"\n") + 1]   # never hand out a half-written last line
+    end = off0 + len(blob)              # byte offset just after the last whole row
+    text = b"".join(r + b"\n" for r in blob.split(b"\n")[:-1][-TAIL_LINES:])
+    atomic_write(os.path.join(DATA, "flow_tail.json"),
+                 {"day": day, "gen": int(state.get("flow_gen", 0)), "size": end, "from": end - len(text),
+                  "text": text.decode("ascii", "replace"), "ts": now_et().strftime("%Y-%m-%dT%H:%M:%S")})
+
+
 def process(rebuild=False):
     day = now_et().strftime("%Y%m%d")
     raw = os.path.join(DATA, "raw_%s.ndjson.gz" % day)
@@ -726,6 +760,11 @@ def process(rebuild=False):
             state = json.load(open(spath, encoding="utf-8"))
         except Exception:
             state = {}
+    elif rebuild and os.path.exists(spath):
+        try:   # 2026-11-14 O3: a rebuild rewrites the minute log -> next rewrite counter, so open pages reload it whole
+            state["flow_gen"] = int(json.load(open(spath, encoding="utf-8")).get("flow_gen", 0)) + 1
+        except Exception:
+            state["flow_gen"] = 1
     done = 0 if rebuild else int(state.get("lines_done", 0))
 
     # 2026-11-14 O2 (code audit B1): decompress only what the collector added since the last pass.
@@ -774,6 +813,7 @@ def process(rebuild=False):
         log("rebuild: cleared live flow lines, kept %d backfilled" % len(kept))
     n = 0
     last_live = None
+    wrote_flow = False
     pending_vix = state.get("_vix") or {}
     for i, rec in recs:
         if rec.get("pull") == "vix":
@@ -844,6 +884,9 @@ def process(rebuild=False):
         live["week"] = build_week(dec, today)
         live["_source"] = "convex"
         if flows and flows[0]["t"] <= "16:15":
+            if not wrote_flow:
+                _flow_gen_check(flow_path, state)
+                wrote_flow = True
             with open(flow_path, "a", encoding="utf-8") as fh:
                 for fl in flows:
                     fh.write(json.dumps(fl, separators=(",", ":")) + "\n")
@@ -860,6 +903,11 @@ def process(rebuild=False):
         except Exception as exc:
             state["_gap_on"] = {"err": str(exc)[:120]}
             log("gap: %s" % str(exc)[:80])
+    if wrote_flow:
+        try:
+            write_flow_tail(flow_path, day, state)
+        except Exception as exc:          # the tail only saves bandwidth: the page falls back to the whole log
+            log("flow tail: %s" % str(exc)[:80])
     if last_live:
         atomic_write(os.path.join(DATA, "live.json"), last_live)
         if not rebuild:
