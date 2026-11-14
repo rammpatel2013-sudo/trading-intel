@@ -191,10 +191,18 @@ class CVForgeClient:
         multiplier: int = 1,
         timespan: str = "day",
         limit: int = 5000,
+        adjusted: bool | None = None,
     ) -> pd.DataFrame:
-        """Historical OHLC bars for a stock (``AAPL``) or option (``O:...``) ticker."""
+        """Historical OHLC bars for a stock (``AAPL``) or option (``O:...``) ticker.
+
+        ``adjusted``: None = vendor default (split-adjusted); False = prices as traded that day
+        (needed when pricing options, whose strikes are as traded).
+        """
         path = f"/mas/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{frm}/{to}"
-        data = self._get(path, {"limit": limit})
+        params: dict[str, Any] = {"limit": limit}
+        if adjusted is not None:
+            params["adjusted"] = "true" if adjusted else "false"
+        data = self._get(path, params)
         results = data.get("results", []) if isinstance(data, dict) else []
         if not results:
             return pd.DataFrame(columns=["ts", "o", "h", "l", "c", "v"])
