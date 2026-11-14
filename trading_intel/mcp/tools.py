@@ -223,8 +223,33 @@ def _one_row_per_session(df: Any) -> Any:
     d = d.sort_values("_ts")
     d["_day"] = d["_ts"].dt.date
     d = d[d["_ts"].dt.day_of_week < 5]
+    # 2026-11-13 data check D5: market holidays (5/25, 9/07) are not sessions either
+    from trading_intel.timeutils import is_trading_session
+
+    d = d[d["_day"].map(is_trading_session)]
     d = d.groupby("_day", as_index=False).tail(1)
     return d.drop(columns=["_ts", "_day"]).reset_index(drop=True)
+
+
+def _official_closes(session: Session, symbol: str, days: list[Any]) -> dict[Any, float]:
+    """quotes_daily closes for these dates (D5: the last pull of a day can carry a stale spot -
+    10/30 read 7,560.68 vs the official 7,580.07; 6/04 repeated 6/03)."""
+    if not days:
+        return {}
+    from sqlalchemy import select
+
+    from trading_intel.memory.models import QuoteDaily
+
+    try:
+        rs = session.execute(
+            select(QuoteDaily.date, QuoteDaily.close).where(
+                QuoteDaily.symbol == symbol, QuoteDaily.date.in_(days)
+            )
+        ).all()
+    except Exception:  # noqa: BLE001 - table missing in a slim test DB: keep the snapshot spot
+        session.rollback()
+        return {}
+    return {r.date: float(r.close) for r in rs if r.close is not None}
 
 
 def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[str, Any]:
@@ -244,13 +269,19 @@ def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[
     df = _one_row_per_session(df).tail(days_c).reset_index(drop=True)
 
     rows: list[dict[str, Any]] = []
+    closes = _official_closes(session, "SPX" if sym in ("SPX", "SPXW") else sym,
+                              sorted({pd.to_datetime(t).date() for t in df["ts"]}))
     for _, r in df.iterrows():
-        spot = _num(r.get("spot"))
+        spot_snap = _num(r.get("spot"))
+        close = closes.get(pd.to_datetime(r.get("ts")).date())
+        spot = close if close is not None else spot_snap
         flip = _num(r.get("gex_flip"))
         rows.append(
             {
                 "date": _iso_day(r.get("ts")),
                 "spot": spot,
+                "spot_src": "official close" if close is not None else "last pull of the day",
+                "spot_last_pull": spot_snap,
                 "gex_total": _num(r.get("gex_total")),
                 "dex_total": _num(r.get("dex_total")),
                 "vex_total": _num(r.get("vex_total")),
@@ -278,7 +309,12 @@ def get_gamma_history(session: Session, symbol: str, *, days: int = 30) -> dict[
             "flip_def": ("gex_flip = the strike where dealer gamma summed strike by strike from "
                          "the bottom crosses zero (all stored expiries, naive sign); the cockpit "
                          "Map and get_close_odds re-price gamma at each price instead, so their "
-                         "flips differ by a few to tens of points")}
+                         "flips differ by a few to tens of points"),
+            "vs_tenor_history": ("get_tenor_history re-prices the whole book across spot (gamma at "
+                                 "spot per 1% and its zero-cross); this tool sums dealer gamma strike "
+                                 "by strike at the pull's spot. The two can disagree on long/short "
+                                 "near the flip (~15% of days, 11/12: +73.9 here vs -26.2 there) - "
+                                 "read a disagreement as 'near the flip', not as either regime.")}
 
 
 def regime_text(gex: float | None, spot: float | None, flip: float | None) -> str:

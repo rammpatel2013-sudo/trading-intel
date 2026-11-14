@@ -144,3 +144,38 @@ def test_sd20_uses_stored_history(session: Session):
 def test_skips_non_sessions(session: Session):
     vix_snapshot.run(session, _fred(), FakeCboe(95.0, {"VIX": 15.0}), as_of=date(2026, 5, 23))  # Sat
     assert session.execute(select(func.count()).select_from(VixData)).scalar_one() == 0
+
+
+# ---------------------------------------------------------------- 2026-11-13 data check D7
+TUE = date(2026, 5, 26)  # first session after Fri 5/22 (Mon 5/25 = Memorial Day)
+
+
+def test_stale_copy_of_prior_term_structure_is_not_filed(session: Session):
+    term = {"VIX": 15.0, "VIX9D": 14.1, "VIX3M": 17.2, "VIX6M": 18.3}
+    vix_snapshot.run(session, _fred(), FakeCboe(95.0, term), as_of=FRI)
+    # next session: VIX moved, everything else is an exact copy of Friday -> not filed
+    copy = dict(term, VIX=16.4)
+    vix_snapshot.run(session, _fred(), FakeCboe(95.0, copy), as_of=TUE)
+    row = session.get(VixData, TUE)
+    assert row.vix == 16.4
+    assert row.vvix is None and row.vix9d is None and row.vix3m is None and row.vix6m is None
+
+
+def test_real_change_is_filed(session: Session):
+    term = {"VIX": 15.0, "VIX9D": 14.1, "VIX3M": 17.2, "VIX6M": 18.3}
+    vix_snapshot.run(session, _fred(), FakeCboe(95.0, term), as_of=FRI)
+    vix_snapshot.run(session, _fred(), FakeCboe(96.0, dict(term, VIX=16.4, VIX9D=15.0)), as_of=TUE)
+    row = session.get(VixData, TUE)
+    assert row.vvix == 96.0 and row.vix9d == 15.0
+
+
+def test_move_close_is_filed_and_failure_is_harmless(session: Session):
+    vix_snapshot.run(session, _fred(), FakeCboe(95.0, {"VIX": 15.0}), as_of=FRI,
+                     move_close=lambda d: 98.7)
+    assert session.get(VixData, FRI).move == 98.7
+
+    def boom(d):
+        raise RuntimeError("fmp down")
+
+    vix_snapshot.run(session, _fred(), FakeCboe(95.0, {"VIX": 15.0}), as_of=TUE, move_close=boom)
+    assert session.get(VixData, TUE).move is None

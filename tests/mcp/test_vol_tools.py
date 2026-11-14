@@ -219,3 +219,22 @@ def test_color_at_spot_returns_shape(session: Session) -> None:
     assert "color_bn" in out
     assert "color_sign" in out
     assert out["units"] == "$bn per 1% move"
+
+
+def test_rv_iv_box_ratio_uses_1m_constant_maturity_iv(session: Session) -> None:
+    """2026-11-13 data check D4: IV/RV uses the 30-day constant-maturity ATM IV, not the
+    front-expiry atm_iv (weekday-biased)."""
+    from trading_intel.memory.models import IvTenorSnapshot, Ticker
+
+    Ticker.__table__.create(session.get_bind(), checkfirst=True)
+    IvTenorSnapshot.__table__.create(session.get_bind(), checkfirst=True)
+    _seed_spx_quotes(session)
+    session.add(GreeksSnapshot(symbol="SPX", source="convex", ts=datetime(2026, 9, 28, 17, 15),
+                               spot=7000.0, atm_iv=0.08))
+    session.add(IvTenorSnapshot(symbol="SPX", ts=date(2026, 9, 28), tenor_dte=30, iv_atm=0.15))
+    session.commit()
+    out = vt.get_rv_iv_box(session)
+    rv20 = out["rv20"]
+    assert out["iv_1m"] == 0.15 and "constant-maturity" in out["iv_rv_basis"]
+    assert out["iv_rv_ratio"] == round(0.15 / rv20, 2)
+    assert out["atm_iv"] == 0.08

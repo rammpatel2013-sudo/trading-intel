@@ -49,6 +49,7 @@ from trading_intel.greeks.exposure_profile import greek_profiles
 from trading_intel.memory.models import (
     GreeksSnapshot,
     IndexSkewDaily,
+    IvTenorSnapshot,
     OiChainEod,
     QuoteDaily,
     VixData,
@@ -110,9 +111,29 @@ def get_rv_iv_box(
     ).first()
     atm_iv = _num(gs.atm_iv) if gs else None
 
+    # 2026-11-13 data check D4: atm_iv is the FRONT expiry on a calendar clock, so as a share of
+    # VIX it reads ~0.58 on Fridays vs ~0.84 Tue/Wed (the weekend sits inside the time left).
+    # The IV/RV ratio uses the 1-month constant-maturity ATM IV (iv_tenor_snapshots, 30d) instead,
+    # falling back to VIX/100; atm_iv stays in the output, labelled.
+    iv_1m, iv_1m_src = None, None
+    try:
+        cm = session.execute(
+            select(IvTenorSnapshot.iv_atm, IvTenorSnapshot.ts)
+            .where(IvTenorSnapshot.symbol.in_(("SPX", "SPY")), IvTenorSnapshot.tenor_dte == 30,
+                   IvTenorSnapshot.iv_atm.is_not(None))
+            .order_by(IvTenorSnapshot.ts.desc(), IvTenorSnapshot.symbol)
+        ).first()
+    except Exception:  # noqa: BLE001 - table missing (slim DB): fall back to VIX below
+        session.rollback()
+        cm = None
+    if cm is not None:
+        iv_1m, iv_1m_src = _num(cm.iv_atm), f"1M constant-maturity ATM IV ({cm.ts.isoformat()})"
+    elif vix is not None:
+        iv_1m, iv_1m_src = vix / 100.0, "VIX / 100 (no 1M constant-maturity row)"
+
     # Compute derived fields
     vrp = round(vix - rv20 * 100, 2) if vix is not None and rv20 is not None else None
-    iv_rv_ratio = round(atm_iv / rv20, 2) if atm_iv is not None and rv20 and rv20 > 0 else None
+    iv_rv_ratio = round(iv_1m / rv20, 2) if iv_1m is not None and rv20 and rv20 > 0 else None
 
     # Term structure slope: VIX3M − VIX (positive = contango = calm)
     term_slope = round(vix3m - vix, 2) if vix3m is not None and vix is not None else None
@@ -137,6 +158,9 @@ def get_rv_iv_box(
         "rv20": _num(rv20) if rv20 is not None else None,
         "rv60": _num(rv60) if rv60 is not None else None,
         "atm_iv": _num(atm_iv) if atm_iv is not None else None,
+        "atm_iv_note": "front-expiry IV on a calendar clock (weekday-biased); not used for IV/RV",
+        "iv_1m": iv_1m,
+        "iv_rv_basis": iv_1m_src,
         "vix": vix,
         "vix9d": vix9d,
         "vix3m_proxy_vx30": vix3m,

@@ -15,6 +15,7 @@ Run manually (FRED key in .env; CBOE reached over HTTP):
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 
 import pandas as pd
@@ -125,7 +126,32 @@ def _apply_credit(session: Session, fred: FredClient, as_of: date) -> tuple[floa
     return hy.get(as_of), ig.get(as_of)
 
 
-def run(session: Session, fred: FredClient, cboe: CboeClient, *, as_of: date | None = None) -> None:
+def _stale_copy(session: Session, as_of: date, vix: float | None, vvix: float | None,
+                term: dict[str, float | None]) -> bool:
+    """2026-11-13 data check D7: on 9/23 VVIX / VIX9D / VIX3M / VIX6M were filed as an exact copy of
+    9/22 while VIX itself moved (the Cboe feed served the prior day's quotes). True when all four
+    equal the last stored session's values and VIX did not."""
+    prior = session.execute(
+        select(VixData).where(VixData.date < as_of).order_by(VixData.date.desc()).limit(1)
+    ).scalars().first()
+    if prior is None or vix is None or prior.vix is None:
+        return False
+    now = (vvix, term.get("VIX9D"), term.get("VIX3M"), term.get("VIX6M"))
+    old = (prior.vvix, prior.vix9d, prior.vix3m, prior.vix6m)
+    if any(v is None for v in now) or any(v is None for v in old):
+        return False
+    same = all(abs(float(a) - float(b)) < 1e-9 for a, b in zip(now, old, strict=True))
+    return same and abs(float(vix) - float(prior.vix)) > 1e-9
+
+
+def run(
+    session: Session,
+    fred: FredClient,
+    cboe: CboeClient,
+    *,
+    as_of: date | None = None,
+    move_close: Callable[[date], float | None] | None = None,
+) -> None:
     """Fetch today's macro vol snapshot and upsert it into ``vix_data``.
 
     VIX is Cboe's SAME-DAY close (the ``_VIX`` quote, run after 16:15 ET). FRED's
@@ -149,6 +175,17 @@ def run(session: Session, fred: FredClient, cboe: CboeClient, *, as_of: date | N
         vix = _fred_same_day_vix(fred, as_of)
         log.warning("vix_snapshot.cboe_vix_missing", fallback=vix)
     hy_oas, ig_oas = _apply_credit(session, fred, as_of)
+    if _stale_copy(session, as_of, vix, vvix, term):
+        log.warning("vix_snapshot.stale_copy", date=as_of.isoformat(),
+                    note="VVIX / VIX9D / VIX3M / VIX6M equal the last session while VIX moved - not filed")
+        vvix = None
+        term = {"VIX": vix}
+    move = None
+    if move_close is not None:
+        try:
+            move = move_close(as_of)
+        except Exception as exc:  # MOVE is optional; never kill the snapshot over it
+            log.warning("vix_snapshot.move_failed", error=str(exc)[:120])
 
     def _sd20(col, today_val: float | None) -> float | None:
         prior = list(
@@ -170,7 +207,7 @@ def run(session: Session, fred: FredClient, cboe: CboeClient, *, as_of: date | N
         session.add(row)
     row.vix = vix
     row.vvix = vvix
-    row.move = None  # MOVE is not freely available on FRED — left unset
+    row.move = move  # 2026-11-13: ICE BofA MOVE close from FMP (^MOVE); None when unavailable
     row.hy_oas = hy_oas
     row.ig_oas = ig_oas
     row.vix_sd20 = vix_sd20
@@ -205,8 +242,24 @@ def main() -> None:
     fred = FredClient(settings)
     cboe = CboeClient()
     session_factory = make_session_factory(settings)
+    move_close = None
+    try:
+        from trading_intel.clients.cvforge import CVForgeClient
+
+        cvf = CVForgeClient(settings)
+
+        def move_close(d: date) -> float | None:
+            data = cvf.fmp("historical-price-eod/light",
+                           {"symbol": "^MOVE", "from": d.isoformat(), "to": d.isoformat()})
+            for r in data if isinstance(data, list) else []:
+                if str(r.get("date", ""))[:10] == d.isoformat():
+                    v = r.get("price", r.get("close"))
+                    return float(v) if v is not None else None
+            return None
+    except Exception as exc:  # no CVForge key on this box: MOVE stays empty, as before
+        log.warning("vix_snapshot.move_client_unavailable", error=str(exc)[:120])
     with session_factory() as session:
-        run(session, fred, cboe)
+        run(session, fred, cboe, move_close=move_close)
 
 
 if __name__ == "__main__":

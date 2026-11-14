@@ -418,7 +418,7 @@ END_HH = 17   # stop with the collector, before the ~18:00 buy/sell counter rese
 SYMS = ("SPX", "SPY", "QQQ")
 
 
-def build_symbol(sym, dec, today, state):
+def build_symbol(sym, dec, today, state, pull_ts=None):
     d = dec.get(sym)
     if not d or not pm_groups(d):
         return None, None
@@ -476,7 +476,11 @@ def build_symbol(sym, dec, today, state):
                      "move": ((mc + mp) / spot) if spot else 0.0})
 
     # rolling 15s/60s series, persisted so a restart does not lose them
-    hhmm = now_et().strftime("%H:%M")
+    # 2026-11-13: label the row with the PULL's minute, not the minute this pass ran. After the
+    # 11/13 collector restart its pulls landed at :47 and this 20 s loop often crossed the minute,
+    # so two pulls were filed under one minute (and the next minute was skipped).
+    pts = str(pull_ts or "")
+    hhmm = pts[11:16] if len(pts) >= 16 and pts[13] == ":" else now_et().strftime("%H:%M")
     gexT = sum(r["gex"] for r in rows)
     dexT = sum(r["dex"] for r in rows)
     vanT = sum(r["vanna"] for r in rows)
@@ -829,7 +833,7 @@ def process(rebuild=False):
         live = {"ts": rec.get("ts")}
         flows = []
         for sym in SYMS:
-            sd, fl = build_symbol(sym, dec, today, state)
+            sd, fl = build_symbol(sym, dec, today, state, rec.get("ts"))
             if sd:
                 live[sym] = sd
                 flows.append(fl)

@@ -99,7 +99,12 @@ def _expiry_floor(ts: datetime) -> date:
 
 
 def get_walls(
-    session: Session, symbol: str, *, dte_max: int = 60, spot_override: float | None = None
+    session: Session,
+    symbol: str,
+    *,
+    dte_max: int = 60,
+    spot_override: float | None = None,
+    drop_matched: bool = True,
 ) -> dict[str, Any]:
     """Call-wall / put-wall for one ticker from the latest EOD per-strike chain.
 
@@ -108,6 +113,11 @@ def get_walls(
     support. Sums ``gxoi`` by strike within each side over options with
     ``dte <= dte_max`` from the newest ``oi_chain_eod`` snapshot. Regime
     descriptor only — never a signal (FlashAlpha rule 4).
+
+    ``drop_matched`` (default on, 2026-11-13 data check D2): at each strike + expiry the
+    open interest held on BOTH sides (min(call OI, put OI) - box / conversion financing,
+    e.g. the 7000 / 8000 piles) is removed before the walls are picked. It cancels in net
+    gamma but used to win the wall contest (8000 / 7000 with spot near 7,550).
     """
     sym = symbol.strip().upper()
     dte_c = max(0, min(int(dte_max), 365))
@@ -115,8 +125,9 @@ def get_walls(
     if ts is None:
         return {"symbol": sym, "found": False, "call_wall": None, "put_wall": None}
 
-    rows = session.execute(
+    raw = session.execute(
         select(
+            OiChainEod.expiry,
             OiChainEod.strike,
             OiChainEod.cp,
             func.sum(OiChainEod.gxoi).label("gxoi"),
@@ -129,12 +140,17 @@ def get_walls(
             OiChainEod.dte <= dte_c,
             OiChainEod.expiry >= _expiry_floor(ts),
         )
-        .group_by(OiChainEod.strike, OiChainEod.cp)
+        .group_by(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp)
     ).all()
-    if not rows:
+    if not raw:
         return {"symbol": sym, "found": False, "call_wall": None, "put_wall": None}
+    rows, matched_oi = _walls_rows(raw, drop_matched=drop_matched)
 
-    out: dict[str, Any] = {"symbol": sym, "as_of": _iso_day(ts), "dte_max": dte_c}
+    out: dict[str, Any] = {"symbol": sym, "as_of": _iso_day(ts), "dte_max": dte_c,
+                           "matched_removed": bool(drop_matched), "matched_oi_removed": matched_oi}
+    if drop_matched:
+        out["matched_note"] = ("open interest held on both the call and the put at the same strike "
+                               "and expiry (box / conversion financing) is left out of the walls")
     snap = latest_snapshot(session, sym)
     spot = _num(snap.spot) if snap is not None else None
     if spot_override is not None:
@@ -167,6 +183,44 @@ def get_walls(
         out["magnet"] = {"strike": mk, "gxoi": by_strike[mk]}
     out["found"] = True
     return out
+
+
+class _WallRow:
+    """One (strike, side) total after the matched-pair removal (same attribute names as the
+    old grouped query rows, so the wall code below is unchanged)."""
+
+    __slots__ = ("strike", "cp", "gxoi", "oi")
+
+    def __init__(self, strike: float, cp: str, gxoi: float, oi: float) -> None:
+        self.strike, self.cp, self.gxoi, self.oi = strike, cp, gxoi, oi
+
+
+def _walls_rows(raw: list, *, drop_matched: bool) -> tuple[list[_WallRow], float]:
+    """Sum (expiry, strike, cp) rows to (strike, cp). With ``drop_matched`` each side keeps only
+    the OI above min(call OI, put OI) at that strike + expiry; gxoi is scaled the same way
+    (gamma·OI is linear in OI). Returns the rows and the total matched OI removed (both sides)."""
+    by_k: dict[tuple, dict[str, tuple[float, float]]] = {}
+    for r in raw:
+        if r.strike is None or r.cp is None:
+            continue
+        side = "C" if str(r.cp).upper().startswith("C") else "P"
+        k = (r.expiry, float(r.strike))
+        g0, o0 = by_k.setdefault(k, {}).get(side, (0.0, 0.0))
+        by_k[k][side] = (g0 + float(r.gxoi or 0.0), o0 + float(r.oi or 0.0))
+    tot: dict[tuple[float, str], list[float]] = {}
+    removed = 0.0
+    for (_exp, strike), sides in by_k.items():
+        m = 0.0
+        if drop_matched and "C" in sides and "P" in sides:
+            m = max(0.0, min(sides["C"][1], sides["P"][1]))
+        for side, (g, oi) in sides.items():
+            keep = 1.0 if oi <= 0 else max(0.0, oi - m) / oi
+            acc = tot.setdefault((strike, side), [0.0, 0.0])
+            acc[0] += g * keep
+            acc[1] += oi * keep
+        removed += 2.0 * m
+    rows = [_WallRow(k, side, v[0], v[1]) for (k, side), v in tot.items()]
+    return rows, removed
 
 
 def _prev_oi_ts(session: Session, symbol: str, ts: datetime) -> datetime | None:
@@ -329,6 +383,18 @@ def get_oi_changes(
     if not rows:
         return {"symbol": sym, "found": False, "rows": [], "count": 0}
 
+    chg = {(r.expiry, r.strike, r.cp): r.oi_change for r in rows}
+    source = "vendor oi_change"
+    if not any(v for v in chg.values()):
+        # 2026-11-13 data check D6: the vendor's oi_change was all zero on 11/12 (the newest book
+        # was a morning pull before the counts rolled). Fall back to OI minus the newest earlier
+        # book whose OI totals differ, matched on expiry + strike + side.
+        prev = _prev_distinct_oi(session, sym, ts, rows)
+        if prev is not None:
+            pts, prev_oi = prev
+            chg = {k: (float(r.oi or 0.0) - prev_oi.get(k, 0.0))
+                   for r in rows for k in [(r.expiry, r.strike, r.cp)]}
+            source = f"computed vs the {pts:%Y-%m-%d %H:%M} book (vendor oi_change was all zero)"
     recs = [
         {
             "expiry": _iso_day(r.expiry),
@@ -336,17 +402,18 @@ def get_oi_changes(
             "cp": r.cp,
             "dte": r.dte,
             "oi": _num(r.oi),
-            "oi_change": _num(r.oi_change),
+            "oi_change": _num(chg.get((r.expiry, r.strike, r.cp))),
             "volume": _num(r.volume),
         }
         for r in rows
     ]
-    call_chg = sum((r.oi_change or 0) for r in rows if str(r.cp).upper().startswith("C"))
-    put_chg = sum((r.oi_change or 0) for r in rows if str(r.cp).upper().startswith("P"))
+    call_chg = sum((d["oi_change"] or 0) for d in recs if str(d["cp"]).upper().startswith("C"))
+    put_chg = sum((d["oi_change"] or 0) for d in recs if str(d["cp"]).upper().startswith("P"))
     ranked = sorted(recs, key=lambda d: abs(d["oi_change"] or 0.0), reverse=True)[:top_c]
     return {
         "symbol": sym,
         "as_of": _iso_day(ts),
+        "oi_change_source": source,
         "dte_max": dte_c,
         "net_call_oi_change": float(call_chg),
         "net_put_oi_change": float(put_chg),
@@ -354,6 +421,32 @@ def get_oi_changes(
         "count": len(ranked),
         "found": True,
     }
+
+
+def _prev_distinct_oi(
+    session: Session, sym: str, ts: datetime, rows: list
+) -> tuple[datetime, dict[tuple, float]] | None:
+    """The newest book before ``ts`` whose total OI differs from ``rows`` (an unrolled morning
+    pull repeats the prior close's OI), as {(expiry, strike, cp): oi}. Looks back 6 books."""
+    tot_now = sum(float(r.oi or 0.0) for r in rows)
+    keys = {(r.expiry, r.strike, r.cp) for r in rows}
+    cand = session.execute(
+        select(OiChainEod.ts)
+        .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"), OiChainEod.ts < ts)
+        .group_by(OiChainEod.ts)
+        .order_by(OiChainEod.ts.desc())
+        .limit(6)
+    ).scalars().all()
+    for pts in cand:
+        prev = session.execute(
+            select(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, func.sum(OiChainEod.oi))
+            .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"), OiChainEod.ts == pts)
+            .group_by(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp)
+        ).all()
+        m = {(e, k, c): float(o or 0.0) for e, k, c, o in prev if (e, k, c) in keys}
+        if m and abs(sum(m.values()) - tot_now) > 1e-6 * max(1.0, tot_now):
+            return pts, m
+    return None
 
 
 # ── gex_rolling + gex_term ─────────────────────────────────────────────
@@ -485,6 +578,15 @@ def get_vix(session: Session, *, days: int = 60) -> dict[str, Any]:
         }
         for r in rows
     ]
+    # 2026-11-13 data check D7: a row whose VVIX / VIX9D / VIX3M / VIX6M exactly repeat the row
+    # before while VIX moved is a stale vendor copy (9/23 = 9/22): blank those fields, flag it.
+    keys = ("vvix", "vix9d", "vix3m", "vix6m")
+    for a, b in zip(series, series[1:]):
+        if (b["vix"] is not None and a["vix"] is not None and b["vix"] != a["vix"]
+                and all(b[k] is not None and b[k] == a[k] for k in keys)):
+            for k in keys:
+                b[k] = None
+            b["stale_copy"] = True
     last = rows[-1]
     summary = {
         "vix": _num(last.vix),
@@ -496,7 +598,11 @@ def get_vix(session: Session, *, days: int = 60) -> dict[str, Any]:
         ),
         "vega_zone": last.vega_zone,
     }
-    return {"rows": series, "count": len(series), "summary": summary, "found": True}
+    stale = [r["date"] for r in series if r.get("stale_copy")]
+    out = {"rows": series, "count": len(series), "summary": summary, "found": True}
+    if stale:
+        out["stale_copy_dates"] = stale
+    return out
 
 
 # ── index_skew_daily ───────────────────────────────────────────────────

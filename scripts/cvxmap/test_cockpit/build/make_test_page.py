@@ -3,18 +3,21 @@ Every edit is an exact, single-occurrence replacement; the script stops if produ
 2026-11-09: MAP toggles only. 2026-11-13: + the Delta map (tg_delta.js, right pane "Delta", section 14). 2026-11-13 (afternoon): + Strike lines on the Flow map and the Zero line on the right Vanna / Charm map (tg_lines.js, section 15). The Density (DN1-DN6) and VIX (VX1/VX2) toggles moved to the production page as options
 (OFF by default), so the test page simply inherits them from production; tg_den.js / tg_vix.js are gone.
 2026-11-13 (evening): production gained the Map > Gamma "Hedge" curve (OFF by default, display only); the test page inherits it - no test-side edit.
+2026-11-13 (night): production read-out fix (Change on the right: the read uses the real charm map; a blocked Change map is never read) - inherited, no test-side edit.
+2026-11-13 (night): + the Map > Gamma Profile button (tg_profile.js, section 16): whole-book gamma profile, Full vs Ex-0DTE, from profile_SPX.json.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("6f1f71f1076ea97a"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("459a2e2e071ed35f"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
 DL = open(os.path.join(HERE, "tg_delta.js"), encoding="utf-8").read()   # 2026-11-13 Delta map
 LN = open(os.path.join(HERE, "tg_lines.js"), encoding="utf-8").read()   # 2026-11-13 Strike lines + Zero line
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN).encode("utf-8")).hexdigest()[:12])
+PF = open(os.path.join(HERE, "tg_profile.js"), encoding="utf-8").read()   # 2026-11-13 (night) VS step 2: whole-book gamma profile
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -39,6 +42,10 @@ CSS = """<style>
 #tgRead{width:min(340px,60vw);font:14px system-ui,sans-serif;padding:3px 6px;border:2px solid #000;background:#fff;color:#000}
 #tgReadBtn{font:700 13px system-ui,sans-serif;border:2px solid #000;background:#fff;color:#000;border-radius:4px;padding:3px 8px;cursor:pointer}
 .tgsec{border:2px dashed #ffcc00 !important}
+.tgprof{border:2px dashed #ffcc00;margin:6px 0;padding:8px 10px;background:#0b0f14;color:#f2f5f8;font:16px system-ui,sans-serif}
+.tgprof .pf1{font-size:17px;margin-bottom:3px} .tgprof .pf2{font-size:17px;margin:2px 0} .tgprof .pf3{font-size:15px;color:#dfe6ee;margin-top:4px}
+.tgprof .pfF{color:#3fd0ff;font-weight:800} .tgprof .pfE{color:#ffa64d;font-weight:800} #tgProfC{width:100%;display:block;margin-top:6px;cursor:crosshair}
+#tgProf{grid-column:1/-1} #tabMap.pfon{grid-template-rows:auto minmax(0,1fr)} body.phone #tabMap.pfon{grid-template-rows:auto 420px 300px 420px}
 </style>"""
 
 # 1. title + bar
@@ -49,7 +56,7 @@ rep("const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -169,6 +176,12 @@ rep('<div class="seg" role="group" id="mapBookRSeg"',
     '<button class="btn" id="tgZeroBtn" aria-pressed="false" title="TEST Zero line: where vanna (or charm) changes sign, nearest to price each minute - the same rule and look as the Gamma Flip line. Off by default.">Zero line</button><div class="seg" role="group" id="mapBookRSeg"')
 rep('    if(st.mapFlipLine&&m.kind==="gamma"&&id==="mapGammaC") zoneOverlay(ctx,m,X,Y,padL,padT,W,H,{band:false,legend:false}); }   // 2026-11-12 Flip line',
     '    if(st.mapFlipLine&&m.kind==="gamma"&&id==="mapGammaC") zoneOverlay(ctx,m,X,Y,padL,padT,W,H,{band:false,legend:false});   // 2026-11-12 Flip line\n    if(st.zeroR&&id==="mapRightC"&&(m.kind==="vanna"||m.kind==="charm")) tgZeroOverlay(ctx,m,X,Y,padL,padT,W,H); }   // TEST ZR')
+# 16. (2026-11-13 night) VS step 2: PROFILE - whole-book gamma profile, Full vs Ex-0DTE (tg_profile.js). Display only.
+rep('<div class="seg" role="group" id="mapBookSeg"',
+    '<button class="btn" id="tgProfBtn" aria-pressed="false" title="TEST Profile: dealer gamma of the WHOLE book (every expiry) re-priced at each SPX level, Full vs Ex-0DTE (without today\'s expiring options), with each flip and the percentile vs our past sessions. From profile_SPX.json (vs_profile_feed, 08:45 + 17:35). Off by default.">Profile</button><div class="seg" role="group" id="mapBookSeg"')
+rep('<main id="tabMap" class="tab" hidden>\n    <section class="pane" id="mapGammaPane">',
+    '<main id="tabMap" class="tab" hidden>\n    <div class="tgprof" id="tgProf" hidden><div id="tgProfHead"></div><canvas id="tgProfC"></canvas></div>\n    <section class="pane" id="mapGammaPane">')
+rep("  hedgeDraw();\n", "  hedgeDraw(); tgProfDraw();   // TEST PF\n")
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)

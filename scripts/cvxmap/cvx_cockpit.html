@@ -5046,7 +5046,7 @@ function ruleReadLines(g,ch,va,se,d,S,gS){
   return B; }
 function nearest(arr,S,dir){ let b=null; for(const v of arr){ if(dir>0&&v>S&&(b==null||v<b)) b=v; if(dir<0&&v<S&&(b==null||v>b)) b=v; } return b; }
 function mapRead(g,ch,va,se,d){
-  if(!g) return ""; const S=g.S, now=g.now, jN=colAt(g,Math.max(MAP_OPEN,now)), jC=colAt(g,15*60+30);
+  if(!g) return ""; if(ch&&!ch.grid) ch=null; /* 2026-11-13 fix: a blocked Change map ({blocked}) has no grid - never read it as charm */ const S=g.S, now=g.now, jN=colAt(g,Math.max(MAP_OPEN,now)), jC=colAt(g,15*60+30);
   const gN=featLevels(g,jN), gC=featLevels(g,jC); const i0=Math.round((S-g.prices[0])/g.dp); const gS=g.grid[jN][Math.max(0,Math.min(g.prices.length-1,i0))];
   const L=[]; const f=v=>v==null?"–":fmtN(v); const pct=v=>v==null?"":` (${((v/S-1)*100).toFixed(2)}%)`;
   L.push(`<div class="l"><b>${gS>=0?"Long gamma":"Short gamma"} at spot ${f(S)}</b> — dealers ${gS>=0?"absorb moves here":"chase moves here"}. Zero line${gN.z.length>1?"s":""}: ${nearest(gN.z,S,-1)!=null?f(nearest(gN.z,S,-1))+" below":""}${nearest(gN.z,S,-1)!=null&&nearest(gN.z,S,1)!=null?" · ":""}${nearest(gN.z,S,1)!=null?f(nearest(gN.z,S,1))+" above":""}${!gN.z.length?"none in window":""}.</div>`);
@@ -5125,7 +5125,7 @@ function renderMapTab(se,d){
   for(const [id,k] of [["speedBtn","speedOn"],["smileBtn","smileOn"],["vclockBtn","clockVar"]]){ const b=document.getElementById(id); if(b) b.setAttribute("aria-pressed",!!st[k]); }
   { const gb=document.getElementById("gapBtn"); if(gb) gb.setAttribute("aria-pressed",!!st.gapOn); const gs=document.getElementById("gapStrip"); if(gs){ const html=st.gapOn?gapStripHTML(se):""; gs.hidden=!html; if(html&&gs.innerHTML!==html) gs.innerHTML=html; } }
   hedgeDraw();
-  const rd=document.getElementById("mapRead"); if(rd){ const h=mapRead(gF,st.mapRight==="vanna"?null:rF,st.mapRight==="vanna"?rF:null,se,d); if(rd._h!==h){ rd.innerHTML=h; rd._h=h; } }
+  const rd=document.getElementById("mapRead"); if(rd){ const h=mapRead(gF,st.mapRight==="vanna"?null:st.mapRight==="chg"?buildMap("charm",se,d,bookR):rF,st.mapRight==="vanna"?rF:null,se,d); /* 2026-11-13 fix: with Change on the right the read uses the real charm map (was the change map, read as "deltas per 5 min"; with basis OI it threw and froze the read-out) */ if(rd._h!==h){ rd.innerHTML=h; rd._h=h; } }
   { const zb=document.getElementById("zoomBtn"); if(zb) zb.setAttribute("aria-pressed",!!st.zoomOn); for(const id of ["zoomWSeg","zoomTSeg"]){ const e=document.getElementById(id); if(e) e.style.display=st.zoomOn?"":"none"; }
     syncSeg("zoomWSeg",String(st.zoomW)); syncSeg("zoomTSeg",st.zoomT); syncSeg("mapColSeg",st.mapCol); syncSeg("mapScaleSeg",st.mapScale);
     const lb=document.getElementById("ledBtn"); if(lb) lb.setAttribute("aria-pressed",!!st.mapLed); }

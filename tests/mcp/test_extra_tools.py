@@ -670,3 +670,55 @@ def test_straddle_prior_is_same_expiry_at_prior_close(session: Session, monkeypa
     # 1 day at 16% vol on 7550 ~ 0.8 * 7550 * 0.16 / sqrt(365) ~ 51 pts; the expiring Monday leg would be ~0
     assert 40 < prior < 65
     assert out["straddle"] < prior and out["decay"]["label"] == "decaying"
+
+
+# ---------------------------------------------------------------- 2026-11-13 data checks D2 / D6 / D7
+def _oi_row(ts, exp, k, cp, oi, gx, chg=0.0, dte=30):
+    return OiChainEod(symbol="SPX", ts=ts, source="convex_eod", expiry=exp, strike=k, cp=cp,
+                      dte=dte, oi=oi, gxoi=gx, oi_change=chg, volume=0.0)
+
+
+def test_get_walls_drops_matched_box_pairs(session: Session) -> None:
+    ts = datetime(2026, 11, 12, 17, 15)
+    exp = date(2026, 12, 18)
+    session.add_all([
+        # 8000: a box pile (equal call + put OI) - must not be the call wall
+        _oi_row(ts, exp, 8000.0, "C", 500_000, 900.0), _oi_row(ts, exp, 8000.0, "P", 450_000, 800.0),
+        # 7700: a real call pile
+        _oi_row(ts, exp, 7700.0, "C", 60_000, 300.0),
+        # 7000: a box pile below - must not be the put wall
+        _oi_row(ts, exp, 7000.0, "C", 540_000, 950.0), _oi_row(ts, exp, 7000.0, "P", 640_000, 1000.0),
+        _oi_row(ts, exp, 7500.0, "P", 80_000, 400.0),
+    ])
+    session.commit()
+    out = et.get_walls(session, "SPX", spot_override=7550.0)
+    assert out["call_wall"] == 7700.0
+    assert out["put_wall"] == 7500.0  # 7000 keeps only 100k put OI (gxoi 1000 * 100/640 = 156)
+    assert out["matched_oi_removed"] == 2 * 450_000 + 2 * 540_000
+    old = et.get_walls(session, "SPX", spot_override=7550.0, drop_matched=False)
+    assert old["call_wall"] == 8000.0 and old["put_wall"] == 7000.0
+
+
+def test_get_oi_changes_computes_change_when_vendor_column_is_zero(session: Session) -> None:
+    exp = date(2026, 12, 18)
+    t0, t1 = datetime(2026, 11, 11, 17, 15), datetime(2026, 11, 12, 8, 35)
+    session.add_all([
+        _oi_row(t0, exp, 7600.0, "C", 1000, 1.0), _oi_row(t0, exp, 7500.0, "P", 2000, 1.0),
+        _oi_row(t1, exp, 7600.0, "C", 4000, 1.0), _oi_row(t1, exp, 7500.0, "P", 1500, 1.0),
+    ])
+    session.commit()
+    out = et.get_oi_changes(session, "SPX")
+    assert out["rows"][0]["strike"] == 7600.0 and out["rows"][0]["oi_change"] == 3000.0
+    assert out["rows"][1]["oi_change"] == -500.0
+    assert "computed vs the 2026-11-11 17:15 book" in out["oi_change_source"]
+
+
+def test_get_vix_blanks_a_stale_copy_row(session: Session) -> None:
+    a = VixData(date=date(2026, 9, 22), vix=16.0, vvix=90.0, vix9d=15.0, vix3m=18.0, vix6m=19.0)
+    b = VixData(date=date(2026, 9, 23), vix=17.2, vvix=90.0, vix9d=15.0, vix3m=18.0, vix6m=19.0)
+    session.add_all([a, b])
+    session.commit()
+    out = et.get_vix(session, days=10)
+    last = out["rows"][-1]
+    assert last["stale_copy"] is True and last["vvix"] is None and last["vix"] == 17.2
+    assert out["stale_copy_dates"] == ["2026-09-23"]

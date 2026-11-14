@@ -125,6 +125,10 @@ def tenor_history(
     if not rows and session is not None:
         rows = td.backfill(session, symbol, root, write=False)  # read-only: nothing persisted
         src = "computed from oi_chain_eod (no history file yet)"
+    from trading_intel.timeutils import is_trading_session
+
+    # 2026-11-13 data check D5: drop rows filed on market holidays (5/25, 9/07)
+    rows = [r for r in rows if _session_day(r.get("date"), is_trading_session)]
     rows = rows[-max(1, days) :]
     return {
         "symbol": symbol.upper(),
@@ -136,7 +140,19 @@ def tenor_history(
         "change_1w": td.change_vs(rows, 5),
         "units": {"gamma": "$bn per 1% move", "vega": "$mn per vol point"},
         "note": DISCLAIMER,
+        "vs_gamma_history": ("this re-prices the whole book across spot; get_gamma_history sums "
+                             "gamma strike by strike - a long/short disagreement between them "
+                             "means price is near the flip"),
     }
+
+
+def _session_day(d: Any, is_session: Any) -> bool:
+    from datetime import date as _date
+
+    try:
+        return bool(is_session(_date.fromisoformat(str(d)[:10])))
+    except ValueError:
+        return True
 
 
 def factor_cards(settings: Any = None, *, path: Path | None = None) -> dict[str, Any]:

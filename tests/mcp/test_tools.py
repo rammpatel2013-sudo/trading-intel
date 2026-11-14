@@ -290,3 +290,29 @@ def test_regime_text_uses_the_sign_and_flags_mixed() -> None:
     assert "mixed" in tools.regime_text(52.7, 7594.68, 7601.0)
     assert "mixed" not in tools.regime_text(-163.0, 7521.26, 7579.9)
     assert tools.regime_text(None, 230.0, 210.0).startswith("long gamma")
+
+
+def test_gamma_history_drops_holidays_and_uses_official_close() -> None:
+    """2026-11-13 data check D5: Memorial Day rows are dropped; the day's spot is the official close."""
+    from datetime import datetime as _dt
+
+    from sqlalchemy import create_engine as _ce
+    from sqlalchemy.orm import Session as _S
+
+    from trading_intel.memory.models import GreeksSnapshot as _G
+    from trading_intel.memory.models import QuoteDaily as _Q
+
+    eng = _ce("sqlite://")
+    _G.__table__.create(eng)
+    _Q.__table__.create(eng)
+    with _S(eng) as s:
+        for d, spot in ((_dt(2026, 5, 22, 17, 15), 7400.0), (_dt(2026, 5, 25, 17, 15), 7401.0),
+                        (_dt(2026, 5, 26, 17, 15), 7360.0)):
+            s.add(_G(symbol="SPX", source="convex", ts=d, spot=spot, gex_total=10.0, gex_flip=7300.0))
+        s.add(_Q(symbol="SPX", date=_dt(2026, 5, 26).date(), open=1, high=1, low=1, close=7380.5, volume=1))
+        s.commit()
+        out = tools.get_gamma_history(s, "SPX", days=10)
+    dates = [r["date"] for r in out["rows"]]
+    assert "2026-05-25" not in dates and dates == ["2026-05-22", "2026-05-26"]
+    last = out["rows"][-1]
+    assert last["spot"] == 7380.5 and last["spot_src"] == "official close" and last["spot_last_pull"] == 7360.0
