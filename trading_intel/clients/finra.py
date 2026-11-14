@@ -91,6 +91,11 @@ class FinraClient:
             }
         return None
 
+    def short_volume_all(self, day: date) -> dict[str, tuple[float, float]]:
+        """Every symbol's (short_volume, total_volume) for one session (2026-11-13: own DIX job)."""
+        text = self._http_get(_REGSHO_URL.format(ymd=day.strftime("%Y%m%d")))
+        return parse_shvol(text) if text else {}
+
     def short_volume_avg(self, symbol: str, *, lookback: int = 10, end: date | None = None) -> dict | None:
         """Average short-volume ratio over the last ``lookback`` sessions with data.
 
@@ -185,3 +190,17 @@ class FinraClient:
         except Exception as exc:
             log.warning("finra.si_failed", symbol=symbol, error=str(exc))
             return None
+
+
+def parse_shvol(text: str) -> dict[str, tuple[float, float]]:
+    """{symbol: (short_volume, total_volume)} from a Reg SHO daily file body (2026-11-13)."""
+    out: dict[str, tuple[float, float]] = {}
+    for line in text.splitlines()[1:]:
+        p = line.strip().split("|")
+        if len(p) < 5 or not p[1]:
+            continue
+        try:
+            out[p[1].upper()] = (float(p[2]), float(p[4]))
+        except ValueError:
+            continue
+    return out

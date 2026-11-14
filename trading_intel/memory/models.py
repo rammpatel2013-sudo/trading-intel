@@ -1842,3 +1842,18 @@ class TasCrowdMinute(Base):
     spot: Mapped[float | None] = mapped_column(Float)  # last spot seen in the row
     last_ts: Mapped[datetime | None] = mapped_column(DateTime)
 
+
+class FinraDixDaily(Base):
+    """Our own DIX from FINRA's free daily short-volume file (2026-11-13 overnight, Phase 6, ADR-008).
+
+    dix = sum(short volume x price) / sum(total volume x price) over S&P 500 names. Descriptor only.
+    """
+
+    __tablename__ = "finra_dix_daily"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    dix: Mapped[float | None] = mapped_column(Float)
+    short_dollars: Mapped[float | None] = mapped_column(Float)
+    total_dollars: Mapped[float | None] = mapped_column(Float)
+    n_symbols: Mapped[int | None] = mapped_column(Integer)
+
