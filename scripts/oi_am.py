@@ -246,9 +246,14 @@ def mid_blocks(settings, day: str, rows_all: list[dict], top: int = 12) -> list[
     except Exception as exc:  # noqa: BLE001 - column missing before 0052, or DB hiccup: report without the section
         log(f"mid blocks: {type(exc).__name__}: {str(exc)[:120]}")
         return []
-    by_key = {(r["symbol"], r["expiry"], k_strike(r["strike"]), r["cp"]): r for r in rows_all}
+    by_key = {(r["symbol"], r["expiry"], k_strike(r["strike"]), r["cp"]): r for r in rows_all
+              if r.get("strike") is not None}
     out = []
+    no_strike = 0
     for b in rows:
+        if b["strike"] is None:   # 2026-11-19: prints with no parsed strike (seen 11/17 + 11/18) crashed the job
+            no_strike += 1
+            continue
         key = (str(b["root"]).upper(), b["expiry"].isoformat() if b["expiry"] else None, k_strike(b["strike"]), b["cp"])
         r = by_key.get(key)
         d_oi = r["d_oi"] if r else None
@@ -258,6 +263,8 @@ def mid_blocks(settings, day: str, rows_all: list[dict], top: int = 12) -> list[
                     "size": int(b["size"]), "prints": int(b["n"]), "loc": b["loc"], "d_oi": d_oi,
                     "d_iv_rel": r.get("d_iv_rel") if r else None, "read": read or ("no OI change" if r is None else "flat / no IV"),
                     "vendor_split": r["tag"] if r else None})
+    if no_strike:
+        log(f"mid blocks: skipped {no_strike} big mid/inside print group(s) with no strike")
     return out[:top]
 
 
