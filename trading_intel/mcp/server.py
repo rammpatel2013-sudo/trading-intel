@@ -78,24 +78,6 @@ def build_server(
         return _src_cache["src"]
 
     @mcp.tool()
-    def get_latest_am_summary() -> dict[str, Any]:
-        """Return the most recent stored AM regime report."""
-        with session_factory() as session:
-            return t.get_latest_am_summary(session)
-
-    @mcp.tool()
-    def get_am_summary_by_date(day: str) -> dict[str, Any]:
-        """Return the AM regime report for a given ISO date (YYYY-MM-DD)."""
-        with session_factory() as session:
-            return t.get_am_summary_by_date(session, day)
-
-    @mcp.tool()
-    def list_am_summary_dates(limit: int = 30) -> dict[str, Any]:
-        """List recent AM-report dates (newest first)."""
-        with session_factory() as session:
-            return t.list_am_summary_dates(session, limit=limit)
-
-    @mcp.tool()
     def get_watchlist_regime(
         symbols: list[str] | None = None,
         history_days: int = 30,
@@ -147,12 +129,6 @@ def build_server(
         """Aggregate systematic (vol-control + CTA + risk-parity) buying across indices."""
         with session_factory() as session:
             return em.get_systematic_flow(session, index)
-
-    @mcp.tool()
-    def rebuild_am_summary() -> dict[str, Any]:
-        """Re-render today's AM summary from current stored data. No DB write."""
-        with session_factory() as session:
-            return t.rebuild_am_summary(session, llm, settings=settings)
 
     @mcp.tool()
     def search_knowledge(
@@ -271,18 +247,12 @@ def build_server(
             return et.get_intraday_flow(session, symbol)
 
     @mcp.tool()
-    def get_delta_flow(symbol: str, days: int = 5) -> dict[str, Any]:
-        """Intraday cumulative call/put delta-notional series for one ticker."""
-        with session_factory() as session:
-            return et.get_delta_flow(session, symbol, days=days)
-
-    @mcp.tool()
     def get_cockpit_live(symbol: str = "SPX") -> dict[str, Any]:
         """LIVE market read from the cockpit's own files (updated every minute) - use this for
         "what is the market doing now". Price, 0DTE expected move, dealer gamma at spot (long /
         short), flip, call / put walls, today's 0DTE flow (calls & puts bought vs sold, lean),
         live 0DTE skew (25-delta risk reversal, put wing), term structure, VIX. SPX, SPY or QQQ.
-        (get_live_gex / get_intraday_flow / get_delta_flow read DB tables that are no longer fed.)"""
+        (get_live_gex / get_intraday_flow read DB tables that are no longer fed.)"""
         return ckl.get_cockpit_live(settings, symbol)
 
     @mcp.tool()
@@ -394,12 +364,6 @@ def build_server(
         """Latest narrative research note for one ticker (PDF + 10-K + FMP + regime)."""
         with session_factory() as session:
             return et.get_research_note(session, symbol)
-
-    @mcp.tool()
-    def get_surface_report(symbol: str) -> dict[str, Any]:
-        """Latest interpretive vol-surface + flow report for one ticker."""
-        with session_factory() as session:
-            return et.get_surface_report(session, symbol)
 
     @mcp.tool()
     def get_research_watchlist(active_only: bool = True, limit: int = 200) -> dict[str, Any]:

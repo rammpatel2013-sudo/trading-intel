@@ -50,7 +50,7 @@ from trading_intel.scheduler.jobs.oi_chain_eod import (
     _UQ_COLS,
     _chain_to_records,
 )
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, is_trading_session
 
 log = structlog.get_logger(__name__)
 
@@ -98,6 +98,11 @@ def run(
     """
     settings = settings or get_settings()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="index_walls_am")
+    if not is_trading_session(eastern_now().date()):
+        # 2026-11-19 (DB review D8): a holiday / weekend run would bank the vendor's stale book under that
+        # day's date - the same guard oi_chain_eod has had since 2026-10-26.
+        bound.info("index_walls_am.skipped_non_session", as_of=eastern_now().date().isoformat())
+        return
 
     ts = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
     roots = symbols or list(getattr(settings, "index_roots", []))

@@ -3,11 +3,33 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from trading_intel.memory.models import OiChainEod
 from trading_intel.timeutils import eastern_now
+
+
+@pytest.fixture(autouse=True)
+def _session_day(monkeypatch):
+    """Date-proof (ship-day rule): these tests write today's book, so today must count as a session."""
+    from trading_intel.scheduler.jobs import index_walls_am, oi_chain_eod
+
+    monkeypatch.setattr(index_walls_am, "is_trading_session", lambda d=None: True)
+    monkeypatch.setattr(oi_chain_eod, "is_trading_session", lambda d=None: True)
+
+
+def test_index_walls_am_skips_non_session(monkeypatch) -> None:
+    from trading_intel.scheduler.jobs import index_walls_am as job
+
+    monkeypatch.setattr(job, "is_trading_session", lambda d=None: False)
+
+    class _Boom:
+        def __getattr__(self, name):
+            raise AssertionError("no vendor call on a holiday")
+
+    assert job.run(_Boom(), _Boom(), settings=object(), symbols=["SPX"]) is None
 
 
 def test_index_walls_am_writes_index_chain(monkeypatch) -> None:

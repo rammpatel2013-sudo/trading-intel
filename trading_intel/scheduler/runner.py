@@ -297,7 +297,8 @@ def main() -> None:
     # Daily AM regime report — 07:00 ET (after the 06:45 Greeks snapshot). Reads
     # stored data, renders via local LLM, upserts one am_summaries row/day. On the
     # NAS this is a separate DSM task (runner cron is ignored there).
-    scheduler.add_job(run_am_summary, "cron", hour=7, minute=0, name="am_summary")
+    # RETIRED 2026-11-19 (Mithil): am_summaries last written 6/14; today's morning reports are files/Telegram.
+    # scheduler.add_job(run_am_summary, "cron", hour=7, minute=0, name="am_summary")
     # Daily VIX/VVIX/credit snapshot — 16:45 ET (FRED + CBOE). On the NAS this is
     # a separate DSM task (runner cron is ignored there).
     scheduler.add_job(run_vix_snapshot, "cron", hour=16, minute=45, name="vix_snapshot")
@@ -328,10 +329,8 @@ def main() -> None:
     scheduler.add_job(run_skew_snapshots, "cron", hour=16, minute=55, name="skew_snapshots")
     # Intraday all-expiry delta-notional flow — every 5 min during RTH (self-guards
     # to 09:30-16:00 weekdays). On the NAS this is a separate DSM task.
-    scheduler.add_job(
-        run_delta_flow, "cron", day_of_week="mon-fri", hour="9-16", minute="*/5",
-        name="delta_flow",
-    )
+    # RETIRED 2026-11-19 (Mithil): delta_flow last written 6/04; the cockpit's live files + tape whales/crowd
+    # replace it. Rows kept.
     # Intraday LIVE per-strike GEX (delta-band) — every 10 min during RTH; pruned
     # daily. On the NAS these are separate DSM tasks.
     scheduler.add_job(

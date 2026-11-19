@@ -49,7 +49,7 @@ _SOURCE = "convex"
 _SOURCE_INDEX = "convex_index"
 _UQ_COLS = ["ts", "symbol", "price", "size", "source"]
 _INSERT_BATCH = 1000
-_CONTRACT_RE = re.compile(r"^\.?([A-Za-z]+)(\d{6})([CcPp])(\d+(?:\.\d+)?)$")
+_CONTRACT_RE = re.compile(r"^\.?([A-Za-z][A-Za-z0-9]*?)(\d{6})([CcPp])(\d+(?:\.\d+)?)$")
 _LEG_WINDOW_S = 2.0                       # legs within this window (same root) = one structure
 _SWEEP_CODES = frozenset({"I"})          # ISO / intermarket sweep
 _BLOCK_CODES = frozenset({"t", "m", "D"})  # negotiated / block prints on the tape
@@ -57,6 +57,7 @@ _BLOCK_MIN_SIZE = 250                     # large single print = block even with
 _INDEX_ETF = frozenset({"SPY", "QQQ"})   # index ETFs get a lower premium floor than SPX/SPXW
 _SPX_TAPE = frozenset({"SPX", "SPXW"})  # kept from Settings.TAS_SPX_TAPE_MIN_PREMIUM ($5k); 2026-11-05 SPY moved to the ETF rule
 _ETF_TAPE = frozenset({"SPY", "QQQ"})   # 2026-11-05: index ETFs kept from the market-wide floor (TAS_MIN_PREMIUM, $25k)
+_LAST_ERROR: list = [None]              # 2026-11-19: last fetch error text (the daemon re-logs in on 401/403)
 _LAST_TS: list = [None]                 # newest print time of the previous poll (daemon = one process) -> gap check
 
 
@@ -200,6 +201,8 @@ def _row_record(
     source = _SOURCE_INDEX if (is_index and ru in exclude) else _SOURCE
 
     ts = pd.to_datetime(row.get("time"), errors="coerce")
+    if pd.notna(ts) and ts.tzinfo is not None:   # 2026-11-19: store naive EASTERN (was the UTC wall clock)
+        ts = ts.tz_convert("America/New_York").tz_localize(None)
     ts_dt = ts.to_pydatetime() if pd.notna(ts) else captured_at
 
     delta = _f(row.get("delta"))
@@ -239,6 +242,22 @@ def _row_record(
     }
 
 
+_LEG_MAX = 4                                # more legs than this in 2 s = separate trades glued together
+_LEG_RATIOS = frozenset({1.0, 2.0, 3.0})    # size ratios a real structure uses (1:1, 1:2, 1:3)
+
+
+def _plausible_structure(sizes: list) -> bool:
+    """2026-11-19 (D13): a time-window cluster counts as one structure only if it has 2-4 legs and
+    the sizes fit 1:1 / 1:2 / 1:3. Measured 11/18: 78% of 2-s clusters failed this (mixed sizes or
+    5+ legs = unrelated trades on a busy root). Vendor-flagged spread legs never go through this."""
+    if not 2 <= len(sizes) <= _LEG_MAX:
+        return False
+    vals = sorted(float(x) for x in sizes if x)
+    if len(vals) != len(sizes):
+        return False
+    return {round(v / vals[0], 6) for v in vals} <= _LEG_RATIOS
+
+
 def _assign_leg_groups(recs: list[dict], window_s: float = _LEG_WINDOW_S) -> None:
     """Tag size-matched, same-root, near-simultaneous legs with a shared group id.
 
@@ -246,7 +265,7 @@ def _assign_leg_groups(recs: list[dict], window_s: float = _LEG_WINDOW_S) -> Non
     same instant; both land in one poll. Singletons keep ``leg_group=None``.
     2026-11-04: prints the VENDOR flags as ``spread_leg`` are grouped first, by
     (root, exact print time) - no guessing; the time-window heuristic below only
-    handles the rest.
+    handles the rest, and only keeps a cluster that looks like one structure (``_plausible_structure``).
     """
     byts: dict = {}
     for i, r in enumerate(recs):
@@ -264,7 +283,7 @@ def _assign_leg_groups(recs: list[dict], window_s: float = _LEG_WINDOW_S) -> Non
     cluster: list[int] = []
 
     def flush(c: list[int]) -> None:
-        if len(c) >= 2:
+        if len(c) >= 2 and _plausible_structure([recs[i].get("size") for i in c]):
             gid = uuid.uuid4().hex[:24]
             for i in c:
                 recs[i]["leg_group"] = gid
@@ -309,7 +328,7 @@ def run(
     min_premium: float | None = None,
     limit: int | None = None,
     force: bool = False,
-) -> None:
+) -> str | None:
     """Capture one poll of the market-wide tape into ``tas_prints`` (idempotent).
 
     ``min_premium`` / ``limit`` default to ``Settings.TAS_MIN_PREMIUM`` /
@@ -341,6 +360,7 @@ def run(
         df = source.time_and_sales(None, limit=limit, orderby="time")
     except TradingIntelError as exc:
         bound.warning("tas_capture.fetch_failed", error=str(exc))
+        _LAST_ERROR[0] = str(exc)
         return "fetch_failed"      # the daemon backs off on this (2026-11-05)
     if df is None or df.empty:
         bound.warning("tas_capture.empty_tape")
@@ -396,6 +416,7 @@ def run(
     session.commit()
     idx_kept = sum(1 for r in records if r["source"] == _SOURCE_INDEX)
     bound.info("tas_capture.done", polled=int(len(df)), kept=len(records), index_kept=idx_kept)
+    return "done"   # 2026-11-19: the daemon's no-prints alarm counts these
 
 
 def main() -> None:

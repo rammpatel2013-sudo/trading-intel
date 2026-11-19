@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from trading_intel.memory.models import MapDaily
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -99,7 +100,7 @@ def record_morning(
     """
     if not block:
         return False
-    today = today or date.today()
+    today = today or eastern_today()
     try:
         values = morning_values(block)
         stmt = pg_insert(MapDaily).values(
@@ -166,6 +167,6 @@ def previous_graded(
     session: Session, symbol: str = "SPX", *, before: date | None = None
 ) -> dict[str, Any] | None:
     """The most recent graded session — the brief's "Yesterday:" line."""
-    before = before or date.today()
+    before = before or eastern_today()
     rows = recent_rows(session, symbol, days=1, before=before - timedelta(days=0))
     return rows[0] if rows else None

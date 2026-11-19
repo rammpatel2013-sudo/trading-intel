@@ -101,7 +101,7 @@ _TAS_COLS = (
 # OCC-ish ConvexValue option symbol: ".SPXW260522C7400" / ".SPX261120P7150".
 # leading dot, root letters, YYMMDD, C|P, strike (int or decimal — already in
 # real dollars, not OCC's *1000 padding).
-_OCC_RE = re.compile(r"^\.?(?P<root>[A-Z]+)(?P<ymd>\d{6})(?P<kind>[CP])(?P<strike>\d+(?:\.\d+)?)$")
+_OCC_RE = re.compile(r"^\.?(?P<root>[A-Z][A-Z0-9]*?)(?P<ymd>\d{6})(?P<kind>[CP])(?P<strike>\d+(?:\.\d+)?)$")
 
 
 def parse_occ_symbol(sym: str) -> tuple[str | None, pd.Timestamp | None, float | None, str | None]:

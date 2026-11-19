@@ -37,6 +37,8 @@ import pandas as pd
 from scipy.optimize import brentq
 from scipy.special import ndtr
 
+from trading_intel.timeutils import eastern_today
+
 # Natural call/put delta sign: call δ ∈ (0, 1), put δ ∈ (−1, 0).
 _SIGN = {"C": 1.0, "P": -1.0}
 _DEFAULT_MULTIPLIER = 100.0
@@ -115,7 +117,7 @@ def dex_flip(
         mult = mult.where(mult > 0, _DEFAULT_MULTIPLIER).fillna(_DEFAULT_MULTIPLIER)
     else:
         mult = pd.Series(_DEFAULT_MULTIPLIER, index=df.index)
-    years = _years_to_expiry(df["expiration"], date.today())
+    years = _years_to_expiry(df["expiration"], eastern_today())
 
     valid = (
         sign.notna()

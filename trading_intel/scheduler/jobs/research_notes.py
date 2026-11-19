@@ -13,7 +13,6 @@ Manual run:
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
 from pathlib import Path
 
 import structlog
@@ -27,6 +26,7 @@ from trading_intel.memory.models import Document, ResearchNote, WatchlistEntry
 from trading_intel.memory.pdf_pipeline import extract_text
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.research_note import build_research_note
+from trading_intel.timeutils import eastern_now, eastern_today
 from trading_intel.watchlist import research_symbols
 
 log = structlog.get_logger(__name__)
@@ -110,7 +110,7 @@ def run(
     settings = settings or get_settings()
     symbols = symbols or research_symbols(session)
     edgar = EdgarClient(user_agent=settings.EDGAR_USER_AGENT)
-    as_of = date.today()
+    as_of = eastern_today()
     written = 0
     for sym in symbols:
         log.info("research_notes.symbol_start", symbol=sym)
@@ -132,7 +132,7 @@ def run(
             ) if ok
         )
         model = settings.LLM_DAILY_MODEL if llm is not None else None
-        now = datetime.utcnow()
+        now = eastern_now()
         stmt = pg_insert(ResearchNote).values(
             symbol=sym, as_of=as_of, note_md=note, sources=srcs or None, model=model, created_at=now,
         ).on_conflict_do_update(

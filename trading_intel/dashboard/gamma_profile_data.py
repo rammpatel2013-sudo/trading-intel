@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.greeks.gamma_profile import gamma_profile
 from trading_intel.memory.models import LiveGex
+from trading_intel.timeutils import eastern_today
 
 ALL = "All expiries"
 ZERO_DTE = "0DTE"
@@ -98,7 +99,7 @@ def build_profile(
     """
     if frame is None or frame.empty or spot is None:
         return pd.DataFrame()
-    ref = ref or date.today()
+    ref = ref or eastern_today()
     scoped = filter_scope(frame, scope, ref=ref)
     if scoped is None or scoped.empty:
         return pd.DataFrame()

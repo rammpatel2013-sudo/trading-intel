@@ -25,7 +25,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, Boolean, Date, Float, Integer, String
+from sqlalchemy import JSON, BigInteger, Boolean, Date, Float, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from trading_intel.memory.models import Base
@@ -35,6 +35,10 @@ class EquityMember(Base):
     """One membership interval. ``end_date`` None = still a member."""
 
     __tablename__ = "equity_members"
+    __table_args__ = (
+        UniqueConstraint("symbol", "index_code", "start_date", name="uq_equity_members_interval",
+                         postgresql_nulls_not_distinct=True),   # 2026-11-19 (0059)
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     symbol: Mapped[str] = mapped_column(String(16), index=True)

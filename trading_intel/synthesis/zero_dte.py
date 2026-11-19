@@ -24,6 +24,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from trading_intel.memory.models import GreeksSnapshot, OiChainEod
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -104,7 +105,7 @@ def summarize(rows: list[tuple], spot: float, *, flip: float | None = None) -> d
 def build_zero_dte(session: Session, symbol: str = "SPX", *, today: date | None = None) -> dict[str, Any] | None:
     """Today's-expiry gamma map, or None if no 0DTE chain is banked for today."""
     sym = symbol.upper()
-    today = today or date.today()
+    today = today or eastern_today()
     try:
         ts = session.execute(
             select(func.max(OiChainEod.ts)).where(OiChainEod.symbol == sym)

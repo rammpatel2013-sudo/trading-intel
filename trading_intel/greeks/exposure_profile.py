@@ -38,6 +38,7 @@ from trading_intel.greeks.black_scholes import (
     bs_vega,
     years_to_expiry,
 )
+from trading_intel.timeutils import eastern_today
 
 _NEEDED = {"opt_kind", "strike", "iv", "oi", "expiration"}
 _SIGN = {"C": 1.0, "P": -1.0}
@@ -93,7 +94,7 @@ def greek_profiles(
     K = df["strike"].to_numpy(dtype=float)
     sig = df["iv"].to_numpy(dtype=float)
     oi = df["oi"].to_numpy(dtype=float)
-    t = years_to_expiry(df["expiration"], ref or date.today())
+    t = years_to_expiry(df["expiration"], ref or eastern_today())
     labels = pd.to_datetime(df["expiration"], errors="coerce").dt.date.astype("string").to_numpy()
 
     out: dict = {SPOT_COL: grid.round(4).tolist()}

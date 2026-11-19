@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from trading_intel.greeks.black_scholes import dollar_gamma, years_to_expiry
+from trading_intel.timeutils import eastern_today
 
 _SIGN = {"C": 1.0, "P": -1.0}
 _DEFAULT_MULTIPLIER = 100.0
@@ -76,7 +77,7 @@ def gamma_profile(
         mult = mult.where(mult > 0, _DEFAULT_MULTIPLIER).fillna(_DEFAULT_MULTIPLIER)
     else:
         mult = pd.Series(_DEFAULT_MULTIPLIER, index=df.index)
-    years = years_to_expiry(df["expiration"], ref or date.today())
+    years = years_to_expiry(df["expiration"], ref or eastern_today())
     labels = _expiry_labels(df["expiration"])
 
     valid = (

@@ -101,7 +101,7 @@ def run(
                 "r_multiple": oc.r_multiple,
                 "conviction": res.conviction,
                 "max_days": max_days,
-                "evaluated_at": datetime.utcnow(),
+                "evaluated_at": eastern_now(),
             }
         )
 

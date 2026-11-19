@@ -13,11 +13,12 @@ the card for that factor reports "missing prices" instead.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 import pandas as pd
 import structlog
+
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -27,7 +28,7 @@ START = "1999-01-01"
 def _fmp_rows(fmp: Any, sym: str, start: str) -> pd.Series:
     for ep in ("historical-price-eod/dividend-adjusted", "historical-price-eod/light"):
         try:
-            rows = fmp(ep, {"symbol": sym, "from": start, "to": date.today().isoformat()})
+            rows = fmp(ep, {"symbol": sym, "from": start, "to": eastern_today().isoformat()})
         except Exception as exc:
             log.info("factor_prices.fmp_failed", symbol=sym, endpoint=ep, err=str(exc)[:120])
             continue

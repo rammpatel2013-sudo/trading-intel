@@ -30,6 +30,7 @@ import pandas as pd
 
 from trading_intel.errors import ComputationError
 from trading_intel.greeks.black_scholes import bs_call_price, bs_put_price, years_to_expiry
+from trading_intel.timeutils import eastern_today
 
 _REQUIRED = ("opt_kind", "strike", "iv", "expiration")
 
@@ -82,7 +83,7 @@ def atm_straddle(
     df["strike"] = pd.to_numeric(df["strike"], errors="coerce")
     df["iv"] = pd.to_numeric(df["iv"], errors="coerce")
     df["_side"] = df["opt_kind"].astype(str).str.upper().str[0]
-    df["_t"] = years_to_expiry(df["expiration"], ref_date or date.today())
+    df["_t"] = years_to_expiry(df["expiration"], ref_date or eastern_today())
 
     df = df[df["strike"].notna() & df["iv"].notna() & (df["iv"] > 0) & (df["_t"] > 0)]
     if df.empty:

@@ -16,6 +16,8 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from trading_intel.timeutils import eastern_today
+
 
 def _prep(chain: pd.DataFrame, ref: date | None) -> pd.DataFrame:
     df = chain.copy()
@@ -25,7 +27,7 @@ def _prep(chain: pd.DataFrame, ref: date | None) -> pd.DataFrame:
     df["_delta"] = pd.to_numeric(df.get("delta"), errors="coerce")
     df["_gxoi"] = pd.to_numeric(df.get("gxoi"), errors="coerce")
     exp = pd.to_datetime(df.get("expiration"), errors="coerce")
-    ref_ts = pd.Timestamp(ref or date.today())
+    ref_ts = pd.Timestamp(ref or eastern_today())
     df["_dte"] = (exp - ref_ts).dt.days
     return df
 

@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from trading_intel.expiry_clock import monthly_opex
 from trading_intel.greeks.exposure_profile import greek_profiles
 from trading_intel.memory.models import GreeksSnapshot, OiChainEod
-from trading_intel.timeutils import same_day_years
+from trading_intel.timeutils import eastern_today, same_day_years
 
 log = structlog.get_logger(__name__)
 
@@ -88,7 +88,7 @@ def features(grid: list[float], vals: list[float], spot: float) -> list[dict[str
 def build_opex_split(session: Session, symbol: str = "SPX", *, today: date | None = None,
                      span: float = 0.03, n_points: int = 61) -> dict[str, Any] | None:
     """Both curves + features for a monthly-OpEx morning; None on any other day or without AM rows."""
-    today = today or date.today()
+    today = today or eastern_today()
     if not is_monthly_opex(today):
         return None
     sym = symbol.upper()

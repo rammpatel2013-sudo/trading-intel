@@ -14,7 +14,7 @@ Descriptor only — FlashAlpha rule 4. The ranking + flags live in the pure
 """
 from __future__ import annotations
 
-from datetime import datetime
+from trading_intel.timeutils import eastern_now
 
 _SPY = "SPY"
 
@@ -257,7 +257,7 @@ def assemble_sector(rows: list[dict], *, corr: dict, internals: dict, as_of: str
     from trading_intel.market.sector_scan import build_sector_scan
 
     scan = build_sector_scan(rows, corr=corr, internals=internals, gex_history=gex_history)
-    scan["as_of"] = as_of or datetime.now().isoformat(timespec="seconds")
+    scan["as_of"] = as_of or eastern_now().isoformat(timespec="seconds")
     scan["meta"] = {
         "source": "cvforge-db + fmp",
         "n_sectors": scan.get("n_sectors", len(rows)),

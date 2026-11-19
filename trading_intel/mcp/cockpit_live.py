@@ -23,6 +23,7 @@ from typing import Any
 import httpx
 
 from trading_intel.config import Settings
+from trading_intel.timeutils import eastern_now
 
 _TIMEOUT = 6.0
 
@@ -36,7 +37,7 @@ def fetch_json(settings: Settings, name: str) -> tuple[dict | None, str | None]:
             continue
         url = base.rstrip("/") + "/" + name
         try:
-            r = httpx.get(url, timeout=_TIMEOUT, params={"_": int(datetime.now().timestamp())})
+            r = httpx.get(url, timeout=_TIMEOUT, params={"_": int(eastern_now().timestamp())})
             r.raise_for_status()
             return r.json(), None
         except Exception as exc:  # noqa: BLE001 - try the next address, report both
@@ -220,8 +221,6 @@ def get_cockpit_live(settings: Settings, symbol: str = "SPX") -> dict[str, Any]:
     live, err = fetch_json(settings, "live.json")
     if live is None:
         return {"symbol": symbol.upper(), "found": False, "reason": f"cockpit not reachable ({err})"}
-    from trading_intel.timeutils import eastern_now
-
     return summarize_live(live, symbol, now=eastern_now())
 
 

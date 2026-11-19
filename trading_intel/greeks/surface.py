@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from trading_intel.errors import ComputationError
+from trading_intel.timeutils import eastern_today
 
 _REQUIRED = ("expiration", "strike", "opt_kind", "iv")
 
@@ -68,7 +69,7 @@ def build_surface_grid(
     if not spot or spot <= 0:
         raise ComputationError(f"Invalid spot for surface: {spot!r}")
 
-    ref_ts = pd.Timestamp(ref or date.today()).normalize()
+    ref_ts = pd.Timestamp(ref or eastern_today()).normalize()
     df = chain.copy()
     df["iv"] = pd.to_numeric(df["iv"], errors="coerce")
     df["strike"] = pd.to_numeric(df["strike"], errors="coerce")
@@ -122,7 +123,7 @@ def build_surface_grid(
         dte=np.array(dtes, dtype=int),
         iv=np.vstack(rows),
         spot=float(spot),
-        ref=(ref or date.today()),
+        ref=(ref or eastern_today()),
     )
 
 
@@ -200,9 +201,9 @@ def build_delta_surface(
         ref_ts = pd.Timestamp(ref).normalize()
     elif "ts" in chain.columns:
         _ts = pd.to_datetime(chain["ts"], errors="coerce").dropna()
-        ref_ts = _ts.max().normalize() if not _ts.empty else pd.Timestamp(date.today())
+        ref_ts = _ts.max().normalize() if not _ts.empty else pd.Timestamp(eastern_today())
     else:
-        ref_ts = pd.Timestamp(date.today()).normalize()
+        ref_ts = pd.Timestamp(eastern_today()).normalize()
     df = chain.copy()
     df["iv"] = pd.to_numeric(df["iv"], errors="coerce")
     df["delta"] = pd.to_numeric(df["delta"], errors="coerce")
@@ -262,7 +263,7 @@ def build_delta_surface(
         iv_put=np.vstack(put_rows),
         iv_call=np.vstack(call_rows),
         spot=spot_val,
-        ref=(ref or date.today()),
+        ref=(ref or eastern_today()),
     )
 
 

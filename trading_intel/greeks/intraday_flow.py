@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from trading_intel.errors import ComputationError
+from trading_intel.timeutils import eastern_today
 
 _SIGN = {"C": 1.0, "P": -1.0}
 _REQUIRED = ("opt_kind", "strike", "gamma", "delta", "vanna", "charm", "iv", "volume")
@@ -71,7 +72,7 @@ def filter_0dte_1dte(
     """
     if chain is None or chain.empty or "expiration" not in chain.columns:
         return chain if chain is not None else pd.DataFrame()
-    ref = ref or date.today()
+    ref = ref or eastern_today()
     df = chain.copy()
     df["dte"] = dte_days(df["expiration"], ref)
     return df[(df["dte"] >= 0) & (df["dte"] <= max_dte)].reset_index(drop=True)

@@ -17,9 +17,10 @@ NOT emit a trade call. See [[market-synthesis-engine]].
 from __future__ import annotations
 
 import re
-from typing import Any
 from datetime import date, timedelta
+from typing import Any
 
+from trading_intel.timeutils import eastern_today
 from trading_intel.vol.vix_calendar import is_market_holiday
 
 _VVIX_ELEVATED = 110.0  # vol-of-vol above this = fragility flag (descriptor threshold)
@@ -157,7 +158,7 @@ def _newsletter_triggers(
     newsletter: dict, today: date | None = None, spot: float | None = None
 ) -> list[dict]:
     """If-then scenarios from the letters — CURRENT and plausible ones only, each dated."""
-    today = today or date.today()
+    today = today or eastern_today()
     out: list[dict] = []
     for src, blk in (newsletter or {}).get("sources", {}).items():
         as_of = _to_date((blk or {}).get("as_of"))

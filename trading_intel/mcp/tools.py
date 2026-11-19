@@ -42,6 +42,7 @@ from trading_intel.memory.retrieval import retrieve_chunks
 from trading_intel.prices import technicals as technicals_mod
 from trading_intel.synthesis.am_summary import build_am_context, render_am_markdown
 from trading_intel.synthesis.llm import LLMProvider
+from trading_intel.timeutils import eastern_today
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -407,7 +408,7 @@ def get_skew_history(
     sym = symbol.strip().upper()
     hz = int(horizon_dte)
     days_c = max(5, min(int(days), 365))
-    start = date.today() - timedelta(days=days_c)
+    start = eastern_today() - timedelta(days=days_c)
     skew_rows = (
         session.execute(
             _select(SkewSnapshot)

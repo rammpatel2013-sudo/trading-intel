@@ -44,7 +44,10 @@ This file is the rulebook for any AI coding assistant (Claude, GPT, Cursor, Copi
 ### 5. Idempotency for scheduled jobs
 - Every scheduler job (`scheduler/jobs/*.py`) must be safely re-runnable.
 - Use `INSERT ... ON CONFLICT DO NOTHING` for snapshot writes.
-- Track job state in `scheduled_jobs_state` table, not in JSON files.
+- Job runs are logged to the `pipeline_runs` table by `python -m trading_intel.scheduler.track <job>`
+  (what `scripts/nas/run_job.sh` calls). Don't track state in JSON files.
+- Writer timestamps come only from `timeutils.eastern_now()` / `eastern_today()` (naive Eastern);
+  never `datetime.now()`, `utcnow()` or `date.today()` - NAS containers run UTC. See `docs/db_dictionary.md`.
 
 ### 6. No commits with broken tests
 - `pytest` must pass before any merge to `main`.

@@ -27,7 +27,6 @@ for embeddings — run on the laptop. Descriptive knowledge only (rule 4).
 from __future__ import annotations
 
 import argparse
-from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -45,6 +44,7 @@ from trading_intel.memory.pdf_pipeline import (
     slugify,
 )
 from trading_intel.memory.watchlist_ingest import discover_research_files, ingest_research
+from trading_intel.timeutils import eastern_today
 
 if TYPE_CHECKING:
     from trading_intel.synthesis.llm import LLMProvider
@@ -103,7 +103,7 @@ def _backfill_embeddings(
         text_body=text_body,
         theme_ids=theme_ids or None,
         symbols=symbols or None,
-        obs_date=date.today(),
+        obs_date=eastern_today(),
         model=model,
     )
 

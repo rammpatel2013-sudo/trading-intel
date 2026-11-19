@@ -15,6 +15,8 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from trading_intel.timeutils import eastern_today
+
 
 def realized_vol(closes: np.ndarray, window: int = 20) -> float | None:
     """Annualized close-to-close realized vol over the last ``window`` returns.
@@ -40,7 +42,7 @@ def skew_25d(
     """
     if chain is None or chain.empty or "delta" not in chain.columns:
         return None
-    ref = ref or date.today()
+    ref = ref or eastern_today()
     df = chain.dropna(subset=["delta", "iv", "expiration"]).copy()
     if df.empty:
         return None

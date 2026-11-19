@@ -20,8 +20,12 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from trading_intel.api.market_read import build_market_read
+from trading_intel.api.newsletter import build_newsletter_signals
 from trading_intel.config import Settings, get_settings
 from trading_intel.dashboard.chart_data import load_ohlc
+from trading_intel.letters.clean import clean_body, snippet
+from trading_intel.market.gex_transition import compute as _gex_compute
 from trading_intel.mcp.extra_tools import (
     get_flow_scorecard,
     get_index_skew,
@@ -34,11 +38,8 @@ from trading_intel.mcp.extra_tools import (
     get_walls,
 )
 from trading_intel.mcp.tools import get_gamma_history
-from trading_intel.market.gex_transition import compute as _gex_compute
-from trading_intel.api.market_read import build_market_read
-from trading_intel.api.newsletter import build_newsletter_signals
-from trading_intel.letters.clean import clean_body, snippet
 from trading_intel.synthesis.daily_brief_render import render_html
+from trading_intel.timeutils import eastern_today
 from trading_intel.vol.vix_calendar import is_market_holiday
 
 log = structlog.get_logger(__name__)
@@ -132,7 +133,7 @@ def _index_block(session: Session, symbol: str) -> dict[str, Any] | None:
     # the last CLOSE strictly before today — the anchor for the SPY-implied pre-open
     # spot (the newest row can be today's 09:45 intraday snapshot when the brief is
     # re-run during the session, and that is not a close)
-    today = date.today()
+    today = eastern_today()
     prev = next((r for r in reversed(rows) if (r.get("session") or _as_date(r.get("date")) or today) < today), None)
     return {
         "symbol": symbol,
@@ -143,7 +144,7 @@ def _index_block(session: Session, symbol: str) -> dict[str, Any] | None:
         "spot_vs_flip_pct": vf,
         "flip_series": [r.get("gex_flip") for r in tail],
         "gex_series": [r.get("gex_total") for r in tail],
-        "asof": (last.get("session") or _as_date(last.get("date")) or date.today()).isoformat(),
+        "asof": (last.get("session") or _as_date(last.get("date")) or eastern_today()).isoformat(),
         "sessions": len(rows),
     }
 
@@ -215,7 +216,7 @@ def _doc_block(
     vix_level: float | None,
     today: date | None = None,
 ) -> dict[str, Any]:
-    today = today or date.today()
+    today = today or eastern_today()
     spot = (doc_index or {}).get("spot")
     # Doc's levels are the WEEK's hedging ("the heaviest hedging sits at the
     # week's low"), so the walls he is compared against come from the 1–7 DTE
@@ -552,7 +553,7 @@ def _letters_block(session: Session, today: date | None = None) -> list[dict[str
     "View this post on the web at ..." preamble and Mailchimp's inline CSS sheet
     ended up rendered as market commentary.
     """
-    today = today or date.today()
+    today = today or eastern_today()
     out: list[dict[str, Any]] = []
     for key, label in _LETTER_SOURCES:
         note = get_research_note(session, key)
@@ -1113,8 +1114,8 @@ def _book_read(ctx: dict[str, Any]) -> list[dict[str, str]]:
 def build_brief_context(session: Session, settings: Settings | None = None) -> dict[str, Any]:
     """Assemble the full daily-brief context dict from banked data."""
     settings = settings or get_settings()
-    today = date.today()
-    # The brief is written FOR a trading session. Dating it date.today() meant the
+    today = eastern_today()
+    # The brief is written FOR a trading session. Dating it eastern_today() meant the
     # 2026-09-07 edition called itself a "pre-open daily brief" on Labor Day.
     # The brief is PRE-OPEN: the board it describes closed the session BEFORE
     # today. ``_prev_session(today)`` returned today itself on any open day, so
@@ -1253,7 +1254,8 @@ def build_brief_context(session: Session, settings: Settings | None = None) -> d
 
         ctx["tape"] = tape_context(session)
         ctx["tape"]["full_book"] = full_book_regime(session, _DOC_ROOT)
-        from trading_intel.synthesis.vol_read import brief_line, build as vol_read_build
+        from trading_intel.synthesis.vol_read import brief_line
+        from trading_intel.synthesis.vol_read import build as vol_read_build
 
         ctx["tape"]["vol_read"] = brief_line(vol_read_build(session))
     except Exception:  # noqa: BLE001 - additive

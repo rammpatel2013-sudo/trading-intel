@@ -23,6 +23,7 @@ from trading_intel.memory.models import BreadthSnapshot, QuoteDaily
 from trading_intel.synthesis.brief_tape import tape_context
 from trading_intel.synthesis.brief_tape_render import tape_section
 from trading_intel.synthesis.render_utils import _esc, _fmt
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 _OUT = Path("reports")
@@ -54,7 +55,7 @@ def _breadth_week(session: Session, today: date) -> dict[str, Any] | None:
 
 
 def build_html(session: Session, today: date | None = None) -> tuple[str, dict[str, Any]]:
-    today = today or date.today()
+    today = today or eastern_today()
     weeks = [w for s in ("SPX", "QQQ", "IWM", "RSP") if (w := _week_change(session, s, today))]
     bw = _breadth_week(session, today)
     tape = tape_context(session)
@@ -88,7 +89,7 @@ def run(session: Session, *, settings: Settings | None = None,
         client: TelegramClient | None = None) -> dict:
     settings = settings or get_settings()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="sunday_edition")
-    today = date.today()
+    today = eastern_today()
     html, ctx = build_html(session, today)
     _OUT.mkdir(parents=True, exist_ok=True)
     dest = _OUT / f"sunday_{today.isoformat()}.html"

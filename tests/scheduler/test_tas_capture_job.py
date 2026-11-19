@@ -180,3 +180,36 @@ def test_quote_loc_rules() -> None:
     assert q(1.0, 1.0, 1.2) == "at_bid" and q(1.2, 1.0, 1.2) == "at_ask"
     assert q(1.1, 1.0, 1.2) == "mid" and q(1.05, 1.0, 1.2) == "in_lo" and q(1.16, 1.0, 1.2) == "in_hi"
     assert q(1.3, 1.0, 1.2) == "outside" and q(1.0, 1.0, 0) == "no_quote"
+
+
+# --- 2026-11-19 (D13): the 2-s guess keeps only clusters that look like one structure ----------------
+def _leg(root: str, sec: float, size: float, vendor: bool = False) -> dict:
+    from datetime import datetime, timedelta
+
+    return {"root": root, "ts": datetime(2026, 11, 18, 10, 0) + timedelta(seconds=sec), "size": size,
+            "spread_leg": vendor, "leg_group": None}
+
+
+def test_guess_groups_matched_sizes() -> None:
+    from trading_intel.scheduler.jobs.tas_capture_job import _assign_leg_groups
+
+    recs = [_leg("SPY", 0, 100), _leg("SPY", 1, 200)]
+    _assign_leg_groups(recs)
+    assert recs[0]["leg_group"] and recs[0]["leg_group"] == recs[1]["leg_group"]
+
+
+def test_guess_skips_mixed_sizes_and_big_clusters() -> None:
+    from trading_intel.scheduler.jobs.tas_capture_job import _assign_leg_groups
+
+    mixed = [_leg("NVDA", 0, 100), _leg("NVDA", 1, 37)]
+    big = [_leg("QQQ", i * 0.3, 50) for i in range(5)]
+    _assign_leg_groups(mixed + big)
+    assert all(r["leg_group"] is None for r in mixed + big)
+
+
+def test_vendor_groups_ignore_the_size_rule() -> None:
+    from trading_intel.scheduler.jobs.tas_capture_job import _assign_leg_groups
+
+    recs = [_leg("SPXW", 0, 10, True), _leg("SPXW", 0, 7, True), _leg("SPXW", 0, 3, True)]
+    _assign_leg_groups(recs)
+    assert recs[0]["leg_group"] and len({r["leg_group"] for r in recs}) == 1

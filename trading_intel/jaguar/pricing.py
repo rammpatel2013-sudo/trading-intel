@@ -16,6 +16,7 @@ from typing import Any
 import pandas as pd
 
 from trading_intel.greeks.black_scholes import bs_call_price, years_to_expiry
+from trading_intel.timeutils import eastern_today
 
 _MONTHS = {
     m: i
@@ -89,7 +90,7 @@ def price_call_spread(
         return empty
     if calls.empty:
         return empty
-    ref = ref_date or date.today()
+    ref = ref_date or eastern_today()
     return {
         "long_price": _leg_price(calls, month_num, float(long_strike), ref),
         "short_price": _leg_price(calls, month_num, float(short_strike), ref),

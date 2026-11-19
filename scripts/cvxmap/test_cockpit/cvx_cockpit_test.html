@@ -4769,6 +4769,18 @@ function vxSplitRender(){ const el=document.getElementById("vxSplit"); if(!el) r
    Right of it: the current book carried forward through the session as time to expiry shrinks (sticky-strike IV). Dealer convention: calls +, puts −.
    Units: gamma = dealer delta (contracts) gained per 2.5-pt move; charm = delta per 5 min; vanna = delta per 1 vol pt. */
 let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)   // 2-min columns, 2 price rows per strike step
+/* A5 half-day clock (2026-11-19, promoted from the test page toggle "Half-day clock"): on an early-close day
+   (ti.json session, or ?earlyclose=HH:MM in the address to simulate) the 0DTE clock, its IVs and the map end at that
+   close. The writer solves 0DTE IV to 16:15; on those days the page re-expresses it on the early clock:
+   sigma' = sigma*sqrt((16:15 - t)/(close - t)), exact for r = 0 Black-76 (same option price). Normal days: unchanged. */
+function earlyCloseMin(){ // early-close minute today, or null
+  try{ const q=new URLSearchParams(location.search).get("earlyclose"); if(q&&/^\d\d:\d\d$/.test(q)) return tmin(q); }catch(e){}
+  const ss=st.ti&&st.ti.session; const day=wkDayISO();
+  if(ss&&ss.early_close&&ss.date===day){ const m=/(\d\d):(\d\d)/.exec(String(ss.close||"")); if(m) return (+m[1])*60+(+m[2]); }
+  return null; }
+function clockSync(){ MAP_T1=earlyCloseMin()||16*60; }
+function liveTobs(d){ if(d&&d.mins_to_close>0) return FEED_END-d.mins_to_close; const c=liveClock(); return c.h*60+c.m; }
+function earlySg(sg,tobs){ if(!(sg>0)||MAP_T1>=16*60||!(tobs<MAP_T1)) return sg; return sg*Math.sqrt(Math.max(FEED_END-tobs,1)/Math.max(MAP_T1-tobs,1)); }
 const _mapCaches = new Map();   // key -> {cols}; a few maps (gamma + right pane, full + zoomed) stay cached
 function mapCacheFor(key){ let c=_mapCaches.get(key); if(!c){ c={key,cols:new Map()}; _mapCaches.set(key,c); while(_mapCaches.size>8) _mapCaches.delete(_mapCaches.keys().next().value); } return c; }
 /* Zoom window (2026-11-04): null when Zoom is off = the normal full map. */
@@ -5588,7 +5600,7 @@ function wkBookInfo(){ // what the Week book is and how far to trust it (shown o
   const w=[]; if(asof&&asof!==day) w.push(`Week book is from ${asof}, not ${day} (today's 08:35 book not in yet) - timed from today, OI from that day`);
   if(rc.n_conflicts) w.push(`${rc.n_conflicts} contract${rc.n_conflicts>1?"s":""} with conflicting duplicate rows (larger OI kept - temporary rule)`);
   if(nb.rows.some(r=>r.cal_ok===false)) w.push("expiries past the verified exchange calendar");
-  if(ss&&ss.date===day&&ss.early_close) w.push(`early close ${ss.close} today: Week endpoints use it, the 0DTE clock still runs to 16:00`);
+  if(ss&&ss.date===day&&ss.early_close) w.push(`early close ${ss.close} today: Week endpoints, the 0DTE clock and the map all end at it`);
   return {asof,stale:!!asof&&asof!==day,warn:w}; }
 function greekColWeek(kind,rows,S,t,day){ let tot=0;
   if(st.smileOn||TG_ANYG||kind==="delta"){ for(const r of rows){ const m=wkTauMin(r,day,t); if(m==null) continue; tot+=greekCol(kind,[r],S,m/525600); } return tot; }
@@ -5647,7 +5659,7 @@ function buildMap(kind,se,d,bookArg,view){
   const prices=[]; for(let p=pLo;p<=pHi+1e-9;p+=dp) prices.push(p);
   const c=liveClock(), now=c.h*60+c.m; const times=[]; for(let t=V?V.t0:MAP_T0;t<=MAP_T1;t+=V?(t>=now?Math.max(2,V.step):V.step):MAP_STEP) times.push(t);   // zoom: 1-min history, 2-min projection
   const LB=st.mapLed?ledBook():null;
-  const key=kind+"|"+st.sym+"|"+st.basis+(st.vol1==="1"?"+n1":"")+"|"+(st.smileOn?"S"+(SMILE_MEASURED&&SB?SB.generated:""):"")+(st.clockVar?"V":"")+(LB?"L"+LB.key:"")+"|"+(V?[pLo,pHi,dp,times[0],V.step].join(","):"")+"|"+book+(WEEK_CLOCK_V2?"|W2"+wkDay:"")+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
+  const key=kind+"|"+st.sym+"|"+st.basis+(st.vol1==="1"?"+n1":"")+"|"+(st.smileOn?"S"+(SMILE_MEASURED&&SB?SB.generated:""):"")+(st.clockVar?"V":"")+(LB?"L"+LB.key:"")+"|"+(V?[pLo,pHi,dp,times[0],V.step].join(","):"")+"|"+book+(WEEK_CLOCK_V2?"|W2"+wkDay:"")+(MAP_T1!==16*60?"|E"+MAP_T1:"")+"|"+snaps.length+"|"+(snaps[snaps.length-1].t)+"|"+ks.length+"|"+(near?near.length+"@"+(st.ti&&st.ti.asof)+"@"+weekIVShift().dv.toFixed(4)+"@"+("am")+"@"+(st.weekSrc==="tos"&&st.live&&st.live.ts||""):"0");
   const _mapCache=mapCacheFor(key+"|TG"+tgKey());
   const liveRows=mapRowsAt(null,se,d); const byT=new Map(snaps.map((s,j)=>[tmin(s.t),j]));
   const grid=[]; let vmax=1e-9;

@@ -11,6 +11,9 @@
 #
 #     bash .../scripts/nas/run_job.sh quotes_daily prune_intraday
 #
+# 2026-11-19: each run goes through trading_intel.scheduler.track, which also writes one pipeline_runs row
+# (start / finish / ok|failed / error) - CLAUDE.md rule 5. The job itself runs exactly as before.
+#
 # Output goes to ~/ti_<job>.log (DSM doesn't show task stdout). EXIT 0 = success;
 # the "container ... stopped unexpectedly" Container Manager notice on each --rm
 # run is benign.
@@ -66,7 +69,7 @@ for job in "$@"; do
             -v "${REPO_DIR}/reports:/app/reports" \
             -e "DATABASE_URL=${DB_URL}" \
             -e "OLLAMA_HOST=${OLLAMA_URL}" \
-            "$IMAGE" sh -c "python -m trading_intel.scheduler.jobs.${job}"
+            "$IMAGE" sh -c "python -m trading_intel.scheduler.track ${job}"
         rc=$?
         echo "=== $(date '+%Y-%m-%d %H:%M:%S') ${job} EXIT ${rc} ==="
     } >> "$log" 2>&1

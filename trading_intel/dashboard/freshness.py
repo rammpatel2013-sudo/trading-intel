@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
+from trading_intel.timeutils import eastern_now
+
 ET_LABEL = "ET"
 
 
@@ -45,13 +47,13 @@ def freshness_caption(ts: datetime | date | None, *, label: str = "Last data pul
 
 
 def age(ts: datetime | date | None, *, now: datetime | None = None) -> timedelta | None:
-    """Age of ``ts`` relative to ``now`` (default ``datetime.now()``). ``None`` if no ts.
+    """Age of ``ts`` relative to ``now`` (default ``eastern_now()``). ``None`` if no ts.
 
     A date-only value is anchored at midnight so daily snapshots still age.
     """
     if ts is None:
         return None
-    now = now or datetime.now()
+    now = now or eastern_now()
     moment = ts if isinstance(ts, datetime) else datetime(ts.year, ts.month, ts.day)
     if moment.tzinfo is not None:
         moment = moment.replace(tzinfo=None)

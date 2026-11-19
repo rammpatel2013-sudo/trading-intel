@@ -26,7 +26,7 @@ from trading_intel.clients.telegram import TelegramClient
 from trading_intel.config import Settings, get_settings
 from trading_intel.memory.models import GreeksSnapshot, ResearchNote
 from trading_intel.synthesis.daily_brief import build_brief_html
-from trading_intel.timeutils import is_trading_session
+from trading_intel.timeutils import eastern_today, is_trading_session
 
 log = structlog.get_logger(__name__)
 _OUT = Path("reports")
@@ -124,7 +124,7 @@ def run(
     """Build the daily brief, write it, and push via Telegram."""
     settings = settings or get_settings()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="letters_digest")
-    today = date.today()
+    today = eastern_today()
     if not is_trading_session(today):
         bound.info("letters_digest.skipped_non_session", as_of=str(today))
         return {"skipped": "not_a_trading_session", "as_of": str(today)}
@@ -143,7 +143,7 @@ def run(
     html_doc, ctx = build_brief_html(session, settings)
 
     _OUT.mkdir(parents=True, exist_ok=True)
-    dest = _OUT / f"daily_brief_{date.today().isoformat()}.html"
+    dest = _OUT / f"daily_brief_{eastern_today().isoformat()}.html"
     dest.write_text(html_doc, encoding="utf-8")
 
     tele = client or TelegramClient(settings)

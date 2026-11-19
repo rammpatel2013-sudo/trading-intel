@@ -11,9 +11,11 @@ One book + one spot for every number (market.book_spot). Descriptor, not a signa
 from __future__ import annotations
 
 import importlib.util
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
+
+from trading_intel.timeutils import eastern_now
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -51,7 +53,7 @@ def register(mcp: Any, settings: Any, session_factory: Any) -> None:  # noqa: AN
             return card
         out = REPO / "reports" / "odte_card"
         out.mkdir(parents=True, exist_ok=True)
-        path = out / f"odte_card_{card['session']}_{datetime.now():%H%M}.html"
+        path = out / f"odte_card_{card['session']}_{eastern_now():%H%M}.html"
         path.write_text(_render(card), encoding="utf-8")
         return {"symbol": card["symbol"], "found": True, "path": str(path), "session": card["session"],
                 "checks": card["checks"]}

@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.flow.scorecard import load_daily_flow, score_names
 from trading_intel.memory.models import TasDailyContract
+from trading_intel.timeutils import eastern_today
 
 _ACCUM_CUTOFF = 20.0  # accum_score >= this counts as "on the accumulation board"
 
@@ -371,7 +372,7 @@ def load_daily_contract(
     session: Session, *, lookback_days: int = 21, end_date: date | None = None
 ) -> pd.DataFrame:
     """Load ``tas_daily_contract`` rows for the last ``lookback_days`` as a DataFrame."""
-    end = end_date or date.today()
+    end = end_date or eastern_today()
     start = end - timedelta(days=lookback_days)
     rows = list(
         session.execute(
@@ -496,7 +497,7 @@ def build_flow_report(
     Returns JSON-native sections: ``trend`` (per-name recent-vs-prior),
     ``contracts`` (per-contract lifecycle), and ``new`` / ``fading`` name lists.
     """
-    end = end_date or date.today()
+    end = end_date or eastern_today()
     prior_days = max(1, lookback_days - recent_days)
     daily = load_daily_flow(session, lookback_days=lookback_days, end_date=end)
     contracts = load_daily_contract(session, lookback_days=lookback_days, end_date=end)

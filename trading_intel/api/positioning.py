@@ -17,7 +17,7 @@ from the DB calls in `build_positioning`. Descriptor only — FlashAlpha rule 4.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from trading_intel.timeutils import eastern_now
 
 # Cockpit GEX-by-DTE bands (calendar days, inclusive). Buckets sum to the term total.
 _DTE_BUCKETS = (("0-5", 0, 5), ("5-20", 6, 20), (">20", 21, 10_000))
@@ -114,7 +114,7 @@ def assemble_cockpit(symbol, *, gamma_hist, gex_term, straddle, skew30, skew0, e
     flow = _flow_from_extras(ex)
     return {
         "symbol": symbol,
-        "as_of": as_of or ex.get("ts") or last.get("date") or datetime.now().isoformat(timespec="seconds"),
+        "as_of": as_of or ex.get("ts") or last.get("date") or eastern_now().isoformat(timespec="seconds"),
         "spot": spot,
         "regime": {
             "label": None if short is None else ("short gamma" if short else "long gamma"),

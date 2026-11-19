@@ -40,7 +40,7 @@ from trading_intel.clients.cvforge import CVForgeClient
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import DataSourceError
 from trading_intel.memory.models import SwingFeature
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, eastern_today
 from trading_intel.vol.skew import skew_percentile
 
 log = structlog.get_logger(__name__)
@@ -96,7 +96,7 @@ def skew_25d(chain: pd.DataFrame, *, dte_lo: int = 25, dte_hi: int = 60) -> floa
     if chain.empty or "delta" not in chain.columns:
         return None
     df = chain.dropna(subset=["delta", "iv", "expiration"]).copy()
-    dte = (df["expiration"] - pd.Timestamp(date.today())).dt.days
+    dte = (df["expiration"] - pd.Timestamp(eastern_today())).dt.days
     df = df[(dte >= dte_lo) & (dte <= dte_hi)]
     if df.empty:
         return None
@@ -128,8 +128,8 @@ def extract_features(client: CVForgeClient, sym: str) -> dict | None:
     spot = exp.get("spot")
     atm_iv = exp.get("atm_iv")
 
-    frm = (date.today() - timedelta(days=180)).isoformat()
-    bars = _safe(lambda: client.aggs(sym, frm=frm, to=date.today().isoformat()))
+    frm = (eastern_today() - timedelta(days=180)).isoformat()
+    bars = _safe(lambda: client.aggs(sym, frm=frm, to=eastern_today().isoformat()))
     rv = (
         realized_vol(bars["c"].to_numpy(dtype=float))
         if (bars is not None and not bars.empty)

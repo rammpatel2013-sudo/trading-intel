@@ -22,7 +22,7 @@ from __future__ import annotations
 import html as _html
 import sys
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import structlog
@@ -35,6 +35,7 @@ from trading_intel.errors import TradingIntelError
 from trading_intel.memory.models import WatchlistEntry
 from trading_intel.research import enrich
 from trading_intel.research.stage import TIMEFRAMES, classify
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 _OUT = Path("reports")
@@ -185,7 +186,7 @@ th{{background:#f0f2f6;font-size:11px;text-transform:uppercase;color:var(--muted
 @media(max-width:640px){{.grid{{grid-template-columns:1fr}}}}
 </style></head><body><div class="wrap">
 <h1><span class="tk">{sym}</span> — Research one-pager</h1>
-<div class="sub">{_html.escape(str(fund.get("sector") or ""))} &middot; auto-generated {date.today().isoformat()} &middot; letters + 13F + FMP + CVForge</div>
+<div class="sub">{_html.escape(str(fund.get("sector") or ""))} &middot; auto-generated {eastern_today().isoformat()} &middot; letters + 13F + FMP + CVForge</div>
 
 <h2>Technical &amp; stage analysis</h2>
 <div class="card">{chart}
@@ -223,8 +224,8 @@ def build_one(
     session: Session, client: CVForgeClient, sym: str, *, days: int = 1500
 ) -> Path | None:
     sym = sym.upper()
-    to = date.today().isoformat()
-    frm = (date.today() - timedelta(days=days)).isoformat()
+    to = eastern_today().isoformat()
+    frm = (eastern_today() - timedelta(days=days)).isoformat()
     stages, daily_closes = {}, []
     for tf, (mult, span, maw) in TIMEFRAMES.items():
         try:
@@ -253,7 +254,7 @@ def build_one(
 
     html_doc = _render(sym, stages, _svg(daily_closes), fund, inst, an, letters, transcript)
     _OUT.mkdir(parents=True, exist_ok=True)
-    dest = _OUT / f"{sym}_research_{date.today().isoformat()}.html"
+    dest = _OUT / f"{sym}_research_{eastern_today().isoformat()}.html"
     dest.write_text(html_doc, encoding="utf-8")
     return dest
 

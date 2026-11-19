@@ -14,7 +14,6 @@ extracted text (CLAUDE.md rule 5).
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from pathlib import Path
 
 import structlog
@@ -27,6 +26,7 @@ from trading_intel.memory.models import Document, WatchlistEntry
 from trading_intel.memory.pdf_pipeline import extract_text, sha256_file
 from trading_intel.synthesis.llm import LLMProvider
 from trading_intel.synthesis.watchlist_extract import extract_watchlist
+from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
 
@@ -111,7 +111,7 @@ def ingest_research(
     # ever reach the DB (misspellings, fund tickers, acronyms).
     candidates = [c for c in candidates if _is_valid_ticker(c.symbol)]
 
-    now = datetime.utcnow()
+    now = eastern_now()
     records = [
         {
             "symbol": c.symbol[:16],

@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 _ET = ZoneInfo("America/New_York")
-_CONTRACT_RE = re.compile(r"^\.?([A-Za-z]+)(\d{6})([CcPp])(\d+(?:\.\d+)?)$")
+_CONTRACT_RE = re.compile(r"^\.?([A-Za-z][A-Za-z0-9]*?)(\d{6})([CcPp])(\d+(?:\.\d+)?)$")
 _BLOCK_TOP = 100
 _REPEAT_MIN = 3
 _SWEEP_WINDOW_S = 6.0

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import date, datetime
 
 import structlog
 from sqlalchemy import select
@@ -33,6 +32,7 @@ from trading_intel.errors import TradingIntelError
 from trading_intel.letters.edgar import Holding, diff_holdings, holdings_from_fmp
 from trading_intel.letters.sources import edgar_13f_sources
 from trading_intel.memory.models import Document, FilingHolding, WatchlistEntry
+from trading_intel.timeutils import eastern_now, eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -62,7 +62,7 @@ def _fetch_latest(client: CVForgeClient, cik: str) -> tuple[list[dict], str]:
     if not dates:
         return [], ""
     top = max(dates, key=lambda d: (int(d.get("year") or 0), int(d.get("quarter") or 0)))
-    period = str(top.get("date") or "")[:10] or date.today().isoformat()
+    period = str(top.get("date") or "")[:10] or eastern_today().isoformat()
     rows = _as_list(
         client.fmp(
             FMP_13F_EXTRACT,
@@ -99,7 +99,7 @@ def _upsert_snapshot(
 ) -> None:
     if not holdings:
         return
-    now = datetime.utcnow()
+    now = eastern_now()
     rows = [
         {
             "cik": cik,
@@ -151,7 +151,7 @@ def _surface_watchlist(
                 "sentiment": None,
                 "confidence": None,
                 "themes": ["13f", fund],
-                "added_at": datetime.utcnow(),
+                "added_at": eastern_now(),
                 "active": True,
             }
         )

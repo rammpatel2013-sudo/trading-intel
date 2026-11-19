@@ -19,13 +19,14 @@ import pandas as pd
 
 from trading_intel.errors import ComputationError
 from trading_intel.greeks.surface import DEFAULT_DELTAS, build_delta_surface
+from trading_intel.timeutils import eastern_today
 
 
 def next_weekly_expiries(
     chain: pd.DataFrame, *, n: int = 3, min_dte: int = 5, ref: date | None = None
 ) -> list[date]:
     """The next ``n`` expiry dates with DTE >= ``min_dte`` (skips 0DTE / this-week)."""
-    ref_ts = pd.Timestamp(ref or date.today()).normalize()
+    ref_ts = pd.Timestamp(ref or eastern_today()).normalize()
     exp = pd.to_datetime(chain["expiration"], errors="coerce").dropna().dt.normalize()
     out = [d.date() for d in sorted(set(exp)) if (d - ref_ts).days >= min_dte]
     return out[:n]

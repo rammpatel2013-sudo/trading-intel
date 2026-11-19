@@ -22,7 +22,6 @@ Manual run:
 from __future__ import annotations
 
 import html as _html
-import math
 import os
 import re
 import sys
@@ -32,11 +31,10 @@ from pathlib import Path
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from trading_intel.clients.cvforge import CVForgeClient
 from trading_intel.clients.telegram import TelegramClient
-from trading_intel.config import Settings, get_settings
+from trading_intel.config import get_settings
 from trading_intel.earnings import transcript_read as tqa
 from trading_intel.earnings import transcripts as tx
 from trading_intel.mcp import extra_tools as et
@@ -49,8 +47,8 @@ from trading_intel.memory.models import (
     ShortInterestSnapshot,
 )
 from trading_intel.research.stage import TIMEFRAMES, classify
-from trading_intel.synthesis.llm import LLMProvider, OllamaProvider
-from trading_intel.timeutils import eastern_now
+from trading_intel.synthesis.llm import OllamaProvider
+from trading_intel.timeutils import eastern_now, eastern_today
 
 log = structlog.get_logger(__name__)
 _OUT = Path("reports")
@@ -544,8 +542,8 @@ def build_one(session, sym, *, settings, client, llm=None, ev=None):
 
     # CVForge OHLC (weekly / 4h) + Weinstein stages + RV series + past moves
     d["stages"], d["px"] = {}, {}
-    to = date.today().isoformat()
-    frm = (date.today() - timedelta(days=1500)).isoformat()
+    to = eastern_today().isoformat()
+    frm = (eastern_today() - timedelta(days=1500)).isoformat()
     for tf, (mult, span, maw) in TIMEFRAMES.items():
         ohlc, closes = [], []
         try:
@@ -569,7 +567,7 @@ def build_one(session, sym, *, settings, client, llm=None, ev=None):
         return None, None
     html_doc = _render(sym, ev, d, llm, settings)
     _OUT.mkdir(parents=True, exist_ok=True)
-    dest = _OUT / f"{sym}_swing_{date.today().isoformat()}.html"
+    dest = _OUT / f"{sym}_swing_{eastern_today().isoformat()}.html"
     dest.write_text(html_doc, encoding="utf-8")
     return dest, _caption(sym, ev, d)
 
@@ -587,8 +585,8 @@ def _sector(session, client, sym, settings):
     out["spdr"] = spdr
     if spdr:
         try:
-            df = client.aggs(spdr, frm=(date.today() - timedelta(days=140)).isoformat(),
-                             to=date.today().isoformat(), multiplier=1, timespan="day", limit=5000)
+            df = client.aggs(spdr, frm=(eastern_today() - timedelta(days=140)).isoformat(),
+                             to=eastern_today().isoformat(), multiplier=1, timespan="day", limit=5000)
             closes = [float(c) for c in df["c"].tolist()] if df is not None and not df.empty else []
             r3 = _ret_pct(closes, 63)
             if r3 is not None:
@@ -843,7 +841,7 @@ path.ma{{fill:none;stroke:#f0a02a;stroke-width:1.2;stroke-dasharray:4 3}}path.px
 .foot{{color:var(--mut);font-size:11px;margin-top:22px;border-top:1px solid var(--line);padding-top:10px}}
 </style></head><body><div class="wrap">
 <h1><span class="tk">{sym}</span> — Swing Earnings Dossier</h1>
-<div class="sub">auto-generated {date.today().isoformat()}{rpt} · CVForge / trading-intel · sector: {_esc(sec.get('name'))}</div>
+<div class="sub">auto-generated {eastern_today().isoformat()}{rpt} · CVForge / trading-intel · sector: {_esc(sec.get('name'))}</div>
 <div class="lead"><b>Read:</b> {_esc(oneread)}.</div>
 
 <h2>1 · Expected move <span>· what's priced</span></h2>

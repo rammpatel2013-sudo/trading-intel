@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import html as _html
 import uuid
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +23,7 @@ from sqlalchemy.orm import Session
 from trading_intel.clients.telegram import TelegramClient
 from trading_intel.config import Settings, get_settings
 from trading_intel.earnings.screen import build_alignment_screen
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 _OUT = Path("reports")
@@ -105,7 +105,7 @@ def run(
     """Build the alignment screen, write it, and push via Telegram."""
     settings = settings or get_settings()
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="earnings_alignment")
-    as_of = date.today().isoformat()
+    as_of = eastern_today().isoformat()
     rows = build_alignment_screen(session, settings, days=days)
 
     _OUT.mkdir(parents=True, exist_ok=True)

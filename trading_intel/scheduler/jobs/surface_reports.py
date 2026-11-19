@@ -14,7 +14,6 @@ Manual run:
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
 
 import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -25,6 +24,7 @@ from trading_intel.dashboard.report_data import generate_surface_flow_report
 from trading_intel.dashboard.vol_lab_data import latest_spx_chain
 from trading_intel.memory.models import SurfaceReport
 from trading_intel.synthesis.llm import LLMProvider
+from trading_intel.timeutils import eastern_now, eastern_today
 from trading_intel.watchlist import effective_symbols
 
 log = structlog.get_logger(__name__)
@@ -60,7 +60,7 @@ def run(
     """Write/refresh today's surface + flow report for each watchlist ticker."""
     settings = settings or get_settings()
     symbols = symbols or effective_symbols(session, settings)
-    as_of = date.today()
+    as_of = eastern_today()
     written = 0
     skipped = 0
     for sym in symbols:
@@ -78,7 +78,7 @@ def run(
             log.info("surface_reports.skipped_no_surface", symbol=sym)
             continue
         model = settings.LLM_DAILY_MODEL if llm is not None else None
-        now = datetime.utcnow()
+        now = eastern_now()
         stmt = pg_insert(SurfaceReport).values(
             symbol=sym, as_of=as_of, report_md=report,
             flow_source=_flow_source(report), model=model, created_at=now,

@@ -31,7 +31,7 @@ from trading_intel.errors import DataSourceError
 from trading_intel.factors import FactorInputs, compute_factor_scores
 from trading_intel.factors.fmp_map import extract_inputs
 from trading_intel.memory.models import FundamentalsSnapshot, Ticker
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -80,8 +80,8 @@ def fetch_inputs(client: CVForgeClient, symbol: str) -> FactorInputs:
     ratios = _safe(lambda: client.fmp("ratios-ttm", {"symbol": symbol}))
     key_metrics = _safe(lambda: client.fmp("key-metrics-ttm", {"symbol": symbol}))
     growth = _safe(lambda: client.fmp("financial-growth", {"symbol": symbol}))
-    frm = (date.today() - timedelta(days=400)).isoformat()
-    bars = _safe(lambda: client.aggs(symbol, frm=frm, to=date.today().isoformat()))
+    frm = (eastern_today() - timedelta(days=400)).isoformat()
+    bars = _safe(lambda: client.aggs(symbol, frm=frm, to=eastern_today().isoformat()))
     closes = bars["c"].to_numpy(dtype=float) if (bars is not None and not bars.empty) else None
     return extract_inputs(
         symbol,

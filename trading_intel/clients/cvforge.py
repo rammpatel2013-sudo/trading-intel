@@ -20,16 +20,20 @@ calibration-pending (ADR-004 consequences); GEX/DEX are well-defined.
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from datetime import date
 from typing import Any
 
 import httpx
 import pandas as pd
+import structlog
 
 from trading_intel.config import Settings
 from trading_intel.errors import DataSourceError
 from trading_intel.greeks.black_scholes import bs_charm, bs_vanna, years_to_expiry
-from trading_intel.timeutils import eastern_now, live_expiry_floor
+from trading_intel.timeutils import eastern_now, eastern_today, live_expiry_floor
+
+log = structlog.get_logger(__name__)
 
 # Per-contract fields pulled for a chain: the greeks/IV/OI/vol we need to
 # synthesize the convex-equivalent exposure columns. Order is echoed back in the
@@ -132,7 +136,7 @@ class CVForgeClient:
             return df
 
         spot = float(df["underlying_price"].iloc[0])
-        t = years_to_expiry(df["expiration"], ref or date.today())
+        t = years_to_expiry(df["expiration"], ref or eastern_today())
         strike = df["strike"].to_numpy(dtype=float)
         sigma = df["iv"].to_numpy(dtype=float)
         oi = df["oi"].fillna(0.0).to_numpy(dtype=float)
@@ -215,6 +219,23 @@ class CVForgeClient:
     def fmp(self, endpoint: str, params: dict | None = None) -> Any:  # noqa: ANN401
         """Call any of the allowlisted FMP ``/stable`` endpoints on the same key."""
         return self._get(f"/fmp/stable/{endpoint.lstrip('/')}", params or {})
+
+    def shares_outstanding(self, ticker: str):  # noqa: ANN201 - SharesSnapshot | None (EtfFlowSource)
+        """Current shares outstanding via the FMP passthrough ``/stable/shares-float`` (2026-11-19).
+
+        Satisfies ``EtfFlowSource`` for ``scheduler/jobs/letf_flows.py``. The direct ``FmpClient`` sent an
+        empty key on the NAS (401 on every fund, 0 rows banked since 2026-07-16); this uses the CVForge key
+        every other FMP call already uses. Returns None when the row is missing or unusable (rule 4)."""
+        from trading_intel.clients.fmp import _parse_shares
+
+        try:
+            data = self.fmp("shares-float", {"symbol": ticker})
+        except DataSourceError as exc:
+            log.warning("cvforge.shares_failed", symbol=ticker, error=str(exc)[:160])
+            return None
+        row = data[0] if isinstance(data, list) and data else None
+        snap = _parse_shares(ticker, row)
+        return replace(snap, source="cvforge_fmp") if snap is not None else None
 
     # ── market-wide breadth (the 7/min cap can't reach these) ──────────
     def screen(

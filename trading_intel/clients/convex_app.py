@@ -22,6 +22,7 @@ from trading_intel.clients import EarningsDate
 from trading_intel.clients.earnings_parse import parse_earnings_calendar
 from trading_intel.config import Settings
 from trading_intel.errors import DataSourceError
+from trading_intel.timeutils import eastern_today
 
 _EPOCH = date(1970, 1, 1)
 
@@ -132,7 +133,7 @@ class ConvexAppClient:
     def flowchart(self, symbol: str, *, d: date | None = None) -> dict:
         """POST /api/data/flowchart -> {data: [header, rows]}. ``day`` needs a real day_id."""
         cols = ["flownet", "vflownet", "value_call_bs", "value_put_bs"]
-        body = {"symbol": symbol.upper(), "cols": cols, "day": day_id(d or date.today())}
+        body = {"symbol": symbol.upper(), "cols": cols, "day": day_id(d or eastern_today())}
         return self._request("POST", "/api/data/flowchart", json=body)
 
     def trm_chain(self, symbols: list[str], *, params: list[str] | None = None) -> dict:

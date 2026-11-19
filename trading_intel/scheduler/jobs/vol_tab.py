@@ -25,7 +25,7 @@ import json
 import math
 import os
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -142,7 +142,7 @@ def upsert_overshoot(session: Session, rows: list[vo.OvershootRow]) -> int:
         r[0]: r
         for r in session.execute(select(VixSignalSnapshot.date, VixSignalSnapshot.residual)).all()
     }
-    now = datetime.utcnow()
+    now = eastern_now()
     n = 0
     for r in rows:
         prev = have.get(r.date)
@@ -175,7 +175,7 @@ def upsert_straddles(session: Session, rows: dict[date, dict], source_of: dict[d
             select(StraddleSnapshot).where(StraddleSnapshot.symbol == SYMBOL)
         ).scalars()
     }
-    now = datetime.utcnow()
+    now = eastern_now()
     n = 0
     for d, v in rows.items():
         pct = 100.0 * v["straddle"] / v["spot"]

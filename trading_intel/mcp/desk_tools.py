@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from trading_intel.desk import metrics as m
 from trading_intel.desk import store
 from trading_intel.memory.models_desk import DeskGammaDaily, DeskUndDaily
+from trading_intel.timeutils import eastern_today
 
 
 def desk_brief(s: Session, day: str = "") -> dict[str, Any]:
@@ -63,7 +64,7 @@ def desk_brief(s: Session, day: str = "") -> dict[str, Any]:
 
 def desk_symbol(s: Session, symbol: str, sessions: int = 20) -> dict[str, Any]:
     sym = symbol.upper().strip()
-    end = date.today()
+    end = eastern_today()
     dates, fin = store.load_finra(s, end, [sym], n=sessions + 10)
     series = fin.get(sym, [])
     dark = []
@@ -134,7 +135,7 @@ def desk_scorecard(s: Session) -> dict[str, Any]:
     from trading_intel.scheduler.jobs.desk_brief import scorecard
 
     brief = store.load_brief(s)
-    day = brief.date if brief else date.today()
+    day = brief.date if brief else eastern_today()
     return {
         "asof": str(day),
         **scorecard(s, day),

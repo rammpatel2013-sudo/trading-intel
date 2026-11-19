@@ -12,7 +12,7 @@ When adding a new model:
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -31,6 +31,8 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from trading_intel.timeutils import eastern_now
 
 
 class Base(DeclarativeBase):
@@ -212,22 +214,6 @@ class OiChainEod(Base):
     deltas_buy: Mapped[float | None] = mapped_column(Float)
     deltas_sell: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="convex")
-
-
-class FlowBucket(Base):
-    """Convex time-bucketed flow data."""
-
-    __tablename__ = "flow_buckets"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    symbol: Mapped[str] = mapped_column(String(16))
-    ts: Mapped[datetime] = mapped_column(DateTime)
-    bucket_min: Mapped[int] = mapped_column(Integer)  # 5, 15, 30
-    volm: Mapped[float | None] = mapped_column(Float)
-    value: Mapped[float | None] = mapped_column(Float)
-    volmbs: Mapped[float | None] = mapped_column(Float)
-    valuebs: Mapped[float | None] = mapped_column(Float)
-    flowratio: Mapped[float | None] = mapped_column(Float)
 
 
 class GexRolling(Base):
@@ -700,7 +686,8 @@ class Document(Base):
     kind: Mapped[str] = mapped_column(
         String(16), server_default="methodology", default="methodology", nullable=False
     )  # methodology (LLM reasoning) | research (company/theme RAG)
-    ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # DB column is timestamptz (drift report 2026-11-19): store an aware UTC instant.
+    ingested_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     sha256: Mapped[str] = mapped_column(String(64), unique=True)
     page_count: Mapped[int | None] = mapped_column(Integer)
 
@@ -709,6 +696,10 @@ class Document(Base):
 # installed in Postgres. The Vector column type is imported lazily.
 class Chunk(Base):
     __tablename__ = "chunks"
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_idx", name="uq_chunks_doc_idx",
+                         postgresql_nulls_not_distinct=True),   # 2026-11-19 (0059)
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
@@ -736,14 +727,24 @@ class Signal(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
 
 
-class AlertSent(Base):
-    __tablename__ = "alerts_sent"
+class PipelineRun(Base):
+    """One scheduled job run (2026-11-19, CLAUDE.md rule 5): start / finish / status / rows / error.
+
+    Written by ``trading_intel.scheduler.track``. ``run_date`` is the Eastern session date the
+    job ran for; ``status`` is running / ok / failed. Times are naive Eastern."""
+
+    __tablename__ = "pipeline_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    signal_id: Mapped[int] = mapped_column(ForeignKey("signals.id"))
-    channel: Mapped[str] = mapped_column(String(32))
-    sent_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    response_code: Mapped[int | None] = mapped_column(Integer)
+    job: Mapped[str] = mapped_column(String(64), index=False)
+    run_date: Mapped[date] = mapped_column(Date)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=eastern_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    status: Mapped[str] = mapped_column(String(16), default="running")
+    rows_attempted: Mapped[int | None] = mapped_column(Integer)
+    rows_written: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    host: Mapped[str | None] = mapped_column(String(64))
 
 
 class SignalOutcome(Base):
@@ -775,7 +776,7 @@ class SignalOutcome(Base):
     r_multiple: Mapped[float | None] = mapped_column(Float)
     conviction: Mapped[float | None] = mapped_column(Float)
     max_days: Mapped[int | None] = mapped_column(Integer)
-    evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=eastern_now)
 
 
 # ── AM summaries ──────────────────────────────────────────────────────
@@ -891,7 +892,8 @@ class TasPrint(Base):
     __tablename__ = "tas_prints"
     __table_args__ = (
         UniqueConstraint(
-            "ts", "symbol", "price", "size", "source", name="uq_tas_prints"
+            "ts", "symbol", "price", "size", "source", name="uq_tas_prints",
+            postgresql_nulls_not_distinct=True,  # 0059 (2026-11-19): NULLs can't slip past the key
         ),
     )
 
@@ -973,7 +975,7 @@ class TasDailyContract(Base):
     __table_args__ = (
         UniqueConstraint(
             "trade_date", "root", "expiry", "strike", "cp",
-            name="uq_tas_daily_contract",
+            name="uq_tas_daily_contract", postgresql_nulls_not_distinct=True,   # 2026-11-19 (0059)
         ),
     )
 
@@ -1065,7 +1067,8 @@ class WatchlistEntry(Base):
 
     __tablename__ = "watchlist_entries"
     __table_args__ = (
-        UniqueConstraint("symbol", "source_doc_id", name="uq_watchlist_entries"),
+        UniqueConstraint("symbol", "source_doc_id", name="uq_watchlist_entries",
+                         postgresql_nulls_not_distinct=True),   # 2026-11-19 (0059)
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1075,7 +1078,7 @@ class WatchlistEntry(Base):
     sentiment: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
     themes: Mapped[list[str] | None] = mapped_column(JSON)
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=eastern_now)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -1101,7 +1104,7 @@ class FilingHolding(Base):
     ticker: Mapped[str | None] = mapped_column(String(16))
     value_usd: Mapped[float | None] = mapped_column(Float)
     shares: Mapped[float | None] = mapped_column(Float)
-    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=eastern_now)
 
 
 class SwingFeature(Base):

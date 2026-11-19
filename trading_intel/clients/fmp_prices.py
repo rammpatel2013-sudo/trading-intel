@@ -9,12 +9,13 @@ Rule 1: only ``clients/`` talks to vendors.
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pandas as pd
 import structlog
 
 from trading_intel.errors import DataSourceError
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 _FMP_SYMBOL_MAP = {"SPX": "^GSPC", "VIX": "^VIX", "NDX": "^NDX", "RUT": "^RUT", "DJI": "^DJI"}
@@ -34,7 +35,7 @@ class FmpPriceSource:
         return self._map.get(symbol.upper(), symbol.upper())
 
     def daily_history(self, symbol: str, *, period: str = "5y") -> pd.DataFrame:
-        start = date.today() - timedelta(days=_PERIOD_DAYS.get(period, 1830))
+        start = eastern_today() - timedelta(days=_PERIOD_DAYS.get(period, 1830))
         try:
             data = self._cv.fmp("historical-price-eod/full",  # type: ignore[attr-defined]
                                 {"symbol": self.vendor_symbol(symbol), "from": start.isoformat()})

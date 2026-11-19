@@ -7,7 +7,7 @@ simulated view (ADR-002); descriptive, not a signal (rule 4).
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ from trading_intel.dashboard.gamma_profile_data import (
     snapshot_spot,
 )
 from trading_intel.greeks.forward_field import forward_field, session_close_grid
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, eastern_today
 
 
 def build_forward_fields(
@@ -37,7 +37,7 @@ def build_forward_fields(
     live snapshot, no in-scope contract, no spot, or the session has closed.
     """
     ts, frame = load_latest_chain(session, symbol)
-    ref = ts.date() if ts is not None else date.today()
+    ref = ts.date() if ts is not None else eastern_today()
     if scope_0dte and frame is not None and not frame.empty:
         frame = filter_scope(frame, ZERO_DTE, ref=ref)
     anchor = spot if spot is not None else snapshot_spot(frame)

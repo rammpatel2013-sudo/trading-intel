@@ -12,10 +12,11 @@ descriptors (FlashAlpha rule 4). ``plotly`` is a project dependency.
 """
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+
+from trading_intel.timeutils import eastern_now
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_OUT = _REPO_ROOT / "reports"
@@ -83,12 +84,12 @@ def render_html_report(
     fig.update_layout(
         template="plotly_dark", height=300 * len(sections), width=1100,
         showlegend=True, margin={"l": 60, "r": 30, "t": 60, "b": 40},
-        title=f"{symbol} - trading-intel report ({datetime.now():%Y-%m-%d %H:%M})",
+        title=f"{symbol} - trading-intel report ({eastern_now():%Y-%m-%d %H:%M})",
     )
 
     out = Path(out_dir) if out_dir else _DEFAULT_OUT
     out.mkdir(parents=True, exist_ok=True)
-    path = out / f"{symbol}_{datetime.now():%Y%m%d_%H%M%S}.html"
+    path = out / f"{symbol}_{eastern_now():%Y%m%d_%H%M%S}.html"
     fig.write_html(str(path), include_plotlyjs="cdn", full_html=True)
     return str(path)
 

@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from trading_intel.memory.models import ResearchNote
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -44,7 +45,7 @@ def _pct(a: float, b: float) -> float:
 
 
 def run_checks(session: Session | None, ctx: dict[str, Any], *, today: date | None = None) -> list[dict[str, str]]:
-    today = today or date.today()
+    today = today or eastern_today()
     out: list[dict[str, str]] = []
     spx = next((ix for ix in (ctx.get("indices") or []) if ix.get("symbol") == "SPX"), None) or {}
     doc = ctx.get("doc") or {}

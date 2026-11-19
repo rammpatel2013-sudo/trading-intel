@@ -30,6 +30,7 @@ from trading_intel.memory.models import (
     SkewSnapshot,
     VixOptionsChain,
 )
+from trading_intel.timeutils import eastern_today
 
 # ── Per-name view ──────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ def per_name_timeseries(
     lookback_days: int = 365,
 ) -> pd.DataFrame:
     """Per-name RR + ATM + price time series for the MU-style chart."""
-    start = date.today() - timedelta(days=lookback_days)
+    start = eastern_today() - timedelta(days=lookback_days)
     skew_rows = session.execute(
         select(
             SkewSnapshot.ts,
@@ -164,7 +165,7 @@ def index_timeseries(
     session: Session, *, lookback_days: int = 365
 ) -> pd.DataFrame:
     """Long-form index-skew rows over the lookback window."""
-    start = date.today() - timedelta(days=lookback_days)
+    start = eastern_today() - timedelta(days=lookback_days)
     rows = session.execute(
         select(
             IndexSkewDaily.date,

@@ -22,6 +22,7 @@ from datetime import date, timedelta
 from typing import Any, Iterable
 
 from trading_intel.expiry_clock import monthly_opex
+from trading_intel.timeutils import eastern_today
 
 
 def week_end(today: date) -> date:
@@ -43,7 +44,7 @@ def build_rolloff(
     as ``get_gex_term`` returns them. Rows with no gex or no expiration are
     dropped; a row whose expiration has already passed is ignored.
     """
-    today = today or date.today()
+    today = today or eastern_today()
     end = week_end(today)
 
     rows: list[tuple[date, float]] = []

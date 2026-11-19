@@ -14,6 +14,7 @@ from datetime import date
 import pandas as pd
 
 from trading_intel.errors import ComputationError
+from trading_intel.timeutils import eastern_today
 
 _SIGN = {"C": 1.0, "P": -1.0}
 _REQUIRED = ("opt_kind", "expiration", "gxoi")
@@ -44,7 +45,7 @@ def compute_rolling_gex(
     if missing:
         raise ComputationError(f"Rolling GEX chain missing columns: {missing}")
 
-    ref_ts = pd.Timestamp(ref or date.today())
+    ref_ts = pd.Timestamp(ref or eastern_today())
     df = chain.copy()
     df["gxoi"] = pd.to_numeric(df["gxoi"], errors="coerce").fillna(0.0)
 

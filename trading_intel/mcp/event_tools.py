@@ -36,7 +36,7 @@ from trading_intel.market import clean_book as cb
 from trading_intel.market.book_spot import book_spot
 from trading_intel.mcp import profile_tool as pt
 from trading_intel.memory.models import OiChainDaily, OiChainEod, QuoteDaily
-from trading_intel.timeutils import live_expiry_floor, same_day_years
+from trading_intel.timeutils import eastern_today, live_expiry_floor, same_day_years
 
 ES_MULT = 50.0
 DEFAULT_MOVES = (-2.0, -1.0, -0.5, 0.5, 1.0, 2.0)
@@ -472,7 +472,7 @@ def get_event_day_stats(
     g = session.execute(select(OiChainDaily.ts, OiChainDaily.net_gxoi)
                         .where(OiChainDaily.symbol == symbol, OiChainDaily.ts >= lo)).all()
     gex = {r.ts: float(r.net_gxoi) for r in g if r.net_gxoi is not None}
-    today = datetime.combine(date.today(), time.min).date()
+    today = datetime.combine(eastern_today(), time.min).date()
     rows = event_day_rows([d for d in dates if d <= today], quotes, gex)
     return {"found": bool(rows), "symbol": symbol, "event": "CPI" if fred is not None else "custom",
             "rows": rows, "summary": _summary(rows),

@@ -12,12 +12,14 @@ cards, VIX curve, vol funds; OFF by default, display only, reads volx.json) - in
 2026-11-14 (evening): the Vol board gained the day tells ("Calm drop", "Rally + fear up") and the VIX futures basis
 line under the VIX curve (cheap to enter / normal / crowded & expensive; volx.json board.tells) - inherited, no
 test-side edit.
+2026-11-19: production promoted the A5 half-day clock (earlyCloseMin / clockSync / earlySg); the test page
+keeps its own A5 + B2 toggles, so production's two clockSync() calls are removed here and mapRowsAt keeps tgRowSg.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()
 PROD_SHA = hashlib.sha256(P.encode("utf-8")).hexdigest()
-assert PROD_SHA.startswith("e18241d5c78b50c6"), "production page is not the locked version: " + PROD_SHA[:16]
+assert PROD_SHA.startswith("402a9f9646eab865"), "production page is not the locked version: " + PROD_SHA[:16]
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = open(os.path.join(HERE, "tg_module.js"), encoding="utf-8").read()
 UI = open(os.path.join(HERE, "tg_ui.js"), encoding="utf-8").read()
@@ -63,7 +65,7 @@ CSS = """<style>
 rep("<title>SPX Cockpit</title>", "<title>TEST · SPX Cockpit</title>")
 rep('<body>\n<div class="app">', '<body>\n' + CSS + '\n<div class="app">\n<div id="tgBar" class="tgbar">TEST COCKPIT loading…</div>')
 # 2. map clock: MAP_T1 becomes the axis end (A5 may move it); TG_GEND = greek clock end
-rep("const MAP_T0 = 8*60, MAP_T1 = 16*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;",
+rep("let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // MAP_T1 is let: A5 half-day clock (2026-11-19)",
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
@@ -77,7 +79,7 @@ rep("function greekCol(kind, rows, S, ty, cm){ // one price point: sum over stri
 # 6. mapRowsAt: tobs, B3/B2/A5 IV, s0, B6
 rep("  const ks=snap?snap.k:[...live.keys()]; const out=[];\n",
     "  const ks=snap?snap.k:[...live.keys()]; const out=[]; const TGR=tgRowsOn(), isLive=snapIdx==null, tobs=TGR?(snap?tmin(snap.t):tgLiveTobs(d)):0; if(isLive) TG_STATS._rej=0;\n")
-rep("    const sg=otmIV(k,S,civ||0,piv||0);\n    const [cp,pp]=mapCP(",
+rep("    const sg=MAP_T1<16*60?earlySg(otmIV(k,S,civ||0,piv||0),snap?tmin(snap.t):liveTobs(d)):otmIV(k,S,civ||0,piv||0);\n    const [cp,pp]=mapCP(",
     "    const sg=TGR?tgRowSg(k,S,civ,piv,snap,q,lr,tobs,isLive):otmIV(k,S,civ||0,piv||0);\n    const [cp,pp]=mapCP(")
 rep("    out.push({k,sg,cp,pp}); });\n  return out;\n}",
     "    out.push({k,sg,cp,pp,s0:S}); });\n  if(isLive) TG_STATS.rej=TG_STATS._rej||0; if(TG.b6) tgGapFill(out,isLive);\n  return out;\n}")
@@ -95,6 +97,10 @@ rep("wkHash(rows),prices.length,prices[0],prices[prices.length-1]].join(\"|\");"
     "wkHash(rows),tgKey(),prices.length,prices[0],prices[prices.length-1]].join(\"|\");")
 # 10. buildMap: clock sync, greek clock end, cache key, level threshold
 rep("function buildMap(kind,se,d,bookArg,view){\n", "function buildMap(kind,se,d,bookArg,view){\n  tgClockSync();   // TEST: A5 / B2 clock\n")
+# 2026-11-19: production promoted A5 (clockSync); the test page keeps its own A5 / B2 toggles -> drop production's calls
+rep("  clockSync();   // A5\n", "")
+rep("const FEED_END=16*60+15;   // cvx_live.py EXPIRY_MIN\n", "")   # tg_module.js declares the same constant
+rep("st.tiAt=Date.now(); clockSync(); render(); }", "st.tiAt=Date.now(); render(); }")
 rep("  const _mapCache=mapCacheFor(key);", "  const _mapCache=mapCacheFor(key+\"|TG\"+tgKey());")
 rep("const VC=!!st.clockVar, tyNow=Math.max(MAP_T1-Math.max(now,MAP_OPEN),1)/525600,",
     "const VC=!!st.clockVar, tyNow=Math.max(TG_GEND-Math.max(now,MAP_OPEN),1)/525600,")

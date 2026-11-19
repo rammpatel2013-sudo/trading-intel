@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import html as _html
 import uuid
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +23,7 @@ from sqlalchemy.orm import Session
 from trading_intel.clients.telegram import TelegramClient
 from trading_intel.config import Settings, get_settings
 from trading_intel.jaguar.brief import build_jaguar_brief
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 _OUT = Path("reports")
@@ -68,7 +68,7 @@ def run(
     html_doc, brief = build_jaguar_brief(session, settings, cvforge=cv)
 
     _OUT.mkdir(parents=True, exist_ok=True)
-    dest = _OUT / f"jaguar_daily_{date.today().isoformat()}.html"
+    dest = _OUT / f"jaguar_daily_{eastern_today().isoformat()}.html"
     dest.write_text(html_doc, encoding="utf-8")
 
     tele = client or TelegramClient(settings)

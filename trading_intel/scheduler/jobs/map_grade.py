@@ -22,15 +22,16 @@ from __future__ import annotations
 
 import argparse
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from trading_intel.market.grading import grade_session
-from trading_intel.memory.models import MapDaily, QuoteDaily
+from trading_intel.memory.models import QuoteDaily
 from trading_intel.synthesis.map_store import ungraded_rows
+from trading_intel.timeutils import eastern_now, eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -61,7 +62,7 @@ def run(
 ) -> int:
     """Grade what can be graded. Returns the number of rows written."""
     bound = log.bind(correlation_id=uuid.uuid4().hex, job="map_grade")
-    today = today or date.today()
+    today = today or eastern_today()
     since = today - timedelta(days=lookback_days)
 
     pending = ungraded_rows(session, symbol, since=since)
@@ -94,7 +95,7 @@ def run(
         row.high, row.low, row.close = q.high, q.low, q.close
         for col in _GRADE_COLS:
             setattr(row, col, verdict[col])
-        row.graded_at = datetime.now()
+        row.graded_at = eastern_now()
         graded += 1
 
     session.commit()

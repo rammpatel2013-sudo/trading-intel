@@ -29,6 +29,7 @@ from trading_intel.mcp.extra_tools import (
     get_straddle,
     get_walls,
 )
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 _T = TypeVar("_T")
@@ -261,7 +262,7 @@ def build_jaguar_brief(
 
     callouts = _rank(parse.parse_callouts(live_body))
     chain_cache: dict[str, Any] = {}
-    ref_day = date.today()
+    ref_day = eastern_today()
     trades: list[dict[str, Any]] = []
     for c in callouts[:max_trades]:
         him = (
@@ -292,7 +293,7 @@ def build_jaguar_brief(
 
     macro_facts, macro_read = _macro(fr.get("body", "") or "", llm=llm, model=model)
     brief: dict[str, Any] = {
-        "as_of": date.today().strftime("%a %b %d %Y"),
+        "as_of": eastern_today().strftime("%a %b %d %Y"),
         "banner": "Built from your Jaguar emails — JaguarLive, First Read, Trade Alert. His read → ⊕ our tape → ⚡ combined structure.",
         "sub": "His trades & the flow he's following → our tape → one defined-risk structure. Then his thinking, S&P breadth, what changed, macro.",
         "trades": trades,

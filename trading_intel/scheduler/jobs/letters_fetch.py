@@ -39,6 +39,7 @@ from trading_intel.letters.sources import substack_sources
 from trading_intel.memory.models import NewsletterLevel, NewsletterScenario, ResearchNote
 from trading_intel.memory.watchlist_ingest import ingest_folder
 from trading_intel.synthesis.llm import LLMProvider
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -92,7 +93,7 @@ def _letter_date(raw: str, path: Path) -> date:
     try:
         return datetime.fromtimestamp(path.stat().st_mtime).date()
     except OSError:
-        return date.today()
+        return eastern_today()
 
 
 def _store_source_notes(session: Session, root: Path) -> int:
@@ -159,7 +160,7 @@ def _extract_source_signals(
     """
     from trading_intel.synthesis.newsletter_extract import extract_newsletter
 
-    today = date.today()
+    today = eastern_today()
     n = 0
     for key, label in _SIGNAL_SOURCES.items():
         note = session.execute(

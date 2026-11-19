@@ -110,11 +110,20 @@ def run(
     session.commit()
 
     bound.info("letf_flows.done", as_of=as_of.isoformat(), rows=len(rows))
+    from trading_intel.scheduler.track import report
+
+    report(rows_attempted=len(settings.letf_symbols), rows_written=len(rows))
+    if not rows:   # 2026-11-19: a silent empty run hid a dead key for four months -> fail loudly
+        raise RuntimeError("letf_flows: 0 rows - no fund returned shares outstanding (vendor/key problem)")
 
 
 def main() -> None:
-    """Manual entrypoint: wire Settings -> session -> FmpClient, run once."""
-    from trading_intel.clients.fmp import FmpClient
+    """Manual entrypoint: wire Settings -> session -> CVForge FMP passthrough, run once.
+
+    2026-11-19: was ``FmpClient`` (direct FMP key) - on the NAS that key is empty, every fund got 401,
+    and the job banked 0 rows from 2026-07-16 to 2026-11-19 while still exiting 0. CVForge's FMP
+    passthrough serves ``/stable/shares-float`` on the key every other job already uses."""
+    from trading_intel.clients.cvforge import CVForgeClient
     from trading_intel.memory.db import make_session_factory
 
     settings = get_settings()
@@ -126,7 +135,7 @@ def main() -> None:
             structlog.processors.JSONRenderer(),
         ]
     )
-    source = FmpClient(settings)
+    source = CVForgeClient(settings)
     session_factory = make_session_factory(settings)
     with session_factory() as session:
         run(session, source, settings=settings)

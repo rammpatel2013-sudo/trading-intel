@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import brentq
 
+from trading_intel.timeutils import eastern_today
+
 _SIGN = {"C": 1.0, "P": -1.0}
 _DEFAULT_MULTIPLIER = 100.0
 _MIN_T = 1.0 / (365.0 * 24.0)  # floor time-to-expiry at ~1 hour to avoid /0
@@ -98,7 +100,7 @@ def gex_flip(
         mult = mult.where(mult > 0, _DEFAULT_MULTIPLIER).fillna(_DEFAULT_MULTIPLIER)
     else:
         mult = pd.Series(_DEFAULT_MULTIPLIER, index=df.index)
-    years = _years_to_expiry(df["expiration"], date.today())
+    years = _years_to_expiry(df["expiration"], eastern_today())
 
     valid = (
         sign.notna()

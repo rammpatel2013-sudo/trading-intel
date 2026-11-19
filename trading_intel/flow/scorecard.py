@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from trading_intel.memory.models import TasDailyFlow
+from trading_intel.timeutils import eastern_today
 
 # Composite weights (sum = 1.0). Tunable; documented in docs/playbooks/tas_pipeline.md.
 _W_NET_DELTA = 0.45
@@ -134,7 +135,7 @@ def load_daily_flow(
     session: Session, *, lookback_days: int = 20, end_date: date | None = None
 ) -> pd.DataFrame:
     """Load ``tas_daily_flow`` rows for the last ``lookback_days`` as a DataFrame."""
-    end = end_date or date.today()
+    end = end_date or eastern_today()
     start = end - timedelta(days=lookback_days)
     rows = list(
         session.execute(

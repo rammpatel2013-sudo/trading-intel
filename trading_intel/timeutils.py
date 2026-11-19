@@ -28,6 +28,15 @@ def eastern_now() -> datetime:
     return datetime.now(EASTERN).replace(tzinfo=None)
 
 
+def eastern_today() -> date:
+    """Today's date in US/Eastern (the session date), whatever the host's timezone.
+
+    Use this instead of ``date.today()``: NAS containers run UTC, so after 19:00 ET
+    (20:00 in summer) ``date.today()`` there is already tomorrow (2026-11-19 audit).
+    """
+    return eastern_now().date()
+
+
 #: 2026-10-22: every Convex chain pull starts at the FRONT expiry (clients.convex).
 #: Series built from chains (single-name GEX/DEX, walls, the AM index book's straddle,
 #: OI totals) step on this day because more contracts are counted, not because the

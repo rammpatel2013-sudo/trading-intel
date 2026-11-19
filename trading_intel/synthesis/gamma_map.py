@@ -29,7 +29,7 @@ failure it returns ``None`` and the brief renders without the block.
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -38,7 +38,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.market import map_block as mbx
 from trading_intel.memory.models import OiChainEod
-from trading_intel.timeutils import eastern_now
+from trading_intel.timeutils import eastern_now, eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -210,7 +210,7 @@ def build_map_block(
     ``graded_sessions`` is how many days of post-close grading exist; it only
     decides whether the fragility badge admits it is still calibrating.
     """
-    today = today or date.today()
+    today = today or eastern_today()
     sym = symbol.strip().upper()
     try:
         rows, ts = _chain_rows(session, sym, today)

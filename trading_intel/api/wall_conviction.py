@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.market import wall_conviction as wc
 from trading_intel.memory.models import EarningsEvent, GreeksSnapshot, OiChainEod
-from trading_intel.timeutils import same_front_basis
+from trading_intel.timeutils import eastern_today, same_front_basis
 
 log = structlog.get_logger(__name__)
 
@@ -121,7 +121,7 @@ def net_gex_series(session: Session, sym: str, *, days: int = 180,
 
 def build_wall_conviction(session: Session, symbol: str, *, today: date | None = None) -> dict[str, Any]:
     sym = symbol.strip().upper()
-    today = today or date.today()
+    today = today or eastern_today()
     stamps, walls = _walls(session, sym)
     spot_row = session.execute(
         select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.source == "convex",

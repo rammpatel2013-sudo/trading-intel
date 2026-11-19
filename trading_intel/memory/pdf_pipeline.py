@@ -26,7 +26,6 @@ import argparse
 import hashlib
 import re
 import warnings
-from datetime import date
 from pathlib import Path
 
 import structlog
@@ -44,6 +43,7 @@ from trading_intel.synthesis.tagging import (
     extract_framework,
     tag_document,
 )
+from trading_intel.timeutils import eastern_today
 
 log = structlog.get_logger(__name__)
 
@@ -228,7 +228,7 @@ def ingest_document(
     )
 
     tags: DocTags = tag_document(llm, title, text, model=model)
-    obs_date = date.today()
+    obs_date = eastern_today()
     symbol = tags.symbols[0][:16] if tags.symbols else None
     theme_ids: list[int] = []
     for tag in tags.themes:

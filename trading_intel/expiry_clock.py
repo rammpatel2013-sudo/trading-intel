@@ -14,9 +14,9 @@ then 70-85 % of the vol-space dampening disappears; quarter-end adds pension reb
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
-from trading_intel.timeutils import is_trading_session
+from trading_intel.timeutils import eastern_now, is_trading_session
 
 _QUARTERLY = {3, 6, 9, 12}
 
@@ -54,7 +54,7 @@ def _iter_months(start: date):
 
 def next_events(today: date | None = None, horizon_days: int = 120) -> list[dict]:
     """Upcoming cycle events, soonest first: kind, date, days_to, label, read."""
-    today = today or datetime.now().date()
+    today = today or eastern_now().date()
     out = []
     for y, m in _iter_months(today):
         mo = monthly_opex(y, m)
@@ -87,7 +87,7 @@ def next_events(today: date | None = None, horizon_days: int = 120) -> list[dict
 
 def phase(today: date | None = None) -> dict:
     """Where we are: days since the last monthly OpEx and VIXpiration, next of each, and the read."""
-    today = today or datetime.now().date()
+    today = today or eastern_now().date()
     ev = next_events(today)
     nxt = {e["kind"]: e for e in ev if e["kind"] not in {}}
     opex = next((e for e in ev if e["kind"] in ("opex", "quarterly_opex")), None)

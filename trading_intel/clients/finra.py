@@ -23,6 +23,8 @@ from datetime import date, timedelta
 
 import structlog
 
+from trading_intel.timeutils import eastern_today
+
 log = structlog.get_logger(__name__)
 
 _REGSHO_URL = "https://cdn.finra.org/equity/regsho/daily/CNMSshvol{ymd}.txt"
@@ -103,7 +105,7 @@ class FinraClient:
         readings or exhausts a ~3x window. Returns ``{'symbol','n','short_ratio_avg',
         'latest'}`` or ``None``.
         """
-        end = end or date.today()
+        end = end or eastern_today()
         got: list[dict] = []
         d = end
         for _ in range(lookback * 3 + 5):

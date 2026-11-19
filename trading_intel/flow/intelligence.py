@@ -22,6 +22,8 @@ from datetime import date
 
 import pandas as pd
 
+from trading_intel.timeutils import eastern_today
+
 # Default per-print premium ($) cutoffs for the size buckets (tunable).
 RETAIL_MAX = 25_000.0
 LARGE_MIN = 250_000.0
@@ -105,7 +107,7 @@ def premium_by_dte(
     df = _norm(prints)
     if df.empty or "expiry" not in df.columns:
         return out
-    ref = ref or date.today()
+    ref = ref or eastern_today()
     dte = (pd.to_datetime(df["expiry"], errors="coerce") - pd.Timestamp(ref)).dt.days
     n = df["_notional"]
     out[labels[0]] = float(n[dte < lo].sum())

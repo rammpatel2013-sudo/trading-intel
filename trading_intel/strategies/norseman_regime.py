@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.market import norseman as nm
 from trading_intel.memory.models import BreadthSnapshot, NewsletterLevel, QuoteDaily, Signal
-from trading_intel.timeutils import is_trading_session
+from trading_intel.timeutils import eastern_today, is_trading_session
 
 log = structlog.get_logger(__name__)
 
@@ -148,7 +148,7 @@ def author_levels(session: Session) -> dict[str, Any]:
 # ── the read ─────────────────────────────────────────────────────────────
 
 def read_state(session: Session, *, as_of: date | None = None) -> NorsemanState | None:
-    as_of = as_of or date.today()
+    as_of = as_of or eastern_today()
     bars = spx_bars(session, as_of=as_of)
     if len(bars) < 30:
         return None
