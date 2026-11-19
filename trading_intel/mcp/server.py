@@ -796,6 +796,8 @@ def build_server(
     equity_tools.register(mcp, settings, session_factory)
     from trading_intel.mcp import desk_tools  # desk brief (TTWD-style), 2026-11-14
     desk_tools.register(mcp, settings, session_factory)
+    from trading_intel.mcp import card_tools  # SPX 0DTE map card (2026-11-14)
+    card_tools.register(mcp, settings, session_factory)
 
     return mcp
 

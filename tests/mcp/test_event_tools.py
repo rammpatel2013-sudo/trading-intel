@@ -167,3 +167,98 @@ def test_hedge_response_ex_monthly_column(session: Session, monkeypatch):
     assert all("es_k_ex_monthly" in r for r in h["rows"])
     assert any(r["es_k_ex_monthly"] != r["es_k"] for r in h["rows"])
     assert ev._is_monthly_or_quarterly("2026-12-31") and not ev._is_monthly_or_quarterly("2026-11-13")
+
+
+# ---------------------------------------------------------------- 2026-11-14 audit: book spot + holes/lumps
+def _midnight_book(session: Session, day: date, source: str, iv: float = 0.144, fwd: float | None = None,
+                   book_hour: int = 16) -> None:
+    """A book stamped the way production stamps it: 00:00 of its day (oi_chain_eod / index_walls_am).
+    With ``fwd`` the bid/ask are real Black-76 prices around that forward (as the vendor sends them);
+    without it there are no prices, only the vendor IV column."""
+    from trading_intel.market import clean_book as cb
+    ts = datetime(day.year, day.month, day.day)
+    t = cb.years(datetime(day.year, day.month, day.day, book_hour, 0 if book_hour == 16 else 35),
+                 datetime(2026, 11, 16, 16, 0))
+    for k in range(7200, 7905, 5):
+        for cp in ("C", "P"):
+            bid = ask = None
+            if fwd is not None:
+                m = float(cb.b76(fwd, np.array([float(k)]), np.array([iv]), t, np.array([cp == "C"]))[0])
+                if m > 0.05:
+                    bid, ask = round(m - 0.05, 2), round(m + 0.05, 2)
+            session.add(OiChainEod(symbol="SPX", ts=ts, expiry=date(2026, 11, 16), strike=float(k), cp=cp,
+                                   dte=3, oi=1000, iv=iv, bid_price=bid, ask_price=ask, source=source))
+
+
+def _snap(session: Session, when: datetime, spot: float) -> None:
+    session.add(GreeksSnapshot(symbol="SPX", ts=when, spot=spot, gex_total=1.0, source="convex"))
+
+
+def test_close_odds_eod_book_without_prices_uses_its_own_days_spot(session: Session, monkeypatch):
+    # no bid/ask -> vendor-IV fallback, priced at the EOD book's own day (not the previous close)
+    _midnight_book(session, date(2026, 11, 13), "convex_eod")
+    _snap(session, datetime(2026, 11, 12, 15, 59), 7592.06)
+    _snap(session, datetime(2026, 11, 13, 15, 59), 7560.97)
+    session.commit()
+    monkeypatch.setattr(ev, "live_expiry_floor", lambda d, now=None: date(2026, 11, 14))
+    o = ev.get_close_odds(session, "SPX", as_of=date(2026, 11, 13))
+    assert o["found"] and o["spot"] == 7560.97 and o["centre"] == "spot" and o["spot_matches_book"]
+    assert o["spot_ts"] == "2026-11-13T15:59" and "EOD book" in o["spot_rule"]
+    assert o["iv_source"] == "vendor IV column"
+
+
+def test_close_odds_am_book_is_centred_on_its_own_forward(session: Session, monkeypatch):
+    # the 11/13 case: prior close 7,592, futures up overnight -> the 08:35 prices sit around 7,645
+    _midnight_book(session, date(2026, 11, 13), "convex_am", fwd=7645.0, book_hour=8)
+    _snap(session, datetime(2026, 11, 12, 15, 59), 7592.06)
+    _snap(session, datetime(2026, 11, 13, 11, 0), 7570.0)          # later intraday spot: not the book's
+    session.commit()
+    monkeypatch.setattr(ev, "live_expiry_floor", lambda d, now=None: date(2026, 11, 14))
+    o = ev.get_close_odds(session, "SPX", as_of=date(2026, 11, 13))
+    assert o["centre"] == "forward" and abs(o["forward"] - 7645.0) < 0.5 and o["prior_close"] == 7592.06
+    assert o["quality"] == "smile" and o["quality_reasons"] == [] and o["iv_source"].startswith("ours")
+    assert abs(o["atm_iv"] - 0.144) < 0.003 and o["book_time"] == "2026-11-13T08:35"
+    assert abs(o["median"] - 7645) < 15
+
+
+def test_close_odds_rejects_a_forward_far_from_the_book_spot(session: Session, monkeypatch):
+    _midnight_book(session, date(2026, 11, 13), "convex_am", fwd=8200.0, book_hour=8)  # broken prices
+    _snap(session, datetime(2026, 11, 12, 15, 59), 7592.06)
+    session.commit()
+    monkeypatch.setattr(ev, "live_expiry_floor", lambda d, now=None: date(2026, 11, 14))
+    o = ev.get_close_odds(session, "SPX", as_of=date(2026, 11, 13))
+    assert o["centre"] == "spot" and o["spot"] == 7592.06
+
+
+def _noisy_smile(spot: float) -> tuple[np.ndarray, np.ndarray]:
+    """SPX-like 3-day skew + EOD-quote noise (0.3 vol pts on 5s, 0.1 on 25s) - the 11/13 failure shape."""
+    rng = np.random.default_rng(7)
+    ks = np.arange(7200.0, 7905.0, 5.0)
+    x = np.log(ks / spot)
+    iv = 0.144 - 1.8 * x + 60 * x * x
+    iv = iv + np.where(ks % 25 == 0, rng.normal(0, 0.001, len(ks)), rng.normal(0, 0.003, len(ks)))
+    return ks, iv
+
+
+def test_noisy_smile_raw_has_holes_and_the_gate_catches_them():
+    spot, t = 7561.0, 3 / 365
+    ks, iv = _noisy_smile(spot)
+    grid, surv = ev.survival_from_smile(ks, iv, spot, t)              # the old path: straight lines
+    why = ev.shape_check(grid, surv, spot, 88.0, 0.144, t)
+    assert why and any(w.startswith(("hole", "lump")) for w in why)
+
+
+def test_smoothed_noisy_smile_has_no_holes_or_lumps():
+    spot, t = 7561.0, 3 / 365
+    ks, iv = _noisy_smile(spot)
+    sk, sv = ev.smooth_smile(ks, iv, spot, 0.3 * 88.0)
+    grid, surv = ev.survival_from_smile(sk, sv, spot, t)
+    assert ev.shape_check(grid, surv, spot, 88.0, 0.144, t) == []
+    p = ev._buckets(grid, surv, list(range(7480, 7650, 10)))[1:-1]
+    assert min(p) > 0.01 and max(p) < 0.08                         # smooth: no 0% holes, no 15-20% lumps
+
+
+def test_smoothing_keeps_a_flat_smile_flat():
+    ks = np.arange(7300.0, 7800.0, 5.0)
+    sk, sv = ev.smooth_smile(ks, np.full_like(ks, 0.16), 7550.0, 20.0)
+    assert np.allclose(sv, 0.16) and sk[0] == 7300.0 and sk[-1] >= 7795.0
