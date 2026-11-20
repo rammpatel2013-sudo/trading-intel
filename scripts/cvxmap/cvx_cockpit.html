@@ -2193,7 +2193,7 @@ const sideTag = s => s==="cp"?"C+P":s.toUpperCase();
 async function pollLive(){
   if(DEMO||pollPaused()) return;
   try{ const r=await fetch("live.json",{cache:"no-cache"}); if(!r.ok) throw new Error(r.status);
-    const j=JSON.parse(await r.text()); st.live=j; st.liveAt=Date.now();
+    const j=JSON.parse(await r.text()); st.live=j; st.liveAt=Date.now(); preOpenSpotFix();
     if(!st.flowFromFile) accumulateFromLive(j);
     render(); }
   catch(e){ freshness(); }   // half-written file or server down: keep the last good copy
@@ -3607,8 +3607,24 @@ function xcJump(sym,k){ if(st.sym!==sym){ st.sym=sym; save("sym",sym); st.rowOff
 /* ============================================================ main render */
 /* before 9:30 the SPX cash index does not print: imply it from SPY's pre-market move off yesterday's closes (from yesterday's log) */
 function preOpen(){ const c=liveClock(); return c.h*60+c.m<RTH_OPEN; }
+/* 2026-11-20 (Mithil 02:20 "it need to go to main"): the SAME implied price now feeds everything (map, Week book, levels,
+   read-outs), not only the read panel. Before 09:30 the SPX value in live.json is the last index print = yesterday's close
+   (11/19: first trades at 09:30 still carried 7,323.63, the index printed 7,396 a minute later). So SPX spot =
+   yesterday's SPX close (live.json GAP.prev_close, else the last minute of yesterday's log) x live Convex SPY / SPY's
+   close. Also 09:30-09:34 while the index still shows the pre-open value (or, page opened after 09:30, within 1 pt of the
+   close). Raw value kept as spot_raw. Convex SPY is live pre-open (11/19: 737.96 at 09:10 ... 737.68 at 09:29). */
+function preOpenSpotFix(){
+  const d=st.live&&st.live.SPX; if(!d||!(d.spot>0)) return;
+  if(d.spot_raw==null) d.spot_raw=d.spot;
+  const c=liveClock(), now=c.h*60+c.m, G=st.live.GAP, pc=st.prevClose||{};
+  const pcSPX=G&&G.prev_close>0&&G.day===c.date?G.prev_close:pc.SPX, spy=st.live.SPY;
+  if(now<RTH_OPEN) st.preOpenRaw=d.spot_raw;   // 11/19 log: SPX 7,323.63 every minute 09:10-09:30, first print 7,396.68 at 09:31
+  const stale=now<RTH_OPEN||(now<RTH_OPEN+5&&(st.preOpenRaw!=null?d.spot_raw===st.preOpenRaw:pcSPX>0&&Math.abs(d.spot_raw-pcSPX)<1));
+  if(!stale||!(pcSPX>0)||!spy||!(spy.spot>0)||!(pc.SPY>0)){ d.spot=d.spot_raw; d.spot_src=stale?"yesterday's close":null; return; }
+  d.spot=pcSPX*spy.spot/pc.SPY; d.spot_src="implied via SPY"; d.spot_pc=pcSPX; }
 function impliedSpot(sym){
   const d=st.live&&st.live[sym]; if(!d||!(d.spot>0)) return null;
+  if(sym==="SPX"&&d.spot_src) return {S:d.spot,src:d.spot_src,close:d.spot_pc};
   if(!preOpen()) return {S:d.spot,src:null};
   if(sym!=="SPX") return {S:d.spot,src:"pre-mkt"};
   const pc=st.prevClose||{}, spy=st.live&&st.live.SPY; const ref=spy&&spy.spot>0?{px:spy.spot,sym:"SPY"}:null;
@@ -4575,7 +4591,7 @@ async function pollFlowPrev(){
       for(const line of txt.split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(per[o.s]&&tmin(o.t)>=LOG_FROM) per[o.s].push(o); }catch(e){} }
       st.prevClose=st.prevClose||{}; for(const s of Object.keys(per)){ if(per[s].length){ st.prevClose[s]=per[s][per[s].length-1].x; } if(per[s].length>2){ const sr=signedRows(buildSeries(per[s])); _f2={key:null,res:null}; if(sr&&sr.share!=null) st.prevShare[s]=sr.share; } }
       st.prevDate=d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
-      render(); return; }catch(e){}
+      preOpenSpotFix(); render(); return; }catch(e){}
   }
 }
 /* ---- yesterday's big index prints, stamped with this morning's OI change (am_feed oi_verdict) */
