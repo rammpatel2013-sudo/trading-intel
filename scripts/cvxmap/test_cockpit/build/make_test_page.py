@@ -14,6 +14,9 @@ line under the VIX curve (cheap to enter / normal / crowded & expensive; volx.js
 test-side edit.
 2026-11-19: production promoted the A5 half-day clock (earlyCloseMin / clockSync / earlySg); the test page
 keeps its own A5 + B2 toggles, so production's two clockSync() calls are removed here and mapRowsAt keeps tgRowSg.
+2026-11-19 (night): + the VIX map STRIKE MAP, redesign C1 + C2 (tg_vixmap.js, section 19): rows = listed VIX strikes, strike book
+every 30 min, role labels, hover card, 5-min candles, price tag, contours + pills. VIX tab, OFF by default, display only.
+2026-11-19 (night, later): + the Flow panel F1-F3 (tg_flowpanel.js, section 20), Flow tab, OFF by default, display only.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
@@ -28,7 +31,9 @@ LN = open(os.path.join(HERE, "tg_lines.js"), encoding="utf-8").read()   # 2026-1
 PF = open(os.path.join(HERE, "tg_profile.js"), encoding="utf-8").read()   # 2026-11-13 (night) VS step 2: whole-book gamma profile
 CO = open(os.path.join(HERE, "tg_color.js"), encoding="utf-8").read()   # 2026-11-13 (overnight) #87 Color strip
 SM = open(os.path.join(HERE, "tg_strike.js"), encoding="utf-8").read()   # 2026-11-13 (night) Short strikes marker sm-v0
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM).encode("utf-8")).hexdigest()[:12])
+VS = open(os.path.join(HERE, "tg_vixmap.js"), encoding="utf-8").read()   # 2026-11-19 VIX map Strike map (C1 + C2)
+FP = open(os.path.join(HERE, "tg_flowpanel.js"), encoding="utf-8").read()   # 2026-11-19 Flow panel F1-F3
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM + VS + FP).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -58,6 +63,7 @@ CSS = """<style>
 .tgprof .pfS{color:#3ddc84;font-weight:800} .tgprof .pfF{color:#3fd0ff;font-weight:800} .tgprof .pfE{color:#ffa64d;font-weight:800} #tgProfC{width:100%;display:block;margin-top:6px;cursor:crosshair}
 #tgProfOdds{margin-top:8px} #tgProf .pfob{display:flex;gap:2px;margin:5px 0;height:54px} #tgProf .pfobb{display:flex;flex-direction:column;justify-content:center;align-items:center;color:#000;border-radius:3px;overflow:hidden;min-width:0} #tgProf .pfobb b{font-size:18px} #tgProf .pfobb span{font-size:13px;white-space:nowrap} #tgProf .pfcal{font-size:16px;line-height:1.5;margin-top:3px} #tgProfCharm{margin-top:8px} #tgProfCharmC{width:100%;display:block;margin-top:4px;cursor:crosshair} #tgProf .pfrf{color:#ff8080;font-weight:600} #tgProf .pfok{color:#7be3a6} #tgProf .pfclk{font-size:15px;margin-top:3px} #tgProf .pfck{display:inline-block;margin-right:10px} #tgProfHedge{margin-top:6px} #tgProfHedge .pfht{font-size:16px} #tgProfHedge .pfhrow{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0} #tgProfHedge .pfh{border:1px solid #556;border-radius:5px;padding:5px 9px;min-width:150px;background:#111820} #tgProfHedge .pfhm{font-size:15px;color:#e8edf2} #tgProfHedge .pfhv{font-size:20px;font-weight:800} #tgProfHedge .pfhx{font-size:15px;font-weight:600} #tgProfHedge .pfhs{font-size:17px}
 #tgProf{grid-column:1/-1} #tabMap.pfon{grid-template-rows:auto minmax(0,1fr)} body.phone #tabMap.pfon{grid-template-rows:auto 420px 300px 420px}
+#tgFp{margin-top:8px} #tgFpC{width:100%;height:340px;display:block;margin-top:6px}
 .tgcolor{border:2px dashed #ffcc00;margin:4px 6px;padding:6px 8px;background:#0b0f14;color:#f2f5f8;font:15px system-ui,sans-serif} .tgcolor #tgColorHead{line-height:1.4} .tgcolor i{font-style:normal;color:#C9D4E3} #tabMap #tgColorC{width:100%;height:110px;display:block;margin-top:4px;cursor:crosshair}
 </style>"""
 
@@ -69,7 +75,7 @@ rep("let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPE
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n" + VS + "\n" + FP + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -217,6 +223,21 @@ rep('tgStrikeLines(ctx,{Yk,x0:padL,x1:w-padR,yMin:padT,yMax:h-padB},"labels");  
 rep('+ tgSlLegend();   // TEST SL', '+ tgSlLegend() + tgSmLegend();   // TEST SL')
 rep('tgDlOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }   // TEST DL\n',
     'tgDlOverlay(ctx,{id,m,X,Y,padL,padT,W,H}); ctx.restore(); }   // TEST DL\n  if(st.smOn&&id==="mapGammaC"){ ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip(); tgSmDraw(ctx,{Y,x0:padL,x1:padL+W,yMin:padT,yMax:padT+H},"all"); ctx.restore(); }   // TEST SM\n')
+# 19. (2026-11-19 night) VIX map STRIKE MAP, C1 + C2 (tg_vixmap.js). VIX tab "Strike map (TEST)" button, OFF by default.
+#     Off = production's vxmDraw / scale / hover exactly; on (and the file has v3 "books") = the strike-row drawing.
+rep('`<span class="orgrp vxmcus"', 'tgVxsBtn()+`<span class="orgrp vxmcus"')
+rep('VXM.cmax,W,VXM.err].join("|");', 'VXM.cmax,W,VXM.err,tgVxsKey()].join("|");')
+rep('  const sc=g=>{ const a=[];', '  const sc=tgVxsOn()&&J.books&&J.books.length?(g=>tgVxsLim(J,g,R)):g=>{ const a=[];')
+rep('const geoG=vxmDraw(document.getElementById("vxmGC"),J,kG,limG,true,R), geoV=vxmDraw(document.getElementById("vxmVC"),J,kV,limV,false,R);',
+    'const _vd=tgVxsOn()&&J.books&&J.books.length?tgVxsDraw:vxmDraw;   // TEST VS\n  const geoG=_vd(document.getElementById("vxmGC"),J,kG,limG,true,R), geoV=_vd(document.getElementById("vxmVC"),J,kV,limV,false,R);')
+rep('function vxmHover(e){ const g=VXM.geo', 'function vxmHover(e){ if(tgVxsOn()&&tgVxsHover(e)) return; const g=VXM.geo')
+rep('(VIX ≈ ${vxN(top.put-basis,2)})`:""}.</div>`;\n}\nfunction vxmBind(el){', '(VIX ≈ ${vxN(top.put-basis,2)})`:""}.</div>`; tgVxsRead();   // TEST VS\n}\nfunction vxmBind(el){')
+# 20. (2026-11-19 night) FLOW PANEL F1-F3 (tg_flowpanel.js): live dealer gamma at spot (OI + measured trades), OVI by expiry,
+#     price terrain badge (terrain.json). Flow tab, button "Flow panel" in the Flow by strike header, OFF by default, display only.
+rep('      <div class="f2foot" id="f2Foot"></div>\n    </section>',
+    '      <div class="f2foot" id="f2Foot"></div>\n      <div class="tgprof" id="tgFp" hidden><div id="tgFpHead"></div><canvas id="tgFpC"></canvas></div>\n    </section>')
+rep('<button class="btn" id="tgSmBtn" ', '<button class="btn" id="tgFpBtn" aria-pressed="false" title="TEST Flow panel (off by default): F1 dealer gamma at spot through the day (OI + today\'s measured trades), F2 option volume imbalance 0DTE vs next expiry, F3 price terrain badge (HVN / LVN / NEW over the last 3 sessions). Display only.">Flow panel</button><button class="btn" id="tgSmBtn" ')
+rep('function renderFlow2(se,d,book){\n', 'function renderFlow2(se,d,book){\n  try{ tgFpDraw(); }catch(e){ console.error(e); }   // TEST FP\n')
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)

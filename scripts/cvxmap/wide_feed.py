@@ -572,6 +572,11 @@ def live():
     ymd = L.now_et().strftime("%Y%m%d")
     day = Day(ymd, live_mode=True)
     log("live start %s  (poll %ds)" % (ymd, POLL_S))
+    try:   # 2026-11-19: price terrain (last 3 sessions) for the test cockpit's Flow panel; never stops the feed
+        import terrain
+        log("terrain: " + terrain.write(DATA, ymd))
+    except Exception:
+        log("terrain FAILED\n" + traceback.format_exc())
     while True:
         now = L.now_et()
         hm = (now.hour, now.minute)

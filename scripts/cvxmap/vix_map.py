@@ -33,6 +33,19 @@ MATHS (pure functions below, unit-tested in tests/cvxmap/test_vix_map.py)
 
 OUTPUT  data/vixmap_YYYYMMDD.json   one column every 5 minutes + the newest minute (live),
         and px every minute.
+
+2026-11-19 (VIX map redesign C1, test cockpit "Strike map"; file v3, v2 readers ignore the new
+key):
+  "books" = the STRIKE BOOK every 30 minutes (09:30, 10:00, ...) + the newest minute (live=1). One
+  row per listed VIX strike K (0.5 apart below ~20, 1.0 above - whatever is listed), drawn at the
+  VIX level where the front forward reaches K: y = K - (front forward - VIX). Row value = that
+  strike's own dealer gamma / vanna when the forward sits on it (at the money, Black-76, the
+  strike's IV): gamma = 100 phi(d1) / (K s sqrt T), vanna = 100 phi(d1) sqrtT/2 x 0.01, d1 = s
+  sqrtT / 2, times the strike's dealer contracts (same o / v / t bases and dealer-default sign as
+  the columns). Front = the nearest expiry; all = every expiry summed by strike. c* = contracts
+  per strike [call OI, put OI, call vol, put vol, calls bought, calls sold, puts bought, puts
+  sold] for the hover card. The page ranks the strikes and names the roles (FLOOR / CEILING /
+  MAGNET) on the basis and sign chosen there.
 """
 from __future__ import annotations
 
@@ -47,6 +60,7 @@ if HERE not in sys.path:
 
 SQ2PI = math.sqrt(2.0 * math.pi)
 COL_MIN = 5                     # one stored column every 5 minutes (+ the newest minute)
+BOOK_MIN = 30                   # one stored strike book every 30 minutes (+ the newest minute)
 GRID_STEP = 0.25                # VIX points between map rows
 SIGN_DEALER = (-1.0, 1.0)       # (calls, puts): dealers short calls, long puts  (default)
 SIGN_NAIVE = (1.0, -1.0)        # SPX-style: dealers long calls, short puts
@@ -295,6 +309,64 @@ def column(dv: dict, now: datetime.datetime, levels: list[float],
     return col
 
 
+def strike_book(ex: list[dict], vix: float) -> dict | None:
+    """The strike book (see the module notes): rows = listed strikes with any contracts,
+    value = each strike's own dealer gamma / vanna ($k) with the forward on the strike.
+    Keys g/v x f/a x o/v/t like the columns."""
+    if not (vix > 0 and ex):
+        return None
+    sc, sp = SIGN_DEALER
+    acc: dict[float, dict] = {}
+    keys = tuple(g + b + x for g in "gv" for b in "fa" for x in "ovt")
+    for j, e in enumerate(ex):
+        f0, t = e["F"], e["T"]
+        if not (f0 > 0 and t > 0):
+            continue
+        sqt = math.sqrt(t)
+        for r in e["rows"]:
+            k, coi, poi, cv, pv, civ, piv = r[:7]
+            cb, cs, pb, ps = _tags(r)
+            if not (k > 0) or not (coi or poi or cv or pv or cb or cs or pb or ps):
+                continue
+            s = strike_iv(k, f0, civ, piv)
+            a = acc.get(k)
+            if a is None:
+                a = acc[k] = {key: 0.0 for key in keys}
+                a["cf"] = [0.0] * 8
+                a["ca"] = [0.0] * 8
+            row = [coi, poi, cv, pv, cb, cs, pb, ps]
+            for i, x in enumerate(row):
+                a["ca"][i] += x or 0.0
+                if j == 0:
+                    a["cf"][i] += x or 0.0
+            if not s > 0:
+                continue
+            ssq = s * sqt
+            ph = phi(0.5 * ssq)
+            g = MULT * ph / (k * ssq) / 1e3
+            v = MULT * ph * 0.5 * sqt * 0.01 / 1e3
+            po, pv_, pt = sc * coi + sp * poi, sc * cv + sp * pv, signed_pos(r)
+            for b, pos in (("o", po), ("v", pv_), ("t", pt)):
+                a["ga" + b] += pos * g
+                a["va" + b] += pos * v
+                if j == 0:
+                    a["gf" + b] += pos * g
+                    a["vf" + b] += pos * v
+    if not acc:
+        return None
+    ks = sorted(acc)
+    basis = ex[0]["F"] - vix
+    front = {r[0] for r in ex[0]["rows"]}
+    out: dict = {"x": round(vix, 2), "fF": round(ex[0]["F"], 3), "k": ks,
+                 "y": [round(k - basis, 3) for k in ks],
+                 "inf": [1 if k in front else 0 for k in ks]}
+    for key in keys:
+        out[key] = [_sig(acc[k][key]) for k in ks]
+    for key in ("cf", "ca"):
+        out[key] = [[round(x) for x in acc[k][key]] for k in ks]
+    return out
+
+
 class VixDay:
     """Day state inside wide_feed: one column per 5 minutes + the newest minute."""
 
@@ -305,6 +377,8 @@ class VixDay:
         self.last: dict | None = None
         self.exps: list[dict] = []
         self.px: list[list] = []        # every minute: [HH:MM, VIX, front forward]
+        self.books: list[dict] = []     # strike book every 30 minutes (2026-11-19, C1)
+        self.book_last: dict | None = None
         self.changed = False
 
     def feed(self, dv: dict, now: datetime.datetime) -> bool:
@@ -333,6 +407,17 @@ class VixDay:
             self.last = None
         else:
             self.last = col
+        bk = strike_book(ex, vix)
+        if bk is not None:
+            bk["t"] = t
+            if (now.hour * 60 + now.minute) % BOOK_MIN == 0 or not self.books:
+                if self.books and self.books[-1]["t"] == t:
+                    self.books[-1] = bk
+                else:
+                    self.books.append(bk)
+                self.book_last = None
+            else:
+                self.book_last = bk
         self.exps = [{"e": e["e"], "F": round(e["F"], 3), "T_days": round(e["T"] * 365.0, 2)}
                      for e in ex]
         self.changed = True
@@ -342,10 +427,14 @@ class VixDay:
         cols = list(self.cols)
         if self.last is not None:
             cols.append(dict(self.last, live=1))
-        return {"v": 2, "day": f"{self.ymd[:4]}-{self.ymd[4:6]}-{self.ymd[6:]}",
+        books = list(self.books)
+        if self.book_last is not None:
+            books.append(dict(self.book_last, live=1))
+        return {"v": 3, "day": f"{self.ymd[:4]}-{self.ymd[4:6]}-{self.ymd[6:]}",
                 "levels": self.levels or [], "col_min": COL_MIN, "units": "$k per VIX pt",
                 "sign": "dealers short calls, long puts (flip for the naive sign)",
                 "exps": self.exps, "cols": cols, "px": self.px,
+                "books": books, "book_min": BOOK_MIN,
                 "bases": "o = open interest, v = today's volume (dealer-default sign); "
                          "t = signed trades (measured: calls sold - bought + puts sold - bought), "
                          "not flipped by the sign switch"}

@@ -190,9 +190,53 @@ def test_end_to_end_realistic_raw_file(tmp_path, monkeypatch):
                 fh.write(json.dumps(rec, separators=(",", ":")) + "\n")
     assert W.rebuild("20261106") == 0
     j = json.loads((tmp_path / "vixmap_20261106.json").read_text())
-    assert j["v"] == 2 and j["levels"][0] == 10.0 and j["levels"][-1] == 50.0
+    assert j["v"] == 3 and j["levels"][0] == 10.0 and j["levels"][-1] == 50.0
     assert [c["t"] for c in j["cols"]] == ["10:33", "10:35", "10:39"] and j["cols"][-1]["live"] == 1
     assert [p[1] for p in j["px"]] == vix                   # the line is each minute's VIX, not one value
     assert [p[0] for p in j["px"]] == [f"10:{33 + i:02d}" for i in range(7)]
     assert all(len(c[k]) == len(j["levels"]) for c in j["cols"] for k in ("gao", "gav", "gat", "vfo", "vft"))
     assert json.loads((tmp_path / "wide_index.json").read_text())["vix_days"] == ["20261106"]
+    # 2026-11-19 C1: the strike book - first minute, then the newest minute (live); 10:30 was before the first pull
+    assert [b["t"] for b in j["books"]] == ["10:33", "10:39"] and j["books"][-1]["live"] == 1 and j["book_min"] == 30
+
+
+def test_strike_book_rows_values_and_contracts():
+    """2026-11-19 C1: one row per listed strike, drawn where the front forward reaches it, value = the strike's own
+    dealer gamma / vanna at the money times its dealer contracts (same sign rule as the columns)."""
+    rec = make_vix_rec()
+    now = datetime.datetime.fromisoformat(rec["ts"])
+    dv = L.decode(rec)["VIX"]
+    ex = V.expiries(dv, now)
+    bk = V.strike_book(ex, 17.2)
+    assert bk["k"] == [10 + 0.5 * i for i in range(61)]
+    basis = ex[0]["F"] - 17.2
+    assert bk["y"][0] == pytest.approx(10 - basis, abs=1e-3) and all(i == 1 for i in bk["inf"])
+    # hand check, strike 15 front expiry, open interest basis
+    e = ex[0]
+    r = next(r for r in e["rows"] if r[0] == 15.0)
+    i = bk["k"].index(15.0)
+    s = V.strike_iv(15.0, e["F"], r[5], r[6])
+    sq = s * math.sqrt(e["T"])
+    g = 100 * V.phi(0.5 * sq) / (15.0 * sq) / 1e3
+    assert bk["gfo"][i] == pytest.approx((r[2] - r[1]) * g, rel=1e-3)          # dealers long puts, short calls
+    # ATM gamma check against the Black-76 function with the forward on the strike
+    assert g * 1e3 / 100 == pytest.approx(V.b76_gamma(15.0, 15.0, e["T"], s), rel=1e-9)
+    assert V.b76_vanna(15.0, 15.0, e["T"], s) * 0.01 == pytest.approx(bk["vfo"][i] * 1e3 / 100 / (r[2] - r[1]), rel=1e-3)
+    # put-heavy low strikes -> dealers long gamma there; call-heavy high strikes -> short
+    assert bk["gao"][bk["k"].index(15.0)] > 0 and bk["gao"][bk["k"].index(25.0)] < 0
+    # all >= front in size when every expiry has the same sign at that strike; contracts: all = sum over expiries
+    assert abs(bk["gao"][i]) > abs(bk["gfo"][i])
+    assert bk["ca"][i][0] == round(sum(next(rr for rr in x["rows"] if rr[0] == 15.0)[1] for x in ex))
+    assert bk["cf"][i][1] == round(r[2]) and len(bk["cf"][i]) == 8
+    assert V.strike_book([], 17.2) is None and V.strike_book(ex, 0) is None
+
+
+def test_strike_book_every_30_minutes_plus_live():
+    rec = make_vix_rec()
+    dv = L.decode(rec)["VIX"]
+    vd = V.VixDay("20261106")
+    for hm in ("09:31", "09:45", "10:00", "10:17"):
+        assert vd.feed(dv, datetime.datetime.fromisoformat("2026-11-06T" + hm))
+    p = vd.payload()
+    assert [b["t"] for b in p["books"]] == ["09:31", "10:00", "10:17"] and p["books"][-1]["live"] == 1
+    assert "live" not in p["books"][1]

@@ -1033,6 +1033,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
 .tgprof .pfS{color:#3ddc84;font-weight:800} .tgprof .pfF{color:#3fd0ff;font-weight:800} .tgprof .pfE{color:#ffa64d;font-weight:800} #tgProfC{width:100%;display:block;margin-top:6px;cursor:crosshair}
 #tgProfOdds{margin-top:8px} #tgProf .pfob{display:flex;gap:2px;margin:5px 0;height:54px} #tgProf .pfobb{display:flex;flex-direction:column;justify-content:center;align-items:center;color:#000;border-radius:3px;overflow:hidden;min-width:0} #tgProf .pfobb b{font-size:18px} #tgProf .pfobb span{font-size:13px;white-space:nowrap} #tgProf .pfcal{font-size:16px;line-height:1.5;margin-top:3px} #tgProfCharm{margin-top:8px} #tgProfCharmC{width:100%;display:block;margin-top:4px;cursor:crosshair} #tgProf .pfrf{color:#ff8080;font-weight:600} #tgProf .pfok{color:#7be3a6} #tgProf .pfclk{font-size:15px;margin-top:3px} #tgProf .pfck{display:inline-block;margin-right:10px} #tgProfHedge{margin-top:6px} #tgProfHedge .pfht{font-size:16px} #tgProfHedge .pfhrow{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0} #tgProfHedge .pfh{border:1px solid #556;border-radius:5px;padding:5px 9px;min-width:150px;background:#111820} #tgProfHedge .pfhm{font-size:15px;color:#e8edf2} #tgProfHedge .pfhv{font-size:20px;font-weight:800} #tgProfHedge .pfhx{font-size:15px;font-weight:600} #tgProfHedge .pfhs{font-size:17px}
 #tgProf{grid-column:1/-1} #tabMap.pfon{grid-template-rows:auto minmax(0,1fr)} body.phone #tabMap.pfon{grid-template-rows:auto 420px 300px 420px}
+#tgFp{margin-top:8px} #tgFpC{width:100%;height:340px;display:block;margin-top:6px}
 .tgcolor{border:2px dashed #ffcc00;margin:4px 6px;padding:6px 8px;background:#0b0f14;color:#f2f5f8;font:15px system-ui,sans-serif} .tgcolor #tgColorHead{line-height:1.4} .tgcolor i{font-style:normal;color:#C9D4E3} #tabMap #tgColorC{width:100%;height:110px;display:block;margin-top:4px;cursor:crosshair}
 </style>
 <div class="app">
@@ -1115,6 +1116,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
       <div class="f2hump"><small>Implied close (from option mids) over the gamma band</small><canvas id="humpC"></canvas></div>
       <div><div id="f2Needle"></div><div id="f2Exp"></div></div>
       <div class="f2foot" id="f2Foot"></div>
+      <div class="tgprof" id="tgFp" hidden><div id="tgFpHead"></div><canvas id="tgFpC"></canvas></div>
     </section>
     <section class="pane" id="mapPane">
       <div class="phead">
@@ -1147,7 +1149,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
         <button class="btn" id="seqBtn" aria-pressed="true" title="Sequence bubbles: grey = simple, coloured = reversal at a premium line / expected-move edge + short gamma + flow flip; scored after 30 min">Seq</button><button class="btn" id="seqSndBtn" aria-pressed="false" title="Beep + flashing tab title on a new live sequence bubble (off by default)">&#128277; off</button>
         <button class="btn doc" id="docBtn" aria-pressed="true" title="Draw AM levels from the morning report (D)">AM levels</button>
         <button class="btn" id="amSrcBtn" title="Which morning levels to draw: Report → Ours → Both. If the morning report is missing today, our own levels step in on their own.">Src: Report</button>
-        <button class="btn" id="tgSmBtn" aria-pressed="false" title="TEST Short strikes (sm-v0, off by default): where to sell credit spreads. From the 1.5x straddle rail (calls) / 1.75x (puts) out to 3x, the first 0DTE strike cluster where dealers ABSORB (positive gamma, start-of-day OI) = green reaction zone; the short goes one strike behind it (amber). No such strike = red = transition, stand aside. Live; the nightly replay freezes it at 09:45 and scores held / broke.">Short strikes</button><button class="btn" id="tgSlBtn" aria-pressed="false" title="TEST Strike lines: the 10 biggest strikes NOW as full-width lines with a value label at the right edge (star = biggest). Delta = each strike's own dealer buy / sell if price goes there (the Delta map By strike); Gamma = dealer gamma at the strike, $ per 1% (Orbs). Map book + basis. Off by default.">Strike lines</button><div class="seg" role="group" id="tgSlSrcSeg" style="display:none" title="TEST Strike lines source"><button data-v="delta" aria-pressed="true">Delta</button><button data-v="gamma" aria-pressed="false">Gamma</button></div>
+        <button class="btn" id="tgFpBtn" aria-pressed="false" title="TEST Flow panel (off by default): F1 dealer gamma at spot through the day (OI + today's measured trades), F2 option volume imbalance 0DTE vs next expiry, F3 price terrain badge (HVN / LVN / NEW over the last 3 sessions). Display only.">Flow panel</button><button class="btn" id="tgSmBtn" aria-pressed="false" title="TEST Short strikes (sm-v0, off by default): where to sell credit spreads. From the 1.5x straddle rail (calls) / 1.75x (puts) out to 3x, the first 0DTE strike cluster where dealers ABSORB (positive gamma, start-of-day OI) = green reaction zone; the short goes one strike behind it (amber). No such strike = red = transition, stand aside. Live; the nightly replay freezes it at 09:45 and scores held / broke.">Short strikes</button><button class="btn" id="tgSlBtn" aria-pressed="false" title="TEST Strike lines: the 10 biggest strikes NOW as full-width lines with a value label at the right edge (star = biggest). Delta = each strike's own dealer buy / sell if price goes there (the Delta map By strike); Gamma = dealer gamma at the strike, $ per 1% (Orbs). Map book + basis. Off by default.">Strike lines</button><div class="seg" role="group" id="tgSlSrcSeg" style="display:none" title="TEST Strike lines source"><button data-v="delta" aria-pressed="true">Delta</button><button data-v="gamma" aria-pressed="false">Gamma</button></div>
         <div class="seg" role="group" aria-label="Layout" id="focusSeg"><button data-v="map" aria-pressed="true" title="Map only, full height (M)">Map</button><button data-v="both" aria-pressed="false" title="Map and strike panel">Both</button><button data-v="strike" aria-pressed="false" title="Strike panel large, map as a strip (S)">Strike</button></div>
         <button class="btn" id="maxBtn" title="Hide every panel, map only">Expand</button>
         <span class="hint" style="flex-basis:100%;margin-top:-2px">Drag a box over the map to zoom into it · scroll = zoom time · Shift+scroll = zoom strikes · Shift+drag = pan · + / − keys · double-click or F = back to live · Ctrl+scroll or Ctrl +/− = zoom the whole page</span>
@@ -4437,6 +4439,7 @@ function f2Line(sr,book){
   return head+". "+gam;
 }
 function renderFlow2(se,d,book){
+  try{ tgFpDraw(); }catch(e){ console.error(e); }   // TEST FP
   const pane=document.getElementById("f2Pane"); if(!pane) return;
   const sr=signedRows(se); const lineEl=document.getElementById("f2Line"), cardsEl=document.getElementById("f2Cards"), ndl=document.getElementById("f2Needle"), ex=document.getElementById("f2Exp"), ft=document.getElementById("f2Foot");
   if(!sr){ lineEl.innerHTML=se?"<b>Flow log has no quotes yet.</b>":"<b>Waiting for the minute log.</b>";
@@ -4935,7 +4938,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
    Close / 1DTE / Friday prediction: zero line nearest spot on the profile at the target (target close − 10 min);
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
-const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-f5a4a4cbf141";
+const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-74c641938dea";
 const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
@@ -5465,6 +5468,195 @@ function tgSmInit(){ for(const id of ["tgSmBtn","tgSmBtn2"]){ const b=document.g
     b.addEventListener("click",()=>{ st.smOn=!st.smOn; save("tgSmOn",st.smOn?"1":"0"); tgSmSync(); render(); }); }
   tgSmSync(); }
 setTimeout(tgSmInit,0);
+
+/* TEST VS (2026-11-19) - VIX map STRIKE MAP, redesign steps C1 + C2 (claude/vix-map-redesign-spec-20261118.md).
+   Test cockpit only (MAP rule 11/09), OFF by default, display only: the production VIX map, its read-out and its numbers
+   are unchanged; OFF = production's drawing exactly. Button "Strike map (TEST)" in the VIX map controls.
+   Data = the file's v3 "books" (vix_map.py strike_book): one row per listed VIX strike, every 30 minutes + the newest minute.
+   C1  rows = listed strikes, drawn where the front forward reaches the strike (y = K - (front forward - VIX)); band edges
+       halfway to the next strike. Value = the strike's own dealer gamma (left map) / vanna (right) with the forward on the
+       strike, on the map's basis and dealer side (same rule as the columns: OI = s*o, Vol = s*v, OI+vol = s*(o+v),
+       OI+signed = s*o + t). Top 10 strikes by size get a role label "#rank strike ROLE arrow" (gamma map):
+         dealers LONG gamma at the strike (they lean against moves there): below VIX = FLOOR (helps price up, green),
+           above VIX = CEILING (helps price down, red), within 0.1 of VIX = PIN;
+         dealers SHORT gamma (they chase): MAGNET with the arrow toward the strike (above = MAGNET up green, below =
+           MAGNET down red) - price speeds up toward / through it.  Rule rv-v0, to confirm with Mithil.
+       Hover card: role, strength % of the strongest strike in this book, rank of N, customer contracts, dealer behaviour.
+       Price = 5-minute candles from each minute's VIX (the feed has one VIX sample a minute), front forward cyan dashed,
+       grey price tag on the axis + red dotted line across the chart at VIX now.
+   C2  bands are flat between books (book every 30 min, kink at each refresh, dashed line at the newest book); thin white
+       contour where neighbouring bands change sign; white rounded outline (pill) around the hottest cores (>= 60% of the
+       scale). */
+st.tgVxs=load("tgVxs","0")==="1";
+function tgVxsOn(){ return !!st.tgVxs; }
+function tgVxsKey(){ return st.tgVxs?"vs1":"vs0"; }
+function tgVxsBtn(){ return `<button class="tgb${st.tgVxs?" on":""}" id="tgVxsBtn" style="font-size:15px" title="TEST Strike map (off by default): rows = the listed VIX strikes (0.5 / 1.0 apart), the strike book every 30 minutes, top-10 role labels (FLOOR / CEILING / MAGNET), hover card, 5-minute candles, price tag, white contours and pills. Display only.">Strike map (TEST)</button>`; }
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("#tgVxsBtn"); if(!b) return;
+  st.tgVxs=!st.tgVxs; save("tgVxs",st.tgVxs?"1":"0"); VXM.key=""; vxmRender(); });
+/* one book's values on the map's basis and dealer side (vxmVals on the book arrays) */
+function tgVxsVals(b,g){ return vxmVals(b,g); }
+function tgVxsBookIdx(J,t){ let q=-1; for(let j=0;j<J.books.length;j++) if(tmin(J.books[j].t)<=t+0.01) q=j; return q; }
+/* colour scale: 98th percentile of |value| over every book, strikes inside the range shown */
+function tgVxsLim(J,g,R){ const a=[]; for(const b of J.books){ const v=tgVxsVals(b,g); for(let i=0;i<b.k.length;i++){ const y=b.y[i]; if(y>=R.lo-1&&y<=R.hi+1) a.push(Math.abs(v[i]||0)); } }
+  a.sort((p,q)=>p-q); return a.length?Math.max(1e-9,a[Math.floor(0.98*(a.length-1))]):1; }
+/* band edges halfway to the neighbouring strikes */
+function tgVxsEdges(y){ const n=y.length, lo=[], hi=[]; for(let i=0;i<n;i++){ const dn=i>0?(y[i]-y[i-1])/2:(n>1?(y[1]-y[0])/2:0.25), up=i<n-1?(y[i+1]-y[i])/2:dn; lo.push(y[i]-dn); hi.push(y[i]+up); } return {lo,hi}; }
+/* roles rv-v0 for one book: [{i,k,y,v,abs,rank,pct,role,dir,up}] sorted by size */
+function tgVxsRoles(b,vix){ const v=tgVxsVals(b,"g"), out=[]; let mx=0; for(let i=0;i<b.k.length;i++) mx=Math.max(mx,Math.abs(v[i]||0));
+  for(let i=0;i<b.k.length;i++){ const x=v[i]||0; if(!x) continue; const y=b.y[i]; let role, up;
+    if(x>0){ if(Math.abs(y-vix)<0.1){ role="PIN"; up=null; } else if(y<vix){ role="FLOOR"; up=true; } else { role="CEILING"; up=false; } }
+    else { up=y>vix; role="MAGNET"; }
+    out.push({i,k:b.k[i],y,v:x,abs:Math.abs(x),pct:mx?Math.abs(x)/mx:0,role,up}); }
+  out.sort((p,q)=>q.abs-p.abs); out.forEach((r,j)=>r.rank=j+1); return out; }
+function tgVxsRoleTxt(r){ return r.role+(r.role==="MAGNET"?(r.up?"↑":"↓"):""); }
+function tgVxsK(n){ const a=Math.abs(n); return a>=1000?(a/1000).toFixed(a>=10000?0:1)+"K":String(Math.round(a)); }
+/* 5-minute candles from each minute's VIX: [t0, o, h, l, c] */
+function tgVxsCandles(J){ const out=[]; for(const p of vxmPath(J)){ const v=p[1]; if(v==null||!isFinite(v)) continue; const t=tmin(p[0]), b=Math.floor(t/5)*5, c=out[out.length-1];
+    if(c&&c[0]===b){ c[2]=Math.max(c[2],v); c[3]=Math.min(c[3],v); c[4]=v; } else out.push([b,c?c[4]:v,Math.max(v,c?c[4]:v),Math.min(v,c?c[4]:v),v]); } return out; }
+function tgVxsDraw(cv,J,k,lim,isG,R){
+  const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); const padL=62,padR=96,padT=10,padB=34, W=w-padL-padR, H=h-padT-padB, t0=570, t1=975;
+  const ylo=R.lo-0.5, yhi=R.hi+0.5;
+  const X=t=>padL+W*(t-t0)/(t1-t0), Y=v=>padT+H*(1-(v-ylo)/((yhi-ylo)||1));
+  const POS=[61,220,132], NEG=[255,77,77], BASE=[14,27,51];   // green = dealers long (lean against), red = short (chase)
+  const col=v=>{ const u=Math.max(-1,Math.min(1,v/lim)), c=u>=0?POS:NEG, a=Math.pow(Math.abs(u),0.75); return `rgb(${BASE.map((b,j)=>Math.round(b+(c[j]-b)*a)).join(",")})`; };
+  ctx.fillStyle="rgb(14,27,51)"; ctx.fillRect(padL,padT,W,H);
+  ctx.save(); ctx.beginPath(); ctx.rect(padL,padT,W,H); ctx.clip();
+  const B=J.books, seg=[];
+  for(let q=0;q<B.length;q++){ const b=B[q], ta=tmin(b.t), tb=q<B.length-1?tmin(B[q+1].t):t1; const xa=X(ta), xb=Math.max(xa+1,X(tb)); const a=tgVxsVals(b,k), E=tgVxsEdges(b.y);
+    seg.push({b,xa,xb,a,E});
+    for(let i=0;i<b.k.length;i++){ const ya=Y(E.hi[i]), yb=Y(E.lo[i]); if(yb<padT||ya>padT+H) continue; ctx.fillStyle=col(a[i]||0); ctx.fillRect(xa,ya,xb-xa+0.5,yb-ya+0.5); } }
+  // C2: white contours where neighbouring bands change sign; pills around the hottest cores
+  ctx.strokeStyle="#ffffffd0"; ctx.lineWidth=1.2;
+  for(const s of seg){ for(let i=1;i<s.b.k.length;i++){ const p=s.a[i-1]||0, c=s.a[i]||0; if((p>0&&c<0)||(p<0&&c>0)){ const y=Y(s.E.lo[i]); ctx.beginPath(); ctx.moveTo(s.xa,y); ctx.lineTo(s.xb,y); ctx.stroke(); } } }
+  // pills: the 4 strongest strikes of the newest book; one rounded outline per run of books where that strike stays >= 60% of the scale
+  ctx.lineWidth=2.2; ctx.strokeStyle="#ffffff";
+  const lb0=B[B.length-1], la=tgVxsVals(lb0,k), hot=lb0.k.map((kk,i)=>[kk,Math.abs(la[i]||0)]).filter(o=>o[1]>=0.6*lim).sort((p,q)=>q[1]-p[1]).slice(0,4).map(o=>o[0]);
+  const pill=(xa,xb,ya,yb)=>{ if(yb-ya<4||xb-xa<6) return; const r=Math.min(10,(yb-ya)/2); ctx.beginPath(); ctx.moveTo(xa+r,ya); ctx.lineTo(xb-r,ya); ctx.arcTo(xb,ya,xb,ya+r,r); ctx.lineTo(xb,yb-r); ctx.arcTo(xb,yb,xb-r,yb,r); ctx.lineTo(xa+r,yb); ctx.arcTo(xa,yb,xa,yb-r,r); ctx.lineTo(xa,ya+r); ctx.arcTo(xa,ya,xa+r,ya,r); ctx.stroke(); };
+  for(const kk of hot){ let run=null; const flush=()=>{ if(run) pill(run.xa+3,run.xb-3,Y(run.hi)+2,Y(run.lo)-2); run=null; };
+    for(const s of seg){ const i=s.b.k.indexOf(kk); if(i<0||Math.abs(s.a[i]||0)<0.6*lim){ flush(); continue; }
+      if(run){ run.xb=s.xb; run.lo=Math.max(run.lo,s.E.lo[i]); run.hi=Math.min(run.hi,s.E.hi[i]); } else run={xa:s.xa,xb:s.xb,lo:s.E.lo[i],hi:s.E.hi[i]}; } flush(); }
+  // book refresh: dashed vertical at the newest stored (30-min) book
+  const lastBook=[...B].reverse().find(b=>!b.live)||B[B.length-1];
+  if(lastBook){ const x=X(tmin(lastBook.t)); ctx.strokeStyle="#ffffff90"; ctx.lineWidth=1; ctx.setLineDash([5,5]); ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+H); ctx.stroke(); ctx.setLineDash([]); }
+  // candles (5 min) + front forward
+  const pth=vxmPath(J); ctx.strokeStyle="#7FE7FF"; ctx.lineWidth=1.6; ctx.setLineDash([6,4]); ctx.beginPath(); let st0=false;
+  for(const p of pth){ const v=p[2]; if(v==null||!isFinite(v)) continue; const x=X(tmin(p[0])), y=Y(v); st0?ctx.lineTo(x,y):ctx.moveTo(x,y); st0=true; } ctx.stroke(); ctx.setLineDash([]);
+  const cw=Math.max(2,(X(5)-X(0))*0.7);
+  for(const c of tgVxsCandles(J)){ const xm=X(c[0]+2.5), up=c[4]>=c[1], clr=up?"#39E07A":"#FF5A5A"; ctx.strokeStyle="#000"; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(xm,Y(c[2])); ctx.lineTo(xm,Y(c[3])); ctx.stroke();
+    ctx.strokeStyle=clr; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(xm,Y(c[2])); ctx.lineTo(xm,Y(c[3])); ctx.stroke();
+    const ya=Y(Math.max(c[1],c[4])), yb=Y(Math.min(c[1],c[4])); ctx.fillStyle=clr; ctx.fillRect(xm-cw/2,ya,cw,Math.max(1.5,yb-ya)); ctx.strokeStyle="#000"; ctx.lineWidth=1; ctx.strokeRect(xm-cw/2,ya,cw,Math.max(1.5,yb-ya)); }
+  // price line across the whole chart at VIX now
+  const lp=pth[pth.length-1]; if(lp&&lp[1]>=ylo&&lp[1]<=yhi){ ctx.strokeStyle="#FF5A5A"; ctx.lineWidth=1.2; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(padL,Y(lp[1])); ctx.lineTo(padL+W,Y(lp[1])); ctx.stroke(); ctx.setLineDash([]); }
+  // role labels (gamma map): top 10 of the newest book, boxes at the left inside the plot
+  const lb=B[B.length-1], vixNow=lp?lp[1]:lb.x, roles=isG?tgVxsRoles(lb,vixNow).slice(0,10):[];
+  if(roles.length){ ctx.font="bold 13px "+C("--font"); const L=roles.filter(r=>r.y>=ylo&&r.y<=yhi).map(r=>({r,y:Y(r.y)})).sort((a,b)=>a.y-b.y); let prev=-1e9;
+    for(const o of L){ o.ly=Math.max(o.y,prev+19); prev=o.ly; }
+    const over=prev-(padT+H-8); if(over>0) for(const o of L) o.ly-=over;
+    const x=padL+14; for(const o of L){ const r=o.r; o.clr=r.role==="PIN"?"#FFE27A":(r.role==="FLOOR"||(r.role==="MAGNET"&&r.up))?"#39E07A":"#FF5A5A";
+      ctx.strokeStyle=o.clr; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(padL,o.y); ctx.lineTo(x,o.ly); ctx.stroke(); }
+    for(const o of L){ const r=o.r, clr=o.clr, txt=`#${r.rank} ${vxN(r.k,r.k%1?1:0)} ${tgVxsRoleTxt(r)}`, tw=ctx.measureText(txt).width;
+      ctx.fillStyle="#0A1426"; ctx.fillRect(x,o.ly-9,tw+10,18); ctx.fillStyle=r.rank===1?clr+"55":"#0A1426"; ctx.fillRect(x,o.ly-9,tw+10,18); ctx.strokeStyle=clr; ctx.lineWidth=2; ctx.strokeRect(x,o.ly-9,tw+10,18);
+      ctx.fillStyle=r.rank===1?"#fff":clr; ctx.fillText(txt,x+5,o.ly+5); } }
+  ctx.restore();
+  // axes
+  ctx.font="15px "+C("--font"); ctx.fillStyle="#F2F6FC"; ctx.strokeStyle="#ffffff1c"; ctx.lineWidth=1;
+  const sp=orNice(yhi-ylo,8); for(let v=Math.ceil(ylo/sp)*sp; v<=yhi+1e-9; v+=sp){ const y=Y(v); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.textAlign="right"; ctx.fillText(vxN(v,sp<1?1:0),padL-6,y+5); }
+  ctx.textAlign="center"; for(let hh=10;hh<=16;hh++) ctx.fillText(String(hh>12?hh-12:hh)+(hh>=12?" pm":" am"),X(hh*60),h-12); ctx.textAlign="left";
+  // right axis tags: price (grey) + newest book time
+  const xr=padL+W+4, tag=(y,txt,bg,fg)=>{ ctx.font="bold 14px "+C("--font"); const tw=ctx.measureText(txt).width; ctx.fillStyle=bg; ctx.fillRect(xr,y-10,Math.min(tw+8,padR-4),20); ctx.fillStyle=fg; ctx.fillText(txt,xr+4,y+5); };
+  if(lp){ const yv=Math.max(padT+10,Math.min(padT+H-10,Y(lp[1]))); tag(yv,(lp[1]>yhi?"▲ ":lp[1]<ylo?"▼ ":"")+vxN(lp[1],2),"#C9D4E3","#0A1426"); if(lastBook) tag(Math.min(padT+H-10,yv+22),"book "+lastBook.t,"#FF5A5A","#fff"); }
+  return {X,Y,padL,padT,W,H,lo:ylo,hi:yhi,t0,t1,k,lim,isG,strike:true}; }
+/* hover card: strike roles (returns true when it handled the event) */
+function tgVxsHover(e){ const g=VXM.geo, J=VXM.J; if(!g||!J||!J.books||!J.books.length) return false; const cv=e.target, G=cv.id==="vxmGC"?g.G:g.V; if(!G||!G.strike) return false;
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top; const t=G.t0+(x-G.padL)/G.W*(G.t1-G.t0), v=G.lo+(G.hi-G.lo)*(1-(y-G.padT)/G.H);
+  const hv=document.getElementById("vxmHov"); if(!hv) return true; const q=tgVxsBookIdx(J,t);
+  if(q<0||v<G.lo||v>G.hi){ hv.textContent="Hover the map for the strike roles."; return true; }
+  const b=J.books[q], E=tgVxsEdges(b.y); let i=-1; for(let j=0;j<b.k.length;j++) if(v>=E.lo[j]&&v<E.hi[j]) i=j;
+  const pth=vxmPath(J); let pm=null; for(const p of pth) if(tmin(p[0])<=t+0.01) pm=p; const vx=pm?pm[1]:b.x;
+  const head=`<span style="font-family:ui-monospace,Consolas,monospace">STRIKE ROLES · VIX options · ${VXM.book==="f"?"front expiry":"all months"} · book ${esc(b.t)}${b.live?" (live)":""} · cursor ${vxN(v,2)}</span>`;
+  if(i<0){ hv.innerHTML=head+"<br>No listed strike here."; return true; }
+  const R=tgVxsRoles(b,vx), ro=R.find(o=>o.i===i), gv=tgVxsVals(b,"g")[i]||0, vv=tgVxsVals(b,"v")[i]||0, c=(VXM.book==="f"?b.cf:b.ca)[i]||[0,0,0,0,0,0,0,0], dl=VXM.sign==="dealer";
+  const help=ro?(ro.role==="PIN"?"holds price here":ro.up?"helps price UP":"helps price DOWN"):"";
+  const bar=ro?`<span style="display:inline-block;vertical-align:middle;width:120px;height:10px;background:#ffffff22;margin-right:6px"><span style="display:block;height:10px;width:${Math.round(ro.pct*100)}%;background:${ro.role==="PIN"?"#FFE27A":ro.up?"#39E07A":"#FF5A5A"}"></span></span>${Math.round(ro.pct*100)}% of the strongest strike in this book · rank #${ro.rank} of ${R.length}`:"no dealer position on this basis";
+  const cust=`customers ${dl?"long":"short"} ${tgVxsK(c[0])} calls, ${dl?"short":"long"} ${tgVxsK(c[1])} puts (open interest, assumed side)${c[4]||c[5]||c[6]||c[7]?` · today customers bought ${tgVxsK(c[4])} / sold ${tgVxsK(c[5])} calls, bought ${tgVxsK(c[6])} / sold ${tgVxsK(c[7])} puts (tape)`:""}`;
+  const beh=gv>=0?`dealers are long gamma here: they sell VIX into rises and buy dips at ${vxN(b.k[i],b.k[i]%1?1:0)}`:`dealers are short gamma here: they buy VIX into rises and sell into drops - moves through ${vxN(b.k[i],b.k[i]%1?1:0)} speed up`;
+  hv.innerHTML=head+`<br><b>${ro?tgVxsRoleTxt(ro):"–"} ${vxN(b.k[i],b.k[i]%1?1:0)}</b> ${help} · strike drawn at VIX ≈ ${vxN(b.y[i],2)} (front forward on the strike) · gamma <b>${vxmK(gv)}</b> per pt · vanna <b>${vxmK(vv)}</b> per vol pt<br>${bar}<br>${cust}<br>${beh}`;
+  return true; }
+/* read-out add-on: the top 5 roles now */
+function tgVxsRead(){ if(!tgVxsOn()) return; const J=VXM.J, el=document.getElementById("vxmRead"); if(!J||!el) return;
+  if(!J.books||!J.books.length){ el.insertAdjacentHTML("beforeend",`<div style="border:2px dashed #ffcc00;padding:4px 8px">TEST Strike map: this file has no strike book (written by vix_map.py before 2026-11-19) - showing the production map.</div>`); return; }
+  const b=J.books[J.books.length-1], pth=vxmPath(J), lp=pth[pth.length-1], R=tgVxsRoles(b,lp?lp[1]:b.x).slice(0,5);
+  document.querySelectorAll("#vxMap .vxmleg i").forEach(i=>i.style.background="linear-gradient(90deg,#FF4D4D,#0E1B33,#3DDC84)");
+  el.insertAdjacentHTML("beforeend",`<div style="border:2px dashed #ffcc00;padding:4px 8px">TEST Strike map colours: <b style="color:#3DDC84">green</b> = dealers long gamma / vanna at the strike, <b style="color:#FF4D4D">red</b> = short (the key above describes the production map). White line edges = sign changes between strikes; white pills = the strongest strikes while they stay hot; dashed line = newest 30-min book. Book ${esc(b.t)}${b.live?" (live)":""}: `+R.map(r=>`<b style="color:${r.role==="PIN"?"#FFE27A":r.up?"#39E07A":"#FF5A5A"}">#${r.rank} ${vxN(r.k,r.k%1?1:0)} ${tgVxsRoleTxt(r)}</b>`).join(" · ")+
+    `. Roles rule rv-v0: dealers long gamma = FLOOR below VIX / CEILING above (they lean against moves there); short gamma = MAGNET toward the strike (moves speed up). Green helps VIX up, red helps it down. Strikes drawn where the front forward reaches them.</div>`); }
+
+/* TEST FP (2026-11-19 night) - FLOW PANEL F1-F3 on the Flow tab (four-thread plan section F). Test cockpit only, OFF by
+   default, display only: no map / flow number changes; off = nothing drawn, nothing fetched. Button "Flow panel" in the
+   Flow by strike header. Follows the SPX / SPY / QQQ buttons. Data: the minute log already on the page (st.flow) + the
+   start-of-day OI in live.json rows + data/terrain.json (terrain.py, written by cvxmap-wide at 09:26).
+   F1 LIVE DEALER GAMMA at spot, every minute of today's 0DTE book, $ per 1% move (Black-Scholes, the strike's OTM IV
+      from the minute log, clock to 16:00):
+        OI part        = sum (call OI - put OI) x gamma$      (the Map's naive sign: dealers long calls, short puts)
+        measured part  = sum dealer contracts from today's tagged trades x gamma$, dealer contracts =
+                         -(calls bought - calls sold) - (puts bought - puts sold)   (customer buy -> dealer short)
+        line = OI part + measured part (= the Map's "OI + signed" basis at spot); dashed = OI part only.
+        gamma$ = n x 100 x gamma x S^2 x 0.01.
+   F2 OVI (option volume imbalance) by expiry, contracts, cumulative from the open: (calls bought - calls sold) -
+      (puts bought - puts sold), customer side. 0DTE (rows) and the next expiry (minute log "n1"). Longer expiries are not
+      in the minute log (needs the tape writer - later). Read-out gives the last 15 minutes' change.
+   F3 PRICE TERRAIN badge at spot (rule tr-v0, terrain.py): minutes price spent in spot's bin over the last 3 sessions:
+      HVN (>= 70th pct of visited bins, accepted ground) / LVN (<= 30th pct, passed through fast) / MID / NEW (never there). */
+st.tgFp=load("tgFp","0")==="1";
+const TG_FP={key:null,ser:null,ter:null,terAt:0,terBusy:false};
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("#tgFpBtn"); if(!b) return;
+  st.tgFp=!st.tgFp; save("tgFp",st.tgFp?"1":"0"); TG_FP.key=null; try{ tgFpDraw(); }catch(err){ console.error(err); } });
+function tgFpG$(S,k,sg,ty){ if(!(S>0&&k>0&&sg>0&&ty>0)) return 0; const sq=sg*Math.sqrt(ty), d1=(Math.log(S/k)+0.5*sg*sg*ty)/sq;
+  return 100*Math.exp(-0.5*d1*d1)/Math.sqrt(2*Math.PI)/(S*sq)*S*S*0.01; }
+/* one minute of the log -> {t, x, oi, tr, o0, o1} (gamma in $, OVI in contracts) */
+function tgFpRow(s,oiMap){ const S=+s.x, t=tmin(s.t), ty=Math.max(960-t,1)/525600; let oi=0,tr=0,o0=0,o1=null;
+  const ks=s.k||[]; for(let i=0;i<ks.length;i++){ const k=+ks[i], g=tgFpG$(S,k,otmIV(k,S,+(s.ci&&s.ci[i])||0,+(s.pi&&s.pi[i])||0),ty);
+    const cb=+(s.cvb&&s.cvb[i])||0, cs=+(s.cvs&&s.cvs[i])||0, pb=+(s.pvb&&s.pvb[i])||0, ps=+(s.pvs&&s.pvs[i])||0, o=oiMap.get(k);
+    if(o) oi+=((o[0]||0)-(o[1]||0))*g; tr+=(-(cb-cs)-(pb-ps))*g; o0+=(cb-cs)-(pb-ps); }
+  const n=s.n1; if(n&&n.k){ o1=0; for(let i=0;i<n.k.length;i++) o1+=((+(n.cvb&&n.cvb[i])||0)-(+(n.cvs&&n.cvs[i])||0))-((+(n.pvb&&n.pvb[i])||0)-(+(n.pvs&&n.pvs[i])||0)); }
+  return {t,hm:s.t,x:S,oi,tr,o0,o1}; }
+function tgFpSeries(){ const snaps=(st.flow&&st.flow[st.sym])||[], d=st.live&&st.live[st.sym]; if(!snaps.length||!d||!d.rows) return null;
+  const key=[st.sym,snaps.length,snaps[snaps.length-1].t,st.live.ts].join("|"); if(TG_FP.key===key) return TG_FP.ser;
+  const oiMap=new Map(d.rows.map(r=>[+r.k,[+r.cOI||0,+r.pOI||0]])), out=[];
+  for(const s of snaps){ const t=tmin(s.t); if(t<570||t>960||!(s.x>0)) continue; out.push(tgFpRow(s,oiMap)); }
+  TG_FP.key=key; TG_FP.ser=out; return out; }
+/* F3: terrain */
+async function tgFpTerrainFetch(){ if(TG_FP.terBusy||Date.now()-TG_FP.terAt<300000) return; TG_FP.terBusy=true; TG_FP.terAt=Date.now();
+  try{ const r=await fetch("terrain.json",{cache:"no-cache"}); TG_FP.ter=r.ok?await r.json():{_err:"HTTP "+r.status}; }catch(e){ TG_FP.ter={_err:String(e&&e.message||e)}; }
+  TG_FP.terBusy=false; try{ tgFpDraw(); }catch(e){ console.error(e); } }
+function tgFpTerrain(sym,x){ const T=TG_FP.ter; if(!T||T._err||!T.syms||!T.syms[sym]||!(x>0)) return null; const o=T.syms[sym], b=o.bin, lo=Math.floor(x/b)*b;
+  const n=+(o.m[String(+lo.toFixed(2))]||o.m[lo.toFixed(1)]||o.m[lo.toFixed(2)]||0);
+  return {lab:n<=0?"NEW":n>=o.hvn?"HVN":n<=o.lvn?"LVN":"MID",n,lo,hi:lo+b,from:T.from||[]}; }
+function tgFpFmt$(v){ const a=Math.abs(v), s=v<0?"−":"+"; return a>=1e9?s+"$"+(a/1e9).toFixed(2)+"B":a>=1e6?s+"$"+(a/1e6).toFixed(a>=1e8?0:1)+"M":s+"$"+(a/1e3).toFixed(0)+"k"; }
+function tgFpFmtN(v){ const a=Math.abs(v), s=v<0?"−":"+"; return s+(a>=1e4?(a/1e3).toFixed(1)+"K":Math.round(a).toLocaleString()); }
+function tgFpDraw(){ const el=document.getElementById("tgFp"); if(!el) return; const btn=document.getElementById("tgFpBtn");
+  if(btn) btn.setAttribute("aria-pressed",st.tgFp?"true":"false");
+  el.hidden=!st.tgFp; if(!st.tgFp) return; tgFpTerrainFetch();
+  const ser=tgFpSeries(), head=document.getElementById("tgFpHead");
+  if(!ser||ser.length<2){ head.innerHTML=`<b>TEST Flow panel</b> — waiting for the minute log and live.json (${esc(st.sym)}).`; const c=document.getElementById("tgFpC"); if(c) c.getContext("2d").clearRect(0,0,c.width,c.height); return; }
+  const L=ser[ser.length-1], P=ser.slice().reverse().find(r=>r.t<=L.t-15)||ser[0], tot=r=>r.oi+r.tr, ter=tgFpTerrain(st.sym,L.x);
+  const tc=ter?{HVN:"#3DDC84",LVN:"#FFB347",MID:"#C9D4E3",NEW:"#FF6B6B"}[ter.lab]:"#C9D4E3";
+  const terTxt=ter?`<b style="color:#000;background:${tc};padding:0 6px;border-radius:4px">${ter.lab}</b> ${fmtN(ter.lo)}–${fmtN(ter.hi)}: ${ter.n} min in the last ${ter.from.length} sessions (${ter.lab==="HVN"?"accepted ground, moves tend to slow":ter.lab==="LVN"?"thin ground, price passed through fast":ter.lab==="NEW"?"fresh ground, no recent trade here":"middling"})`:
+    `<i>${TG_FP.ter&&TG_FP.ter._err?"terrain.json not found ("+esc(TG_FP.ter._err)+") - written by cvxmap-wide at 09:26 (terrain.py)":TG_FP.ter?"no terrain for "+esc(st.sym):"loading terrain…"}</i>`;
+  head.innerHTML=`<div class="pf1"><b>TEST Flow panel</b> · ${esc(st.sym)} 0DTE · ${esc(L.hm)}</div>`+
+    `<div class="pf2">F1 dealer gamma at spot <b class="${tot(L)>=0?"pfS":"pfE"}">${tgFpFmt$(tot(L))}</b> per 1% = OI ${tgFpFmt$(L.oi)} + today's trades ${tgFpFmt$(L.tr)} · 15 min ${tgFpFmt$(tot(L)-tot(P))} · ${tot(L)>=0?"dealers long gamma: they lean against moves":"dealers short gamma: they chase moves"}</div>`+
+    `<div class="pf2">F2 OVI (customers, contracts, from the open): 0DTE <b class="${L.o0>=0?"pfS":"pfE"}">${tgFpFmtN(L.o0)}</b> (15 min ${tgFpFmtN(L.o0-P.o0)})${L.o1!=null?` · next expiry <b class="${L.o1>=0?"pfS":"pfE"}">${tgFpFmtN(L.o1)}</b> (15 min ${P.o1!=null?tgFpFmtN(L.o1-P.o1):"–"})`:" · next expiry not in the log"} · + = calls bought / puts sold</div>`+
+    `<div class="pf2">F3 terrain at ${fmtN(L.x)}: ${terTxt}</div>`+
+    `<div class="pf3">Gamma: naive OI sign (dealers long calls, short puts) + measured trade tags, Black-Scholes at each minute's IV, clock to 16:00. OVI split 1–5D / 30D+ needs the tape writer (later). Display only.</div>`;
+  const cv=document.getElementById("tgFpC"); const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+  const padL=70,padR=14,padT=8,gap=26,H1=Math.round((h-padT-gap-24)*0.55),H2=h-padT-gap-24-H1, W=w-padL-padR, t0=570,t1=960, X=t=>padL+W*(t-t0)/(t1-t0);
+  const panel=(y0,H,lines,fmt,title)=>{ let lo=0,hi=0; for(const [f] of lines) for(const r of ser){ const v=f(r); if(v==null) continue; lo=Math.min(lo,v); hi=Math.max(hi,v); } if(hi-lo<1e-9){ hi+=1; lo-=1; }
+    const pad=(hi-lo)*0.08; lo-=pad; hi+=pad; const Y=v=>y0+H*(1-(v-lo)/(hi-lo));
+    ctx.fillStyle="#0E1B33"; ctx.fillRect(padL,y0,W,H); ctx.strokeStyle="#ffffff40"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(padL,Y(0)); ctx.lineTo(padL+W,Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font="13px "+C("--font"); ctx.fillStyle="#DCE6F2"; ctx.textAlign="right"; ctx.fillText(fmt(hi),padL-4,y0+12); ctx.fillText(fmt(lo),padL-4,y0+H-2); ctx.textAlign="left"; ctx.fillText(title,padL+6,y0+14);
+    for(const [f,colr,dash,lw] of lines){ ctx.strokeStyle=colr; ctx.lineWidth=lw; ctx.setLineDash(dash); ctx.beginPath(); let on=false; for(const r of ser){ const v=f(r); if(v==null){ on=false; continue; } const x=X(r.t), y=Y(v); on?ctx.lineTo(x,y):ctx.moveTo(x,y); on=true; } ctx.stroke(); } ctx.setLineDash([]); };
+  panel(padT,H1,[[r=>r.oi,"#9AA7B8",[5,4],1.5],[tot,"#3FD0FF",[],2.4]],tgFpFmt$,"F1 dealer gamma at spot, $ per 1% — solid = OI + trades, dashed = OI only");
+  panel(padT+H1+gap,H2,[[r=>r.o0,"#FFA64D",[],2.2],[r=>r.o1,"#7BE3A6",[],1.8]],tgFpFmtN,"F2 OVI, contracts — orange 0DTE, green next expiry");
+  ctx.fillStyle="#DCE6F2"; ctx.font="13px "+C("--font"); ctx.textAlign="center"; for(let hh=10;hh<=16;hh++) ctx.fillText(String(hh>12?hh-12:hh)+(hh>=12?" pm":" am"),X(hh*60),h-6); ctx.textAlign="left"; }
 
 /* Phase 3 (2026-11-04), both OFF by default (Map tab buttons; scored nightly before they are trusted):
    Smile  = shadow greeks: the smile moves with spot (sticky moneyness), so dσ/dS = −(K/S)·dσ/dK per strike.
@@ -9024,18 +9216,18 @@ function vxmPath(J){ return (J.px&&J.px.length)?J.px:J.cols.map(c=>[c.t,c.x,c.fF
 function vxmRender(){
   const el=document.getElementById("vxMap"); if(!el) return; el.hidden=!st.vxo.vmap; if(!st.vxo.vmap){ el.innerHTML=""; VXM.key=""; return; }
   vxmFetch(false); const J=VXM.J, W=el.clientWidth||900, pth=J?vxmPath(J):[], lastP=pth[pth.length-1];
-  const key=[J&&J.cols.length,J&&J.cols.length&&J.cols[J.cols.length-1].t,lastP&&lastP.join(","),VXM.day,VXM.book,VXM.basis,VXM.sign,VXM.rng,VXM.cmin,VXM.cmax,W,VXM.err].join("|");
+  const key=[J&&J.cols.length,J&&J.cols.length&&J.cols[J.cols.length-1].t,lastP&&lastP.join(","),VXM.day,VXM.book,VXM.basis,VXM.sign,VXM.rng,VXM.cmin,VXM.cmax,W,VXM.err,tgVxsKey()].join("|");
   if(key===VXM.key&&el.querySelector(".vxmgrid,.vxnote")) return; VXM.key=key;
   const head=`<div class="vxh"><h2>VIX map — dealer gamma and vanna by VIX level</h2><span class="vxsub">time of day across, VIX level up the side · every expiry's forward moves with VIX · positioning read, not a signal</span></div>`+
     `<div class="vxmctl">`+vxmSeg("vxmBookSeg","book",{lab:"Expiries",v:[["f","Front expiry","The nearest VIX expiry only"],["a","All combined","Every listed VIX expiry, each forward moved by the same VIX change"]]})+
     vxmSeg("vxmBasisSeg","basis",{lab:"Positions from",v:[["oi","OI","Start-of-day open interest, dealer side as chosen on the right"],["vol","Vol","Today's volume only, same dealer side"],["oiv","OI + vol","Open interest plus today's volume, both with the chosen dealer side"],["ois","OI + signed","Open interest with the chosen dealer side, plus today's tagged trades as measured: customer buys leave dealers short, customer sells leave them long (this part does not flip with the switch)"]]})+
     vxmSeg("vxmSignSeg","sign",{lab:"Dealer side",v:[["dealer","Short calls, long puts","Default: customers buy VIX calls as hedges and sell VIX puts, so dealers hold the other side"],["naive","SPX-style: long calls, short puts","The simple rule the SPX Map uses, for comparison. It is exactly the opposite sign."]]})+
     vxmSeg("vxmRngSeg","rng",{lab:"VIX range",v:[["25","10–25","Default: VIX rarely goes above 25"],["35","10–35"],["50","10–50"],["all","All","Every row in the file"],["custom","Custom","Your own min and max (boxes on the right)"]]})+
-    `<span class="orgrp vxmcus"${VXM.rng==="custom"?"":" hidden"}><label>min <input type="number" id="vxmCmin" min="5" max="95" step="0.5" value="${VXM.cmin}"></label><label>max <input type="number" id="vxmCmax" min="6" max="100" step="0.5" value="${VXM.cmax}"></label></span></div>`;
+    tgVxsBtn()+`<span class="orgrp vxmcus"${VXM.rng==="custom"?"":" hidden"}><label>min <input type="number" id="vxmCmin" min="5" max="95" step="0.5" value="${VXM.cmin}"></label><label>max <input type="number" id="vxmCmax" min="6" max="100" step="0.5" value="${VXM.cmax}"></label></span></div>`;
   const ymd=String(liveClock().date||"").replace(/-/g,""), wait=`<b>${esc(VXM.want||"vixmap_"+ymd+".json")}</b>`;
   if(!J||!J.cols.length){ el.innerHTML=head+`<div class="vxnote vxmwait">${VXM.err||VXM.want?`Waiting for ${wait} (${esc(VXM.err||"not written yet")}). It is written every minute from 09:30 ET by the Orbs feed (container <code>cvxmap-wide</code>, <code>run_wide.sh start</code>). No earlier VIX map day is stored either.`:"Loading the VIX map…"}</div>`; vxmBind(el); return; }
   const lv=J.levels, R=vxmRange(lv), kG="g", kV="v";
-  const sc=g=>{ const a=[]; for(const c of J.cols){ const v=vxmVals(c,g); for(let i=R.i0;i<=R.i1;i++) a.push(Math.abs(v[i]||0)); } a.sort((p,q)=>p-q); return a.length?Math.max(1e-9,a[Math.floor(0.98*(a.length-1))]):1; };
+  const sc=tgVxsOn()&&J.books&&J.books.length?(g=>tgVxsLim(J,g,R)):g=>{ const a=[]; for(const c of J.cols){ const v=vxmVals(c,g); for(let i=R.i0;i<=R.i1;i++) a.push(Math.abs(v[i]||0)); } a.sort((p,q)=>p-q); return a.length?Math.max(1e-9,a[Math.floor(0.98*(a.length-1))]):1; };
   const limG=sc(kG), limV=sc(kV);
   const leg=lim=>`<div class="vxmleg"><span>${vxmK(-lim)}</span><i></i><span>${vxmK(lim)}</span><span class="vxmlegn">colour scale fitted to VIX ${vxN(R.lo,R.lo%1?1:0)}–${vxN(R.hi,R.hi%1?1:0)}</span></div>`;
   const stale=VXM.day&&VXM.day!==ymd, noT=VXM.basis==="ois"&&!J.cols.some(c=>c["g"+VXM.book+"t"]);
@@ -9047,14 +9239,15 @@ function vxmRender(){
     `<div class="vxmkey"><b class="vxmup">Blue</b> = dealers long (they lean against VIX moves) · <b class="vxmdn">red</b> = dealers short (they chase VIX moves) · white line = VIX, every minute · cyan dashed = front forward · white dot + label at the right = VIX now · yellow dotted = where the value flips sign · green / pink dashed = biggest call / put open-interest strike, drawn where the front forward reaches it · colour is full at the edges of the scale bar</div>`+
     `<div class="vxmhov" id="vxmHov">Hover the map for the numbers.</div><div class="vxmread" id="vxmRead"></div>`;
   vxmBind(el);
-  const geoG=vxmDraw(document.getElementById("vxmGC"),J,kG,limG,true,R), geoV=vxmDraw(document.getElementById("vxmVC"),J,kV,limV,false,R);
+  const _vd=tgVxsOn()&&J.books&&J.books.length?tgVxsDraw:vxmDraw;   // TEST VS
+  const geoG=_vd(document.getElementById("vxmGC"),J,kG,limG,true,R), geoV=_vd(document.getElementById("vxmVC"),J,kV,limV,false,R);
   VXM.geo={G:geoG,V:geoV};
   const last=J.cols[J.cols.length-1], gl=vxmVals(last,kG), z=vxmZero(lv,gl,last.x), top=last.top&&last.top[VXM.book==="f"?"front":"all"]||{}, basis=last.fF-last.x;
   const i0=lv.reduce((b,y,i)=>Math.abs(y-last.x)<Math.abs(lv[b]-last.x)?i:b,0), gNow=gl[i0];
   const m=s=>s==null?"–":vxN(s,2), bt={oi:"open interest",vol:"today's volume",oiv:"open interest + today's volume",ois:"open interest + today's signed trades"}[VXM.basis];
   document.getElementById("vxmRead").innerHTML=`<div><b>VIX ${vxN(lastP?lastP[1]:last.x,2)}</b> at ${esc(lastP?lastP[0]:last.t)} · front forward <b>${vxN(lastP&&lastP[2]!=null?lastP[2]:last.fF,2)}</b> (${esc(last.fe)}) · ${VXM.book==="f"?"front expiry":"all "+last.ne+" expiries"} · ${bt} · ${VXM.sign==="dealer"?"dealers short calls, long puts":"SPX-style sign (long calls, short puts)"}.</div>`+
     `<div>Dealer gamma at today's VIX: <b class="${gNow>=0?"vxmup":"vxmdn"}">${vxmK(gNow)}</b> per point — ${gNow>=0?"dealers <b>sell VIX as it rises</b> and buy it as it falls (they lean against VIX moves)":"dealers <b>buy VIX as it rises</b> (they chase VIX moves)"}.</div>`+
-    `<div>Gamma flips sign at <b>VIX ${z==null?"– (no flip on the map)":vxN(z,2)}</b>${z!=null?` (${z>last.x?"+":""}${vxN(z-last.x,2)} from now)`:""}. Biggest call open interest at strike <b>${m(top.call)}</b>${top.call!=null?` (front forward there = VIX ≈ ${vxN(top.call-basis,2)})`:""}; biggest put open interest at strike <b>${m(top.put)}</b>${top.put!=null?` (VIX ≈ ${vxN(top.put-basis,2)})`:""}.</div>`;
+    `<div>Gamma flips sign at <b>VIX ${z==null?"– (no flip on the map)":vxN(z,2)}</b>${z!=null?` (${z>last.x?"+":""}${vxN(z-last.x,2)} from now)`:""}. Biggest call open interest at strike <b>${m(top.call)}</b>${top.call!=null?` (front forward there = VIX ≈ ${vxN(top.call-basis,2)})`:""}; biggest put open interest at strike <b>${m(top.put)}</b>${top.put!=null?` (VIX ≈ ${vxN(top.put-basis,2)})`:""}.</div>`; tgVxsRead();   // TEST VS
 }
 function vxmBind(el){ el.querySelectorAll(".orseg button[data-m]").forEach(b=>b.onclick=()=>{ VXM[b.dataset.m]=b.dataset.v; save("vxm"+b.dataset.m[0].toUpperCase()+b.dataset.m.slice(1),b.dataset.v); VXM.key=""; vxmRender(); });
   for(const [id,k] of [["vxmCmin","cmin"],["vxmCmax","cmax"]]){ const inp=el.querySelector("#"+id); if(inp) inp.onchange=()=>{ const v=+inp.value; if(isFinite(v)&&v>0){ VXM[k]=v; save("vxm"+k[0].toUpperCase()+k.slice(1),String(v)); VXM.key=""; vxmRender(); } }; } }
@@ -9093,7 +9286,7 @@ function vxmDraw(cv,J,k,lim,isG,R){
       ctx.save(); ctx.strokeStyle=colr; ctx.setLineDash([8,4]); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(padL,Y(yv)); ctx.lineTo(padL+W,Y(yv)); ctx.stroke(); ctx.restore(); } }
   marks.sort((a,b)=>b[0]-a[0]); let prevY=-1e9; for(const m of marks){ const yy=Math.max(Y(m[0]),prevY+18); prevY=yy; lab(Math.min(yy,h-padB),m[1],m[2]); }
   return {X,Y,padL,padT,W,H,lo:ylo,hi:yhi,lv,t0,t1,k,lim,isG}; }
-function vxmHover(e){ const g=VXM.geo, J=VXM.J; if(!g||!J) return; const cv=e.target, G=cv.id==="vxmGC"?g.G:g.V; if(!G) return;
+function vxmHover(e){ if(tgVxsOn()&&tgVxsHover(e)) return; const g=VXM.geo, J=VXM.J; if(!g||!J) return; const cv=e.target, G=cv.id==="vxmGC"?g.G:g.V; if(!G) return;
   const r=cv.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top; const t=G.t0+(x-G.padL)/G.W*(G.t1-G.t0), v=G.lo+(G.hi-G.lo)*(1-(y-G.padT)/G.H);
   let q=-1; for(let j=0;j<J.cols.length;j++) if(tmin(J.cols[j].t)<=t+0.01) q=j; const hv=document.getElementById("vxmHov"); if(!hv) return;
   if(q<0||v<G.lo||v>G.hi){ hv.textContent="Hover the map for the numbers."; return; }
