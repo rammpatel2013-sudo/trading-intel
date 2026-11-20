@@ -43,8 +43,8 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | --- | --- | --- | --- | --- | --- | --- |
 | `oi_chain_eod` | contract per day (~180 DTE wide) | symbol+ts+source+expiry+strike+cp | `ts` timestamp | oi_chain_eod | Convex | raw; kept 365 days |
 | `oi_chain_daily` | symbol per day: OI, volume, walls, ATM IV | symbol+ts | `ts` date | oi_chain_daily | from oi_chain_eod | derived |
-| `greeks_chain` | contract per snapshot | symbol+ts+source+expiry+strike+cp | `ts` timestamptz | chain_snapshot, live_gex | Convex | raw; no prune yet (13 GB) |
-| `greeks_snapshots` | symbol per snapshot: GEX/DEX/VEX/CHEX totals | symbol+ts+source | `ts` timestamptz | greeks_snapshot, index_greeks_snapshot, sector_greeks | Convex; CVForge for sector ETFs | raw† |
+| `greeks_chain` | contract per snapshot (+ option root, underlying price, day VWAP / close) | symbol+ts+source+root+expiry+strike+cp | `ts` timestamptz | chain_snapshot, chain_bank (source cvforge_bank, hourly 10:05–16:05, ~1,550 names) | Convex; CVForge | raw; no prune yet (13 GB + ~1.5 GB/day from the chain bank) |
+| `greeks_snapshots` | symbol per snapshot: GEX/DEX/VEX/CHEX totals (+ cvforge_bank rows: IV30/IV90, term, 25Δ skew, call/put OI + $ premium) | symbol+ts+source | `ts` timestamptz | greeks_snapshot, index_greeks_snapshot, sector_greeks, chain_bank (hourly) | Convex; CVForge for sector ETFs | raw† |
 | `live_gex` | near-money contract per intraday refresh | symbol+ts+strike+cp+expiry | `ts` timestamp | live_gex | Convex | raw; pruned nightly |
 | `intraday_flow` | 0DTE/1DTE contract per 5-min cycle | symbol+ts+source+expiry+strike+cp | `ts` timestamp | intraday_flow | Convex | raw; pruned |
 | `gex_rolling` | symbol per day: total GEX to ~180 days | symbol+ts+source | `ts` timestamp | gex_rolling | Convex | raw† |
@@ -121,7 +121,7 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | `finra_short_volume` | symbol per day: short volume | date+symbol | `date` | finra_dix, desk_backfill | FINRA | raw |
 | `finra_dix_daily` | one day: our DIX | date | `date` | finra_dix | own | derived |
 | `short_interest_snapshots` | symbol per day: SVR, settled SI | symbol+ts+source | `ts` date | short_interest_snapshots | FINRA | raw |
-| `bars_1m` | symbol per minute: OHLCV (ETFs) | symbol+ts+source | `ts` naive ET (bar start) | flow_bank 16:25; letf_close_live every 2 min in the last hour (LETFs + ^GSPC/^NDX as SPX/NDX) | FMP historical-chart/1min via CVForge | raw |
+| `bars_1m` | symbol per minute: OHLCV (ETFs; every chain-bank name) | symbol+ts+source | `ts` naive ET (bar start) | flow_bank 16:25; chain_bank hourly (~1,550 names); letf_close_live every 2 min in the last hour (LETFs + ^GSPC/^NDX as SPX/NDX) | FMP historical-chart/1min via CVForge | raw |
 | `letf_close_flow` | index group (SPX / NDX) per 2-min pass in the last hour: leveraged-ETF forced-rebalance $, futures, flip level, per-fund JSON | grp+ts | `ts` naive ET | letf_close_live | from bars_1m + letf_shares_snapshots | derived |
 | `letf_shares_snapshots` | LETF per day: shares outstanding | symbol+ts | `ts` date | letf_flows (CVForge since 2026-11-19); letf_close_live (first pass of the day, if no row yet) | FMP via CVForge | raw |
 

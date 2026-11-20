@@ -37,6 +37,7 @@ from trading_intel.flow.scorecard import build_scorecard
 from trading_intel.memory.db import make_session_factory
 from trading_intel.memory.models import GreeksSnapshot, TasDailyContract, WatchlistEntry
 from trading_intel.timeutils import eastern_now
+from trading_intel.chain_bank import BANK_SOURCE  # 2026-11-20: the hourly chain bank rows stay out of this reader
 
 log = structlog.get_logger(__name__)
 
@@ -46,7 +47,7 @@ def _optionable(session: Session, symbol: str, *, within_days: int = 5) -> bool:
     cut = eastern_now().replace(tzinfo=None) - timedelta(days=within_days)
     hit = session.execute(
         select(GreeksSnapshot.id)
-        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.ts >= cut)
+        .where(GreeksSnapshot.symbol == symbol, GreeksSnapshot.ts >= cut, GreeksSnapshot.source != BANK_SOURCE)
         .limit(1)
     ).first()
     return hit is not None

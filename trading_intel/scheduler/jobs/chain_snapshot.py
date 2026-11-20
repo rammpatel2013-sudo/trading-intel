@@ -35,7 +35,7 @@ from trading_intel.watchlist import effective_symbols
 log = structlog.get_logger(__name__)
 
 _SOURCE = "convex"
-_UQ_COLS = ["symbol", "ts", "source", "expiry", "strike", "cp"]
+_UQ_COLS = ["symbol", "ts", "source", "root", "expiry", "strike", "cp"]  # root added 0066 (2026-11-20)
 # Postgres caps bound params at 65535/statement; ~16 cols/row -> stay well under.
 # Required now that chain_snapshot pulls the wide multi-expiry chain (chain_long).
 _INSERT_BATCH = 1000

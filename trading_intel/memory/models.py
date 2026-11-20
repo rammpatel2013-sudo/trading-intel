@@ -98,6 +98,21 @@ class GreeksSnapshot(Base):
     call_notional: Mapped[float | None] = mapped_column(Float)
     put_notional: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="convex")  # convex, schwab_legacy, etc.
+    # 0066 chain bank (2026-11-20; filled by source cvforge_bank): constant-maturity ATM IV (decimal),
+    # IV30 / IV90, 30-day 25-delta put / call IV and put-minus-call skew, open interest, $ premium traded
+    # (day volume x day VWAP x 100), contracts in the chain, write time (naive Eastern).
+    iv30: Mapped[float | None] = mapped_column(Float)
+    iv90: Mapped[float | None] = mapped_column(Float)
+    ts_30_90: Mapped[float | None] = mapped_column(Float)
+    skew25_30: Mapped[float | None] = mapped_column(Float)
+    put25_30: Mapped[float | None] = mapped_column(Float)
+    call25_30: Mapped[float | None] = mapped_column(Float)
+    call_oi: Mapped[float | None] = mapped_column(Float)
+    put_oi: Mapped[float | None] = mapped_column(Float)
+    call_premium_usd: Mapped[float | None] = mapped_column(Float)
+    put_premium_usd: Mapped[float | None] = mapped_column(Float)
+    n_contracts: Mapped[int | None] = mapped_column(Integer)
+    ingested_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class GreeksChain(Base):
@@ -105,8 +120,9 @@ class GreeksChain(Base):
 
     __tablename__ = "greeks_chain"
     __table_args__ = (
+        # 2026-11-20 (0066): root in the key - SPX (AM) and SPXW (PM) share expiry + strike on monthlies.
         UniqueConstraint(
-            "symbol", "ts", "source", "expiry", "strike", "cp", name="uq_greeks_chain"
+            "symbol", "ts", "source", "root", "expiry", "strike", "cp", name="uq_greeks_chain_root"
         ),
     )
 
@@ -130,6 +146,13 @@ class GreeksChain(Base):
     vxoi: Mapped[float | None] = mapped_column(Float)
     cxoi: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="convex")
+    # 0066 chain bank (2026-11-20): option root (SPXW, NDXP ...; '' = not recorded), underlying price at the
+    # snapshot, the contract's day VWAP and day close (option price), write time (naive Eastern).
+    root: Mapped[str] = mapped_column(String(8), default="", server_default="")
+    spot: Mapped[float | None] = mapped_column(Float)
+    px_vwap: Mapped[float | None] = mapped_column(Float)
+    px_close: Mapped[float | None] = mapped_column(Float)
+    ingested_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class OiChainDaily(Base):
