@@ -11,20 +11,34 @@ function allOff(){ for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false; tgApp
 function btn(id,lb,tid,ver,help){ const v=TG[id]; const on=!!v; const sel=TG_SEL[id];
   const val=sel?(v?(v.slice(0,2)+":"+v.slice(2)):"off"):(on?"ON":"off");
   return `<button class="tgb${on?" on":""}" data-tg="${id}" title="${help.replace(/"/g,"&quot;")}"><span class="tid">${tid}</span> ${lb} <b>${val}</b>${ver==="v0"?' <span class="v0">v0</span>':""}</button>`; }
+/* 2026-11-20 (Mithil 00:19: "too many toggles ... some can be merged") - the bar shows 8 grouped switches; the single
+   toggles stay under "All single toggles" (scoring still records each). A group is ON when every flag in it is set. */
+const TG_GROUPS=[["Clock","B2 16:00 + A5 half day",{b2:"1600",a5:true}],["0DTE IV clean","B3 quote filter + B6 gap fill",{b3:true,b6:true}],
+  ["Week IV","WK: live after 09:35, 08:35 delta-weighted before, forward",{wk:true}],["Smile path","SG shadow IV path + E2 smooth beta (transition zones)",{sg:true,e2:true}],
+  ["Real charm","D4",{d4:true}],["Levels","F2 raw levels + FX labels",{f2:true,fx:true}],["Data check","AB warn when data is bad",{ab:true}],["Close pin","P3 cp-v0",{pin:true}]];
+function grpOn(g){ return Object.entries(g[2]).every(([k,v])=>TG[k]===v); }
+function grpBtn(g,i){ const on=grpOn(g); return `<button class="tgb${on?" on":""}" data-grp="${i}" title="${g[1].replace(/"/g,"&quot;")}">${g[0]} <b>${on?"ON":"off"}</b></button>`; }
+function setGrp(i){ const g=TG_GROUPS[i], on=grpOn(g); for(const [k,v] of Object.entries(g[2])) TG[k]=on?(k in TG_SEL?"":false):v; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"group",group:g[0],value:!on},ctx())); render(); draw(); }
 function stats(){ const p=[]; const on=tgOn();
   if(TG.b3) p.push(`B3 dropped ${TG_STATS.rej} quote side${TG_STATS.rej===1?"":"s"} now`);
   if(TG.b6) p.push(`B6 filled ${TG_STATS.fill} strike${TG_STATS.fill===1?"":"s"}`);
+  if(TG.wk) p.push(`WK Week IV live ${TG_WKS.live} / 08:35 blended ${TG_WKS.blend}`);
+  if(TG.pin){ const v=tgPinCalc(); if(v&&v.lvl!=null) p.push(`P3 ${v.kind==="pin"?"close pin "+fmtN(v.lvl):v.kind==="nopin"?"no pin (short gamma), flip "+fmtN(v.lvl):"close pull "+fmtN(v.lvl)}`); }
+  if(TG.ab){ const w=tgWarn(); p.push(w.length?"⚠ DATA: "+w.join(" · "):"data OK"); }
   if(TG.b5) p.push(`B5 Week IV live ${TG_STATS.wkLive} / fallback ${TG_STATS.wkFb}`);
   if(TG.b4){ const bc=tgBookCheck(); if(bc) p.push((bc.bad?"⚠ ":"")+"B4a "+bc.txt+(bc.bad?" — CHECK THE MORNING BOOK":" — OK")); }
   if(TG.a5){ const e=tgEarly(); p.push(e?`A5 early close ${tlabel(e)}${tgEarlySim()?" (SIMULATED by the address)":""}: 0DTE clock + map end then`:"A5 on: today is a normal close (no change)"); }
   if((TG.e2||TG.d1)&&!st.smileOn) p.push("E2/D1 act only with Smile ON");
   if(TG.c2&&!SB) p.push("C2 waits for smilebeta.json");
   return p.join(" · "); }
+let tgSinglesOpen=false;
 function draw(){ const on=tgOn();
   bar.innerHTML=`<div class="tg1"><b class="tgt">TEST COCKPIT</b> <span>${on.length?"ON: "+on.join(", "):"all toggles off = production maths"}</span>
     <button class="tgall" id="tgAll">ALL OFF = production</button> <a class="tgprod" href="${prodURL}">Open production page (8899)</a>
     <span class="tgnote"><input id="tgRead" type="text" maxlength="400" placeholder="My read now (saved with the time and toggles)"><button id="tgReadBtn">Save read</button><span id="tgReadOk"></span></span></div>
-    <div class="tg2">${TG_DEF.map(x=>btn(...x)).join("")}</div><div class="tg3" id="tgStats">${stats()}</div>`;
+    <div class="tg2">${TG_GROUPS.map(grpBtn).join("")}</div><details class="tg2" id="tgSingles"${tgSinglesOpen?" open":""}><summary>All single toggles (old)</summary>${TG_DEF.map(x=>btn(...x)).join("")}</details><div class="tg3" id="tgStats">${stats()}</div>`;
+  bar.querySelectorAll("[data-grp]").forEach(b=>b.addEventListener("click",()=>setGrp(+b.dataset.grp)));
+  const det=document.getElementById("tgSingles"); if(det) det.addEventListener("toggle",()=>{ tgSinglesOpen=det.open; });
   bar.querySelectorAll("[data-tg]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tg; const sel=TG_SEL[id];
     if(sel){ const i=sel.indexOf(TG[id]); setTG(id,sel[(i+1)%sel.length]); } else setTG(id,!TG[id]); }));
   document.getElementById("tgAll").addEventListener("click",allOff);

@@ -278,6 +278,7 @@ def score_all(data, outdir):
             s2 = {"held": 0, "broke": 0, "unresolved": 0, "untouched": 0, "inside": 0, "mfe15": [], "mae15": []}
             s3 = {"long": [], "short": [], "ac_long": [], "ac_short": [], "hit": 0, "n": 0, "incomplete": 0, "missing": 0}
             seq, at = [], {}
+            pin_err, pin_spot, pin_other = [], [], {}
             for r in rs:
                 c = (r.get("cfgs") or {}).get(cfg)
                 if not c or c.get("err"):
@@ -306,6 +307,11 @@ def score_all(data, outdir):
                         s3["long"].append(w["q"]); s3["ac_long"].append(w["ac1"]); s3["hit"] += w["q"] < 1
                     else:
                         s3["short"].append(w["q"]); s3["ac_short"].append(w["ac1"]); s3["hit"] += w["q"] > 1
+                pin = (c.get("close") or {}).get("pin") or {}   # 2026-11-20 P3 cp-v0
+                if pin.get("kind") == "pin" and pin.get("lvl") is not None and close is not None:
+                    pin_err.append(abs(pin["lvl"] - close)); pin_spot.append(abs(r["spot"] - close))
+                elif pin:
+                    pin_other[pin.get("kind") or "none"] = pin_other.get(pin.get("kind") or "none", 0) + 1
                 pred = (c.get("close") or {}).get("pred")
                 err = abs(pred - close) if (pred is not None and close is not None) else None
                 seq.append((r["slot"], err))
@@ -322,6 +328,8 @@ def score_all(data, outdir):
                        "median_q_long": med(s3["long"]), "median_q_short": med(s3["short"]),
                        "median_ac1_long": med(s3["ac_long"]), "median_ac1_short": med(s3["ac_short"]),
                        "_q_long": s3["long"], "_q_short": s3["short"]},
+                "S4pin": {"n": len(pin_err), "median_err": med(pin_err), "median_spot_err": med(pin_spot),
+                          "within5": sum(1 for e in pin_err if e <= 5), "other": pin_other},
                 "S4": {"first": first, "lock": lock, "err_at": at, "slots": len(seq),
                        "misses": sum(1 for _s, e in seq if e is None), "vs_spot": _vs(lock, sl)}}
         day_rec["status"] = "scored"

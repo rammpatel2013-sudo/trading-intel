@@ -4813,6 +4813,9 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
   ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
   ["v9","Week IV = VIX9D","V9","v0","(2026-11-13 overnight, backlog #21) Week book IV re-marked by the change in VIX9D since the first reading of the day (live.json v9dq) instead of ½ × the change in 0DTE ATM IV. Production writes v9d = 0 (V9D_INTO_MAP = False), so production never uses VIX9D. Recorded every 15 min (config v9) and, separately, both rules are checked against the live week chain IV (v9_score.py, nightly)."],
+  ["wk","Week IV","WK","v1","(2026-11-20) Week book IV: after 09:35 the live Week chain per contract; before (or where missing) the 08:35 book DELTA-WEIGHTED (at the money the average of call and put IV, far out the out-of-the-money side; the 08:35 calls sat 2.6-6.6 vol pts under the puts on 11/19). Week greeks taken at the forward F = spot + basis measured from the live Week deltas (+5 to +14 pts on 11/19). Replaces B5 / BQ / V9."],
+  ["ab","Data check","AB","v0","(2026-11-20, round-2 step 3) Warn, never hide: amber outline on the gamma map and a read-out line saying why the data is not trustworthy now (stale feed, old Week book, 08:35 call/put gap, few live Week IVs, 0DTE strikes without IV, pre-open). Display only."],
+  ["pin","Close pin","P3","v0","(2026-11-20, round-2 step 4) Dashed magenta line: the close pin from the gamma profile projected to 15:50 (rule cp-v0: long gamma at spot -> nearest positive-gamma peak within 1.5%; short gamma -> no pin, flip shown). Scored nightly vs the 16:00 close (S4pin)."],
   ["sg","Shadow","SG","v0","Alma's shadow greeks (2026-11-13): IV moves with price by our measured β (the Smile button's β file) along the path from that minute's price. Gamma = gamma + vanna × (IV change per point); Delta pane = the plain option delta at that moving IV, computed directly; charm / vanna use the path IV. Overrides Smile while on (Smile measures the min-variance hedge, a different object - never both). Needs the β file."]];
 // 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
 const TG_SEL={b2:["","1600","1615"]};
@@ -4913,15 +4916,15 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
   const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sgOn=!!TG.sg&&!!SB, sm=!!st.smileOn&&!sgOn; if(sm) smileSlopes(rows); const c2=TG.c2&&!!SB;
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue;
     const sg=sgOn?tgShadowSg(r,S):c2?tgPathSg(r,S):r.sg;
-    const d1=(Math.log(S/r.k)+0.5*sg*sg*ty)/(sg*sq), d2=d1-sg*sq, p=PHI(d1);
+    const F=S+(r.fb||0), d1=(Math.log(F/r.k)+0.5*sg*sg*ty)/(sg*sq), d2=d1-sg*sq, p=PHI(d1);   // WK: Week rows carry fb (forward - spot)
     if(kind==="delta"){ tot+=pos*tgN(d1); continue; }   // TEST DL: dealer delta in contracts, the part that moves (calls and puts share N(d1); a put's -1 is a constant)
     const sS=sm?smileSS(r,S):0;
-    if(kind==="gamma"){ let g=p/(S*sg*sq) + (sm? 2*sS*(-p*d2/sg) + sS*sS*(S*p*sq*d1*d2/sg) : 0);
+    if(kind==="gamma"){ let g=p/(F*sg*sq) + (sm? 2*sS*(-p*d2/sg) + sS*sS*(S*p*sq*d1*d2/sg) : 0);
       if(sm&&TG.d1) g+=S*p*sq*tgDbdS(r,S);                          // + Vega · db/dS
       if(sgOn){ const b=smileBeta(r.k,S,r.dte||0); if(b!=null) g+=(-p*d2/sg)*(b/S); }   // TEST SG: + Vanna · dσ/dS along the β path (Alma's shadow gamma)
       tot+=pos*g*2.5; }
     else if(kind==="charm"){ const smc=sm? sS*S*p*(d1*d2+1)/(2*sq)*(5/525600) : 0; let dd;
-      if(TG.d4){ const t2=ty-5/525600; const n1=t2>0?tgN((Math.log(S/r.k)+0.5*sg*sg*t2)/(sg*Math.sqrt(t2))):(S>r.k?1:(S<r.k?0:0.5)); dd=n1-tgN(d1); }
+      if(TG.d4){ const t2=ty-5/525600; const n1=t2>0?tgN((Math.log(F/r.k)+0.5*sg*sg*t2)/(sg*Math.sqrt(t2))):(F>r.k?1:(F<r.k?0:0.5)); dd=n1-tgN(d1); }
       else dd=p*d2/(2*ty)*(5/525600);
       tot-=pos*(dd-smc)*(cm||1); }
     else tot-=pos*(-p*d2/sg)*0.01;
@@ -4939,8 +4942,8 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
    Close / 1DTE / Friday prediction: zero line nearest spot on the profile at the target (target close − 10 min);
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
-const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-1a1dd684aac4";
-const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["bq",{bq:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
+const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-79c1ffa0a73a";
+const TG_CFGS=[["off",{}],["wk",{wk:true}],["smp",{sg:true,e2:true}],["clock",{b2:"1600",a5:true}],["iv0",{b3:true,b6:true}],["wk_smp",{wk:true,sg:true,e2:true}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["bq",{bq:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
 function tgCross(prices,col,i,lev){ const a=col[i-1], b=col[i]; return prices[i-1]+(prices[i]-prices[i-1])*(lev-a)/((b-a)||1); }
@@ -4980,7 +4983,7 @@ function tgReadoutOne(d,day,now){ // current toggles + st.smileOn; basis/ledger 
   const gS=colNow[i0]+(colNow[Math.min(P.length-1,i0+1)]-colNow[i0])*((S-P[i0])/dp);
   const tC=MAP_T1-10, tyC=Math.max(TG_GEND-tC,1)/525600, colC=P.map(p=>greekCol("gamma",live,p,tyC)+(near.length?greekColWeek("gamma",near,p,tC,day):0)), zC=tgZeros(P,colC,tgP95(colC));
   const out={g_spot:+gS.toFixed(4),R:+R.toFixed(4),zeros:zN.filter(z=>inWin(z.z)),peaks:ex.pk.filter(x=>inWin(x.p)),troughs:ex.tr.filter(x=>inWin(x.p)),
-    close:{target_min:tC,pred:tgNearestZero(zC,S),zeros:zC.map(z=>z.z)}};
+    close:{target_min:tC,pred:tgNearestZero(zC,S),zeros:zC.map(z=>z.z),pin:tgPinFrom(P,colC,S,dp)}};
   const T=tgTargets(near,day), P3=tgGrid(S,0.03,dp);
   for(const k of ["d1","fri"]){ const tg=T[k]; if(!tg){ out[k]=null; continue; } const col=tgProfileAt(near,P3,tg.target_ms), zs=tgZeros(P3,col,tgP95(col));
     out[k]={e:tg.e,exp_t:tg.exp_t,pred:tgNearestZero(zs,S),zeros:zs.map(z=>z.z)}; }
@@ -5695,6 +5698,124 @@ function tgBqLine(){ if(!TG.bq) return ""; const nb=st.ti&&st.ti.near_book&&st.t
   const s=tgBqBuild(nb,S).stats, pc=v=>Math.round(100*v/Math.max(1,s.rows))+"%";
   return `<div class="bl"><b>TEST Book quality (08:35 book, ${s.rows} strikes):</b> ${pc(s.observed)} observed · ${pc(s.conflict)} call/put conflict resolved · ${pc(s.paired)} other side · ${pc(s.interpolated)} filled · <b>${pc(s.unavailable)} left out</b>${s.stale?` · ${s.stale} near-spot strikes > 10 vol pts off the live chain (stale)`:""}.</div>`; }
 
+/* TEST WK (2026-11-20, Mithil 00:19: "8:35 book will be thin, overnight gap affects greeks ... use delta and real
+   calculation to fill IV ... live week IV after market open is imp") + AB data check + P3 close pin.
+   Toggle "Week IV" (WK v1), OFF by default; off = production maths.
+
+   What the 11/19 data showed (claude/week-book-check-20261120.md):
+     - our Week clock matches the vendor's own greeks on 4,000 trades (time ratio 1.00 on PM weeklies);
+     - the 08:35 book has call IV BELOW put IV at the same strike (6.6 vol pts on the 11/20 AM monthly near price,
+       2.6 on 1-day PM, ~0.6 on 4-6 days; the live chain: 0.0). Solved pre-open against a spot that does not match the
+       overnight futures. Production takes the put side below price and the call side above -> a step at price;
+     - the vendor prices 1-6 DTE off a FORWARD 5-14 pts above spot (live Week deltas; trade prints agree, 4-10);
+       production uses spot for the Week book.
+   WK, per Week-book contract:
+     1. after 09:35 with the live Week chain for that contract: live IV (B5 maths: rescaled from whole days to the
+        contract's real time left - verified: live Week IV / trade-print IV = 1.066 vs 1.055 expected on 11/20);
+     2. otherwise the 08:35 book DELTA-WEIGHTED: sigma = w*put IV + (1-w)*call IV, w = N(ln(F/K) / (sigma_mid*sqrt(T))):
+        at the money the average of the two (a full re-solve at the parity forward agreed within 0.5 vol pt on 11/19),
+        far out the out-of-the-money side. A side outside 3%-150% is not used; > 10 vol pts apart -> Book clean (BQ)
+        rule; nothing usable -> BQ fill or left out. The production ATM / VIX9D shift then applies as before.
+     3. forward: F = S + B(expiry), B from the live Week deltas (median over strikes within 40 pts, 0.10 < delta < 0.90,
+        >= 6 strikes); an expiry without its own B takes the nearest-DTE expiry's. Gamma, charm, vanna of the Week
+        book are taken at F (d1 = ln(F/K)...; gamma per point of SPX = per point of F). No live Week chain -> B = 0.
+   0DTE is unchanged (live 0DTE IVs are already forward-consistent; its own basis, ~2.5 pts on 11/19, needs the feed
+   to carry deltas - locked file, later). */
+const TG_WKB={ts:null,sym:null,m:null};
+function tgWkBasis(){ const ts=st.live&&st.live.ts; if(TG_WKB.ts===ts&&TG_WKB.sym===st.sym) return TG_WKB.m;
+  const wk=st.live&&st.live.week&&st.live.week[st.sym], S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; let m=null;
+  if(wk&&wk.rows&&wk.rows.length&&S>0){ const by=new Map();
+    for(const r of wk.rows){ if(Math.abs(r.k-S)>40||!(r.dte>=1)) continue; const tau=r.dte*1440/525600, sq=Math.sqrt(tau);
+      for(const [iv,D,c] of [[r.cIV,r.cD,1],[r.pIV,r.pD,0]]){ if(!(iv>0)||D==null) continue; const dd=c?D:D+1; if(!(dd>0.1&&dd<0.9)) continue;
+        const d1=tgInvN(dd), F=r.k*Math.exp(d1*iv*sq-0.5*iv*iv*tau), id=r.e+"|"+(r.set||"PM");
+        if(!by.has(id)) by.set(id,{dte:r.dte,v:[]}); by.get(id).v.push(F-S); } }
+    m=new Map(); for(const [id,o] of by){ if(o.v.length<6) continue; o.v.sort((a,b)=>a-b); m.set(id,{dte:o.dte,b:o.v[Math.floor(o.v.length/2)]}); }
+    if(!m.size) m=null; }
+  TG_WKB.ts=ts; TG_WKB.sym=st.sym; TG_WKB.m=m; return m; }
+function tgInvN(p){ // inverse standard normal (Acklam), |err| < 1.2e-9
+  const a=[-39.6968302866538,220.946098424521,-275.928510446969,138.357751867269,-30.6647980661472,2.50662827745924],
+    b=[-54.4760987982241,161.585836858041,-155.698979859887,66.8013118877197,-13.2806815528857],
+    c=[-0.00778489400243029,-0.322396458041136,-2.40075827716184,-2.54973253934373,4.37466414146497,2.93816398269878],
+    d=[0.00778469570904146,0.32246712907004,2.445134137143,3.75440866190742], pl=0.02425;
+  if(p<pl){ const q=Math.sqrt(-2*Math.log(p)); return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if(p>1-pl){ const q=Math.sqrt(-2*Math.log(1-p)); return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  const q=p-0.5, r=q*q; return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1); }
+function tgWkB(r){ const m=tgWkBasis(); if(!m) return 0; const id=r.e+"|"+(r.set||"PM"); const o=m.get(id); if(o) return o.b;
+  let best=null; for(const v of m.values()) if(best==null||Math.abs(v.dte-(r.dte||1))<Math.abs(best.dte-(r.dte||1))) best=v; return best?best.b:0; }
+function tgWkTau(r){ const t=wkTauMin({e:r.e,set:r.set||"PM",exp_t:r.exp_t||(r.e+"T16:00")},wkDayISO(),Math.max(tgLiveMin(),MAP_T0)); return t>0?t/525600:null; }
+function tgWkSg08(r,S){ // step 2: delta-weighted 08:35 IV
+  const c=+r.cIV||0, p=+r.pIV||0, cv=tgBqValid(c), pv=tgBqValid(p);
+  if(cv&&pv){ if(Math.abs(c-p)>BQ_GAP) return tgBqSg(r,S);
+    const tau=tgWkTau(r); if(!tau) return r.k>=S?c:p; const F=S+tgWkB(r), sm=(c+p)/2, w=tgN(Math.log(F/r.k)/(sm*Math.sqrt(tau)));
+    return w*p+(1-w)*c; }
+  if(cv||pv) return cv?c:p;
+  return tgBqSg(r,S); }
+const TG_WKS={live:0,blend:0,fb:{}};
+function tgWkLine(){ if(!TG.wk) return ""; const m=tgWkBasis(), S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0;
+  const bs=m?[...m.entries()].sort((a,b)=>a[1].dte-b[1].dte).slice(0,5).map(([id,o])=>`${id.slice(5,10)}${id.endsWith("AM")?" AM":""} +${o.b.toFixed(1)}`).join(" · "):"no live Week chain - forward = spot";
+  const g=tgWkGap(S); const c=liveClock(), open=c.h*60+c.m>=MAP_OPEN+5;
+  return `<div class="bl"><b>TEST Week IV (WK v1):</b> ${TG_WKS.live} contracts on live Week IV · ${TG_WKS.blend} on the 08:35 book delta-weighted${open?"":" (pre-open: 08:35 only)"} · forward vs spot: ${bs}${g!=null?` · 08:35 call−put IV gap near price ${g.toFixed(1)} vol pts (raw; the blend removes the step)`:""}.</div>`; }
+function tgWkGap(S){ const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; if(!nb||!nb.rows||!(S>0)) return null; const g=[];
+  for(const r of nb.rows){ if(Math.abs(r.k-S)>50||!(r.dte<=1)) continue; const c=+r.cIV||0,p=+r.pIV||0; if(tgBqValid(c)&&tgBqValid(p)) g.push((c-p)*100); }
+  if(g.length<5) return null; g.sort((a,b)=>a-b); return g[Math.floor(g.length/2)]; }
+
+/* AB v0 DATA CHECK (round-2 step 3; Mithil: "show warning about data is bad" -> warn, never hide). Toggle "Data check".
+   Each reason is a frozen rule; the map is outlined amber and the read-out says why. Levels stay drawn.
+   Rules: live feed older than 3 min in 09:30-16:00 · Week book not from today · 08:35 1-day call/put gap near price > 3 vol pts
+   (WK off) · B4a (08:35 vs live > 8 pts median) · after 09:35 < 50% of near-price Week contracts on live IV (WK on) ·
+   > 20% of 0DTE strikes within 1% of price with no IV · pre-open (before 09:30: 08:35 book only).
+   Far-out-of-the-money 0DTE IVs rising into the close are NOT a warning (normal tail repricing, Mithil 00:25). */
+function tgWarn(){ const w=[]; const d=st.live&&st.live[st.sym], S=d&&d.spot||0, c=liveClock(), now=c.h*60+c.m;
+  if(!d||!(S>0)) return ["no live data"];
+  const ts=st.live.ts?Date.parse(st.live.ts.length<=19?st.live.ts+"-05:00":st.live.ts):NaN;
+  if(now>=MAP_OPEN&&now<=MAP_T1&&isFinite(ts)&&Date.now()-ts>3*60000&&!tgEarlySim()) w.push(`live feed ${Math.round((Date.now()-ts)/60000)} min old`);
+  const wi=typeof wkBookInfo==="function"?wkBookInfo():null; if(wi&&wi.stale) w.push(`Week book from ${wi.asof}, not today`);
+  if(now<MAP_OPEN) w.push("pre-open: Week book is the 08:35 pull only");
+  if(!TG.wk){ const g=tgWkGap(S); if(g!=null&&Math.abs(g)>3) w.push(`08:35 1-day call/put IV ${Math.abs(g).toFixed(1)} vol pts apart near price (Week IV wrong level, step at price - WK fixes)`); }
+  else if(now>=MAP_OPEN+5){ const tot=TG_WKS.live+TG_WKS.blend; if(tot>0&&TG_WKS.nearLive!=null&&TG_WKS.nearTot>=10&&TG_WKS.nearLive/TG_WKS.nearTot<0.5) w.push(`only ${TG_WKS.nearLive}/${TG_WKS.nearTot} near-price Week contracts on live IV`); }
+  try{ const bc=tgBookCheck(); if(bc&&bc.bad&&!TG.wk) w.push("08:35 book vs live: "+bc.txt); }catch(e){}
+  let n=0,miss=0; for(const r of d.rows||[]){ if(Math.abs(r.k-S)>0.01*S) continue; n++; if(!((+r.cIV||0)>0)&&!((+r.pIV||0)>0)) miss++; }
+  if(n>=5&&miss/n>0.2) w.push(`${miss}/${n} 0DTE strikes near price have no IV`);
+  return w; }
+function tgWarnLine(){ if(!TG.ab) return ""; const w=tgWarn();
+  return w.length?`<div class="bl" style="border-left:4px solid #FFB020;padding-left:6px"><b style="color:#FFB020">⚠ DATA CHECK - read levels with care:</b> ${w.join(" · ")}.</div>`:`<div class="bl"><b>TEST Data check:</b> OK.</div>`; }
+function tgWarnFrame(ctx,W,H){ if(!TG.ab) return; const w=tgWarn(); if(!w.length) return; ctx.save(); ctx.strokeStyle="#FFB020"; ctx.lineWidth=3; ctx.setLineDash([10,6]);
+  ctx.strokeRect(2,2,W-4,H-4); ctx.setLineDash([]); ctx.font="bold 13px system-ui"; const t="⚠ DATA CHECK: "+w[0]+(w.length>1?` (+${w.length-1})`:""), tw=ctx.measureText(t).width;
+  ctx.fillStyle="#000000d8"; ctx.fillRect(8,6,tw+12,20); ctx.fillStyle="#FFB020"; ctx.fillText(t,14,21); ctx.restore(); }
+
+/* P3 v0 CLOSE PIN (round-2 step 4; Mithil 00:19: "i want close pin level"). Toggle "Close pin". Frozen rule cp-v0:
+   the gamma profile projected to 15:50 (close - 10 min; the map's book and basis, current minute's positions and IVs),
+   grid spot +-1.5%, half-strike step:
+     dealers long gamma at spot at 15:50 -> PIN = the positive-gamma peak (>= 8% of the profile's 95th pct |value|)
+       nearest spot; none -> the nearest zero of the profile (edge of the long-gamma zone);
+     short gamma at spot -> no pin; the nearest zero is drawn as the flip price must reclaim (label "no pin").
+   One dashed magenta line across the map at the level, label with the rule outcome. Scored nightly against the
+   16:00 close with the other read-outs (out.close.pin). */
+const TG_PIN={key:null,v:null};
+function tgPinCalc(){ const d=st.live&&st.live[st.sym]; if(!d||!d.rows||!(d.spot>0)) return null; const c=liveClock(), now=c.h*60+c.m;
+  const book=st.mapBook||"all", key=[st.live.ts,st.sym,book,st.basis,tgKey(),st.smileOn?1:0,MAP_T1].join("|"); if(TG_PIN.key===key) return TG_PIN.v;
+  const S=d.spot, dp=(d.step||5)/MAP_SUB, day=wkDayISO(), P=tgGrid(S,0.015,dp), tC=MAP_T1-10;
+  const live=book!=="week"?mapRowsAt(null,series(st.sym),d):[], near=book!=="0dte"?(nearRows()||[]):[];
+  const tyC=Math.max(TG_GEND-Math.max(tC,now),1)/525600;
+  const col=P.map(p=>(live.length?greekCol("gamma",live,p,tyC):0)+(near.length?greekColWeek("gamma",near,p,tC,day):0));
+  const v=tgPinFrom(P,col,S,dp);
+  if(v) v.t=tC; TG_PIN.key=key; TG_PIN.v=v; return v; }
+function tgPinFrom(P,col,S,dp){ // cp-v0 on a gamma profile (any grid); only points within +-1.5% of spot count
+  const keep=P.map((p,i)=>Math.abs(p-S)<=0.015*S+1e-9?i:-1).filter(i=>i>=0); if(keep.length<3) return null;
+  const P2=keep.map(i=>P[i]), c2=keep.map(i=>col[i]), R=tgP95(c2), zs=tgZeros(P2,c2,R), ex=tgExtremes(P2,c2,R);
+  let i0=0; for(let i=1;i<P2.length;i++) if(Math.abs(P2[i]-S)<Math.abs(P2[i0]-S)) i0=i;
+  if(c2[i0]>0){ let best=null; for(const x of ex.pk) if(best==null||Math.abs(x.p-S)<Math.abs(best-S)) best=x.p;
+    if(best!=null) return {lvl:best,kind:"pin"}; const z=tgNearestZero(zs,S); return {lvl:z,kind:z!=null?"edge":"none"}; }
+  const z=tgNearestZero(zs,S); return {lvl:z,kind:"nopin"}; }
+function tgPinOverlay(ctx,m,X,Y,padL,padT,W,H){ if(!TG.pin) return; const v=tgPinCalc(); if(!v||v.lvl==null) return;
+  const row=(v.lvl-m.prices[0])/m.dp, y=Y(row); if(!(y>=padT&&y<=padT+H)) return;
+  ctx.save(); ctx.strokeStyle=v.kind==="nopin"?"#FF6BD5aa":"#FF6BD5"; ctx.lineWidth=v.kind==="pin"?3:2; ctx.setLineDash([12,6]);
+  ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.setLineDash([]);
+  const t=v.kind==="pin"?`close pin ${fmtN(v.lvl)}`:v.kind==="edge"?`close pull ${fmtN(v.lvl)} (no peak - long-gamma edge)`:`no pin (short gamma) · flip ${fmtN(v.lvl)}`;
+  ctx.font="bold 13px system-ui"; const tw=ctx.measureText(t).width, x=padL+8; ctx.fillStyle="#000000d0"; ctx.fillRect(x-4,y-15,tw+8,18); ctx.fillStyle="#FF6BD5"; ctx.fillText(t,x,y-1); ctx.restore(); }
+function tgPinLine(){ if(!TG.pin) return ""; const v=tgPinCalc(); if(!v) return "";
+  return `<div class="bl"><b>TEST Close pin (cp-v0, 15:50 profile):</b> ${v.lvl==null?"no level in ±1.5%":v.kind==="pin"?`dealers long gamma into the close → pin <b>${fmtN(v.lvl)}</b>`:v.kind==="edge"?`long gamma, no clear peak → pull to the zone edge ${fmtN(v.lvl)}`:`dealers SHORT gamma into the close → no pin; flip ${fmtN(v.lvl)}`}.</div>`; }
+
 /* Phase 3 (2026-11-04), both OFF by default (Map tab buttons; scored nightly before they are trusted):
    Smile  = shadow greeks: the smile moves with spot (sticky moneyness), so dσ/dS = −(K/S)·dσ/dK per strike.
             Δ_shadow = Δ + vega·σ_S → gamma adds 2·vanna·σ_S + volga·σ_S², charm adds −σ_S·d(vega)/dτ.
@@ -5721,9 +5842,9 @@ function greekCol(kind, rows, S, ty, cm){ // one price point: sum over strikes
   if(TG_ANYG||kind==="delta") return greekColTG(kind,rows,S,ty,cm);   // TEST toggles C2 / D1 / D4 / SG + the Delta map
   const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sm=!!st.smileOn; if(sm) smileSlopes(rows);
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue;
-    const d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);
+    const F=S+(r.fb||0), d1=(Math.log(F/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);   // TEST WK forward (0DTE rows: fb 0)
     const sS=sm?smileSS(r,S):0;
-    if(kind==="gamma") tot+=pos*(p/(S*r.sg*sq) + (sm? 2*sS*(-p*d2/r.sg) + sS*sS*(S*p*sq*d1*d2/r.sg) : 0))*2.5;  // dealer Δ gained per 2.5-pt rise (exposure; blue = long gamma)
+    if(kind==="gamma") tot+=pos*(p/(F*r.sg*sq) + (sm? 2*sS*(-p*d2/r.sg) + sS*sS*(S*p*sq*d1*d2/r.sg) : 0))*2.5;  // dealer Δ gained per 2.5-pt rise (exposure; blue = long gamma)
     else if(kind==="charm") tot-=pos*(p*d2/(2*ty) - (sm? sS*S*p*(d1*d2+1)/(2*sq) : 0))*(5/525600)*(cm||1);   // HEDGE FLOW per 5 min = −(dealer Δ drift); + = dealers buy (r=0: call/put charm equal)
     else tot-=pos*(-p*d2/r.sg)*0.01;                                     // HEDGE FLOW per +1 vol pt = −(dealer Δ change via vanna); + = dealers buy
   }
@@ -5793,10 +5914,12 @@ function weekDiff(){ // one line: how the two week books differ (OI match, ATM I
 function nearRowsConvex(){ // 1–7 DTE book from the morning feed (ti.json near_book): rows with their own days-to-expiry
   const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; if(!nb||!nb.rows||!nb.rows.length) return null;
   const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const out=[]; const dv=Math.max(-0.1,Math.min(0.1,weekIVShift().dv));
-  let nL=0,nF=0; for(const r of nb.rows){ const sg0=TG.bq?tgBqSg(r,S):otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue; let sg=Math.max(0.01,sg0+dv);
-    if(TG.b5){ const lv=tgWeekLiveSg(r,S); if(lv>0){ sg=lv; nL++; } else nF++; }
-    const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||"PM",exp_t:r.exp_t||(r.e+"T16:00"),cal_ok:r.cal_ok!==false,s0:S}); }
+  let nL=0,nF=0; TG_WKS._l=0; TG_WKS._b=0; TG_WKS._nt=0; TG_WKS._nl=0; for(const r of nb.rows){ const sg0=TG.wk?tgWkSg08(r,S):TG.bq?tgBqSg(r,S):otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue; let sg=Math.max(0.01,sg0+dv);
+    let fb=0; if(TG.wk){ fb=tgWkB(r); const nr=Math.abs(r.k-S)<=50; if(nr) TG_WKS._nt++; const lv=tgLiveMin()>=MAP_OPEN+5?tgWeekLiveSg(r,S):0; if(lv>0){ sg=lv; TG_WKS._l++; if(nr) TG_WKS._nl++; } else TG_WKS._b++; }   // TEST WK
+    else if(TG.b5){ const lv=tgWeekLiveSg(r,S); if(lv>0){ sg=lv; nL++; } else nF++; }
+    const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||"PM",exp_t:r.exp_t||(r.e+"T16:00"),cal_ok:r.cal_ok!==false,s0:S,fb}); }
   if(TG.b5){ TG_STATS.wkLive=nL; TG_STATS.wkFb=nF; }
+  if(TG.wk){ TG_WKS.live=TG_WKS._l; TG_WKS.blend=TG_WKS._b; TG_WKS.nearTot=TG_WKS._nt; TG_WKS.nearLive=TG_WKS._nl; }
   return out.length?out:null; }
 function greekColNear(kind,rows,S,tMin){ // same greek for longer expiries: τ = days to expiry + remaining minutes today
   if(WEEK_CLOCK_V2) return greekColWeek(kind,rows,S,tMin,wkDayISO());
@@ -5834,12 +5957,12 @@ function wkBookInfo(){ // what the Week book is and how far to trust it (shown o
 function greekColWeek(kind,rows,S,t,day){ let tot=0;
   if(st.smileOn||TG_ANYG||kind==="delta"){ for(const r of rows){ const m=wkTauMin(r,day,t); if(m==null) continue; tot+=greekCol(kind,[r],S,m/525600); } return tot; }
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue; const m=wkTauMin(r,day,t); if(m==null) continue;   // same maths as greekCol, Smile off, no per-row array
-    const ty=m/525600, sq=Math.sqrt(Math.max(ty,1e-7)), d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);
-    if(kind==="gamma") tot+=pos*(p/(S*r.sg*sq))*2.5; else if(kind==="charm") tot-=pos*(p*d2/(2*ty))*(5/525600); else tot-=pos*(-p*d2/r.sg)*0.01; }
+    const F=S+(r.fb||0), ty=m/525600, sq=Math.sqrt(Math.max(ty,1e-7)), d1=(Math.log(F/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);   // TEST WK forward
+    if(kind==="gamma") tot+=pos*(p/(F*r.sg*sq))*2.5; else if(kind==="charm") tot-=pos*(p*d2/(2*ty))*(5/525600); else tot-=pos*(-p*d2/r.sg)*0.01; }
   return tot; }
 function wkHash(rows){ // FNV-1a over EVERY input of every row (strike, IV, position, endpoint, family, dte) - any change rebuilds
   let h=0x811c9dc5; const add=s=>{ for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } };
-  for(const r of rows) add(r.k+"|"+r.sg+"|"+r.cp+"|"+r.pp+"|"+(r.exp_t||r.e||"")+"|"+(r.set||"")+"|"+(r.dte??"")+";");
+  for(const r of rows) add(r.k+"|"+r.sg+"|"+r.cp+"|"+r.pp+"|"+(r.exp_t||r.e||"")+"|"+(r.set||"")+"|"+(r.dte??"")+"|"+(r.fb||0)+";");
   return rows.length+":"+h.toString(16); }
 const WK_CACHE=new Map();   // weekField results shared by every map built from the same inputs (cleared when inputs change)
 function weekField(kind,rows,prices,day){
@@ -6097,7 +6220,8 @@ function drawHeat(id,m,se,d,legendTxt){
   if(ZONE) zoneOverlay(ctx,m,X,Y,padL,padT,W,H);
   else { trace(f=>f.z,"#dfe6f2",[2,3]); if(m.kind==="gamma"||m.kind==="vanna"||m.kind==="charm"){ trace(f=>f.pk,"#2ecc71"); trace(f=>f.tr,"#f4d03f"); }
     if(st.mapFlipLine&&m.kind==="gamma"&&id==="mapGammaC") zoneOverlay(ctx,m,X,Y,padL,padT,W,H,{band:false,legend:false});   // 2026-11-12 Flip line
-    if(st.zeroR&&id==="mapRightC"&&(m.kind==="vanna"||m.kind==="charm")) tgZeroOverlay(ctx,m,X,Y,padL,padT,W,H); }   // TEST ZR
+    if(st.zeroR&&id==="mapRightC"&&(m.kind==="vanna"||m.kind==="charm")) tgZeroOverlay(ctx,m,X,Y,padL,padT,W,H);   // TEST ZR
+    if(id==="mapGammaC"&&m.kind==="gamma"){ tgPinOverlay(ctx,m,X,Y,padL,padT,W,H); tgWarnFrame(ctx,padL+W+2,padT+H+2); } }   // TEST P3 + AB
   if(st.mapHedge&&m.kind==="gamma"&&id==="mapGammaC"&&HEDGE.cur) hedgeOverlay(ctx,m,X,Y,padL,padT,W,H,HEDGE.cur);   // 2026-11-13 Hedge lines
   // ±1σ anchored at 9:35 from ATM IV of today's expiry
   const sg=(d&&d.iv>0)?d.iv:null; if(sg&&st.coneLive){ const t0=9*60+35; ctx.strokeStyle="#ffffff66"; ctx.lineWidth=1; for(const s of [1,-1]){ ctx.beginPath(); let on=false;
@@ -6287,7 +6411,10 @@ function mapRead(g,ch,va,se,d){
     if(nm.length) B.push(`<div class="bl"><b>Outside levels agree:</b> ${[...new Set(nm)].slice(0,3).join(" · ")}.</div>`); }
   { const wi=WEEK_CLOCK_V2&&g&&g.book!=="0dte"?wkBookInfo():null; if(wi&&wi.warn.length) B.push(`<div class="bl"><b>⚠ Week book:</b> ${wi.warn.join(" · ")}.</div>`); }
   if(TG.b4&&g&&g.book!=="0dte"){ const bc=tgBookCheck(); if(bc&&bc.bad) B.push(`<div class="bl"><b>⚠ TEST B4a — morning book may be bad:</b> ${bc.txt}. Nothing is replaced unless B5 is on.</div>`); }
-  if(TG.bq) B.push(tgBqLine());   /* TEST BQ */
+  if(TG.bq&&!TG.wk) B.push(tgBqLine());   /* TEST BQ */
+  if(TG.wk&&g&&g.book!=="0dte") B.push(tgWkLine());   /* TEST WK */
+  if(TG.pin) B.push(tgPinLine());   /* TEST P3 */
+  if(TG.ab) B.unshift(tgWarnLine());   /* TEST AB: first line */
   const wd=weekDiff();
   return `<div class="blbox">${B.join("")}</div>${wd||""}<details class="rdet" id="mapReadDet"${st.readOpen?" open":""}><summary>Details</summary>${L.join("")}</details>`;
 }
@@ -9824,20 +9951,34 @@ function allOff(){ for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false; tgApp
 function btn(id,lb,tid,ver,help){ const v=TG[id]; const on=!!v; const sel=TG_SEL[id];
   const val=sel?(v?(v.slice(0,2)+":"+v.slice(2)):"off"):(on?"ON":"off");
   return `<button class="tgb${on?" on":""}" data-tg="${id}" title="${help.replace(/"/g,"&quot;")}"><span class="tid">${tid}</span> ${lb} <b>${val}</b>${ver==="v0"?' <span class="v0">v0</span>':""}</button>`; }
+/* 2026-11-20 (Mithil 00:19: "too many toggles ... some can be merged") - the bar shows 8 grouped switches; the single
+   toggles stay under "All single toggles" (scoring still records each). A group is ON when every flag in it is set. */
+const TG_GROUPS=[["Clock","B2 16:00 + A5 half day",{b2:"1600",a5:true}],["0DTE IV clean","B3 quote filter + B6 gap fill",{b3:true,b6:true}],
+  ["Week IV","WK: live after 09:35, 08:35 delta-weighted before, forward",{wk:true}],["Smile path","SG shadow IV path + E2 smooth beta (transition zones)",{sg:true,e2:true}],
+  ["Real charm","D4",{d4:true}],["Levels","F2 raw levels + FX labels",{f2:true,fx:true}],["Data check","AB warn when data is bad",{ab:true}],["Close pin","P3 cp-v0",{pin:true}]];
+function grpOn(g){ return Object.entries(g[2]).every(([k,v])=>TG[k]===v); }
+function grpBtn(g,i){ const on=grpOn(g); return `<button class="tgb${on?" on":""}" data-grp="${i}" title="${g[1].replace(/"/g,"&quot;")}">${g[0]} <b>${on?"ON":"off"}</b></button>`; }
+function setGrp(i){ const g=TG_GROUPS[i], on=grpOn(g); for(const [k,v] of Object.entries(g[2])) TG[k]=on?(k in TG_SEL?"":false):v; tgApply(); tgSave(); clearCaches(); post("note",Object.assign({type:"group",group:g[0],value:!on},ctx())); render(); draw(); }
 function stats(){ const p=[]; const on=tgOn();
   if(TG.b3) p.push(`B3 dropped ${TG_STATS.rej} quote side${TG_STATS.rej===1?"":"s"} now`);
   if(TG.b6) p.push(`B6 filled ${TG_STATS.fill} strike${TG_STATS.fill===1?"":"s"}`);
+  if(TG.wk) p.push(`WK Week IV live ${TG_WKS.live} / 08:35 blended ${TG_WKS.blend}`);
+  if(TG.pin){ const v=tgPinCalc(); if(v&&v.lvl!=null) p.push(`P3 ${v.kind==="pin"?"close pin "+fmtN(v.lvl):v.kind==="nopin"?"no pin (short gamma), flip "+fmtN(v.lvl):"close pull "+fmtN(v.lvl)}`); }
+  if(TG.ab){ const w=tgWarn(); p.push(w.length?"⚠ DATA: "+w.join(" · "):"data OK"); }
   if(TG.b5) p.push(`B5 Week IV live ${TG_STATS.wkLive} / fallback ${TG_STATS.wkFb}`);
   if(TG.b4){ const bc=tgBookCheck(); if(bc) p.push((bc.bad?"⚠ ":"")+"B4a "+bc.txt+(bc.bad?" — CHECK THE MORNING BOOK":" — OK")); }
   if(TG.a5){ const e=tgEarly(); p.push(e?`A5 early close ${tlabel(e)}${tgEarlySim()?" (SIMULATED by the address)":""}: 0DTE clock + map end then`:"A5 on: today is a normal close (no change)"); }
   if((TG.e2||TG.d1)&&!st.smileOn) p.push("E2/D1 act only with Smile ON");
   if(TG.c2&&!SB) p.push("C2 waits for smilebeta.json");
   return p.join(" · "); }
+let tgSinglesOpen=false;
 function draw(){ const on=tgOn();
   bar.innerHTML=`<div class="tg1"><b class="tgt">TEST COCKPIT</b> <span>${on.length?"ON: "+on.join(", "):"all toggles off = production maths"}</span>
     <button class="tgall" id="tgAll">ALL OFF = production</button> <a class="tgprod" href="${prodURL}">Open production page (8899)</a>
     <span class="tgnote"><input id="tgRead" type="text" maxlength="400" placeholder="My read now (saved with the time and toggles)"><button id="tgReadBtn">Save read</button><span id="tgReadOk"></span></span></div>
-    <div class="tg2">${TG_DEF.map(x=>btn(...x)).join("")}</div><div class="tg3" id="tgStats">${stats()}</div>`;
+    <div class="tg2">${TG_GROUPS.map(grpBtn).join("")}</div><details class="tg2" id="tgSingles"${tgSinglesOpen?" open":""}><summary>All single toggles (old)</summary>${TG_DEF.map(x=>btn(...x)).join("")}</details><div class="tg3" id="tgStats">${stats()}</div>`;
+  bar.querySelectorAll("[data-grp]").forEach(b=>b.addEventListener("click",()=>setGrp(+b.dataset.grp)));
+  const det=document.getElementById("tgSingles"); if(det) det.addEventListener("toggle",()=>{ tgSinglesOpen=det.open; });
   bar.querySelectorAll("[data-tg]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tg; const sel=TG_SEL[id];
     if(sel){ const i=sel.indexOf(TG[id]); setTG(id,sel[(i+1)%sel.length]); } else setTG(id,!TG[id]); }));
   document.getElementById("tgAll").addEventListener("click",allOff);

@@ -62,7 +62,7 @@ with tempfile.TemporaryDirectory() as d:
     flow("2026-11-06", {570: 7380, 600: 7380, 610: 7399, 620: 7385, 960: 7404})
     base = {"v": "score-v1", "date": "2026-11-06", "spot": 7380, "session_close": 960, "im30": 3.0, "term_straddle": {"3": 60}}
     cfg = {"off|P": {"g_spot": -5, "zeros": [{"z": 7401, "lo": 7400, "hi": 7402}], "peaks": [], "troughs": [],
-                     "close": {"pred": 7402}, "d1": {"e": "2026-11-09", "exp_t": "2026-11-09T16:00", "pred": 7420}, "fri": None}}
+                     "close": {"pred": 7402, "pin": {"lvl": 7405, "kind": "pin"}}, "d1": {"e": "2026-11-09", "exp_t": "2026-11-09T16:00", "pred": 7420}, "fri": None}}
     with open(os.path.join(out, "readouts_20261106.jsonl"), "w") as fh:
         for slot in ("10:00", "10:15"):
             fh.write(json.dumps({**base, "slot": slot, "t": S.tmin(slot), "cfgs": cfg}) + "\n")
@@ -70,6 +70,7 @@ with tempfile.TemporaryDirectory() as d:
     days, s5, board = S.score_all(d, out)
     r = days["2026-11-06"]["configs"]["off|P"]
     ok &= check("e2e: close error 2 -> first and lock at 10:00", r["S4"]["first"] == "10:00" and r["S4"]["lock"] == "10:00")
+    ok &= check("e2e: close pin error 1 (7405 vs close 7404), spot err 24", r["S4pin"]["n"] == 2 and r["S4pin"]["median_err"] == 1 and r["S4pin"]["median_spot_err"] == 24 and r["S4pin"]["within5"] == 2)
     ok &= check("e2e: incomplete day flagged (2 of 24 slots)", days["2026-11-06"]["complete"] is False)
     ok &= check("e2e: duplicate slot ignored", len(board["duplicates_ignored"]) == 1)
     ok &= check("e2e: 1DTE forecast pending without the target day's log", list(s5.values())[0]["status"] == "pending")

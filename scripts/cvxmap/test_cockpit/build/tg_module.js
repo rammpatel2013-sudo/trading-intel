@@ -19,6 +19,9 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
   ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
   ["v9","Week IV = VIX9D","V9","v0","(2026-11-13 overnight, backlog #21) Week book IV re-marked by the change in VIX9D since the first reading of the day (live.json v9dq) instead of ½ × the change in 0DTE ATM IV. Production writes v9d = 0 (V9D_INTO_MAP = False), so production never uses VIX9D. Recorded every 15 min (config v9) and, separately, both rules are checked against the live week chain IV (v9_score.py, nightly)."],
+  ["wk","Week IV","WK","v1","(2026-11-20) Week book IV: after 09:35 the live Week chain per contract; before (or where missing) the 08:35 book DELTA-WEIGHTED (at the money the average of call and put IV, far out the out-of-the-money side; the 08:35 calls sat 2.6-6.6 vol pts under the puts on 11/19). Week greeks taken at the forward F = spot + basis measured from the live Week deltas (+5 to +14 pts on 11/19). Replaces B5 / BQ / V9."],
+  ["ab","Data check","AB","v0","(2026-11-20, round-2 step 3) Warn, never hide: amber outline on the gamma map and a read-out line saying why the data is not trustworthy now (stale feed, old Week book, 08:35 call/put gap, few live Week IVs, 0DTE strikes without IV, pre-open). Display only."],
+  ["pin","Close pin","P3","v0","(2026-11-20, round-2 step 4) Dashed magenta line: the close pin from the gamma profile projected to 15:50 (rule cp-v0: long gamma at spot -> nearest positive-gamma peak within 1.5%; short gamma -> no pin, flip shown). Scored nightly vs the 16:00 close (S4pin)."],
   ["sg","Shadow","SG","v0","Alma's shadow greeks (2026-11-13): IV moves with price by our measured β (the Smile button's β file) along the path from that minute's price. Gamma = gamma + vanna × (IV change per point); Delta pane = the plain option delta at that moving IV, computed directly; charm / vanna use the path IV. Overrides Smile while on (Smile measures the min-variance hedge, a different object - never both). Needs the β file."]];
 // 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
 const TG_SEL={b2:["","1600","1615"]};
@@ -119,15 +122,15 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
   const sq=Math.sqrt(Math.max(ty,1e-7)); let tot=0; const sgOn=!!TG.sg&&!!SB, sm=!!st.smileOn&&!sgOn; if(sm) smileSlopes(rows); const c2=TG.c2&&!!SB;
   for(const r of rows){ if(!(r.sg>0)) continue; const pos=r.cp-r.pp; if(!pos) continue;
     const sg=sgOn?tgShadowSg(r,S):c2?tgPathSg(r,S):r.sg;
-    const d1=(Math.log(S/r.k)+0.5*sg*sg*ty)/(sg*sq), d2=d1-sg*sq, p=PHI(d1);
+    const F=S+(r.fb||0), d1=(Math.log(F/r.k)+0.5*sg*sg*ty)/(sg*sq), d2=d1-sg*sq, p=PHI(d1);   // WK: Week rows carry fb (forward - spot)
     if(kind==="delta"){ tot+=pos*tgN(d1); continue; }   // TEST DL: dealer delta in contracts, the part that moves (calls and puts share N(d1); a put's -1 is a constant)
     const sS=sm?smileSS(r,S):0;
-    if(kind==="gamma"){ let g=p/(S*sg*sq) + (sm? 2*sS*(-p*d2/sg) + sS*sS*(S*p*sq*d1*d2/sg) : 0);
+    if(kind==="gamma"){ let g=p/(F*sg*sq) + (sm? 2*sS*(-p*d2/sg) + sS*sS*(S*p*sq*d1*d2/sg) : 0);
       if(sm&&TG.d1) g+=S*p*sq*tgDbdS(r,S);                          // + Vega · db/dS
       if(sgOn){ const b=smileBeta(r.k,S,r.dte||0); if(b!=null) g+=(-p*d2/sg)*(b/S); }   // TEST SG: + Vanna · dσ/dS along the β path (Alma's shadow gamma)
       tot+=pos*g*2.5; }
     else if(kind==="charm"){ const smc=sm? sS*S*p*(d1*d2+1)/(2*sq)*(5/525600) : 0; let dd;
-      if(TG.d4){ const t2=ty-5/525600; const n1=t2>0?tgN((Math.log(S/r.k)+0.5*sg*sg*t2)/(sg*Math.sqrt(t2))):(S>r.k?1:(S<r.k?0:0.5)); dd=n1-tgN(d1); }
+      if(TG.d4){ const t2=ty-5/525600; const n1=t2>0?tgN((Math.log(F/r.k)+0.5*sg*sg*t2)/(sg*Math.sqrt(t2))):(F>r.k?1:(F<r.k?0:0.5)); dd=n1-tgN(d1); }
       else dd=p*d2/(2*ty)*(5/525600);
       tot-=pos*(dd-smc)*(cm||1); }
     else tot-=pos*(-p*d2/sg)*0.01;
@@ -146,7 +149,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
 const TG_SCORE_V="score-v1"; const TG_PAGE_V="__TG_PAGE_V__";
-const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["bq",{bq:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
+const TG_CFGS=[["off",{}],["wk",{wk:true}],["smp",{sg:true,e2:true}],["clock",{b2:"1600",a5:true}],["iv0",{b3:true,b6:true}],["wk_smp",{wk:true,sg:true,e2:true}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["bq",{bq:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
 function tgCross(prices,col,i,lev){ const a=col[i-1], b=col[i]; return prices[i-1]+(prices[i]-prices[i-1])*(lev-a)/((b-a)||1); }
@@ -186,7 +189,7 @@ function tgReadoutOne(d,day,now){ // current toggles + st.smileOn; basis/ledger 
   const gS=colNow[i0]+(colNow[Math.min(P.length-1,i0+1)]-colNow[i0])*((S-P[i0])/dp);
   const tC=MAP_T1-10, tyC=Math.max(TG_GEND-tC,1)/525600, colC=P.map(p=>greekCol("gamma",live,p,tyC)+(near.length?greekColWeek("gamma",near,p,tC,day):0)), zC=tgZeros(P,colC,tgP95(colC));
   const out={g_spot:+gS.toFixed(4),R:+R.toFixed(4),zeros:zN.filter(z=>inWin(z.z)),peaks:ex.pk.filter(x=>inWin(x.p)),troughs:ex.tr.filter(x=>inWin(x.p)),
-    close:{target_min:tC,pred:tgNearestZero(zC,S),zeros:zC.map(z=>z.z)}};
+    close:{target_min:tC,pred:tgNearestZero(zC,S),zeros:zC.map(z=>z.z),pin:tgPinFrom(P,colC,S,dp)}};
   const T=tgTargets(near,day), P3=tgGrid(S,0.03,dp);
   for(const k of ["d1","fri"]){ const tg=T[k]; if(!tg){ out[k]=null; continue; } const col=tgProfileAt(near,P3,tg.target_ms), zs=tgZeros(P3,col,tgP95(col));
     out[k]={e:tg.e,exp_t:tg.exp_t,pred:tgNearestZero(zs,S),zeros:zs.map(z=>z.z)}; }

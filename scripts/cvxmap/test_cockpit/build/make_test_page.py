@@ -35,7 +35,8 @@ SM = open(os.path.join(HERE, "tg_strike.js"), encoding="utf-8").read()   # 2026-
 VS = open(os.path.join(HERE, "tg_vixmap.js"), encoding="utf-8").read()   # 2026-11-19 VIX map Strike map (C1 + C2)
 FP = open(os.path.join(HERE, "tg_flowpanel.js"), encoding="utf-8").read()   # 2026-11-19 Flow panel F1-F3
 BQ = open(os.path.join(HERE, "tg_book.js"), encoding="utf-8").read()   # 2026-11-20 Book clean (review round 2 item 1)
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM + VS + FP + BQ).encode("utf-8")).hexdigest()[:12])
+WK = open(os.path.join(HERE, "tg_week.js"), encoding="utf-8").read()   # 2026-11-20 Week IV + forward, Data check, Close pin
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM + VS + FP + BQ + WK).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -77,7 +78,7 @@ rep("let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPE
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n" + VS + "\n" + FP + "\n" + BQ + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n" + VS + "\n" + FP + "\n" + BQ + "\n" + WK + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -244,6 +245,24 @@ rep('      <div class="f2foot" id="f2Foot"></div>\n    </section>',
     '      <div class="f2foot" id="f2Foot"></div>\n      <div class="tgprof" id="tgFp" hidden><div id="tgFpHead"></div><canvas id="tgFpC"></canvas></div>\n    </section>')
 rep('<button class="btn" id="tgSmBtn" ', '<button class="btn" id="tgFpBtn" aria-pressed="false" title="TEST Flow panel (off by default): F1 dealer gamma at spot through the day (OI + today\'s measured trades), F2 option volume imbalance 0DTE vs next expiry, F3 price terrain badge (HVN / LVN / NEW over the last 3 sessions). Display only.">Flow panel</button><button class="btn" id="tgSmBtn" ')
 rep('function renderFlow2(se,d,book){\n', 'function renderFlow2(se,d,book){\n  try{ tgFpDraw(); }catch(e){ console.error(e); }   // TEST FP\n')
+# 22. (2026-11-20 night) WK Week IV (live after 09:35, 08:35 delta-weighted before) + forward F = S + B on the Week book,
+#     AB Data check, P3 Close pin (tg_week.js; toggles wk / ab / pin in tg_module.js). Off = production maths and page.
+rep("  let nL=0,nF=0; for(const r of nb.rows){ const sg0=TG.bq?tgBqSg(r,S):",
+    "  let nL=0,nF=0; TG_WKS._l=0; TG_WKS._b=0; TG_WKS._nt=0; TG_WKS._nl=0; for(const r of nb.rows){ const sg0=TG.wk?tgWkSg08(r,S):TG.bq?tgBqSg(r,S):")
+rep("    if(TG.b5){ const lv=tgWeekLiveSg(r,S); if(lv>0){ sg=lv; nL++; } else nF++; }\n",
+    "    let fb=0; if(TG.wk){ fb=tgWkB(r); const nr=Math.abs(r.k-S)<=50; if(nr) TG_WKS._nt++; const lv=tgLiveMin()>=MAP_OPEN+5?tgWeekLiveSg(r,S):0; if(lv>0){ sg=lv; TG_WKS._l++; if(nr) TG_WKS._nl++; } else TG_WKS._b++; }   // TEST WK\n"
+    "    else if(TG.b5){ const lv=tgWeekLiveSg(r,S); if(lv>0){ sg=lv; nL++; } else nF++; }\n")
+rep("cal_ok:r.cal_ok!==false,s0:S}); }\n  if(TG.b5){ TG_STATS.wkLive=nL; TG_STATS.wkFb=nF; }",
+    "cal_ok:r.cal_ok!==false,s0:S,fb}); }\n  if(TG.b5){ TG_STATS.wkLive=nL; TG_STATS.wkFb=nF; }\n  if(TG.wk){ TG_WKS.live=TG_WKS._l; TG_WKS.blend=TG_WKS._b; TG_WKS.nearTot=TG_WKS._nt; TG_WKS.nearLive=TG_WKS._nl; }")
+rep('(r.dte??"")+";");', '(r.dte??"")+"|"+(r.fb||0)+";");')   # Week cache sees the forward
+rep("    const ty=m/525600, sq=Math.sqrt(Math.max(ty,1e-7)), d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);\n    if(kind===\"gamma\") tot+=pos*(p/(S*r.sg*sq))*2.5;",
+    "    const F=S+(r.fb||0), ty=m/525600, sq=Math.sqrt(Math.max(ty,1e-7)), d1=(Math.log(F/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);   // TEST WK forward\n    if(kind===\"gamma\") tot+=pos*(p/(F*r.sg*sq))*2.5;")
+rep("    const d1=(Math.log(S/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);\n    const sS=sm?smileSS(r,S):0;\n    if(kind===\"gamma\") tot+=pos*(p/(S*r.sg*sq) + (sm?",
+    "    const F=S+(r.fb||0), d1=(Math.log(F/r.k)+0.5*r.sg*r.sg*ty)/(r.sg*sq), d2=d1-r.sg*sq, p=PHI(d1);   // TEST WK forward (0DTE rows: fb 0)\n    const sS=sm?smileSS(r,S):0;\n    if(kind===\"gamma\") tot+=pos*(p/(F*r.sg*sq) + (sm?")
+rep("  if(TG.bq) B.push(tgBqLine());   /* TEST BQ */",
+    "  if(TG.bq&&!TG.wk) B.push(tgBqLine());   /* TEST BQ */\n  if(TG.wk&&g&&g.book!==\"0dte\") B.push(tgWkLine());   /* TEST WK */\n  if(TG.pin) B.push(tgPinLine());   /* TEST P3 */\n  if(TG.ab) B.unshift(tgWarnLine());   /* TEST AB: first line */")
+rep("    if(st.zeroR&&id===\"mapRightC\"&&(m.kind===\"vanna\"||m.kind===\"charm\")) tgZeroOverlay(ctx,m,X,Y,padL,padT,W,H); }   // TEST ZR",
+    "    if(st.zeroR&&id===\"mapRightC\"&&(m.kind===\"vanna\"||m.kind===\"charm\")) tgZeroOverlay(ctx,m,X,Y,padL,padT,W,H);   // TEST ZR\n    if(id===\"mapGammaC\"&&m.kind===\"gamma\"){ tgPinOverlay(ctx,m,X,Y,padL,padT,W,H); tgWarnFrame(ctx,padL+W+2,padT+H+2); } }   // TEST P3 + AB")
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)

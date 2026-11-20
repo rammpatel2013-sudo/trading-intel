@@ -132,3 +132,23 @@ Mithil 11/13 20:18 "build" (#87, reversing the drop) and the backlog cut (#21 = 
 - The 1–7 DTE book's IV (08:35 pull, ti.json near_book) goes through a cleaner first. Per strike: **observed** (both sides in 3%–150% and ≤ 10 vol pts apart → OTM side), **conflict** (> 10 pts apart → side closer to the expiry's agreeing neighbours), **paired** (one good side), **interpolated** (neither: from strikes ≤ 3 away on both sides), **unavailable** (left OUT of the map, never guessed); **stale** flag when the live Week chain differs by > 10 pts near spot. The read-out shows the share of each.
 - 11/19 SPX book: 1,622 strikes = 1,368 observed · **252 call/put conflicts** · 2 other side · 0 filled · 0 left out.
 - **Test:** `tests/book_expect.py <dir> SPX` (independent Python) then `node tests/bookclean.js` (11 checks: OFF identical to the old page; ON counts and every IV = Python, 0DTE map unchanged).
+
+## Week IV (WK v1) + Data check (AB v0) + Close pin (P3 v0) + grouped bar, added 2026-11-20 (night)
+- **Why:** check of the Week book on 11/19 vs the vendor's own greeks on 4,000 trades: clock right (time ratio 1.00 on PM weeklies);
+  08:35 call IV sat 6.6 (AM monthly) / 2.6 (1-day PM) / ~0.6 (4–6 day) vol pts UNDER put IV near price (live chain: 0.0) → step at
+  price + wrong level; vendor prices 1–6 DTE off a forward 5–14 pts above spot, production used spot. Doc `claude/week-book-check-20261120.md`.
+- **Week IV** (toggle `wk`, code `build/tg_week.js`, section 22): after 09:35 live Week IV per contract (B5 maths; live Week IVs are on
+  whole days - verified vs trade prints); before / where missing the 08:35 book **delta-weighted** (σ = N(d)·put + (1−N(d))·call,
+  d = ln(F/K)/(σ_mid√T); > 10 pts apart or one side bad → BQ rule); Week greeks at **F = S + B(expiry)**, B = median forward from
+  the live Week deltas (strikes ±40, 0.10 < Δ < 0.90, ≥ 6). Replaces B5 / BQ / V9. 0DTE untouched.
+- **Data check** (`ab`): warn, never hide - amber dashed frame + first read-out line with the reasons (feed > 3 min old, Week book
+  not today, pre-open, 08:35 call/put gap > 3 pts with WK off, B4a, < 50% near-price Week contracts live after 09:35, > 20% of 0DTE
+  strikes within 1% without IV). Far-OTM 0DTE IV rising into the close is NOT a warning (normal tail repricing).
+- **Close pin** (`pin`, rule cp-v0): gamma profile projected to 15:50, ±1.5%: long gamma at spot → nearest positive-gamma peak
+  (else zone edge); short gamma → "no pin" + flip. Dashed magenta line + read-out; recorded as `close.pin`; scored nightly `S4pin`
+  (median error vs the 16:00 close and vs "close = spot now").
+- **Bar:** 8 grouped switches (Clock · 0DTE IV clean · Week IV · Smile path (SG + E2) · Real charm · Levels · Data check · Close
+  pin); the old single toggles sit under "All single toggles". New scored configs: wk, smp, clock, iv0, wk_smp.
+- **Test:** `tests/week_expect.py <dir>` then `node tests/weekiv.js` (25 checks; 11/19 13:17: OFF identical to the old page; basis,
+  868 blended and 312 live IVs = Python; Week gamma at spot = independent sum at the forward; 0DTE unchanged; AB / P3 / groups).
+  11/19 13:17 effect: Week gamma trough near price moved from ~7,229 to ~7,189.
