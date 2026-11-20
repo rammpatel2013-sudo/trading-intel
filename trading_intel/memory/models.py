@@ -918,6 +918,9 @@ class TasPrint(Base):
     iv: Mapped[float | None] = mapped_column(Float)
     condition: Mapped[str | None] = mapped_column(String(8))  # exchange_sale_conditions code
     is_sweep: Mapped[bool | None] = mapped_column(Boolean)  # ISO sweep (condition == 'I')
+    # 0062 (2026-11-19): gth / pre / rth / post / curb from the print time (trading_intel.tape_sessions).
+    # NULL = captured before 11/20 (RTH-only capture then).
+    session: Mapped[str | None] = mapped_column(String(5))
     is_block: Mapped[bool | None] = mapped_column(Boolean)  # negotiated / large block
     is_financing: Mapped[bool | None] = mapped_column(Boolean)  # deep-ITM call / LEAP (non-directional)
     leg_group: Mapped[str | None] = mapped_column(String(24))  # same-poll structure cluster id
@@ -926,6 +929,34 @@ class TasPrint(Base):
     quote_loc: Mapped[str | None] = mapped_column(String(8))
     spread_leg: Mapped[bool | None] = mapped_column(Boolean)
     source: Mapped[str] = mapped_column(String(32), default="convex")
+
+
+class TasSessionFlow(Base):
+    """Per-(trade_date, session, root) roll-up of the option tape (0062, 2026-11-19).
+
+    Same numbers as ``tas_daily_flow`` split by session (gth / pre / rth / post / curb), so the
+    overnight and pre-market flow survive the 30-day raw-print prune. Built by ``tas_daily_rollup``.
+    Descriptive only (rule 4)."""
+
+    __tablename__ = "tas_session_flow"
+    __table_args__ = (
+        UniqueConstraint("trade_date", "session", "root", name="uq_tas_session_flow"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trade_date: Mapped[date] = mapped_column(Date, index=True)
+    session: Mapped[str] = mapped_column(String(5))
+    root: Mapped[str] = mapped_column(String(16))
+    prints: Mapped[int | None] = mapped_column(Integer)
+    contracts: Mapped[float | None] = mapped_column(Float)
+    total_notional: Mapped[float | None] = mapped_column(Float)
+    call_notional: Mapped[float | None] = mapped_column(Float)
+    put_notional: Mapped[float | None] = mapped_column(Float)
+    buy_notional: Mapped[float | None] = mapped_column(Float)
+    sell_notional: Mapped[float | None] = mapped_column(Float)
+    net_dollar_delta: Mapped[float | None] = mapped_column(Float)  # buy +, sell -
+    first_ts: Mapped[datetime | None] = mapped_column(DateTime)
+    last_ts: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class TasDailyFlow(Base):

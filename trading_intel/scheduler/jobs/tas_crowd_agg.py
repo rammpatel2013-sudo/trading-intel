@@ -25,6 +25,9 @@ from sqlalchemy.orm import Session
 from trading_intel.memory.models import TasCrowdMinute
 
 SPX_ROOTS = frozenset({"SPX", "SPXW"})
+# 2026-11-19 (A1b, for VIX MAP C3 whales vs crowd in lots): VIX prints are summed too.
+# Readers that mean SPX only must filter root IN SPX_ROOTS (scripts/whales_feed.py does).
+CROWD_ROOTS = SPX_ROOTS | {"VIX", "VIXW"}
 _KEY_COLS = ("trade_date", "minute", "root", "expiry", "strike", "cp", "bucket")
 _SUM_COLS = ("n_prints", "buy_contracts", "sell_contracts", "other_contracts",
              "buy_premium", "sell_premium", "signed_delta")
@@ -70,7 +73,7 @@ def summarize(df: pd.DataFrame, *, trade_date: date, whale_min: int = 20,
             root = root or (d_root.upper() if d_root else None)
             cp, exp_d = cp or d_cp, exp_d or d_exp
             strike = strike if strike is not None else d_strike
-        if root not in SPX_ROOTS or cp is None or strike is None or exp_d is None:
+        if root not in CROWD_ROOTS or cp is None or strike is None or exp_d is None:
             continue
         price, size = _f(r.get("price")), _i(r.get("size"))
         ts = pd.to_datetime(r.get("time"), errors="coerce")

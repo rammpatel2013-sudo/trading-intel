@@ -35,7 +35,7 @@ Known type drift (report 2026-11-19, not fixed — renaming/retyping costs more 
 in the DB but naive in the ORM; the server TimeZone is UTC. `documents.ingested_at` now writes an
 aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
-## Tables (82)
+## Tables (83)
 
 ### Options chains and greeks
 
@@ -60,8 +60,9 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
 | Table | One row = | Key | Time key | Writer | Source | Kind |
 | --- | --- | --- | --- | --- | --- | --- |
-| `tas_prints` | one large option print | ts+symbol+price+size+source (NULLS NOT DISTINCT) | `ts` naive ET, `trade_date` | tas_capture_daemon | Convex tas | raw; prune pending |
-| `tas_crowd_minute` | SPX minute × contract × size bucket | trade_date+minute+root+expiry+strike+cp+bucket | `trade_date`, `minute` | tas_capture_daemon | Convex tas | raw (summed) |
+| `tas_prints` | one large option print; `session` gth/pre/rth/post/curb since 11/20 (GTH after 20:15 -> next trade_date) | ts+symbol+price+size+source (NULLS NOT DISTINCT) | `ts` naive ET, `trade_date` | tas_capture_daemon | Convex tas | raw; prune pending |
+| `tas_session_flow` | root × session (gth/pre/rth/post/curb) per day: prints, contracts, call/put, buy/sell notional, net $ delta | trade_date+session+root | `trade_date` | tas_daily_rollup | from tas_prints.session | derived; kept forever |
+| `tas_crowd_minute` | SPX/SPXW (+VIX/VIXW since 11/20) minute × contract × size bucket, all sessions | trade_date+minute+root+expiry+strike+cp+bucket | `trade_date`, `minute` | tas_capture_daemon | Convex tas | raw (summed) |
 | `tas_daily_flow` | root per day: buy/sell premium, $ delta | trade_date+root | `trade_date` | tas_daily_rollup | from tas_prints | derived |
 | `tas_daily_contract` | contract per day | trade_date+root+expiry+strike+cp (NULLS NOT DISTINCT) | `trade_date` | tas_daily_rollup | from tas_prints | derived |
 | `flow_snapshots` | symbol per snapshot: premium, P/C tilt | symbol+ts+source | `ts` timestamp | flow_snapshot | Convex | raw† |

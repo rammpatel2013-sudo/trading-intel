@@ -16,9 +16,10 @@ financing), plus a same-poll ``leg_group`` clustering size-matched legs of one
 structure (a vertical / fly / calendar / roll). ``side`` is the per-leg
 aggressor, NOT the trade's direction — never sum it (rule 4).
 
-The tape is live-only — after the 4pm close it returns zeroed trade fields, so
-the job self-guards market hours (``intraday_flow.is_market_hours``) and also
-skips a poll whose prints are all zero-notional. Rule 1: the only Convex entry
+The tape is live-only. Since 2026-11-19 (A1b) the job captures every tape session
+(``trading_intel.tape_sessions``: gth 20:15-07:30, pre, rth, post, curb to 17:00), tags each
+print with its ``session`` and books GTH prints after 20:15 to the NEXT trading day. Between
+17:00 and 20:15 it skips, and it skips a poll whose prints are all zero-notional. Rule 1: the only Convex entry
 point is the injected ``OptionsDataSource``.
 
 Manual run (ignores the market-hours guard):
@@ -39,7 +40,7 @@ from sqlalchemy.orm import Session
 from trading_intel.clients import OptionsDataSource
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
-from trading_intel.greeks.intraday_flow import is_market_hours
+from trading_intel.tape_sessions import session_trade_date, tape_session
 from trading_intel.memory.models import TasPrint
 from trading_intel.timeutils import eastern_now
 
@@ -350,9 +351,12 @@ def run(
     bound = log.bind(correlation_id=correlation_id, job="tas_capture")
 
     now = eastern_now()
-    if not force and not is_market_hours(now):
+    # 2026-11-19 (A1b): capture every tape session (gth / pre / rth / post / curb), not RTH only.
+    sess_now = tape_session(now.replace(tzinfo=None))
+    if not force and sess_now is None:
         bound.info("tas_capture.skipped_off_hours", now=now.isoformat())
         return
+    session_day = session_trade_date(now.replace(tzinfo=None))
 
     try:
         # orderby="time" = the chronological tape (every $25k+ print as it prints);
@@ -378,7 +382,7 @@ def run(
     if getattr(settings, "TAS_CROWD_AGG", False):
         try:
             from trading_intel.scheduler.jobs import tas_crowd_agg
-            n_crowd = tas_crowd_agg.capture(session, df, trade_date=now.date(),
+            n_crowd = tas_crowd_agg.capture(session, df, trade_date=session_day,
                                             whale_min=int(getattr(settings, "TAS_WHALE_MIN_SIZE", 20)))
             bound.info("tas_capture.crowd", rows=n_crowd)
         except Exception as exc:  # the raw capture below must never fail because of the summary
@@ -399,10 +403,17 @@ def run(
 
     captured_at = now.replace(microsecond=0)
     records = _records(
-        df, captured_at=captured_at, trade_date=now.date(), min_premium=min_premium,
+        df, captured_at=captured_at, trade_date=session_day, min_premium=min_premium,
         exclude=exclude, index_roots=index_roots, index_base_premium=index_base,
         spx_tape_premium=spx_tape,
     )
+    for rec in records:  # session + session day from each print's own time
+        ts = rec.get("ts")
+        if isinstance(ts, datetime):
+            rec["session"] = tape_session(ts) or sess_now
+            rec["trade_date"] = session_trade_date(ts)
+        else:
+            rec["session"] = sess_now
     if not records:
         bound.info("tas_capture.no_qualifying_prints", polled=int(len(df)))
         return
@@ -415,7 +426,12 @@ def run(
         session.execute(stmt)
     session.commit()
     idx_kept = sum(1 for r in records if r["source"] == _SOURCE_INDEX)
-    bound.info("tas_capture.done", polled=int(len(df)), kept=len(records), index_kept=idx_kept)
+    by_sess: dict[str, int] = {}
+    for r in records:
+        by_sess[r.get("session") or "?"] = by_sess.get(r.get("session") or "?", 0) + 1
+    newest = max((r["ts"] for r in records if isinstance(r.get("ts"), datetime)), default=None)
+    bound.info("tas_capture.done", polled=int(len(df)), kept=len(records), index_kept=idx_kept,
+               session=sess_now, by_session=by_sess, newest=str(newest) if newest else None)
     return "done"   # 2026-11-19: the daemon's no-prints alarm counts these
 
 

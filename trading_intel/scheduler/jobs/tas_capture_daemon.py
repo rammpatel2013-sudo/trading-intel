@@ -2,9 +2,10 @@
 
 The per-poll logic lives in ``tas_capture_job.run``; this wraps it in a single
 long-running process so the NAS runs **one container per session** — one Convex
-login, no per-minute cold starts or repeated logins. A DSM task starts it around
-09:29 ET on weekdays; it polls every ``TAS_POLL_INTERVAL`` seconds (default 30)
-and exits at 16:00 ET so the container stops cleanly.
+login, no per-minute cold starts or repeated logins. Since 2026-11-19 (A1b) it runs
+through every tape session (``trading_intel.tape_sessions``: gth from 20:15, pre 07:30, rth,
+post, curb to 17:00) - every ``TAS_POLL_INTERVAL`` seconds (default 30), every 3 minutes
+overnight - and exits when no session is open (17:00-20:15, weekends, holidays).
 
 Each poll reuses the idempotent ``tas_capture_job.run`` (self-guards market
 hours + zeroed tape, upserts on the print key), so a restart mid-session just
@@ -20,7 +21,7 @@ resumes — no duplicates (rule 5). Rule 1: the only Convex entry point is
 ``scripts/nas/run_tas_daemon.sh`` starts it under a fixed container name every 15 minutes and does
 nothing when it is already running, so a killed container is back within 15 minutes.
 
-Run (manual; exits at 16:00 ET):
+Run (manual; exits when the tape session window closes):
     python -m trading_intel.scheduler.jobs.tas_capture_daemon
 """
 from __future__ import annotations
@@ -35,11 +36,11 @@ from trading_intel.clients.convex import ConvexClient
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.scheduler.jobs import tas_capture_job
+from trading_intel.tape_sessions import poll_interval, tape_session
 from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
 
-_CLOSE_HOUR = 16
 _DEFAULT_INTERVAL = 30
 # 2026-11-05 safety: the cockpit collector comes first. Its raw file is appended every minute; if it goes
 # stale (collector slow, throttled or stuck) the tape pull steps aside until the cockpit is writing again.
@@ -136,7 +137,7 @@ def main() -> None:
     polls, yields, relogins = 0, 0, 0
     while True:
         now = eastern_now()
-        if now.weekday() >= 5 or now.hour >= _CLOSE_HOUR:
+        if tape_session(now) is None:   # 2026-11-19 A1b: runs through gth / pre / rth / post / curb
             break
         sig = w.check_alarm(now)
         if sig == "down":
@@ -182,7 +183,8 @@ def main() -> None:
             time.sleep(wait)
             continue
         w.fails = 0
-        time.sleep(max(1.0, interval - (time.time() - t0)))   # 2026-11-05: fixed cadence; a 40k pull takes ~11 s
+        # 2026-11-05: fixed cadence (a 40k pull takes ~11 s); 2026-11-19: overnight (gth) every 3 min
+        time.sleep(max(1.0, poll_interval(now, interval) - (time.time() - t0)))
 
     log.info("tas_daemon.done", polls=polls, yields=yields, relogins=relogins)
 

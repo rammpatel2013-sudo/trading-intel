@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings, get_settings
 from trading_intel.flow.aggregate import derive, rollup_by_contract, rollup_by_name
-from trading_intel.memory.models import TasDailyContract, TasDailyFlow, TasPrint
+from trading_intel.memory.models import TasDailyContract, TasDailyFlow, TasPrint, TasSessionFlow
 from trading_intel.timeutils import eastern_now
 
 log = structlog.get_logger(__name__)
@@ -115,6 +115,8 @@ def _prints_frame(session: Session, day: date) -> pd.DataFrame:
                 "leg_group": p.leg_group,
                 "is_financing": p.is_financing,
                 "quote_loc": p.quote_loc,
+                "session": p.session,
+                "ts": p.ts,
             }
             for p in rows
         ]
@@ -170,10 +172,53 @@ def _upsert(
         session.execute(stmt)
 
 
+_SESSION_UQ = ["trade_date", "session", "root"]
+_SESSION_UPDATE = (
+    "prints", "contracts", "total_notional", "call_notional", "put_notional", "buy_notional",
+    "sell_notional", "net_dollar_delta", "first_ts", "last_ts",
+)
+
+
+def session_rows(raw: pd.DataFrame, day: date) -> list[dict]:
+    """One row per (session, root) from the raw prints (2026-11-19 A1b). Prints with no session tag
+    (captured before 11/20) are left out - tas_daily_flow already covers them."""
+    if raw.empty or "session" not in raw.columns:
+        return []
+    df = raw[raw["session"].notna()].copy()
+    if df.empty:
+        return []
+    for c in ("notional", "size", "delta", "spot"):
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    sign = df["side"].map({"buy": 1.0, "sell": -1.0}).fillna(0.0)
+    df["sdd"] = sign * (df["delta"] * df["size"] * 100.0 * df["spot"]).fillna(0.0)
+    df["call_n"] = df["notional"].where(df["cp"] == "C", 0.0)
+    df["put_n"] = df["notional"].where(df["cp"] == "P", 0.0)
+    df["buy_n"] = df["notional"].where(df["side"] == "buy", 0.0)
+    df["sell_n"] = df["notional"].where(df["side"] == "sell", 0.0)
+    out = []
+    for (sess, root), g in df.groupby(["session", "root"], dropna=True):
+        has_ts = bool(g["ts"].notna().any())
+        out.append({
+            "trade_date": day, "session": str(sess), "root": str(root),
+            "prints": int(len(g)), "contracts": float(g["size"].fillna(0).sum()),
+            "total_notional": float(g["notional"].fillna(0).sum()),
+            "call_notional": float(g["call_n"].fillna(0).sum()),
+            "put_notional": float(g["put_n"].fillna(0).sum()),
+            "buy_notional": float(g["buy_n"].fillna(0).sum()),
+            "sell_notional": float(g["sell_n"].fillna(0).sum()),
+            "net_dollar_delta": float(g["sdd"].sum()),
+            "first_ts": pd.Timestamp(g["ts"].min()).to_pydatetime() if has_ts else None,
+            "last_ts": pd.Timestamp(g["ts"].max()).to_pydatetime() if has_ts else None,
+        })
+    return out
+
+
 def rollup_day(session: Session, day: date) -> tuple[int, int]:
     """Aggregate + upsert one session. Returns (name_rows, contract_rows)."""
     now = eastern_now().replace(tzinfo=None)
-    df = derive(_prints_frame(session, day))
+    raw = _prints_frame(session, day)
+    _upsert(session, TasSessionFlow, session_rows(raw, day), _SESSION_UQ, _SESSION_UPDATE)
+    df = derive(raw)
     if df.empty:
         return 0, 0
 

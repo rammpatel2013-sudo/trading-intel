@@ -36,6 +36,7 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import date, datetime
+from datetime import time as dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -199,7 +200,12 @@ def load_rows(sf: Callable, trade_date: date) -> list[dict]:
 
     from trading_intel.memory.models import TasCrowdMinute as T
     with sf() as s:
-        q = select(T.minute, T.expiry, T.bucket, T.signed_delta, T.spot, T.buy_contracts, T.sell_contracts).where(T.trade_date == trade_date)
+        # 2026-11-19 A1b: tas_crowd_minute now also holds VIX rows and overnight / pre-market minutes -
+        # this feed is SPX regular hours only.
+        q = (select(T.minute, T.expiry, T.bucket, T.signed_delta, T.spot, T.buy_contracts, T.sell_contracts)
+             .where(T.trade_date == trade_date, T.root.in_(("SPX", "SPXW")),
+                    T.minute >= datetime.combine(trade_date, dtime(9, 30)),
+                    T.minute < datetime.combine(trade_date, dtime(16, 15))))
         return [dict(r._mapping) for r in s.execute(q)]
 
 

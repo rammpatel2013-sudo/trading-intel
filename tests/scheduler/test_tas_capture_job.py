@@ -144,7 +144,7 @@ def test_excludes_index_roots(session: Session) -> None:
 
 
 def test_off_hours_guard_blocks_write(session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(tas_capture_job, "is_market_hours", lambda now: False)
+    monkeypatch.setattr(tas_capture_job, "tape_session", lambda now: None)
     tas_capture_job.run(session, _StubSource(_raw_tape()), settings=_settings(), force=False)
     assert _rows(session) == []
 
@@ -213,3 +213,26 @@ def test_vendor_groups_ignore_the_size_rule() -> None:
     recs = [_leg("SPXW", 0, 10, True), _leg("SPXW", 0, 7, True), _leg("SPXW", 0, 3, True)]
     _assign_leg_groups(recs)
     assert recs[0]["leg_group"] and len({r["leg_group"] for r in recs}) == 1
+
+
+# --- 2026-11-19 (A1b): every tape session is captured and tagged ------------------------------------
+def test_prints_tagged_with_session_and_gth_goes_to_next_day(session: Session) -> None:
+    df = pd.DataFrame(
+        {
+            "time": ["2026-11-19T20:30:00", "2026-11-20T08:10:00", "2026-11-20T10:00:00", "2026-11-20T16:20:00"],
+            "symbol": [".NVDA261218C230", ".NVDA261218C235", ".NVDA261218C240", ".NVDA261218C245"],
+            "price": [2.5, 2.5, 2.5, 2.5],
+            "size": [600, 600, 600, 600],
+            "spot": [222.85] * 4,
+            "delta": [0.42] * 4,
+            "aggressor_side": ["buy"] * 4,
+        }
+    )
+    tas_capture_job.run(session, _StubSource(df), settings=_settings(), force=True)
+    got = sorted((r.strike, r.session, r.trade_date) for r in _rows(session))
+    assert got == [
+        (230.0, "gth", date(2026, 11, 20)),
+        (235.0, "pre", date(2026, 11, 20)),
+        (240.0, "rth", date(2026, 11, 20)),
+        (245.0, "curb", date(2026, 11, 20)),
+    ]

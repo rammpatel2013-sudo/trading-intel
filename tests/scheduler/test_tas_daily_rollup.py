@@ -127,3 +127,34 @@ def test_rollup_is_idempotent(session: Session) -> None:
 def test_rollup_empty_day_noop(session: Session) -> None:
     tas_daily_rollup.run(session, settings=_settings(), target_date=_DAY)
     assert session.execute(select(TasDailyFlow)).first() is None
+
+
+def test_session_rows_split_by_session():
+    """2026-11-19 A1b: overnight / pre-market flow kept per session (tas_session_flow)."""
+    from datetime import date, datetime
+
+    import pandas as pd
+
+    from trading_intel.scheduler.jobs.tas_daily_rollup import session_rows
+
+    raw = pd.DataFrame(
+        {
+            "root": ["SPXW", "SPXW", "SPXW", "NVDA"],
+            "cp": ["P", "C", "P", "C"],
+            "side": ["buy", "sell", "buy", "buy"],
+            "notional": [1000.0, 500.0, 200.0, 50.0],
+            "size": [10, 5, 2, 1],
+            "delta": [-0.3, 0.4, -0.2, 0.5],
+            "spot": [7000.0] * 3 + [150.0],
+            "session": ["gth", "gth", "rth", None],
+            "ts": [datetime(2026, 11, 19, 21, 0), datetime(2026, 11, 20, 2, 0),
+                   datetime(2026, 11, 20, 10, 0), datetime(2026, 11, 20, 10, 0)],
+        }
+    )
+    rows = {(r["session"], r["root"]): r for r in session_rows(raw, date(2026, 11, 20))}
+    assert set(rows) == {("gth", "SPXW"), ("rth", "SPXW")}  # untagged NVDA left out
+    g = rows[("gth", "SPXW")]
+    assert g["prints"] == 2 and g["put_notional"] == 1000.0 and g["call_notional"] == 500.0
+    assert g["buy_notional"] == 1000.0 and g["sell_notional"] == 500.0
+    assert g["net_dollar_delta"] == pytest.approx(-0.3 * 10 * 100 * 7000 - 0.4 * 5 * 100 * 7000)
+    assert g["first_ts"] == datetime(2026, 11, 19, 21, 0)
