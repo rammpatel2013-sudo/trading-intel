@@ -5,6 +5,8 @@
 # It writes only scripts/cvxmap/data/volx.json and volx_YYYYMMDD.json, which the existing cvxmap-serve (8899) and
 # cvxmap-test (8898) already serve. run_cvxmap.sh and the production cvxmap-* containers are never touched.
 # One step a minute, ~40 MB RAM; exits by itself at 16:30 ET.
+# 2026-11-20: .env is mounted read-only so volx can fall back to FMP via CVForge (key in .env) when Cboe's
+# delayed-quote API refuses (403 since 11/20) - scripts/cvxmap/idxquote.py.
 #
 #   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_volx.sh start     # DSM task Mon-Fri 09:25 ET
 #   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_volx.sh stop
@@ -24,7 +26,7 @@ case "${1:-}" in
       echo "=== $(date '+%Y-%m-%d %H:%M:%S') volx START ==="
       "$DOCKER" rm -f "$NAME" >/dev/null 2>&1 || true
       "$DOCKER" run -d --rm --name "$NAME" \
-          -v "${REPO_DIR}/scripts:/app/scripts" -e "PYTHONPATH=/app" \
+          -v "${REPO_DIR}/scripts:/app/scripts" -v "${REPO_DIR}/.env:/app/.env:ro" -e "PYTHONPATH=/app" \
           "$IMAGE" python scripts/cvxmap/volx.py >/dev/null \
         && echo "  started $NAME -> ${DATA_DIR}/volx.json" \
         || echo "  FAILED to start $NAME"
@@ -41,7 +43,7 @@ case "${1:-}" in
   once)
     echo "=== $(date '+%Y-%m-%d %H:%M:%S') volx ONCE ===" | tee -a "$LOG"
     "$DOCKER" run --rm --name "${NAME}-once" \
-        -v "${REPO_DIR}/scripts:/app/scripts" -e "PYTHONPATH=/app" \
+        -v "${REPO_DIR}/scripts:/app/scripts" -v "${REPO_DIR}/.env:/app/.env:ro" -e "PYTHONPATH=/app" \
         "$IMAGE" python scripts/cvxmap/volx.py --once 2>&1 | tee -a "$LOG"
     ;;
   *)

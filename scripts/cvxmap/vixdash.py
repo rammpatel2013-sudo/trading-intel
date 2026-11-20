@@ -20,6 +20,12 @@ dead Cboe can never stall live.json.
 import os, json, math, time, datetime, threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# 2026-11-20: Cboe's delayed-quote API answers 403 from the NAS -> the same indices from FMP via CVForge
+# when a whole Cboe round is refused (idxquote.py). Optional: without it the board is Cboe-only as before.
+try:
+    import idxquote
+except Exception:
+    idxquote = None
 R_RATE = 0.04
 SOQ_MIN = 9 * 60 + 30          # VIX options settle on the Wednesday-open SOQ
 _Q_URL = "https://cdn-api.cboe.com/api/global/delayed_quotes/quotes/_%s.json"
@@ -212,6 +218,7 @@ class _Regime:
         self.lock = threading.Lock()
         self.snap = None
         self.quotes = {}
+        self.fb = None            # idxquote.Fallback, wired in start() (the writer) - Cboe only until then
         self.hist = {}            # sym -> [(date, close)], oldest first, before today
         self.hist_day = None
         self.hist_try = 0.0
@@ -226,15 +233,23 @@ class _Regime:
 
     def _quotes(self):
         q = {}
-        for s in QUOTE_SYMS:
-            try:
-                d = (self._get(_Q_URL % s).json() or {}).get("data") or {}
-                v = _f(d.get("current_price") or d.get("last_trade_price"))
-                if v > 0:
-                    q[s] = {"v": v, "prev": _f(d.get("prev_day_close")),
-                            "t": d.get("last_trade_time") or ""}
-            except Exception:
-                pass
+        fb = self.fb
+        if fb is None or fb.cboe_ok():
+            refused = 0
+            for s in QUOTE_SYMS:
+                try:
+                    d = (self._get(_Q_URL % s).json() or {}).get("data") or {}
+                    v = _f(d.get("current_price") or d.get("last_trade_price"))
+                    if v > 0:
+                        q[s] = {"v": v, "prev": _f(d.get("prev_day_close")),
+                                "t": d.get("last_trade_time") or "", "src": "cboe"}
+                except Exception:
+                    refused += 1
+            if fb is not None and refused == len(QUOTE_SYMS):
+                fb.cboe_refused()          # 403 round (11/20): leave Cboe alone for a while
+        missing = [s for s in QUOTE_SYMS if s not in q]
+        if missing and fb is not None:
+            q.update(fb.quotes(idx=missing))
         return q
 
     def _history(self, today):
@@ -254,6 +269,9 @@ class _Regime:
                 h[s] = rows[-400:]
             except Exception:
                 pass
+        missing = [s for s in QUOTE_SYMS if not h.get(s)]
+        if missing and self.fb is not None:
+            h.update(self.fb.history(today, idx=missing, keep=400))
         return h
 
     # ---- loop ----
@@ -262,6 +280,8 @@ class _Regime:
             return
         self.started = True
         self.clock = clock or datetime.datetime.now
+        if idxquote is not None and self.fb is None:
+            self.fb = idxquote.Fallback()
         threading.Thread(target=self._run, name="vix-regime", daemon=True).start()
 
     def _run(self):
@@ -278,6 +298,8 @@ class _Regime:
                 if q:
                     self.quotes = q
                 snap = build_regime(self.quotes, self.hist, today)
+                if snap:   # which feed each quote came from (cboe / fmp) - shown nowhere yet, checked on ship
+                    snap["qsrc"] = sorted({x.get("src", "cboe") for x in self.quotes.values()})
                 with self.lock:
                     self.snap = snap
             except Exception:

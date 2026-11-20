@@ -60,6 +60,14 @@ from collections.abc import Callable
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
+# 2026-11-20: Cboe's delayed-quote API (quotes + fund history charts) answers 403 from the NAS -> the same
+# symbols from FMP via CVForge after a refused round (idxquote.py). Wired only by main() (the container);
+# a VolX built without it is Cboe-only, as before (tests).
+sys.path.insert(0, HERE)
+try:
+    import idxquote
+except Exception:  # pragma: no cover - the file ships next to this one
+    idxquote = None
 _Q_IDX = "https://cdn-api.cboe.com/api/global/delayed_quotes/quotes/_%s.json"
 _Q_ETF = "https://cdn-api.cboe.com/api/global/delayed_quotes/quotes/%s.json"
 _H_IDX = "https://cdn.cboe.com/api/global/us_indices/daily_prices/%s_History.csv"
@@ -432,8 +440,9 @@ def fade_signal(hist: dict, q: dict, today: datetime.date) -> dict | None:
 
 # ---------------------------------------------------------------- network + loop
 class VolX:
-    def __init__(self, out_dir: str, clock: Callable[[], datetime.datetime]) -> None:
+    def __init__(self, out_dir: str, clock: Callable[[], datetime.datetime], fallback: object | None = None) -> None:
         self.out, self.clock = out_dir, clock
+        self.fb = fallback              # idxquote.Fallback (FMP via CVForge) or None = Cboe only
         self.hist: dict = {}
         self.hist_day: datetime.date | None = None
         self.hist_try = 0.0
@@ -454,16 +463,26 @@ class VolX:
 
     def quotes(self, idx: tuple = IDX, etf: tuple = ETF) -> dict:
         q = {}
-        for s in idx + etf:
-            try:
-                d = (self._get((_Q_IDX if s in idx else _Q_ETF) % s).json() or {}).get("data") or {}
-            except Exception as exc:
-                self.err = f"{s}: {str(exc)[:80]}"
-                continue
-            v = _f(d.get("current_price") or d.get("last_trade_price"))
-            if v > 0:
-                q[s] = {"v": v, "prev": _f(d.get("prev_day_close")),
-                        "t": d.get("last_trade_time") or "", "c": _f(d.get("close"))}
+        fb = self.fb
+        if fb is None or fb.cboe_ok():
+            refused = 0
+            for s in idx + etf:
+                try:
+                    d = (self._get((_Q_IDX if s in idx else _Q_ETF) % s).json() or {}).get("data") or {}
+                except Exception as exc:
+                    self.err = f"{s}: {str(exc)[:80]}"
+                    refused += 1
+                    continue
+                v = _f(d.get("current_price") or d.get("last_trade_price"))
+                if v > 0:
+                    q[s] = {"v": v, "prev": _f(d.get("prev_day_close")),
+                            "t": d.get("last_trade_time") or "", "c": _f(d.get("close")), "src": "cboe"}
+            if fb is not None and idx + etf and refused == len(idx + etf):
+                fb.cboe_refused()           # 403 round (11/20): leave Cboe alone for a while
+        if fb is not None:
+            mi, me = [s for s in idx if s not in q], [s for s in etf if s not in q]
+            if mi or me:
+                q.update(fb.quotes(idx=mi, etf=me))
         return q
 
     def history(self, today: datetime.date) -> dict:
@@ -482,7 +501,7 @@ class VolX:
                 h[s] = rows[-300:]
             except Exception as exc:
                 self.err = f"history {s}: {str(exc)[:80]}"
-        for s in ETF + B_ETF:
+        for s in (ETF + B_ETF) if (self.fb is None or self.fb.cboe_ok()) else ():
             try:
                 js = self._get(_H_ETF % s, timeout=15).json() or {}
                 rows = []
@@ -494,6 +513,11 @@ class VolX:
                 h[s] = rows[-300:]
             except Exception as exc:
                 self.err = f"history {s}: {str(exc)[:80]}"
+        if self.fb is not None:
+            mi = [s for s in (*H_IDX, *XV_SYMS, "VIX3M", "VVIX") if not h.get(s)]
+            me = [s for s in ETF + B_ETF if not h.get(s)]
+            if mi or me:
+                h.update(self.fb.history(today, idx=mi, etf=me, keep=300))
         return h
 
     def _day_file(self, day: datetime.date) -> str:
@@ -556,6 +580,7 @@ class VolX:
                 "hist_through": {s: (v[-1][0].isoformat() if v else None)
                                  for s, v in self.hist.items()},
                 "board": _safe_board(self.hist, {**self.bq, **self.q}, today, self._vixmap(today)),
+                "qsrc": sorted({(x or {}).get("src", "cboe") for x in {**self.bq, **self.q}.values()}),
                 "err": self.err}
 
     def _vixmap(self, today: datetime.date) -> dict | None:
@@ -641,7 +666,7 @@ def main(argv: list[str] | None = None) -> int:
         out = argv[argv.index("--out") + 1]
     if "--show-tells" in argv:
         return show_tells(os.path.join(out, "volx.json"))
-    v = VolX(out, now_et)
+    v = VolX(out, now_et, idxquote.Fallback() if idxquote is not None else None)
     print(f"volx start {now_et():%Y-%m-%d %H:%M} -> {out}", flush=True)
     if "--once" in argv:
         v.step()
