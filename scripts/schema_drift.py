@@ -25,7 +25,7 @@ from pathlib import Path
 ROOT = Path(os.environ.get("TI_ROOT") or Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(ROOT))
 
-_IGNORE_TABLES = {"alembic_version"}
+_IGNORE_TABLES = {"alembic_version", "quotes_daily", "desk_bars", "quotes_daily_old", "desk_bars_old"}   # views since 0065 (+ kept old tables)
 _IGNORE_COLS = {("chunks", "embedding")}
 _IGNORE_INDEX = {"ix_chunks_embedding"}
 

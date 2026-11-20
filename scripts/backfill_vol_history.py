@@ -36,6 +36,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from trading_intel.config import get_settings
 from trading_intel.memory.db import make_session_factory
 from trading_intel.memory.models import IndexSkewDaily, QuoteDaily, Ticker, VixData
+from trading_intel.memory.models_equity import EquityBar
 
 log = structlog.get_logger(__name__)
 
@@ -171,10 +172,13 @@ def main() -> None:
                     .values({"symbol": "SPX", "name": "S&P 500 index", "is_active": True})
                     .on_conflict_do_nothing(index_elements=["symbol"])
                 )
-                for i in range(0, len(new_q), 500):
+                # 2026-11-19 (A2 step 7b): quotes_daily is a VIEW over equity_bars - write the owner
+                keep = ("symbol", "date", "open", "high", "low", "close", "volume")
+                eq = [{k: r.get(k) for k in keep} for r in new_q]
+                for i in range(0, len(eq), 500):
                     session.execute(
-                        pg_insert(QuoteDaily).values(new_q[i : i + 500]).on_conflict_do_nothing(
-                            constraint="uq_quotes_daily"
+                        pg_insert(EquityBar).values(eq[i : i + 500]).on_conflict_do_nothing(
+                            index_elements=["symbol", "date"]
                         )
                     )
 

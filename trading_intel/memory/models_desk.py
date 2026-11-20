@@ -68,6 +68,8 @@ class DeskGammaDaily(Base):
 
 
 class DeskBar(Base):
+    """READ ONLY since alembic 0065 (2026-11-19): a VIEW over equity_bars. Write equity_bars instead."""
+
     __tablename__ = "desk_bars"
 
     symbol: Mapped[str] = mapped_column(String(16), primary_key=True)

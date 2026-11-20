@@ -66,20 +66,24 @@ def session() -> Session:
 
 
 def _count(session: Session) -> int:
-    return session.execute(select(func.count()).select_from(QuoteDaily)).scalar_one()
+    return session.execute(select(func.count()).select_from(EquityBar)).scalar_one()
 
 
-def test_run_inserts_history_with_rv(session: Session):
+# 2026-11-19 (DB wave A2 step 7b): the job writes equity_bars; quotes_daily is a VIEW over it in Postgres with
+# rv20 / rv60 computed in SQL (alembic 0065) - SQLite has no view, so these tests read equity_bars.
+
+
+def test_run_inserts_history(session: Session):
     quotes_daily.run(session, FakePriceSource(n=80), settings=_settings(), period="max")
-    rows = list(session.execute(select(QuoteDaily).order_by(QuoteDaily.date)).scalars())
+    rows = list(session.execute(select(EquityBar).order_by(EquityBar.date)).scalars())
     assert len(rows) == 80
-    # Parent ticker row must have been seeded (else the FK insert fails).
-    assert session.get(Ticker, "SPY") is not None
-    # rv20 primes after 20 returns; the last row has it, the first does not.
-    assert rows[0].rv20 is None
-    assert rows[-1].rv20 is not None and rows[-1].rv20 > 0
-    assert rows[-1].rv60 is not None
+    assert session.get(Ticker, "SPY") is not None   # the view lists only watchlist (tickers) symbols
     assert rows[-1].volume == 80 * 1000
+    assert _count_quotes(session) == 0              # nothing written to the old table any more
+
+
+def _count_quotes(session: Session) -> int:
+    return session.execute(select(func.count()).select_from(QuoteDaily)).scalar_one()
 
 
 def test_run_is_idempotent(session: Session):
@@ -87,17 +91,14 @@ def test_run_is_idempotent(session: Session):
     quotes_daily.run(session, FakePriceSource(n=40), settings=s, period="max")
     n1 = _count(session)
     quotes_daily.run(session, FakePriceSource(n=40), settings=s, period="max")
-    assert _count(session) == n1  # ON CONFLICT DO NOTHING
-    # 2026-11-19 A2 step 7a: the same bars land in equity_bars (once), equity_bars rows never overwritten
-    neq = session.execute(select(func.count()).select_from(EquityBar)).scalar_one()
-    assert neq == n1
+    assert _count(session) == n1 == 40  # ON CONFLICT DO NOTHING
 
 
 def test_run_handles_index_without_volume(session: Session):
     quotes_daily.run(
         session, FakePriceSource(n=30, with_volume=False), settings=_settings(), period="max"
     )
-    rows = list(session.execute(select(QuoteDaily)).scalars())
+    rows = list(session.execute(select(EquityBar)).scalars())
     assert len(rows) == 30
     assert all(r.volume == 0 for r in rows)  # NaN volume coerced to 0
 
@@ -106,7 +107,7 @@ def test_run_symbols_override(session: Session):
     # Watchlist says SPY, but we explicitly backfill only TSLA.
     quotes_daily.run(session, FakePriceSource(n=30), settings=_settings(), period="max",
                      symbols=["TSLA"])
-    rows = list(session.execute(select(QuoteDaily)).scalars())
+    rows = list(session.execute(select(EquityBar)).scalars())
     assert rows and {r.symbol for r in rows} == {"TSLA"}
 
 

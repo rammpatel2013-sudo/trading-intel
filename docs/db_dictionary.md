@@ -113,8 +113,8 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | Table | One row = | Key | Time key | Writer | Source | Kind |
 | --- | --- | --- | --- | --- | --- | --- |
 | `equity_bars` | symbol per day: OHLCV + cap (S&P 1500; since 0063 also every quotes_daily / desk_bars symbol, cap empty) | symbol+date | `date` | equity_daily, equity_backfill; quotes_daily + desk_brief also write it (never overwrite) | FMP via CVForge | raw — owner of daily bars |
-| `desk_bars` | symbol per day: OHLCV (outside S&P 1500) | symbol+date | `date` | desk_brief | FMP via CVForge | raw — duplicate, copied into equity_bars (0063); view later (A2 step 7b) |
-| `quotes_daily` | symbol per day: OHLCV + RV20/60 | symbol+date | `date` | quotes_daily | FMP via CVForge | raw — duplicate, copied into equity_bars (0063); view later (A2 step 7b) |
+| `desk_bars` | symbol per day: OHLCV (outside S&P 1500) | symbol+date | `date` | desk_brief | FMP via CVForge | VIEW since 0065 over equity_bars (old rows kept in desk_bars_old) |
+| `quotes_daily` | symbol per day: OHLCV + RV20/60 (watchlist symbols) | symbol+date | `date` | — (VIEW; the quotes_daily job writes equity_bars) | from equity_bars; rv20/rv60 computed in SQL | VIEW since 0065 (old rows kept in quotes_daily_old, drop after a week) |
 | `breadth_snapshots` | one day: A/D, %>MA, NH-NL, McClellan | ts+source | `ts` date | breadth | own | derived |
 | `external_nhnl` | one day: new highs/lows | date | `date` | equity_daily | thetrading.tools | raw |
 | `sector_corr_snapshots` | one day: sector-ETF correlation | as_of+source | `as_of` | sector_corr | FMP bars | derived |

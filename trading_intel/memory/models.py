@@ -54,6 +54,9 @@ class Ticker(Base):
 
 
 class QuoteDaily(Base):
+    """READ ONLY since alembic 0065 (2026-11-19): a VIEW over equity_bars (watchlist symbols) with rv20 / rv60
+    computed in the view. Write equity_bars instead. Kept as a mapped table so readers and SQLite tests work."""
+
     __tablename__ = "quotes_daily"
     __table_args__ = (UniqueConstraint("symbol", "date", name="uq_quotes_daily"),)
 
