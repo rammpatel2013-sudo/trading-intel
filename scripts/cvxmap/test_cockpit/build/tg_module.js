@@ -11,6 +11,7 @@ const TG_DEF=[ // id, short label, tracker ids, version, help
   ["b6","Gap fill","B6","v0","A strike left with no IV keeps its position: IV filled linearly from the nearest strikes with IV (production drops that strike)."],
   ["b5","Week IV = live","B5","v1","Week book IV from the live chain (same contract: expiry, AM/PM, strike), rescaled to the contract's real time left. Morning IV + ½×ATM shift only where live IV is missing. OI unchanged."],
   ["b4","Bad-book check","B4a","v0","Flag only (changes nothing): compares the 08:35 book IV with the live chain near spot. ⚠ when the median gap > 8 vol pts or > 25% of strikes are off by > 10 pts, or IVs are outside 3%–150% (10/28 was 50+ pts off). Normal intraday IV drift is several points, so the bar is set well above it."],
+  ["bq","Book clean","BQ","v0","(2026-11-20, review round 2 item 1) 08:35 Week book IV cleaned before use: a side counts only inside 3%–150%; calls and puts > 10 vol pts apart = conflict, resolved toward the expiry's agreeing neighbours; one good side = that side; none = filled from strikes ≤ 3 away, else LEFT OUT (never guessed). Read-out shows the share of each kind."],
   ["e2","Smooth β","E2","v1","Smile β blended across zone centres (Gaussian, half a zone wide) instead of hard steps at the zone edges. Needs Smile ON."],
   ["d1","Full Smile slope","D1","v1","Adds Vega·db/dS to Smile gamma (the slope's own change with price). Needs Smile ON; with hard zones only the 1/S part counts."],
   ["c2","IV path","C2","v0","IV at a map price moves along β from the anchor spot: σ(S) = σ₀ + ∫ β/x dx. Greeks are computed at that IV. Smile ON adds the slope terms on top. Needs the β file."],
@@ -145,7 +146,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
 const TG_SCORE_V="score-v1"; const TG_PAGE_V="__TG_PAGE_V__";
-const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
+const TG_CFGS=[["off",{}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["bq",{bq:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
 function tgCross(prices,col,i,lev){ const a=col[i-1], b=col[i]; return prices[i-1]+(prices[i]-prices[i-1])*(lev-a)/((b-a)||1); }

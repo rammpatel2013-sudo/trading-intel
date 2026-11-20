@@ -17,6 +17,7 @@ keeps its own A5 + B2 toggles, so production's two clockSync() calls are removed
 2026-11-19 (night): + the VIX map STRIKE MAP, redesign C1 + C2 (tg_vixmap.js, section 19): rows = listed VIX strikes, strike book
 every 30 min, role labels, hover card, 5-min candles, price tag, contours + pills. VIX tab, OFF by default, display only.
 2026-11-19 (night, later): + the Flow panel F1-F3 (tg_flowpanel.js, section 20), Flow tab, OFF by default, display only.
+2026-11-20: + BQ Book clean (tg_book.js, toggle bq in tg_module.js, section 21): 08:35 Week book IV cleaned with provenance.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
@@ -33,7 +34,8 @@ CO = open(os.path.join(HERE, "tg_color.js"), encoding="utf-8").read()   # 2026-1
 SM = open(os.path.join(HERE, "tg_strike.js"), encoding="utf-8").read()   # 2026-11-13 (night) Short strikes marker sm-v0
 VS = open(os.path.join(HERE, "tg_vixmap.js"), encoding="utf-8").read()   # 2026-11-19 VIX map Strike map (C1 + C2)
 FP = open(os.path.join(HERE, "tg_flowpanel.js"), encoding="utf-8").read()   # 2026-11-19 Flow panel F1-F3
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM + VS + FP).encode("utf-8")).hexdigest()[:12])
+BQ = open(os.path.join(HERE, "tg_book.js"), encoding="utf-8").read()   # 2026-11-20 Book clean (review round 2 item 1)
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM + VS + FP + BQ).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -75,7 +77,7 @@ rep("let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPE
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n" + VS + "\n" + FP + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n" + VS + "\n" + FP + "\n" + BQ + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -93,6 +95,9 @@ rep("    out.push({k,sg,cp,pp}); });\n  return out;\n}",
 rep("  for(const r of nb.rows){ const sg0=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue; const sg=Math.max(0.01,sg0+dv);\n",
     "  let nL=0,nF=0; for(const r of nb.rows){ const sg0=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue; let sg=Math.max(0.01,sg0+dv);\n"
     "    if(TG.b5){ const lv=tgWeekLiveSg(r,S); if(lv>0){ sg=lv; nL++; } else nF++; }\n")
+# 21. (2026-11-20) BQ Book clean (tg_book.js): the Week book IV comes through the cleaner when BQ is on (section 7's loop)
+rep("  let nL=0,nF=0; for(const r of nb.rows){ const sg0=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue;",
+    "  let nL=0,nF=0; for(const r of nb.rows){ const sg0=TG.bq?tgBqSg(r,S):otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue;")
 rep("out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||\"PM\",exp_t:r.exp_t||(r.e+\"T16:00\"),cal_ok:r.cal_ok!==false}); }\n  return out.length?out:null; }",
     "out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||\"PM\",exp_t:r.exp_t||(r.e+\"T16:00\"),cal_ok:r.cal_ok!==false,s0:S}); }\n  if(TG.b5){ TG_STATS.wkLive=nL; TG_STATS.wkFb=nF; }\n  return out.length?out:null; }")
 # 8. Week fast path off when a greek toggle is on
@@ -158,7 +163,8 @@ rep("""  if(trB!=null) B.push(`<div class="bl"><b>Downside magnet ${f(trB)}</b> 
 # B4a flag on the map read
 rep("""  { const wi=WEEK_CLOCK_V2&&g&&g.book!=="0dte"?wkBookInfo():null; if(wi&&wi.warn.length) B.push(`<div class="bl"><b>⚠ Week book:</b> ${wi.warn.join(" · ")}.</div>`); }""",
     """  { const wi=WEEK_CLOCK_V2&&g&&g.book!=="0dte"?wkBookInfo():null; if(wi&&wi.warn.length) B.push(`<div class="bl"><b>⚠ Week book:</b> ${wi.warn.join(" · ")}.</div>`); }
-  if(TG.b4&&g&&g.book!=="0dte"){ const bc=tgBookCheck(); if(bc&&bc.bad) B.push(`<div class="bl"><b>⚠ TEST B4a — morning book may be bad:</b> ${bc.txt}. Nothing is replaced unless B5 is on.</div>`); }""")
+  if(TG.b4&&g&&g.book!=="0dte"){ const bc=tgBookCheck(); if(bc&&bc.bad) B.push(`<div class="bl"><b>⚠ TEST B4a — morning book may be bad:</b> ${bc.txt}. Nothing is replaced unless B5 is on.</div>`); }
+  if(TG.bq) B.push(tgBqLine());   /* TEST BQ */""")
 # legends
 GOLD = """drawHeat("mapGammaC",g,se,d,`Dealer Δ per 2.5 pts · ${(st.mapBook||"0dte")==="0dte"?"0DTE":(st.mapBook==="week"?"1–7 DTE book":"0DTE + 1–7 DTE")}${v1On()?" + next expiry's volume":""} · ${st.gDet?"DE-TRENDED: blue/red = above/below the column average, NOT long/short":"blue long / red short"} · green peak · yellow trough · dotted zero · ±1σ from 9:35`);"""
 GNEW = """drawHeat("mapGammaC",g,se,d,TG.fx?`Dealer Δ per 2.5 pts · ${(st.mapBook||"0dte")==="0dte"?"0DTE":(st.mapBook==="week"?"1–7 DTE book":"0DTE + 1–7 DTE")}${v1On()?" + next expiry's volume":""} · ${st.gDet?"DE-TRENDED: blue/red = above/below the column median, NOT long/short":"colour = raw modeled value, blue long / red short"} · ${st.mapScale==="col"?"COLUMN scale: brightness is NOT comparable across times":"one colour scale for the whole map"} · green peak · yellow trough · dotted = raw zero${st.gDet?" (not the colour edge)":""} · ±1σ from 9:35`:`Dealer Δ per 2.5 pts · ${(st.mapBook||"0dte")==="0dte"?"0DTE":(st.mapBook==="week"?"1–7 DTE book":"0DTE + 1–7 DTE")}${v1On()?" + next expiry's volume":""} · ${st.gDet?"DE-TRENDED: blue/red = above/below the column average, NOT long/short":"blue long / red short"} · green peak · yellow trough · dotted zero · ±1σ from 9:35`);"""

@@ -126,3 +126,9 @@ Mithil 11/13 20:18 "build" (#87, reversing the drop) and the backlog cut (#21 = 
 - **F2 OVI** (customer calls bought − sold − (puts bought − sold), contracts, from the open) for 0DTE and the next expiry (minute log `n1`), + 15-minute change. 1–5D / 30D+ split needs the tape writer (later).
 - **F3 terrain badge** (rule tr-v0, `scripts/cvxmap/terrain.py` → `data/terrain.json`, written by cvxmap-wide at its 09:26 start; by hand `python terrain.py`): minutes price spent in spot's bin (SPX 5 pts, SPY/QQQ 0.5) over the last 3 sessions → HVN (≥ 70th pct of visited bins) / LVN (≤ 30th) / MID / NEW (never there).
 - **Test:** `tests/flowpanel_expect.py <dir> SPX` (independent Python F1 / F2 / F3 for the last minute) then `node tests/flowpanel.js` (14 checks; 11/19 log: page = Python to 1e-6).
+
+## Book clean (BQ v0), added 2026-11-20 — hedge-math review round 2, item 1
+- **Toggle** "Book clean" in the yellow bar, **OFF by default**; scored like the others (config `bq` in TG_CFGS). Code `build/tg_book.js`, hook section 21 of `make_test_page.py`. Doc `claude/hedge-math-review-round2-20261119.md`.
+- The 1–7 DTE book's IV (08:35 pull, ti.json near_book) goes through a cleaner first. Per strike: **observed** (both sides in 3%–150% and ≤ 10 vol pts apart → OTM side), **conflict** (> 10 pts apart → side closer to the expiry's agreeing neighbours), **paired** (one good side), **interpolated** (neither: from strikes ≤ 3 away on both sides), **unavailable** (left OUT of the map, never guessed); **stale** flag when the live Week chain differs by > 10 pts near spot. The read-out shows the share of each.
+- 11/19 SPX book: 1,622 strikes = 1,368 observed · **252 call/put conflicts** · 2 other side · 0 filled · 0 left out.
+- **Test:** `tests/book_expect.py <dir> SPX` (independent Python) then `node tests/bookclean.js` (11 checks: OFF identical to the old page; ON counts and every IV = Python, 0DTE map unchanged).
