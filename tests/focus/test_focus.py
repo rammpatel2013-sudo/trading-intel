@@ -186,6 +186,7 @@ def test_focus_live_writer(tmp_path, monkeypatch):
     monkeypatch.setattr(FL, "to_db", lambda dec, syms, today, ts: calls.append((ts, tuple(syms))) or (1, 1))
     monkeypatch.setattr(FL.L, "now_et", lambda: dt.datetime(2026, 11, 20, 10, 7, 30))
     monkeypatch.setattr(FL, "day_open", lambda sym, today: 170.0 if sym == "NVDA" else None)   # added mid-session
+    monkeypatch.setattr(FL, "bars_pull", lambda syms, today: calls.append(("bars", tuple(syms))))
     monkeypatch.setattr(FL.L, "today_et", lambda: FRI)
     raw = tmp_path / "focus_raw_20261120.ndjson.gz"
     with gzip.open(raw, "at", encoding="utf-8") as fh:
@@ -205,7 +206,12 @@ def test_focus_live_writer(tmp_path, monkeypatch):
     tail = json.loads((tmp_path / "focus_tail_NVDA.json").read_text())
     assert tail["size"] == (tmp_path / "focus_flow_NVDA_20261120.ndjson").stat().st_size and tail["text"].count("\n") == 3
     # DB: the first pull of each name, then the 5-minute marks only
-    assert [c[0][11:16] for c in calls] == ["10:04", "10:05"]
+    assert [c[0][11:16] for c in calls if c[0] != "bars"] == ["10:04", "10:05"]
+    assert ("bars", ("NVDA", "AMD")) in calls
+    orb = json.loads((tmp_path / "wide_focus_20261120.json").read_text())                  # Orbs day file
+    assert set(orb["syms"]) == {"NVDA", "AMD"} and len(orb["syms"]["NVDA"]["slots"]) == 3
+    lv = json.loads((tmp_path / "wide_live_NVDA.json").read_text())
+    assert lv["slot"]["t"] == "10:06" and lv["n"] == 3 and any(v for v in lv["slot"]["g0"])
     with gzip.open(raw, "at", encoding="utf-8") as fh:                         # incremental pass
         fh.write(json.dumps(_rec("2026-11-20T10:07:00")) + "\n")
     assert FL.process() == 1
@@ -372,3 +378,41 @@ def test_serve_focus_api(tmp_path, key):
     finally:
         p.terminate()
         p.wait(5)
+
+
+# ---------------------------------------------------------------- 0-7 DTE levels (walls, gamma / vanna flip)
+def test_levels_0_7():
+    import focus_live as FL
+
+    rows = []
+    for e, dte in (("2026-11-20", 0), ("2026-11-27", 7)):
+        for k in range(160, 205, 5):
+            rows.append({"k": float(k), "sg": 0.4, "cIV": 0.4, "pIV": 0.4, "T": max(dte, 0.3) / 365, "dte": dte, "e": e,
+                         "cOI": 3000.0 if k == 195 else 500.0 if k > 180 else 50.0,
+                         "pOI": 3000.0 if k == 170 else 500.0 if k < 180 else 50.0, "cV": 0, "pV": 0})
+    lv = FL.levels(rows, 182.0)
+    assert lv["call_wall"] == 195 and lv["put_wall"] == 170 and lv["expiries"] == ["2026-11-20", "2026-11-27"]
+    assert 172 < lv["gamma_flip"] < 192            # call OI above, put OI below -> the sign turns between the walls
+    g_hi, _ = FL.net_at(rows, 192.0)
+    g_lo, _ = FL.net_at(rows, 172.0)
+    assert g_hi > 0 > g_lo
+    nb = FL.near_book(rows, "2026-11-20")
+    assert {r["e"] for r in nb["rows"]} == {"2026-11-27"} and nb["rows"][0]["exp_t"] == "2026-11-27T16:00"
+
+
+def test_writer_adds_levels(tmp_path, monkeypatch):
+    import focus_live as FL
+
+    monkeypatch.setattr(FL, "DATA", str(tmp_path))
+    monkeypatch.setattr(FL, "to_db", lambda *a: (0, 0))
+    monkeypatch.setattr(FL, "day_open", lambda *a: None)
+    monkeypatch.setattr(FL, "bars_pull", lambda *a: None)
+    monkeypatch.setattr(FL.L, "now_et", lambda: dt.datetime(2026, 11, 20, 10, 4, 20))
+    monkeypatch.setattr(FL.L, "today_et", lambda: FRI)
+    with gzip.open(tmp_path / "focus_raw_20261120.ndjson.gz", "at", encoding="utf-8") as fh:
+        fh.write(json.dumps(_rec("2026-11-20T10:04:00")) + "\n")
+    FL.process()
+    nv = json.loads((tmp_path / "focus_live.json").read_text())["NVDA"]
+    assert nv["lv"]["expiries"] == ["2026-11-20", "2026-11-27"]           # 0 and 7 DTE, not 14 / 21
+    assert nv["lv"]["call_wall"] >= nv["spot"] >= nv["lv"]["put_wall"]
+    assert nv["near"]["rows"] and {r["e"] for r in nv["near"]["rows"]} == {"2026-11-27"}

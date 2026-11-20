@@ -21,7 +21,7 @@ And every 5th minute (and the first pull of each name) into the database, source
 Run (NAS, run_cvxmap.sh start):  python scripts/cvxmap/focus_live.py        (loop until 17:00 ET)
                                  python scripts/cvxmap/focus_live.py --once
 """
-import collections, datetime, json, os, sys, time, traceback
+import collections, datetime, json, math, os, sys, time, traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -72,6 +72,109 @@ def strike_step(entry):
     c = collections.Counter(gaps).most_common()
     best = max(n for _g, n in c)
     return min(g for g, n in c if n == best)      # ties: the finer spacing
+
+
+
+# ---------------------------------------------------------------- 0-7 DTE levels (Mithil 04:32: "flow vol gamma n vanna level.
+# charm will not play role if not 0DTE. call wall put wall and flip zero line matters")
+NEAR_DTE = 7
+_SQ2PI = math.sqrt(2.0 * math.pi)
+
+
+def _years(exp, now):
+    """Calendar time to the 16:00 close of expiry day, in years (floor 1 minute)."""
+    end = datetime.datetime.combine(exp, datetime.time(16, 0))
+    return max((end - now).total_seconds(), 60.0) / (365.0 * 86400.0)
+
+
+def book_0_7(entry, now):
+    """Every contract of the expiries within 7 days: strike, OTM implied vol (parity forward, mids), call / put OI,
+    time to expiry. The same inputs the cockpit's maps use, across 0-7 DTE instead of the nearest expiry only."""
+    spot = entry.get("spot") or 0
+    out = []
+    if not spot:
+        return out
+    for head, book in entry.get("exps") or []:
+        try:
+            exp = datetime.date.fromisoformat(L.exp_date(head))
+        except Exception:
+            continue
+        dte = (exp - now.date()).days
+        if dte < 0 or dte > NEAR_DTE:
+            continue
+        T = _years(exp, now)
+        F, _sd = L.parity_forward([(k, c, p) for k, (c, p) in book.items()], spot, band=spot * 0.10)
+        for k, (c, p) in book.items():
+            civ = L.implied(L.mid(c), F, k, T, "C")
+            piv = L.implied(L.mid(p), F, k, T, "P")
+            sg = (civ if k >= F else piv) or civ or piv
+            if not sg:
+                continue
+            out.append({"k": k, "sg": sg, "cIV": civ or 0, "pIV": piv or 0, "cOI": L._n(c.get("oi")),
+                        "pOI": L._n(p.get("oi")), "cV": L._n(c.get("volm")), "pV": L._n(p.get("volm")),
+                        "T": T, "dte": dte, "e": exp.isoformat()})
+    return out
+
+
+def _greeks(S, K, sg, T):
+    sq = sg * math.sqrt(T)
+    d1 = (math.log(S / K) + 0.5 * sg * sg * T) / sq
+    n = math.exp(-d1 * d1 / 2.0) / _SQ2PI
+    gamma = n / (S * sq)
+    vanna = -n * (d1 - sq) / sg
+    return gamma, vanna
+
+
+def net_at(rows, S):
+    """Dealer gamma and vanna at price S (cockpit's naive sign: (call OI - put OI), so a call-heavy strike = dealers
+    long gamma there), $ per 1% move / per 1 vol point, in billions like the map."""
+    g = v = 0.0
+    for r in rows:
+        ga, va = _greeks(S, r["k"], r["sg"], r["T"])
+        net = r["cOI"] - r["pOI"]
+        g += ga * net * 100.0 * S * S * 0.01
+        v += va * net * 100.0 * S * 0.01
+    return g / 1e9, v / 1e9
+
+
+def _zero(xs, ys, S):
+    best = None
+    for (x0, y0), (x1, y1) in zip(zip(xs, ys), zip(xs[1:], ys[1:])):
+        if (y0 < 0 <= y1) or (y0 > 0 >= y1):
+            k = x0 + (x1 - x0) * (0 - y0) / ((y1 - y0) or 1e-12)
+            if best is None or abs(k - S) < abs(best - S):
+                best = k
+    return best
+
+
+def levels(rows, S):
+    """Call wall (most call OI at/above spot), put wall (most put OI at/below), gamma flip and vanna flip (the zero
+    crossing nearest spot on a +-15% grid), dealer gamma / vanna now, by expiry and all 0-7 DTE together."""
+    if not rows or not S:
+        return None
+    co, po = {}, {}
+    for r in rows:
+        co[r["k"]] = co.get(r["k"], 0.0) + r["cOI"]
+        po[r["k"]] = po.get(r["k"], 0.0) + r["pOI"]
+    cw = max((k for k in co if k >= S), key=lambda k: co[k], default=None)
+    pw = max((k for k in po if k <= S), key=lambda k: po[k], default=None)
+    xs = [S * (0.85 + 0.0025 * i) for i in range(121)]
+    gv = [net_at(rows, x) for x in xs]
+    g0, v0 = net_at(rows, S)
+    out = {"call_wall": cw, "put_wall": pw, "gamma_flip": _zero(xs, [a for a, _b in gv], S),
+           "vanna_flip": _zero(xs, [b for _a, b in gv], S), "gamma_now": g0, "vanna_now": v0,
+           "expiries": sorted({r["e"] for r in rows}), "n": len(rows)}
+    # biggest single-strike dealer vanna in the window (a level where vol moves push hedging hardest)
+    best = max(rows, key=lambda r: abs(_greeks(S, r["k"], r["sg"], r["T"])[1] * (r["cOI"] - r["pOI"])), default=None)
+    out["vanna_strike"] = best["k"] if best else None
+    return out
+
+
+def near_book(rows, first_exp):
+    """The cockpit's 1-7 DTE book shape (ti.json near_book rows) for the expiries after the nearest one, so the Map's
+    Week / All books include them with their own time to expiry."""
+    return {"rows": [{"k": r["k"], "cIV": r["cIV"], "pIV": r["pIV"], "cOI": r["cOI"], "pOI": r["pOI"], "dte": r["dte"],
+                      "e": r["e"], "set": "PM", "exp_t": r["e"] + "T16:00"} for r in rows if r["e"] != first_exp]}
 
 
 # ---------------------------------------------------------------- minute log + tail per name
@@ -143,6 +246,118 @@ def day_open(sym, today):
         return None
 
 
+
+# ---------------------------------------------------------------- Orbs blocks (Mithil 04:55: Focus tab "gamma, vanna, or our
+# orbs flow view along with technical 3 min chart with obv vwap volume profile"). wide_feed.build_slot UNCHANGED, so the
+# Orbs maths are the index's; only the strike window is wider for single names (+-10% of spot instead of +-2.7%).
+# Files (the Orbs tab and the Focus tab read them like the index's): wide_focus_YYYYMMDD.json (day, all picks) and
+# wide_live_<SYM>.json (newest minute).
+WIDE_FRAC_FOCUS = 0.10
+_W = {}
+
+
+def wide():
+    if "W" not in _W:
+        import wide_feed as W
+        W.WIDE_FRAC = WIDE_FRAC_FOCUS
+        _W["W"] = W
+    return _W["W"]
+
+
+ORBS = {"day": None, "slots": {}, "px": {}}
+
+
+def orbs_load(day):
+    """Resume the day's blocks from the file written so far (a restarted writer must not lose the morning)."""
+    ORBS.update(day=(DATA, day), slots={}, px={})
+    path = os.path.join(DATA, "wide_focus_%s.json" % day)
+    try:
+        j = json.load(open(path, encoding="utf-8"))
+        for s, v in (j.get("syms") or {}).items():
+            ORBS["slots"][s] = wide().decode_slots(v.get("slots") or [], v.get("step") or 1.0)
+            ORBS["px"][s] = v.get("px") or []
+    except Exception:
+        pass
+
+
+def orbs_add(sym, d, today, now, day):
+    if ORBS["day"] != (DATA, day):
+        orbs_load(day)
+    W = wide()
+    blk = W.build_slot(sym, d, today, now)
+    t = now.strftime("%H:%M")
+    sl = ORBS["slots"].setdefault(sym, [])
+    px = ORBS["px"].setdefault(sym, [])
+    if sl and sl[-1]["t"] == t:
+        sl[-1] = blk
+    else:
+        sl.append(blk)
+    if px and px[-1][0] == t:
+        px[-1] = [t, round(d["spot"], 2)]
+    else:
+        px.append([t, round(d["spot"], 2)])
+    L.atomic_write(os.path.join(DATA, "wide_live_%s.json" % sym),
+                   {"v": 2, "day": today.isoformat(), "sym": sym, "step": L.STEP.get(sym, 1.0),
+                    "gen": L.now_et().isoformat(timespec="seconds"), "slot_min": 1, "n": len(sl), "slot": sl[-1],
+                    "px": px[-15:]})
+
+
+def orbs_write(today, day):
+    if not ORBS["slots"]:
+        return
+    W = wide()
+    syms = {s: {"step": L.STEP.get(s, 1.0), "slots": W.encode_slots(sl), "px": ORBS["px"].get(s, [])}
+            for s, sl in ORBS["slots"].items() if sl}
+    L.atomic_write(os.path.join(DATA, "wide_focus_%s.json" % day),
+                   {"v": 2, "day": today.isoformat(), "gen": L.now_et().isoformat(timespec="seconds"),
+                    "max_dte": 7, "slot_min": 1, "focus": True, "syms": syms})
+
+
+# ---------------------------------------------------------------- stock 1-minute bars for the Focus tab's price chart
+# FMP historical-chart/1min through CVForge (the chain bank's own route), once a minute per pick -> bars_1m (owner
+# table, source fmp, upsert) and focus_bars_<SYM>.json for the page. FMP's intraday bars can lag a few minutes.
+BARS_EVERY_S = 60
+_BARS = {"at": {}}
+
+
+def bars_pull(syms, today):
+    now = time.time()
+    due = [s for s in syms if now - _BARS["at"].get(s, 0) >= BARS_EVERY_S]
+    if not due:
+        return
+    try:
+        from trading_intel.flow import bank
+        if "cv" not in _BARS:
+            from trading_intel.clients.cvforge import CVForgeClient
+            from trading_intel.config import get_settings
+            _BARS["cv"] = CVForgeClient(get_settings(), timeout=20.0)
+        if "sf" not in _DB:
+            from trading_intel.config import get_settings
+            from trading_intel.memory.db import make_session_factory
+            _DB["sf"] = make_session_factory(get_settings())
+    except Exception as exc:
+        log("bars setup: %s" % str(exc)[:120])
+        for s in due:
+            _BARS["at"][s] = now
+        return
+    for s in due:
+        _BARS["at"][s] = now
+        try:
+            raw = _BARS["cv"].fmp("historical-chart/1min", {"symbol": s, "from": today.isoformat(), "to": today.isoformat()})
+            rows = [r for r in bank.parse_fmp_1m(s, raw) if r["ts"].date() == today]
+            if rows:
+                with _DB["sf"]() as ses:
+                    bank.save_bars_1m(ses, rows)
+            rows.sort(key=lambda r: r["ts"])
+            out = [[r["ts"].strftime("%H:%M"), r["open"], r["high"], r["low"], r["close"], r["volume"]] for r in rows
+                   if "09:30" <= r["ts"].strftime("%H:%M") < "16:00"]
+            L.atomic_write(os.path.join(DATA, "focus_bars_%s.json" % s),
+                           {"day": today.isoformat(), "sym": s, "gen": L.now_et().isoformat(timespec="seconds"),
+                            "src": "fmp 1-min via CVForge", "bars": out})
+        except Exception as exc:
+            log("bars %s: %s" % (s, str(exc)[:120]))
+
+
 # ---------------------------------------------------------------- one pass
 def process(db=True):
     day = L.now_et().strftime("%Y%m%d")
@@ -196,6 +411,17 @@ def process(db=True):
                 continue
             if not sd:
                 continue
+            try:
+                pts = datetime.datetime.fromisoformat(ts) if ts else L.now_et()
+                rows07 = book_0_7(dec[sym], pts)
+                sd["lv"] = levels(rows07, sd["spot"])
+                sd["near"] = near_book(rows07, sd.get("exp"))
+            except Exception as exc:
+                log("levels %s: %s" % (sym, str(exc)[:120]))
+            try:
+                orbs_add(sym, dec[sym], today, pts, day)
+            except Exception as exc:
+                log("orbs %s: %s" % (sym, str(exc)[:120]))
             live[sym] = sd
             live["syms"].append(sym)
             if fl and fl["t"] <= "16:00":
@@ -220,7 +446,15 @@ def process(db=True):
             write_tail(sym, day, flow_path(sym, day), state)
         except Exception as exc:
             log("tail %s: %s" % (sym, str(exc)[:80]))
+    if n:
+        try:
+            orbs_write(today, day)
+        except Exception as exc:
+            log("orbs write: %s" % str(exc)[:120])
     if live:
+        state["syms_last"] = live["syms"]
+        if db:
+            bars_pull(live["syms"], today)
         live["db"] = state.get("db_last")
         L.atomic_write(os.path.join(DATA, "focus_live.json"), live)
     L.atomic_write(spath, state)

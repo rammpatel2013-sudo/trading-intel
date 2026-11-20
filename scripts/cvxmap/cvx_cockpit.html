@@ -674,6 +674,19 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 /* --- Risk tab (2026-11-05): drop-risk score + evidence-ranked tiles, big high-contrast text --- */
+#tabCompass{display:block;min-height:0;min-width:0;overflow:hidden}
+#tabFocus{display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;min-width:0}
+.fcbar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--rule)}
+.fcbar .fcsub{display:flex;gap:2px;background:var(--pane);padding:2px;border-radius:7px}
+.fcbar .fcsub button{border:0;background:transparent;color:var(--mute);padding:6px 16px;border-radius:5px;font:700 15px var(--font);cursor:pointer}
+.fcbar .fcsub button[aria-pressed=true]{background:var(--pane2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--r4)}
+.fcbar .fc-chip{padding:3px 9px;border-radius:5px;background:#132a50;white-space:nowrap;font-size:14px}
+.fcgrid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:6px;padding:6px;min-height:0}
+.fcpane{display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--pane);border:1px solid var(--rule);border-radius:8px;min-height:0;min-width:0}
+.fcpane .fch{display:flex;gap:10px;align-items:baseline;padding:6px 10px;font-size:14px}.fcpane .fch span{color:var(--mute);font-size:12px}
+.fcpane canvas{width:100%;height:100%;min-height:0;display:block}
+body.phone .fcgrid{grid-template-columns:1fr;grid-template-rows:repeat(4,420px)}
+body.phone #tabFocus{overflow:auto}
 #tabRisk{display:block;overflow:auto;min-height:0;min-width:0;max-width:100vw}
 .rkhero{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr);gap:14px;margin:6px 0 12px}
 .rkcard{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:12px 14px}
@@ -1109,6 +1122,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     <div id="pageTabs" role="tablist" aria-label="View">
       <div class="nvgrp" data-g="map"><div class="nvh">Map &amp; levels</div>
         <button data-tab="map" aria-pressed="false" title="Gamma / charm / vanna heat maps: realized book on the left, today's book projected to the close on the right">Map</button>
+        <button data-tab="focus" aria-pressed="false" title="Focus: your focus names (the + box), one sub-tab each - live gamma map, vanna map, Orbs flow and a 3-minute price chart with VWAP, OBV and the stock's volume profile, plus the live 0-7 DTE walls and flips (key-free).">Focus</button>
         <button data-tab="orbs" aria-pressed="false" title="Dealer gamma, vanna or charm by strike through the day as orbs, with the volume profile beside it (calls/puts, bull/bear, net). Off until you press ON.">Orbs</button>
         <button data-tab="surface" aria-pressed="false" title="3D dealer gamma, vanna, charm or gamma + vanna by strike and expiry, every minute (the ConvexValue surface view). Off until you press ON.">Surface</button>
         <button data-tab="density" aria-pressed="false" title="Where the close is likely to land: a cone re-run every 5 minutes from live spot and the live 0DTE straddle, with the Map&rsquo;s gamma zero and vanna rails (key N)">Density</button>
@@ -1133,6 +1147,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
         <button data-tab="straddle" aria-pressed="false" title="Daily / weekly / monthly at-the-money straddle with price inside its band, each from the start of its own period">Straddle</button>
         <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly after the close.">Vol EOD</button>
         <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
+        <button data-tab="compass" aria-pressed="false" title="Compass (Macro view): cross-asset grid of today's moves in sigmas (move vs what options priced), scanners over ~1,550 names (vol, flow, positioning, auction, dark pool) and a full panel per name. Built each evening from the database.">Compass</button>
       </div>
       <div class="nvgrp" data-g="plan"><div class="nvh">Plan &amp; help</div>
         <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus our own morning book">Plan</button>
@@ -1405,6 +1420,16 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
       <div id="csBody"></div>
     </div>
   </main>
+  <main id="tabFocus" class="tab" hidden>
+    <div id="fcBar" class="fcbar"></div>
+    <div class="fcgrid">
+      <section class="fcpane"><div class="fch"><b>Gamma map</b><span>dealer Δ per move · 0–7 DTE · basis as the Map (OI by default)</span></div><canvas id="fcGammaC"></canvas></section>
+      <section class="fcpane"><div class="fch"><b>Vanna map</b><span>dealer Δ per +1 vol point · 0–7 DTE</span></div><canvas id="fcVannaC"></canvas></section>
+      <section class="fcpane"><div class="fch"><b>Orbs flow</b><span>dealer gamma by strike through the day (yellow +, purple −), orange = option-volume POC · ±6%</span></div><canvas id="fcOrbsC"></canvas></section>
+      <section class="fcpane"><div class="fch"><b>Price · 3 min</b><span id="fcPxSub">VWAP ± 1σ / 2σ · volume · OBV · stock volume profile · walls &amp; flips</span></div><canvas id="fcPxC"></canvas></section>
+    </div>
+  </main>
+  <main id="tabCompass" class="tab" hidden><iframe id="compassFrame" title="Compass" style="border:0;width:100%;height:100%;display:block;background:#0A1426"></iframe></main>
   <main id="tabRisk" class="tab" hidden>
     <div class="vxwrap vewrap">
       <section class="vxhead" id="rkHead"></section>
@@ -2129,7 +2154,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volWin=load("volWin","day"); if(!["5","15","30","day"].includes(st.volWin)) st.volWin="day"; st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface","bets"].includes(st.tab)) st.tab="flow";
+if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface","bets","compass","focus"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.mapZone=load("mapZone","0")==="1"; st.mapFlipLine=load("mapFlipLine","0")==="1"; st.mapHedge=load("mapHedge","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1"; st.ruleRead=load("ruleRead","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex");
@@ -3669,7 +3694,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab)); navSync();
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); document.getElementById("tabBets").hidden=st.tab!=="bets"; if(st.tab!=="bets"&&typeof BT!=="undefined"&&BT) btTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabCompass").hidden=st.tab!=="compass"; document.getElementById("tabFocus").hidden=st.tab!=="focus"; if(st.tab==="compass"){ const _cf=document.getElementById("compassFrame"); if(!_cf.getAttribute("src")) _cf.setAttribute("src","compass.html"); } document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); document.getElementById("tabBets").hidden=st.tab!=="bets"; if(st.tab!=="bets"&&typeof BT!=="undefined"&&BT) btTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -3681,6 +3706,7 @@ function render(){
   else if(st.tab==="strikes") renderStrikes(se,d);
   else if(st.tab==="plan"){ renderPlan(); renderYday(); drawHump("humpPlanC",se,book,true); }
   else if(st.tab==="map") renderMapTab(se,d);
+  else if(st.tab==="focus"){ try{ renderFocusTab(se,d); }catch(e){ console.error(e); } }
   else if(st.tab==="vol"){ const R=frAt(se); renderVolTab(R?R.se:se,R?R.book:book); frBar("frBarVol",se); }   // 2026-11-12 Replay
   else if(st.tab==="premium") renderPremium(se);
   else if(st.tab==="vix") renderVix();
@@ -4626,7 +4652,7 @@ function renderYday(){
 }
 /* ---- left page panel (2026-11-12). Page switching, keys and saved settings are unchanged: the tab buttons keep
    data-tab inside #pageTabs, so the existing click handler and render() still drive them. */
-function navGroups(){ return {map:["map","orbs","surface","density","levels"],flow:["flow","vol","premium","bets","constel","ledger"],pos:["strikes","exposure","tenor"],vol:["vix","skew","straddle","voleod","risk"],plan:["plan","help"]}; }
+function navGroups(){ return {map:["map","focus","orbs","surface","density","levels"],flow:["flow","vol","premium","bets","constel","ledger"],pos:["strikes","exposure","tenor"],vol:["vix","skew","straddle","voleod","risk","compass"],plan:["plan","help"]}; }
 function navGroupOf(t){ const G=navGroups(); for(const g in G) if(G[g].includes(t)) return g; return "flow"; }
 function navApply(){ const pin=load("nav","strip")==="pin"&&!document.body.classList.contains("phone"); document.body.classList.toggle("navpin",pin); const b=document.getElementById("navPin"); if(b) b.setAttribute("aria-pressed",pin); }
 function navOpen(on,g){ document.body.classList.toggle("navopen",!!on); const sh=document.getElementById("navShade"); if(sh) sh.hidden=!on;
@@ -4960,7 +4986,7 @@ function weekDiff(){ // one line: how the two week books differ (OI match, ATM I
   return `<div class="l"><b>Week book check</b> (${n} contracts in both): OI identical on ${Math.round(same/n*100)}%${ivs} · put wall ${f(wall.p.cv)} / ${f(wall.p.tos)} · call wall ${f(wall.c.cv)} / ${f(wall.c.tos)} <i>(AM / live)</i> · showing <b>AM book</b>.</div>`;
 }
 function nearRowsConvex(){ // 1–7 DTE book from the morning feed (ti.json near_book): rows with their own days-to-expiry
-  const nb=st.ti&&st.ti.near_book&&st.ti.near_book[st.sym]; if(!nb||!nb.rows||!nb.rows.length) return null;
+  const nb=(st.ti&&st.ti.near_book&&st.ti.near_book[st.sym])||(FOC.syms.includes(st.sym)&&FOC.live&&FOC.live[st.sym]&&FOC.live[st.sym].near); if(!nb||!nb.rows||!nb.rows.length) return null;   // 2026-11-20: a focus name's 1-7 DTE book comes from focus_live.json
   const S=st.live&&st.live[st.sym]&&st.live[st.sym].spot||0; const out=[]; const dv=Math.max(-0.1,Math.min(0.1,weekIVShift().dv));
   for(const r of nb.rows){ const sg0=otmIV(r.k,S,r.cIV||0,r.pIV||0); if(!(sg0>0)) continue; const sg=Math.max(0.01,sg0+dv);
     const cp=st.basis==="vol"?0:(r.cOI||0), pp=st.basis==="vol"?0:(r.pOI||0); if(!cp&&!pp) continue; out.push({k:r.k,sg,cp,pp,dte:r.dte,e:r.e,set:r.set||"PM",exp_t:r.exp_t||(r.e+"T16:00"),cal_ok:r.cal_ok!==false}); }
@@ -5560,6 +5586,7 @@ async function focFlowFull(sym,name){
 }
 async function pollFocFlow(){
   const sym=st.sym; if(DEMO||pollPaused()||!focIs(sym)) return;
+  if(!st.live){ setTimeout(pollFocFlow,1500); return; }   // the log's file name needs the session date from live.json
   const c=liveClock(), day=c.date.replace(/-/g,""), name=`focus_flow_${sym}_${day}.ndjson`, F=FOC.ft[sym];
   try{
     if(!F||F.name!==name) return await focFlowFull(sym,name);
@@ -5574,11 +5601,13 @@ async function pollFocFlow(){
 async function focCardGet(){ if(DEMO) return; try{ const r=await fetch("focus_card.json",{cache:"no-cache"}); if(r.ok){ FOC.card=await r.json(); focCardRender(); } }catch(e){} }
 function focCardRender(){
   const el=document.getElementById("focCard"); const c=FOC.card&&FOC.card.cards&&FOC.card.cards[st.sym];
-  if(!focIs(st.sym)){ el.hidden=true; FOC.cardKey=""; return; } el.hidden=false;
-  const key=st.sym+"|"+FOC.open+"|"+(FOC.card&&FOC.card.generated); if(key===FOC.cardKey) return; FOC.cardKey=key;
-  if(!c){ el.innerHTML=`<div class="fc-h"><b>${esc(st.sym)} · levels card</b><span class="fc-note">building… (written right after the pick is saved, and again at 16:30)</span></div>`; return; }
+  if(!focIs(st.sym)||st.tab==="focus"){ el.hidden=true; FOC.cardKey=""; return; } el.hidden=false;   // the Focus tab has its own level line
+  const key=st.sym+"|"+FOC.open+"|"+(FOC.card&&FOC.card.generated)+"|"+(FOC.live&&FOC.live.ts); if(key===FOC.cardKey) return; FOC.cardKey=key;
+  const lv=FOC.live&&FOC.live[st.sym]&&FOC.live[st.sym].lv, SL=FOC.live&&FOC.live[st.sym]&&FOC.live[st.sym].spot, fx=v=>v==null?"–":fmtN(v,2), rx=v=>v!=null&&SL?` (${v>=SL?"+":""}${((v/SL-1)*100).toFixed(1)}%)`:"";
+  const live=lv?`<div class="fc-chips" title="Live, from the last ConvexValue pull: every expiry within 7 days together, each with its own time to expiry. Walls = most call OI at/above price and most put OI at/below. Flips = where dealer gamma / vanna changes sign (naive sign, as the map)."><span class="fc-chip" style="background:#1d3a24">LIVE 0–7 DTE ${esc(String(FOC.live.ts||"").slice(11,16))}</span><span class="fc-chip">Call wall <b>${fx(lv.call_wall)}${rx(lv.call_wall)}</b></span><span class="fc-chip">Put wall <b>${fx(lv.put_wall)}${rx(lv.put_wall)}</b></span><span class="fc-chip">Gamma flip <b>${fx(lv.gamma_flip)}${rx(lv.gamma_flip)}</b></span><span class="fc-chip">Vanna flip <b>${fx(lv.vanna_flip)}${rx(lv.vanna_flip)}</b></span><span class="fc-chip">Top vanna strike <b>${fx(lv.vanna_strike)}</b></span><span class="fc-chip">Dealers <b>${lv.gamma_now>=0?"long":"short"} gamma</b></span><span class="fc-chip">Expiries <b>${(lv.expiries||[]).map(e=>e.slice(5)).join(" · ")}</b></span></div>`:"";
+  if(!c){ el.innerHTML=live+`<div class="fc-h"><b>${esc(st.sym)} · levels card</b><span class="fc-note">building… (written right after the pick is saved, and again at 16:30)</span></div>`; return; }
   const f=(v,dp=2)=>v==null?"–":fmtN(v,dp), S=c.spot, rel=v=>v!=null&&S?` (${v>=S?"+":""}${((v/S-1)*100).toFixed(1)}%)`:"";
-  if(c.in_bank===false){ el.innerHTML=`<div class="fc-h"><b>${esc(st.sym)} · levels card</b><span class="fc-note">not in the hourly chain bank (S&amp;P 1500 + Nasdaq-100 + key ETFs), so no history - the live map below still works.</span></div>`; return; }
+  if(c.in_bank===false){ el.innerHTML=live+`<div class="fc-h"><b>${esc(st.sym)} · levels card</b><span class="fc-note">not in the hourly chain bank (S&amp;P 1500 + Nasdaq-100 + key ETFs), so no history - the live map below still works.</span></div>`; return; }
   const w7=c.walls_7d||{}, w45=c.walls_45d||{}, va=c.value_5d||{}, pr=c.prior||{}, em=c.em||{};
   const chips=[["Bank spot",f(S)],["Gamma flip",f(c.gex_flip)+rel(c.gex_flip)],["Call wall 7d",f(w7.call_wall)+rel(w7.call_wall)],["Put wall 7d",f(w7.put_wall)+rel(w7.put_wall)],
     ["Call wall 45d",f(w45.call_wall)],["Put wall 45d",f(w45.put_wall)],["Value area 5d",va.val!=null?`${f(va.val)}–${f(va.vah)} · POC ${f(va.poc)}`:"–"],
@@ -5586,7 +5615,7 @@ function focCardRender(){
     ["IV30",c.iv30!=null?(c.iv30*100).toFixed(1)+"%":"–"],["IV30/IV90",c.ts_30_90!=null?c.ts_30_90.toFixed(2):"–"],["25Δ skew",c.skew25!=null?(c.skew25*100).toFixed(1)+" pts":"–"]];
   const oi=c.top_oi_7d||{}, oiTxt=["calls","puts"].map(k=>(oi[k]||[]).map(x=>`${f(x.k)}${k==="calls"?"C":"P"} ${fmtN(x.oi)}`).join(" · ")).filter(Boolean).join("  |  ");
   const tr=(c.trend||[]).map(x=>`${x.d.slice(5)} IV ${x.iv30!=null?(x.iv30*100).toFixed(0):"–"}%`).join(" · ");
-  el.innerHTML=`<div class="fc-h" id="focCardH"><b>${esc(st.sym)} · levels card ${FOC.open?"▾":"▸"}</b><span class="fc-note">from the database (chain bank ${esc(String(c.bank_ts||"").replace("T"," "))}; 1-minute bars) · descriptive, not a signal</span></div>`
+  el.innerHTML=live+`<div class="fc-h" id="focCardH"><b>${esc(st.sym)} · levels card ${FOC.open?"▾":"▸"}</b><span class="fc-note">from the database (chain bank ${esc(String(c.bank_ts||"").replace("T"," "))}; 1-minute bars) · descriptive, not a signal</span></div>`
     +(FOC.open?`<div class="fc-chips">${chips.map(([a,b])=>`<span class="fc-chip">${a} <b>${b}</b></span>`).join("")}</div>`
     +(c.read&&c.read.length?`<ul>${c.read.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:"")
     +(oiTxt?`<div class="fc-note">Biggest OI next 7 days: ${esc(oiTxt)}</div>`:"")+(tr?`<div class="fc-note">IV30 trend: ${esc(tr)}</div>`:""):"");
@@ -5620,6 +5649,90 @@ function focBoot(){
   document.getElementById("focBtn").addEventListener("click",()=>{ const el=document.getElementById("focPop"); el.hidden=!el.hidden; if(!el.hidden){ FOC.msg=""; focPopRender(); focState(); } });
   focState(); setInterval(focState,60000); setInterval(pollFocLive,POLL_LIVE); setInterval(pollFocFlow,15000); setInterval(focCardGet,300000);
 }
+
+/* ============================================================ FOCUS TAB (2026-11-20)
+   Mithil 04:55: "this focus list is new tab. 4 subtab with each focus stock. each subtab has tiles with view. gamma, vanna,
+   or our orbs flow view along with technical 3 min chart with obv vwap volume profile". Every tile reuses the cockpit's own
+   renderers on the chosen name (buildMap + drawHeat for gamma / vanna, orPrep + orDrawMain for Orbs), so the numbers are the
+   Map's and the Orbs tab's. The price tile reads focus_bars_<SYM>.json (FMP 1-minute bars via CVForge, also in bars_1m). */
+function fcLevelsHtml(){
+  const L=FOC.live&&FOC.live[st.sym], lv=L&&L.lv, S=L&&L.spot, f=v=>v==null?"–":fmtN(v,2), r=v=>v!=null&&S?` (${v>=S?"+":""}${((v/S-1)*100).toFixed(1)}%)`:"";
+  if(!lv) return `<span class="fc-chip">waiting for the first live pull (about a minute after a name is saved)</span>`;
+  return `<span class="fc-chip" style="background:#1d3a24">LIVE 0–7 DTE ${esc(String(FOC.live.ts||"").slice(11,16))}</span><span class="fc-chip">Price <b>${f(S)}</b></span><span class="fc-chip">Call wall <b>${f(lv.call_wall)}${r(lv.call_wall)}</b></span><span class="fc-chip">Put wall <b>${f(lv.put_wall)}${r(lv.put_wall)}</b></span><span class="fc-chip">Gamma flip <b>${f(lv.gamma_flip)}${r(lv.gamma_flip)}</b></span><span class="fc-chip">Vanna flip <b>${f(lv.vanna_flip)}${r(lv.vanna_flip)}</b></span><span class="fc-chip">Dealers <b>${lv.gamma_now>=0?"long":"short"} gamma</b></span>`; }
+function renderFocusTab(se,d){
+  const bar=document.getElementById("fcBar");
+  if(!FOC.syms.length){ bar.innerHTML=`<span class="fc-chip">No focus names today. Press <b>+</b> next to QQQ, type up to 4 tickers, Save - each gets a sub-tab here within about a minute.</span>`;
+    for(const id of ["fcGammaC","fcVannaC"]) drawHeat(id,null); fcMsg("fcOrbsC",""); fcMsg("fcPxC",""); return; }
+  if(!FOC.syms.includes(st.sym)){ st.sym=FOC.syms[0]; st.sel=null; st.rowOff=0; pollFocFlow(); setTimeout(render,0); return; }
+  const key=FOC.syms.join()+"|"+st.sym+"|"+(FOC.live&&FOC.live.ts);
+  if(bar.dataset.k!==key){ bar.dataset.k=key;
+    bar.innerHTML=`<span class="fcsub">${FOC.syms.map(s=>`<button data-fs="${esc(s)}" aria-pressed="${s===st.sym}">${esc(s)}</button>`).join("")}</span>`+fcLevelsHtml();
+    bar.querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{ st.sym=b.dataset.fs; st.sel=null; st.rowOff=0; pollFocFlow(); render(); }); }
+  if(!(st.flow[st.sym]||[]).length&&Date.now()-(FOC.ffAt||0)>5000){ FOC.ffAt=Date.now(); pollFocFlow(); }
+  drawHeat("fcGammaC",d&&d.rows?buildMap("gamma",se,d,"all"):null,se,d,"Dealer Δ per move · 0DTE + 1–7 DTE");
+  drawHeat("fcVannaC",d&&d.rows?buildMap("vanna",se,d,"all"):null,se,d,"Dealer Δ per +1 vol pt · 0DTE + 1–7 DTE");
+  fcOrbs(); fcPx(); }
+function fcMsg(id,t){ const cv=document.getElementById(id); if(!cv) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h); ctx.fillStyle=C("--faint"); ctx.font="14px "+C("--font"); ctx.fillText(t,12,22); }
+async function fcOrbsLoad(){
+  if(FOC.orbsBusy) return; FOC.orbsBusy=true; FOC.orbsAt=Date.now();
+  try{ const ymd=orYmd(), F=await orGet("wide_focus_"+ymd+".json");
+    if(!OR.J||OR.day!==ymd){ OR.J={day:F.day,slot_min:1,syms:{},focusOnly:true}; OR.day=ymd; }
+    for(const [s,v] of Object.entries(F.syms||{})) OR.J.syms[s]={step:v.step||1,slots:orDecode(v),px:v.px||[]};
+    if(OR.P&&FOC.syms.includes(OR.P.sym)) OR.P=null; FOC.orbsErr=null; }
+  catch(e){ FOC.orbsErr="No Orbs data for the focus names yet (written from the first live pull)."; }
+  FOC.orbsBusy=false; if(st.tab==="focus") render(); }
+function fcOrbs(){
+  const cv=document.getElementById("fcOrbsC"); if(!cv) return;
+  if(Date.now()-(FOC.orbsAt||0)>60000) fcOrbsLoad();
+  const S=OR.J&&OR.J.syms&&OR.J.syms[st.sym]; if(!S||!S.slots.length){ fcMsg("fcOrbsC",FOC.orbsErr||"Loading Orbs…"); return; }
+  if(!OR.P||OR.P.sym!==st.sym){ OR.P=orPrep(); if(!OR.P){ fcMsg("fcOrbsC","No Orbs blocks yet."); return; } OR.P.sym=st.sym; }
+  const keep={view:OR.view,i:OR.i}; OR.i=OR.P.bk.length-1; const x=OR.P.bk[OR.i].s.x; OR.view={lo:x*0.94,hi:x*1.06};
+  try{ orDrawMain(cv); } finally { OR.view=keep.view; OR.i=keep.i; OR.key=""; } }
+async function fcBarsLoad(sym){
+  FOC.barsAt=FOC.barsAt||{}; FOC.bars=FOC.bars||{}; if(Date.now()-(FOC.barsAt[sym]||0)<30000) return; FOC.barsAt[sym]=Date.now();
+  try{ const r=await fetch("focus_bars_"+sym+".json",{cache:"no-cache"}); if(r.ok){ const j=await r.json(); if(j.day===liveClock().date){ FOC.bars[sym]=j; if(st.tab==="focus"&&st.sym===sym) fcPx(); } } }catch(e){} }
+function fcPx(){
+  const sym=st.sym; fcBarsLoad(sym); const J=FOC.bars&&FOC.bars[sym], B=J&&J.bars||[];
+  if(B.length<3){ fcMsg("fcPxC","Waiting for 1-minute bars (FMP via CVForge, pulled every minute once the name is live)."); return; }
+  const k=3, C3=[]; for(const b of B){ const m=tmin(b[0]), t0=Math.floor(m/k)*k, L=C3[C3.length-1];
+    if(L&&L.t===t0){ L.h=Math.max(L.h,b[2]); L.l=Math.min(L.l,b[3]); L.c=b[4]; L.v+=b[5]||0; } else C3.push({t:t0,o:b[1],h:b[2],l:b[3],c:b[4],v:b[5]||0}); }
+  let pv=0,vv=0,p2=0,obv=0,prev=null; const vw=[],up1=[],dn1=[],up2=[],dn2=[],ob=[];
+  for(const b of B){ const tp=(b[2]+b[3]+b[4])/3, v=b[5]||0; pv+=tp*v; vv+=v; p2+=tp*tp*v; }
+  pv=vv=p2=0; let bi=0;
+  for(const c of C3){ while(bi<B.length&&tmin(B[bi][0])<c.t+k){ const b=B[bi], tp=(b[2]+b[3]+b[4])/3, v=b[5]||0; pv+=tp*v; vv+=v; p2+=tp*tp*v; if(prev!=null) obv+=b[4]>prev?v:b[4]<prev?-v:0; prev=b[4]; bi++; }
+    const m=vv>0?pv/vv:c.c, sd=vv>0?Math.sqrt(Math.max(0,p2/vv-m*m)):0; vw.push(m); up1.push(m+sd); dn1.push(m-sd); up2.push(m+2*sd); dn2.push(m-2*sd); ob.push(obv); }
+  // stock volume profile (each 1-min bar's volume at its typical price), 70% value area
+  let lo=Math.min(...B.map(b=>b[3])), hi=Math.max(...B.map(b=>b[2])); const lv=FOC.live&&FOC.live[sym]&&FOC.live[sym].lv;
+  const marks=lv?[[lv.call_wall,"#2BB8D9","CW"],[lv.put_wall,"#E0579E","PW"],[lv.gamma_flip,"#FFD23F","γ flip"],[lv.vanna_flip,"#B26BFF","vanna flip"]].filter(m=>m[0]!=null):[];
+  for(const [v] of marks){ if(Math.abs(v/B[B.length-1][4]-1)<0.06){ lo=Math.min(lo,v); hi=Math.max(hi,v); } }
+  const pad=(hi-lo)*0.04||0.5; lo-=pad; hi+=pad; const NB=40, bins=new Array(NB).fill(0);
+  for(const b of B){ const tp=(b[2]+b[3]+b[4])/3; const i=Math.max(0,Math.min(NB-1,Math.floor((tp-lo)/(hi-lo)*NB))); bins[i]+=b[5]||0; }
+  let poc=bins.indexOf(Math.max(...bins)), a=poc, z=poc, got=bins[poc]; const tot=bins.reduce((x,y)=>x+y,0);
+  while(got<tot*0.7&&(a>0||z<NB-1)){ const u=z<NB-1?bins[z+1]:-1, dd=a>0?bins[a-1]:-1; if(u>=dd){ z++; got+=u; } else { a--; got+=dd; } }
+  const bp=i=>lo+(hi-lo)*(i+0.5)/NB, POC=bp(poc), VAH=lo+(hi-lo)*(z+1)/NB, VAL=lo+(hi-lo)*a/NB;
+  const cv=document.getElementById("fcPxC"), {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+  const AX=54, PRW=Math.max(70,w*0.16), x0=AX, x1=w-PRW-6, t0=570, t1=960, X=t=>x0+(x1-x0)*(t-t0)/(t1-t0);
+  const pT=8, pH=h*0.60, vT=pT+pH+6, vH=h*0.14, oT=vT+vH+6, oH=h-oT-18, Y=p=>pT+pH*(1-(p-lo)/(hi-lo));
+  ctx.font="12px "+C("--font"); ctx.fillStyle=C("--mute"); ctx.strokeStyle="#ffffff12";
+  for(let q=0;q<=4;q++){ const p=lo+(hi-lo)*q/4, y=Y(p); ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); ctx.fillText(fmtN(p,2),2,y+4); }
+  for(let hh=10;hh<=15;hh++){ const x=X(hh*60); ctx.beginPath(); ctx.moveTo(x,pT); ctx.lineTo(x,h-14); ctx.stroke(); ctx.fillText((hh>12?hh-12:hh)+(hh>=12?"p":"a"),x-8,h-3); }
+  ctx.fillStyle="#4C8DFF14"; ctx.beginPath(); C3.forEach((c,i)=>{ const x=X(c.t+k/2); i?ctx.lineTo(x,Y(up2[i])):ctx.moveTo(x,Y(up2[i])); }); for(let i=C3.length-1;i>=0;i--) ctx.lineTo(X(C3[i].t+k/2),Y(dn2[i])); ctx.fill();
+  const line=(arr,col,dash,wd)=>{ ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=wd||1.3; ctx.setLineDash(dash||[]); ctx.beginPath(); C3.forEach((c,i)=>{ const x=X(c.t+k/2); i?ctx.lineTo(x,Y(arr[i])):ctx.moveTo(x,Y(arr[i])); }); ctx.stroke(); ctx.restore(); };
+  line(up1,"#4C8DFF90",[3,3]); line(dn1,"#4C8DFF90",[3,3]); line(vw,"#FF8A3D",[],2);
+  for(const [v,col,t] of marks){ if(v<lo||v>hi) continue; const y=Y(v); ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=1.4; ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); ctx.restore(); ctx.fillStyle=col; ctx.font="bold 12px "+C("--font"); ctx.fillText(t+" "+fmtN(v,2),x0+4,y-3); }
+  const bw=Math.max(2,(x1-x0)/((t1-t0)/k)*0.7);
+  for(const c of C3){ const x=X(c.t+k/2), up=c.c>=c.o; ctx.strokeStyle=up?"#58D68D":"#FF7B72"; ctx.fillStyle=ctx.strokeStyle; ctx.beginPath(); ctx.moveTo(x,Y(c.h)); ctx.lineTo(x,Y(c.l)); ctx.stroke(); const yo=Y(Math.max(c.o,c.c)), yc=Y(Math.min(c.o,c.c)); ctx.fillRect(x-bw/2,yo,bw,Math.max(1,yc-yo)); }
+  const vm=Math.max(...C3.map(c=>c.v),1); for(const c of C3){ const x=X(c.t+k/2), hh=vH*c.v/vm; ctx.fillStyle=c.c>=c.o?"#58D68D80":"#FF7B7280"; ctx.fillRect(x-bw/2,vT+vH-hh,bw,hh); }
+  ctx.fillStyle=C("--mute"); ctx.fillText("vol",2,vT+12);
+  const omin=Math.min(...ob,0), omax=Math.max(...ob,0), OY=v=>oT+oH*(1-(v-omin)/((omax-omin)||1));
+  ctx.strokeStyle="#ffffff20"; ctx.beginPath(); ctx.moveTo(x0,OY(0)); ctx.lineTo(x1,OY(0)); ctx.stroke();
+  ctx.save(); ctx.strokeStyle="#9BE15D"; ctx.lineWidth=1.5; ctx.beginPath(); C3.forEach((c,i)=>{ const x=X(c.t+k/2); i?ctx.lineTo(x,OY(ob[i])):ctx.moveTo(x,OY(ob[i])); }); ctx.stroke(); ctx.restore();
+  ctx.fillStyle=C("--mute"); ctx.fillText("OBV",2,oT+12);
+  const pm=Math.max(...bins,1), px0=w-PRW; for(let i=0;i<NB;i++){ const y0=Y(lo+(hi-lo)*(i+1)/NB), y1=Y(lo+(hi-lo)*i/NB), L=(PRW-8)*bins[i]/pm; ctx.fillStyle=i===poc?"#FF8A3D":(i>=a&&i<=z)?"#7d93b3a0":"#7d93b350"; ctx.fillRect(px0,y0+0.5,L,Math.max(1,y1-y0-1)); }
+  for(const [v,t,col] of [[VAH,"VAH","#FFB07A"],[POC,"POC","#FF8A3D"],[VAL,"VAL","#FFB07A"]]){ const y=Y(v); ctx.save(); ctx.strokeStyle=col; ctx.setLineDash(t==="POC"?[]:[4,3]); ctx.beginPath(); ctx.moveTo(px0,y); ctx.lineTo(w,y); ctx.stroke(); ctx.restore(); ctx.fillStyle=col; ctx.font="11px "+C("--font"); ctx.fillText(t+" "+fmtN(v,2),px0+2,y-2); }
+  const last=B[B.length-1], ly=Y(last[4]); ctx.save(); ctx.strokeStyle="#ffffffbb"; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x0,ly); ctx.lineTo(w,ly); ctx.stroke(); ctx.restore();
+  ctx.fillStyle="#fff"; ctx.font="bold 13px "+C("--font"); ctx.fillText(fmtN(last[4],2)+"  VWAP "+fmtN(vw[vw.length-1],2),x0+4,pT+14);
+  const sub=document.getElementById("fcPxSub"); if(sub) sub.textContent=`VWAP ± 1σ / 2σ · volume · OBV · stock volume profile (POC ${fmtN(POC,2)}) · bars to ${last[0]} (${J.src||"FMP"})`; }
 
 /* ============================================================ boot */
 if(DEMO){ demo(); pollFlowPrev(); render(); }
@@ -8811,6 +8924,7 @@ async function orLoadDay(){
       ymd=days[0]||null; if(ymd){ try{ J=await orGet("wide_"+ymd+".json"); }catch(e){ J=null; } } }
     if(!J||!J.syms){ OR.J=null; OR.day=null; OR.err="No Orbs data yet. The feed writes its first file a minute after the open (container cvxmap-wide)."; }
     else { const D={}; for(const [s,v] of Object.entries(J.syms)) D[s]={step:v.step||1,slots:orDecode(v),px:v.px||[]};
+      try{ const F=await orGet("wide_focus_"+ymd+".json"); for(const [s,v] of Object.entries(F.syms||{})) D[s]={step:v.step||1,slots:orDecode(v),px:v.px||[]}; }catch(e){}   // 2026-11-20 focus names
       OR.J={day:J.day,slot_min:J.slot_min||5,syms:D}; OR.day=ymd; }
   }catch(e){ OR.err="Could not read the Orbs data ("+(e&&e.message||e)+")."; }
   OR.loading=false; OR.P=null; OR.key=""; if(st.tab==="orbs") renderOrbs(); }
@@ -8972,7 +9086,7 @@ function renderOrbs(){
     head.querySelectorAll(".orseg button").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; OR[k]=k==="blk"?+b.dataset.v:b.dataset.v; save("or"+k[0].toUpperCase()+k.slice(1),String(OR[k])); if(k==="zoom") OR.view=null; OR.P=null; OR.key=""; head.dataset.k=""; renderOrbs(); });
     const rb=document.getElementById("orReset"); if(rb) rb.onclick=orZoomReset; }
   if(!OR.on){ orStop(); body.innerHTML='<p class="veread">Off. Press <b>ON</b> to see dealer gamma by strike through the day as orbs, with the volume profile beside it.</p>'; OR.key=""; return; }
-  if(!OR.J){ if(!OR.loading&&(!OR.err||Date.now()-OR.reloadAt>60000)){ OR.reloadAt=Date.now(); orLoadDay(); }
+  if(!OR.J||OR.J.focusOnly){ if(!OR.loading&&(!OR.err||Date.now()-OR.reloadAt>60000||OR.J)){ OR.reloadAt=Date.now(); orLoadDay(); }
     body.innerHTML=`<p class="veread">${OR.err?esc(OR.err):"Loading…"}</p>`; return; }
   if(OR.day!==orYmd()&&!OR.loading&&Date.now()-OR.reloadAt>60000){ OR.reloadAt=Date.now(); orLoadDay(); }   // a new session started while open
   const S=orSym(); if(!S||!S.slots.length){ body.innerHTML=`<p class="veread">${esc(st.sym)} has no Orbs data for ${esc(OR.J.day||"")}.</p>`; return; }

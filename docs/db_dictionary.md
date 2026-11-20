@@ -35,7 +35,7 @@ Known type drift (report 2026-11-19, not fixed — renaming/retyping costs more 
 in the DB but naive in the ORM; the server TimeZone is UTC. `documents.ingested_at` now writes an
 aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
-## Tables (87)
+## Tables (89)
 
 ### Options chains and greeks
 
@@ -45,6 +45,8 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | `oi_chain_daily` | symbol per day: OI, volume, walls, ATM IV | symbol+ts | `ts` date | oi_chain_daily | from oi_chain_eod | derived |
 | `greeks_chain` | contract per snapshot (+ option root, underlying price, day VWAP / close) | symbol+ts+source+root+expiry+strike+cp | `ts` timestamptz | chain_snapshot, chain_bank (source cvforge_bank, hourly 10:05–16:05, ~1,550 names), focus_live (source convex_focus, every 5 min, up to 4 focus names, first 4 expiries) | Convex; CVForge | raw; no prune yet (13 GB + ~1.5 GB/day from the chain bank) |
 | `greeks_snapshots` | symbol per snapshot: GEX/DEX/VEX/CHEX totals (+ cvforge_bank rows: IV30/IV90, term, 25Δ skew, call/put OI + $ premium) | symbol+ts+source | `ts` timestamptz | greeks_snapshot, index_greeks_snapshot, sector_greeks, chain_bank (hourly), focus_live (convex_focus, every 5 min) | Convex; CVForge for sector ETFs | raw† |
+| `auction_daily` | name per session: VWAP ± sigma, volume profile POC / VAH / VAL, initial balance, day type, open vs prior value, poor high / low | symbol+date | `date` date | compass (16:35) | from bars_1m | derived |
+| `compass_daily` | name per session: Compass read (sigma-move, HV, IV30 + rank, carry, term, skew, %B, dark short ratio, $ premium, walls) + scanner hits | symbol+date | `date` date | compass (16:35, 18:50) | from equity_bars, greeks_snapshots, oi_chain_daily, finra_short_volume, auction_daily | derived |
 | `focus_names` | focus name per trading day (max 4: Mithil's picks from the cockpit box; changeable until the 16:00 close that day; live from the next minute) | day+symbol (and day+slot) | `day` date | serve_cvx (cockpit box, POST /api/focus) | Mithil | raw |
 | `live_gex` | near-money contract per intraday refresh | symbol+ts+strike+cp+expiry | `ts` timestamp | live_gex | Convex | raw; pruned nightly |
 | `intraday_flow` | 0DTE/1DTE contract per 5-min cycle | symbol+ts+source+expiry+strike+cp | `ts` timestamp | intraday_flow | Convex | raw; pruned |

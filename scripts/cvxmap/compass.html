@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compass · Macro view</title>
+<!-- compass.html - created 2026-11-20 (Macro view). Copied into scripts/cvxmap/data/ by the compass job; reads compass.json
+     (same folder, served by cvxmap-serve on :8899; also shown inside the cockpit's Compass tab). Display only: every number
+     comes from the NAS database (equity_bars, chain bank, Convex EOD IV, FINRA short volume, auction_daily). -->
+<style>
+:root{--bg:#0A1426;--pane:#0E1B33;--pane2:#112141;--rule:#1B2C4C;--ink:#DCE6F2;--mute:#9DB0CA;--up:#58D68D;--dn:#FF7B72;
+  --call:#2BB8D9;--put:#E0579E;--warn:#FFC24A;--hi:#FFD23F;--font:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px var(--font);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--bg);z-index:5}
+h1{font-size:20px;margin:0} .sub{color:var(--mute);font-size:13px}
+.seg{display:flex;gap:2px;background:var(--pane);padding:2px;border-radius:7px}
+.seg button{border:0;background:transparent;color:var(--mute);padding:6px 14px;border-radius:5px;font:600 14px var(--font);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--pane2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--hi)}
+#q{font:15px var(--font);background:var(--pane);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:5px 9px;width:130px;text-transform:uppercase}
+main{padding:10px 14px 40px}
+.grp{margin:0 0 14px} .grp h2{font-size:15px;margin:6px 0;color:var(--mute);font-weight:600;letter-spacing:.03em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.tile{background:var(--pane);border:1px solid var(--rule);border-radius:8px;padding:7px 9px;cursor:pointer}
+.tile:hover{border-color:#3a5a8a} .tile .s{font-weight:700;font-size:16px} .tile .r{float:right;font-size:15px}
+.tile .bar{position:relative;height:12px;background:#0b1830;border-radius:3px;margin:6px 0 3px}
+.tile .bar i{position:absolute;top:0;bottom:0;border-radius:3px} .tile .bar b{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:#556}
+.tile .m{font-size:12px;color:var(--mute);display:flex;justify-content:space-between}
+.up{color:var(--up)} .dn{color:var(--dn)} .warn{color:var(--warn)}
+.cats{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.cats button{font:600 14px var(--font);border:1px solid var(--rule);background:var(--pane);color:var(--mute);border-radius:14px;padding:4px 12px;cursor:pointer}
+.cats button[aria-pressed=true]{color:var(--ink);border-color:var(--hi)}
+.scan{background:var(--pane);border:1px solid var(--rule);border-radius:8px;padding:9px 11px;margin:0 0 8px}
+.scan h3{margin:0;font-size:16px} .scan .n{color:var(--mute);font-weight:400;font-size:13px} .scan p{margin:3px 0 7px;color:var(--mute);font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:5px} .chip{background:var(--pane2);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:14px;white-space:nowrap}
+.chip small{color:var(--mute);margin-left:4px} .empty{color:var(--mute);font-size:13px}
+#panel{position:fixed;inset:0;background:var(--bg);z-index:20;overflow:auto;display:none;padding:12px 14px 40px}
+#panel .top{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;position:sticky;top:-12px;background:var(--bg);padding:8px 0;z-index:2}
+#panel .top b{font-size:24px} #panel .x{margin-left:auto;font:600 16px var(--font);background:var(--pane2);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:6px 14px;cursor:pointer}
+.kp{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:6px 0 10px}
+.kp div{background:var(--pane);border:1px solid var(--rule);border-radius:7px;padding:6px 9px;font-size:13px;color:var(--mute)} .kp b{display:block;font-size:18px;color:var(--ink)}
+.charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:10px}
+.ch{background:var(--pane);border:1px solid var(--rule);border-radius:8px;padding:8px 10px}
+.ch h4{margin:0 0 2px;font-size:15px} .ch .how{color:var(--mute);font-size:13px;margin:0 0 4px}
+.ch svg{width:100%;height:auto;display:block} .flags{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0}
+.flag{background:#2a2310;color:var(--hi);border-radius:5px;padding:2px 8px;font-size:13px}
+.note{color:var(--mute);font-size:13px;margin-top:14px;line-height:1.45}
+body.phone .charts{grid-template-columns:1fr} body.phone .tiles{grid-template-columns:repeat(2,1fr)} body.phone{font-size:16px}
+</style>
+</head>
+<body>
+<header><h1>Compass</h1><span class="sub" id="sub">Loading compass.json…</span>
+  <div class="seg" id="view"><button data-v="grid" aria-pressed="true">Cross-asset</button><button data-v="scan" aria-pressed="false">Scanners</button></div>
+  <input id="q" placeholder="ticker" autocomplete="off" aria-label="Open a ticker">
+</header>
+<main id="main"></main>
+<div id="panel"></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pct=(v,d=1)=>v==null?"–":(v>=0?"+":"")+(v*100).toFixed(d)+"%";
+const num=(v,d=2)=>v==null?"–":(+v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const vol=v=>v==null?"–":(v*100).toFixed(1)+"%";
+const money=v=>v==null?"–":v>=1e9?"$"+(v/1e9).toFixed(2)+"B":v>=1e6?"$"+(v/1e6).toFixed(1)+"M":v>=1e3?"$"+(v/1e3).toFixed(0)+"K":"$"+v.toFixed(0);
+const cls=v=>v==null?"":v>=0?"up":"dn";
+let J=null, VIEW=new URLSearchParams(location.search).get("view")||"grid", CAT="All";
+if(innerWidth<700) document.body.classList.add("phone");
+
+async function load(){
+  try{ const r=await fetch("compass.json",{cache:"no-cache"}); if(!r.ok) throw new Error("HTTP "+r.status); J=await r.json(); }
+  catch(e){ $("sub").textContent="compass.json not there yet ("+e.message+") - it is written after the close (16:35 and 18:50)."; return; }
+  const c=J.coverage||{};
+  $("sub").textContent=`Session ${J.date} · ${c.names} names · IV: chain bank ${c.bank_iv}, Convex EOD ${c.convex_iv} (rank on ${c.iv_rank}) · dark pool ${c.dark} · auction ${c.auction} · built ${String(J.generated).slice(11,16)}`;
+  render(); const h=location.hash.slice(1); if(h) openPanel(h.toUpperCase());
+}
+function render(){
+  document.querySelectorAll("#view button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===VIEW));
+  $("main").innerHTML = VIEW==="grid"?gridHtml():scanHtml();
+  $("main").querySelectorAll("[data-s]").forEach(el=>el.onclick=()=>openPanel(el.dataset.s));
+  $("main").querySelectorAll(".cats button").forEach(b=>b.onclick=()=>{ CAT=b.dataset.c; render(); });
+}
+function smBar(sm){
+  if(sm==null) return `<div class="bar"><b></b></div>`;
+  const x=Math.max(-3,Math.min(3,sm))/3*50, col=Math.abs(sm)>=2?(sm>0?"#58D68D":"#FF7B72"):Math.abs(sm)>=1?(sm>0?"#3a8f60":"#a54b46"):"#556b8a";
+  return `<div class="bar"><b></b><i style="left:${x>=0?50:50+x}%;width:${Math.abs(x)}%;background:${col}"></i></div>`; }
+function gridHtml(){
+  const N=J.names; let h=`<div class="note" style="margin:0 0 8px">Bar = today's move in <b>sigmas</b>: the move divided by the one-day move its options priced (yesterday's IV30; realized HV20 where no IV yet). Past ±1σ is a bigger day than priced; ±2σ (bright) is rare. Tap a tile for the full picture.</div>`;
+  for(const [g,ss] of Object.entries(J.groups)){
+    h+=`<section class="grp"><h2>${esc(g)}</h2><div class="tiles">`+ss.map(s=>{ const n=N[s];
+      if(!n) return `<div class="tile" style="opacity:.45"><span class="s">${s}</span><div class="m"><span>no bar today</span></div></div>`;
+      return `<div class="tile" data-s="${s}"><span class="s">${s}</span><span class="r ${cls(n.ret1)}">${pct(n.ret1,2)}</span>${smBar(n.sigma_move)}
+        <div class="m"><span>${n.sigma_move!=null?(n.sigma_move>=0?"+":"")+n.sigma_move.toFixed(1)+"σ":"–"}${n.iv_src==="hv20"?" (HV)":""}</span><span>${n.iv30!=null?"IV "+vol(n.iv30):""}${n.iv_rank!=null?" · rk "+Math.round(n.iv_rank*100):""}</span></div></div>`; }).join("")+`</div></section>`; }
+  return h; }
+function hitTxt(id,n){
+  const m={big_move:()=>(n.sigma_move>=0?"+":"")+num(n.sigma_move,1)+"σ",iv_high:()=>"rk "+Math.round(n.iv_rank*100),iv_low:()=>"rk "+Math.round(n.iv_rank*100),
+    carry_rich:()=>"+"+(n.carry*100).toFixed(0)+" pts",carry_cheap:()=>(n.carry*100).toFixed(0)+" pts",term_inverted:()=>num(n.ts_30_90,2),
+    prem_surge:()=>num(n.prem_x20,1)+"x",call_tilt:()=>Math.round(n.call_share*100)+"% calls",put_tilt:()=>Math.round((1-n.call_share)*100)+"% puts",
+    dark_spike:()=>"z "+num(n.dark_z,1),near_wall:()=>{ const c=n.call_wall?Math.abs(n.call_wall/n.close-1):9, p=n.put_wall?Math.abs(n.put_wall/n.close-1):9; return c<=p?"CW "+num(n.call_wall,n.call_wall>=100?0:1):"PW "+num(n.put_wall,n.put_wall>=100?0:1); },dark_high_falling:()=>pct(n.ret5,0)+" 5d"}[id];
+  try{ return m?m():pct(n.ret1,1); }catch(e){ return ""; } }
+function scanHtml(){
+  const cats=["All",...new Set(J.scanners.map(s=>s.cat))];
+  let h=`<div class="cats">${cats.map(c=>`<button data-c="${c}" aria-pressed="${c===CAT}">${c}</button>`).join("")}</div>`;
+  for(const s of J.scanners.filter(s=>CAT==="All"||s.cat===CAT)){
+    h+=`<div class="scan"><h3>${esc(s.title)} <span class="n">· ${esc(s.cat)} · ${s.n} name${s.n===1?"":"s"}${s.n>s.hits.length?` (top ${s.hits.length})`:""}</span></h3><p>${esc(s.meaning)}</p>`
+      +(s.hits.length?`<div class="chips">${s.hits.map(x=>`<span class="chip" data-s="${x}">${x}<small>${esc(hitTxt(s.id,J.names[x]||{}))}</small></span>`).join("")}</div>`:`<div class="empty">${emptyWhy(s.id)}</div>`)+`</div>`; }
+  return h+`<div class="note">${esc(J.note)} Every hit is a description of today, not a trade signal; each day's hits are stored (compass_daily) so each scanner can be scored once there is history.</div>`; }
+function emptyWhy(id){
+  const c=J.coverage||{};
+  if(["prem_surge","call_tilt","put_tilt","term_inverted","skew_jump","neg_gamma_flip","accumulation","distribution"].includes(id)&&!c.bank_days) return "No hits yet - needs the hourly chain bank (first run today 10:05; premium surge and skew jump need 5+ sessions).";
+  if(["outside_value","poor_extreme","naked_poc","balance3"].includes(id)&&c.auction<50) return "Few names yet - auction reads come from the chain bank's 1-minute bars (all names from today; naked POC / 3-day balance need 3+ sessions).";
+  return "No name today."; }
+
+/* ---------------- panel */
+async function openPanel(s){
+  const n=J&&J.names[s]; if(!n){ alert(s+" is not in today's Compass (no daily bar)."); return; }
+  let P=null; try{ const r=await fetch("compass_p/"+encodeURIComponent(s.replace("/","_"))+".json",{cache:"no-cache"}); if(r.ok){ P=await r.json(); if(P.date!==J.date) P=null; } }catch(e){}
+  if(location.hash.slice(1)!==s) history.replaceState(null,"","#"+s);
+  const k=(t,v,sub)=>`<div>${t}<b>${v}</b>${sub?`<span>${sub}</span>`:""}</div>`;
+  const fl=(n.flags||[]).map(f=>{ const sc=J.scanners.find(x=>x.id===f); return sc?`<span class="flag" title="${esc(sc.meaning)}">${esc(sc.title)}</span>`:""; }).join("");
+  let h=`<div class="top"><b>${esc(s)}</b><span class="${cls(n.ret1)}" style="font-size:18px">${num(n.close,2)} ${pct(n.ret1,2)}</span><span class="sub">${esc(n.grp||"")}</span><button class="x" id="px">Close</button></div>`
+    +(fl?`<div class="flags">${fl}</div>`:"")
+    +`<div class="kp">`+k("Move vs priced",n.sigma_move!=null?(n.sigma_move>=0?"+":"")+num(n.sigma_move,2)+"σ":"–",n.iv_src==="hv20"?" from HV20":"")
+    +k("IV30",vol(n.iv30),n.iv_rank!=null?` rank ${Math.round(n.iv_rank*100)}%`:" rank building")+k("HV10 / HV30",vol(n.hv10)+" / "+vol(n.hv30))
+    +k("Carry (IV−HV10)",n.carry!=null?((n.carry>=0?"+":"")+(n.carry*100).toFixed(1)+" pts"):"–")+k("Term IV30/IV90",num(n.ts_30_90,2))
+    +k("25Δ skew",n.skew25!=null?(n.skew25*100).toFixed(1)+" pts":"–",n.skew_rank!=null?` rank ${Math.round(n.skew_rank*100)}%`:"")
+    +k("Bollinger %B",num(n.bb_pctb,2))+k("5d / 20d",pct(n.ret5,1)+" / "+pct(n.ret20,1))
+    +k("Dark short ratio",n.dark_ratio!=null?(n.dark_ratio*100).toFixed(1)+"%":"–",n.dark_z!=null?` z ${num(n.dark_z,1)}`:"")
+    +k("Option $ today",money(n.prem_usd),n.call_share!=null?` ${Math.round(n.call_share*100)}% calls`:"")
+    +k("Call / put wall",num(n.call_wall,2)+" / "+num(n.put_wall,2))+k("Gamma flip",num(n.gex_flip,2))
+    +k("VWAP · POC",num(n.vwap,2)+" · "+num(n.poc,2),n.val!=null?` value ${num(n.val,2)}–${num(n.vah,2)}`:"")+k("Day type",esc(n.day_type||"–"),n.open_vs_value?` opened ${n.open_vs_value} value`:"")+`</div>`;
+  if(!P) h+=`<div class="note">No chart file for ${esc(s)} for this session yet.</div>`;
+  else h+=`<div class="charts">${charts(s,n,P)}</div>`;
+  h+=`<div class="note">Bollinger = 20-day average ± 2 standard deviations. Carry = what options price (IV30) minus what the stock has done (HV10): positive = options rich. Dark short ratio = FINRA off-exchange short volume / total; most of it is market makers filling buy orders, so a high ratio leans to buying. Descriptive, not signals.</div>`;
+  $("panel").innerHTML=h; $("panel").style.display="block"; $("panel").scrollTop=0;
+  $("px").onclick=closePanel; }
+function closePanel(){ $("panel").style.display="none"; history.replaceState(null,"",location.pathname+location.search); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePanel(); });
+
+/* ---------------- charts (inline SVG) */
+const W=440,H=170,L=44,R=8,T=8,B=20;
+function scale(vals,pad=0.05){ const v=vals.filter(x=>x!=null&&isFinite(x)); if(!v.length) return null; let lo=Math.min(...v),hi=Math.max(...v); if(hi===lo){hi+=1;lo-=1;} const p=(hi-lo)*pad; return [lo-p,hi+p]; }
+function axes(n,yr,fmt,dates){
+  const y=v=>T+(H-T-B)*(1-(v-yr[0])/(yr[1]-yr[0])); let g="";
+  for(let i=0;i<=3;i++){ const v=yr[0]+(yr[1]-yr[0])*i/3; g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#1B2C4C"/><text x="${L-4}" y="${y(v)+4}" fill="#9DB0CA" font-size="11" text-anchor="end">${fmt(v)}</text>`; }
+  if(dates&&dates.length){ for(const i of [0,Math.floor(n/2),n-1]){ const x=L+(W-L-R)*i/Math.max(n-1,1); g+=`<text x="${x}" y="${H-5}" fill="#9DB0CA" font-size="11" text-anchor="${i===0?"start":i===n-1?"end":"middle"}">${dates[i].slice(5)}</text>`; } }
+  return {g,y,x:i=>L+(W-L-R)*i/Math.max(n-1,1)}; }
+function line(arr,ax,col,w=1.6,dash=""){ let d="",on=false; arr.forEach((v,i)=>{ if(v==null||!isFinite(v)){ on=false; return; } d+=(on?"L":"M")+ax.x(i).toFixed(1)+" "+ax.y(v).toFixed(1); on=true; }); return d?`<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" ${dash?`stroke-dasharray="${dash}"`:""}/>`:""; }
+function svg(inner){ return `<svg viewBox="0 0 ${W} ${H}" role="img">${inner}</svg>`; }
+function card(t,how,body){ return `<div class="ch"><h4>${t}</h4><div class="how">${how}</div>${body}</div>`; }
+function legend(items){ return `<div class="how">${items.map(([c,t])=>`<span style="color:${c}">■</span> ${t}`).join(" &nbsp; ")}</div>`; }
+function charts(s,n,P){
+  const out=[], d=P.d, N=d.length;
+  { const yr=scale([...P.c,...P.bbu,...P.bbl,n.poc,n.vah,n.val].filter(x=>x!=null)); if(yr){ const ax=axes(N,yr,v=>num(v,v>=100?0:2),d);
+    let g=ax.g+line(P.bbu,ax,"#4C8DFF",1,"3 3")+line(P.bbl,ax,"#4C8DFF",1,"3 3")+line(P.ma,ax,"#6a7f9f",1)+line(P.c,ax,"#FFFFFF",1.8);
+    for(const [v,c,t] of [[n.vah,"#FFC24A","VAH"],[n.poc,"#FFD23F","POC"],[n.val,"#FFC24A","VAL"],[n.call_wall,"#2BB8D9","CW"],[n.put_wall,"#E0579E","PW"]]) if(v!=null&&v>yr[0]&&v<yr[1]) g+=`<line x1="${W-R-70}" x2="${W-R}" y1="${ax.y(v)}" y2="${ax.y(v)}" stroke="${c}" stroke-width="1.5"/><text x="${W-R-72}" y="${ax.y(v)+4}" fill="${c}" font-size="10" text-anchor="end">${t}</text>`;
+    out.push(card("Price + Bollinger","Dashed = ±2 SD bands around the 20-day average. Right edge: today's value area (VAH / POC / VAL) and the call / put walls.",svg(g))); } }
+  { const sm=P.sm, yr=[-Math.max(3,...sm.filter(x=>x!=null).map(Math.abs)),Math.max(3,...sm.filter(x=>x!=null).map(Math.abs))]; const ax=axes(N,yr,v=>v.toFixed(0)+"σ",d);
+    const bw=Math.max(1,(W-L-R)/N-1); let g=ax.g; for(const v of [1,-1]) g+=`<line x1="${L}" x2="${W-R}" y1="${ax.y(v)}" y2="${ax.y(v)}" stroke="#FFC24A" stroke-dasharray="2 3"/>`;
+    sm.forEach((v,i)=>{ if(v==null) return; const y0=ax.y(0),y1=ax.y(v); g+=`<rect x="${ax.x(i)-bw/2}" y="${Math.min(y0,y1)}" width="${bw}" height="${Math.abs(y1-y0)}" fill="${Math.abs(v)>=2?(v>0?"#58D68D":"#FF7B72"):v>0?"#3a8f60":"#a54b46"}"/>`; });
+    out.push(card("Daily move vs priced (σ)","Each bar = that day's move ÷ the one-day move its options priced the evening before. Outside the dotted ±1σ lines = bigger than priced.",svg(g))); }
+  { const yr=scale([...P.iv,...P.hv10,...P.hv30].filter(x=>x!=null)); if(yr){ const ax=axes(N,yr,v=>(v*100).toFixed(0)+"%",d);
+    out.push(card("Implied vs realized vol","IV above both realized lines = options priced richer than the stock has moved (and the reverse).",svg(ax.g+line(P.hv30,ax,"#6a7f9f",1.3)+line(P.hv10,ax,"#9BE15D",1.3)+line(P.iv,ax,"#FFD23F",2))+legend([["#FFD23F","IV30"],["#9BE15D","HV10"],["#6a7f9f","HV30"]]))); } }
+  if(P.sk){ const yr=scale(P.sk); if(yr){ const ax=axes(N,yr,v=>(v*100).toFixed(1),d); out.push(card("25Δ put skew (vol pts)","Put IV minus call IV at 25 delta, 30 days. Rising = more demand for downside protection.",svg(ax.g+line(P.sk,ax,"#E0579E",2)))); } }
+  if(P.dr){ const yr=scale(P.dr); if(yr){ const ax=axes(N,yr,v=>(v*100).toFixed(0)+"%",d); out.push(card("Dark short ratio (FINRA)","Off-exchange short volume ÷ total, daily. Above its usual level = more buying printed off-exchange (market makers sell short to fill buyers).",svg(ax.g+line(P.dr,ax,"#2BB8D9",1.8)))); } }
+  if(P.term&&P.term.length){ const all=P.term.flatMap(t=>t.pts); const xr=[0,Math.max(...all.map(p=>p[0]))], yr=scale(all.map(p=>p[1]));
+    const y=v=>T+(H-T-B)*(1-(v-yr[0])/(yr[1]-yr[0])), x=v=>L+(W-L-R)*v/xr[1]; const cols={now:"#FFD23F","1w":"#9DB0CA","1m":"#4C8DFF"};
+    let g=""; for(let i=0;i<=3;i++){ const v=yr[0]+(yr[1]-yr[0])*i/3; g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#1B2C4C"/><text x="${L-4}" y="${y(v)+4}" fill="#9DB0CA" font-size="11" text-anchor="end">${(v*100).toFixed(0)}%</text>`; }
+    for(const t of P.term) g+=`<path d="${t.pts.map((p,i)=>(i?"L":"M")+x(p[0]).toFixed(1)+" "+y(p[1]).toFixed(1)).join("")}" fill="none" stroke="${cols[t.label]||"#fff"}" stroke-width="${t.label==="now"?2:1.3}"/>`;
+    g+=`<text x="${W-R}" y="${H-5}" fill="#9DB0CA" font-size="11" text-anchor="end">days to expiry →</text>`;
+    out.push(card("Term structure","ATM IV by expiry from the chain bank: today vs ~1 week and ~1 month ago. Front above back = near-term stress or an event.",svg(g)+legend(P.term.map(t=>[cols[t.label]||"#fff",t.label])))); }
+  if(P.gamma&&P.gamma.k.length){ const G=P.gamma, m=Math.max(...G.c,...G.p,1), n2=G.k.length, rh=(H-T-B)/n2;
+    let g=`<line x1="${W/2}" x2="${W/2}" y1="${T}" y2="${H-B}" stroke="#556"/>`;
+    G.k.forEach((k,i)=>{ const y=H-B-(i+1)*rh, wc=(W/2-L)*G.c[i]/m, wp=(W/2-L)*G.p[i]/m; g+=`<rect x="${W/2}" y="${y}" width="${wc}" height="${Math.max(rh-1,1)}" fill="#2BB8D9"/><rect x="${W/2-wp}" y="${y}" width="${wp}" height="${Math.max(rh-1,1)}" fill="#E0579E"/>`;
+      if(n2<=30||i%Math.ceil(n2/15)===0) g+=`<text x="${L-4}" y="${y+rh/2+4}" fill="#9DB0CA" font-size="10" text-anchor="end">${num(k,k>=100?0:1)}</text>`; });
+    const si=G.k.findIndex(k=>k>=G.spot); if(si>=0) g+=`<line x1="${L}" x2="${W-R}" y1="${H-B-si*rh}" y2="${H-B-si*rh}" stroke="#fff" stroke-dasharray="3 3"/>`;
+    out.push(card("Gamma × OI by strike","Calls right (blue), puts left (pink), expiries within 45 days, from the chain bank. Dashed = price. The biggest bars are the walls.",svg(g))); }
+  return out.join(""); }
+
+document.querySelectorAll("#view button").forEach(b=>b.onclick=()=>{ VIEW=b.dataset.v; render(); });
+$("q").addEventListener("keydown",e=>{ if(e.key==="Enter"&&J){ openPanel($("q").value.trim().toUpperCase()); } });
+addEventListener("hashchange",()=>{ const h=location.hash.slice(1); if(h&&J) openPanel(h.toUpperCase()); else if(!h) $("panel").style.display="none"; });
+load(); setInterval(()=>{ if(!document.hidden&&$("panel").style.display!=="block") load(); },300000);
+</script>
+</body>
+</html>
