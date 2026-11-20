@@ -57,9 +57,17 @@ fi
 # `docker run --rm` deletes it on exit and the Telegram message is the only copy.
 mkdir -p "$REPO_DIR/reports"
 
+# 2026-11-19 (fix): "run_job.sh flow_bank --steps od_flow" used to run THREE containers (flow_bank, then
+# "--steps", then "od_flow"). Now: as soon as one argument starts with "-", the whole line is ONE job with its
+# arguments; without any "-" argument every word is its own job (chained tasks like "quotes_daily prune_intraday").
+JOBS=("$@")
+for a in "$@"; do
+    case "$a" in -*) JOBS=("$*"); break ;; esac
+done
+
 status=0
-for job in "$@"; do
-    log="$HOME_DIR/ti_${job}.log"
+for job in "${JOBS[@]}"; do
+    log="$HOME_DIR/ti_${job%% *}.log"
     {
         echo "=== $(date '+%Y-%m-%d %H:%M:%S') start ${job} ==="
         "$DOCKER" run --rm --network "$NETWORK" \

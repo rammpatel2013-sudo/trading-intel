@@ -8,6 +8,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from trading_intel.equity.store import upsert
@@ -199,7 +200,15 @@ def save_bars(session: Session, rows: Sequence[Mapping]) -> int:
         {k: r.get(k) for k in ("symbol", "date", "open", "high", "low", "close", "volume")}
         for r in rows
     ]
-    return upsert(session, DeskBar, rows, ["symbol", "date"], chunk=2000)
+    n = upsert(session, DeskBar, rows, ["symbol", "date"], chunk=2000)
+    # 2026-11-19 (DB wave A2 step 7a): equity_bars owns daily bars - write it too; never overwrite its rows
+    eq = [r for r in rows if r.get("close") is not None]
+    for i in range(0, len(eq), 2000):
+        session.execute(
+            pg_insert(EquityBar).values(eq[i : i + 2000]).on_conflict_do_nothing(index_elements=["symbol", "date"])
+        )
+    session.commit()
+    return n
 
 
 def last_desk_bar_dates(session: Session) -> dict[str, date]:

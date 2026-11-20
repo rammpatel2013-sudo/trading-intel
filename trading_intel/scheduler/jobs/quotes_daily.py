@@ -27,9 +27,11 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from trading_intel.clients import PriceDataSource
+from trading_intel.clients.symbols import normalize_symbol
 from trading_intel.config import Settings, get_settings
 from trading_intel.errors import TradingIntelError
 from trading_intel.memory.models import QuoteDaily, Ticker
+from trading_intel.memory.models_equity import EquityBar
 from trading_intel.prices.realized_vol import add_realized_vol
 from trading_intel.watchlist import effective_symbols
 
@@ -141,6 +143,16 @@ def run(
             index_elements=_UQ_COLS
         )
         session.execute(stmt)
+        # 2026-11-19 (DB wave A2 step 7a): equity_bars owns daily bars - write it too; never overwrite its rows
+        eq = [
+            {k: r[k] for k in ("date", "open", "high", "low", "close", "volume")} | {"symbol": normalize_symbol(symbol)}
+            for r in records
+            if r.get("close") is not None
+        ]
+        if eq:
+            session.execute(
+                pg_insert(EquityBar).values(eq).on_conflict_do_nothing(index_elements=["symbol", "date"])
+            )
         rows_written += len(records)
         bound.debug("quotes_daily.symbol", symbol=symbol, rows=len(records))
 

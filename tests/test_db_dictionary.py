@@ -6,6 +6,7 @@ from pathlib import Path
 import trading_intel.memory.models_desk  # noqa: F401 - register tables
 import trading_intel.memory.models_equity  # noqa: F401
 import trading_intel.memory.models_flow  # noqa: F401
+import trading_intel.memory.models_ref  # noqa: F401
 import trading_intel.memory.models_close_flow  # noqa: F401
 from trading_intel.memory.models import Base
 

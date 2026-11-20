@@ -35,7 +35,7 @@ Known type drift (report 2026-11-19, not fixed — renaming/retyping costs more 
 in the DB but naive in the ORM; the server TimeZone is UTC. `documents.ingested_at` now writes an
 aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
-## Tables (83)
+## Tables (85)
 
 ### Options chains and greeks
 
@@ -100,13 +100,20 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | `signal_outcomes` | signal: target/stop hit, R | signal_id | — | em_break_validation | own | derived |
 | `pipeline_runs` | one scheduled job run: status, rows, error | id | `run_date`, `started_at` naive ET | scheduler/track.py | own | raw (ops) |
 
+### Reference (symbol and contract masters)
+
+| Table | One row = | Key | Time key | Writer | Source | Kind |
+| --- | --- | --- | --- | --- | --- | --- |
+| `symbol_map` | one symbol: our spelling + convex / cvforge / od (+ od_iid) / fmp / finra / yahoo spellings + asset type (stock / etf / index) | symbol | — | symbol_map_sync (17:20, after contracts_sync); contracts_sync sets od_iid | clients.symbols rules over equity_bars, tickers, desk_names, equity_profiles | derived (rebuildable) |
+| `contracts` | one listed option, OCC 21-char key + optionsdata iid, Polygon/CVForge ticker, dxfeed/Convex symbol, settlement, exercise, multiplier, first/last seen | occ (+ unique od_iid) | `first_seen` / `last_seen` date | contracts_sync (17:20) | optionsdata.ai nightly files reports/optionsdata/YYYYMMDD | raw (rebuildable from the files) |
+
 ### Prices, breadth and market
 
 | Table | One row = | Key | Time key | Writer | Source | Kind |
 | --- | --- | --- | --- | --- | --- | --- |
-| `equity_bars` | symbol per day: OHLCV + cap (S&P 1500) | symbol+date | `date` | equity_daily, equity_backfill | FMP via CVForge | raw — owner of daily bars |
-| `desk_bars` | symbol per day: OHLCV (outside S&P 1500) | symbol+date | `date` | desk_brief | FMP via CVForge | raw — duplicate (A2: view) |
-| `quotes_daily` | symbol per day: OHLCV + RV20/60 | symbol+date | `date` | quotes_daily | FMP via CVForge | raw — duplicate (A2: view) |
+| `equity_bars` | symbol per day: OHLCV + cap (S&P 1500; since 0063 also every quotes_daily / desk_bars symbol, cap empty) | symbol+date | `date` | equity_daily, equity_backfill; quotes_daily + desk_brief also write it (never overwrite) | FMP via CVForge | raw — owner of daily bars |
+| `desk_bars` | symbol per day: OHLCV (outside S&P 1500) | symbol+date | `date` | desk_brief | FMP via CVForge | raw — duplicate, copied into equity_bars (0063); view later (A2 step 7b) |
+| `quotes_daily` | symbol per day: OHLCV + RV20/60 | symbol+date | `date` | quotes_daily | FMP via CVForge | raw — duplicate, copied into equity_bars (0063); view later (A2 step 7b) |
 | `breadth_snapshots` | one day: A/D, %>MA, NH-NL, McClellan | ts+source | `ts` date | breadth | own | derived |
 | `external_nhnl` | one day: new highs/lows | date | `date` | equity_daily | thetrading.tools | raw |
 | `sector_corr_snapshots` | one day: sector-ETF correlation | as_of+source | `as_of` | sector_corr | FMP bars | derived |

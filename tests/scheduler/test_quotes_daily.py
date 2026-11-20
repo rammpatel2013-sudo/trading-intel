@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 from sqlalchemy import create_engine, event, func, select
+
+from trading_intel.memory.models_equity import EquityBar
 from sqlalchemy.orm import Session
 
 from trading_intel.config import Settings
@@ -58,6 +60,7 @@ def session() -> Session:
 
     Ticker.__table__.create(engine)
     QuoteDaily.__table__.create(engine)
+    EquityBar.__table__.create(engine)   # 2026-11-19 A2 step 7a: quotes_daily also writes equity_bars
     with Session(engine) as s:
         yield s
 
@@ -85,6 +88,9 @@ def test_run_is_idempotent(session: Session):
     n1 = _count(session)
     quotes_daily.run(session, FakePriceSource(n=40), settings=s, period="max")
     assert _count(session) == n1  # ON CONFLICT DO NOTHING
+    # 2026-11-19 A2 step 7a: the same bars land in equity_bars (once), equity_bars rows never overwritten
+    neq = session.execute(select(func.count()).select_from(EquityBar)).scalar_one()
+    assert neq == n1
 
 
 def test_run_handles_index_without_volume(session: Session):
