@@ -1147,7 +1147,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
       <button data-sym="SPX" aria-pressed="true">SPX</button>
       <button data-sym="SPY" aria-pressed="false">SPY</button>
       <button data-sym="QQQ" aria-pressed="false">QQQ</button>
-      <span id="focSyms"></span><button id="focBtn" type="button" title="Focus names: up to 4 stocks a day, live like the index (0-7 DTE from ConvexValue). Today's list is fixed from 09:30; after that the box edits the next trading day.">+</button>
+      <span id="focSyms"></span><button id="focBtn" type="button" title="Focus names: up to 4 stocks a day, live like the index (0-7 DTE from ConvexValue). Save a name during the session and it goes live within about a minute; after the 16:00 close the box edits the next trading day.">+</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="xcalc" id="xcalc" title="SPX ↔ SPY level: type a level (above 2000 = SPX, else SPY), converted with the live SPX / SPY ratio. Hover for the strikes and their activity; click a strike to jump to it.">
@@ -5524,8 +5524,9 @@ document.getElementById("screenshotBtn").addEventListener("click",takeSnap);
 /* ============================================================ FOCUS NAMES (2026-11-20)
    Mithil: "i can select any equity and it start collecting and provide me same calculation and visualization as
    index ... allow max 4" + "cockpit box but ability to change after day is over. so its day to day add".
-   The picks live in the database (focus_names) via /api/focus on the page server. Today's list is fixed from 09:30;
-   after that the box edits the next trading day. Each pick gets a button next to SPX / SPY / QQQ and reads its own
+   The picks live in the database (focus_names) via /api/focus on the page server. Until the 16:00 close the box edits
+   TODAY's list and a saved name goes live within about a minute (Mithil 04:20 "live view ... immediatly after i
+   enter name"); after the close it edits the next trading day. Each pick gets a button next to SPX / SPY / QQQ and reads its own
    files (focus_live.json, focus_flow_<SYM>_<day>.ndjson + focus_tail_<SYM>.json) - the index files are untouched.
    Under a pick: the night-before levels card (focus_card.json, from the hourly chain bank + 1-minute bars). */
 function focMerge(j){ if(!j||!FOC.live) return; for(const s of FOC.syms){ if(FOC.live[s]) j[s]=FOC.live[s]; } }
@@ -5595,7 +5596,7 @@ function focPopRender(){
   const el=document.getElementById("focPop"), S=FOC.state;
   if(!S){ el.innerHTML=`<h4>Focus names</h4><div class="fp-err">${esc(FOC.err||"loading…")}</div><div class="fp-row"><button data-a="close">Close</button></div>`; el.querySelector('[data-a="close"]').onclick=()=>{ el.hidden=true; }; return; }
   const sameDay=S.today&&S.edit_day===S.today, ed=S.edit||[], vals=[0,1,2,3].map(i=>ed[i]||"");
-  const todayLine=S.today?(sameDay?`Today ${focDay(S.today)}: editable until 09:30.`:`Today ${focDay(S.today)}: <b>${S.today_picks.length?S.today_picks.map(esc).join(", "):"none"}</b> - fixed for the session.`):"Market closed today.";
+  const todayLine=S.today?(sameDay?`Today ${focDay(S.today)}: a name you save goes live within about a minute.`:`Today ${focDay(S.today)}: <b>${S.today_picks.length?S.today_picks.map(esc).join(", "):"none"}</b> - session over.`):"Market closed today.";
   el.innerHTML=`<h4>Focus names</h4><div>${todayLine}</div>
     <div style="margin-top:8px">List for <b>${focDay(S.edit_day)}</b> (max ${S.max}):</div>
     <div class="fp-row">${vals.map((v,i)=>`<input data-i="${i}" maxlength="8" value="${esc(v)}" placeholder="ticker" autocomplete="off">`).join("")}</div>
@@ -5606,7 +5607,8 @@ function focPopRender(){
   const send=async syms=>{ err.textContent="saving…";
     try{ let r=await fetch("api/focus",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},focKeyHdr()),body:JSON.stringify({day:S.edit_day,symbols:syms})}); let j=await r.json();
       if(r.status===403&&j.need_key){ const k=prompt("Focus key (FOCUS_KEY in the NAS .env):"); if(!k){ err.textContent="not saved: key needed"; return; } save("focusKey",k); return send(syms); }
-      if(!r.ok) throw new Error(j.error||r.status); FOC.state=j; FOC.msg=`saved: ${(j.edit||[]).join(", ")||"no focus names"} for ${focDay(j.edit_day)}`; focPopRender(); focState(); setTimeout(focCardGet,8000); }
+      if(!r.ok) throw new Error(j.error||r.status); const was=FOC.syms.slice(); FOC.state=j; FOC.msg=`saved: ${(j.edit||[]).join(", ")||"no focus names"} for ${focDay(j.edit_day)}`+(j.edit_day===j.today?" - live within about a minute":""); focPopRender(); await focState();
+      const added=(j.live||[]).find(x=>!was.includes(x)); if(added&&j.edit_day===j.today){ st.sym=added; st.sel=null; st.rowOff=0; pollFocLive(); pollFocFlow(); render(); } setTimeout(focCardGet,8000); }
     catch(e){ FOC.msg=String(e.message||e); const x=document.getElementById("focErr"); if(x) x.textContent=FOC.msg; } };
   el.querySelector('[data-a="save"]').onclick=()=>send(ins.map(x=>x.value.trim().toUpperCase()).filter(Boolean));
   el.querySelector('[data-a="clear"]').onclick=()=>send([]);

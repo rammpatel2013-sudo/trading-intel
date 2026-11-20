@@ -14,8 +14,8 @@ also keeps the connection open between polls. Idle connections are dropped after
 .ndjson .js .css .txt .csv .svg, >= 1 KB) go out gzipped when the browser accepts it (page 911 KB ->
 ~294 KB, live.json 607 -> ~186 KB). The page still never sees stale data: no-cache = always revalidate.
 
-2026-11-20 (focus names): /api/focus is the cockpit box. GET = today's focus names (fixed after 09:30) and
-the list the box edits; POST {"day": "YYYY-MM-DD", "symbols": [...]} saves that day's list (max 4) into the
+2026-11-20 (focus names): /api/focus is the cockpit box. GET = today's focus names and the list the box
+edits (today's until the 16:00 close, then the next trading day's); POST {"day": "YYYY-MM-DD", "symbols": [...]} saves that day's list (max 4) into the
 database table focus_names (trading_intel.focus - the only writer) and rebuilds focus_card.json in the
 background. Every other path is served exactly as before; the database is touched only by /api/focus.
 If FOCUS_KEY is set in the .env, a POST must carry it in the X-Focus-Key header (a shared cockpit viewer

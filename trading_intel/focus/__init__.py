@@ -5,10 +5,13 @@ about swing, then it start collecting 0-7 expiry data with live volume feed from
 any equity and it start collecting and provide me same calculation and visualization as index ... allow max
 4 equity selection" -> "cockpit box but ability to change after day is over. so its day to day add".
 
+2026-11-20 04:20 Mithil: "i want this to have live view just like spx or spy immediatly after i enter name".
+
 The day rule (one place, used by the cockpit box, the collector and the writer):
   * a pick is for ONE trading day (focus_names.day);
-  * that day's list can be changed until 09:30 ET on that day, then it is fixed for the session;
-  * during the session and after the close the box edits the NEXT trading day's list;
+  * on a trading day, until the 16:00 close, the box edits TODAY's list and a saved name goes live at once
+    (the collector re-reads the list every 30 s; first live chain within about a minute);
+  * after the close (and on closed days) the box edits the NEXT trading day's list;
   * nothing carries over by itself: the box offers "keep today's" for the next day.
 
 Owner table focus_names (schema contract); this module is the only writer. Descriptors only (rule 4).
@@ -28,7 +31,7 @@ from trading_intel.tape_sessions import next_trading_day
 from trading_intel.timeutils import eastern_now, is_trading_session
 
 MAX_PICKS = 4
-OPEN = time(9, 30)
+CLOSE = time(16, 0)
 # already on the cockpit as the index book; a focus pull of them would only spend Convex budget
 ON_COCKPIT = {"SPX", "SPXW", "SPY", "QQQ", "VIX", "NDX", "XSP"}
 _SYM = re.compile(r"^[A-Z][A-Z0-9.]{0,7}$")
@@ -62,16 +65,16 @@ def session_day(now: datetime) -> date | None:
 
 
 def edit_day(now: datetime) -> date:
-    """The day the cockpit box edits at ``now``: today before 09:30 on a trading day, else the next trading day."""
+    """The day the cockpit box edits at ``now``: today until the 16:00 close on a trading day, else the next one."""
     d = now.date()
-    if is_trading_session(d) and now.time() < OPEN:
+    if is_trading_session(d) and now.time() < CLOSE:
         return d
     return next_trading_day(d)
 
 
 def locked(day: date, now: datetime) -> bool:
-    """True when ``day``'s list can no longer change (its session has opened, or it is in the past)."""
-    return day < now.date() or (day == now.date() and now.time() >= OPEN)
+    """True when ``day``'s list can no longer change (its session has closed, or it is in the past)."""
+    return day < now.date() or (day == now.date() and now.time() >= CLOSE)
 
 
 def get_picks(session: Session, day: date) -> list[str]:
@@ -88,7 +91,7 @@ def set_picks(session: Session, day: date, symbols: Iterable[str], now: datetime
 
     now = now or eastern_now()
     if locked(day, now):
-        raise FocusError(f"{day:%a %m/%d} is fixed (its session has opened); edit {edit_day(now):%a %m/%d} instead")
+        raise FocusError(f"{day:%a %m/%d} is over (its session has closed); edit {edit_day(now):%a %m/%d} instead")
     if not is_trading_session(day):
         raise FocusError(f"{day:%a %m/%d} is not a trading day")
     picks = clean(symbols)
@@ -112,7 +115,7 @@ def state(session: Session, now: datetime | None = None) -> dict:
         out["today_locked"] = locked(today, now)
     else:
         out["today"], out["today_picks"], out["today_locked"] = None, [], True
-    # the live list = the session day's picks (the edit list IS today's before 09:30)
+    # the live list = the session day's picks (the edit list IS today's until the close)
     out["live"] = out["today_picks"]
     return out
 

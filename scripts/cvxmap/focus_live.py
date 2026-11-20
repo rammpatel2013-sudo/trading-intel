@@ -122,6 +122,27 @@ def to_db(dec, syms, today, ts_s):
         return None
 
 
+def day_open(sym, today):
+    """The 09:30 open from bars_1m (the chain bank's 1-minute bars), for a name added after the open - otherwise
+    its first live spot would be shown as "the open". None when not there yet (first spot is used, as before)."""
+    try:
+        from sqlalchemy import select
+        from trading_intel.memory.models_flow import Bars1m
+        if "sf" not in _DB:
+            from trading_intel.config import get_settings
+            from trading_intel.memory.db import make_session_factory
+            _DB["sf"] = make_session_factory(get_settings())
+        t0 = datetime.datetime.combine(today, datetime.time(9, 30))
+        with _DB["sf"]() as s:
+            v = s.execute(select(Bars1m.open).where(Bars1m.symbol == sym, Bars1m.ts >= t0,
+                                                    Bars1m.ts < t0 + datetime.timedelta(minutes=5))
+                          .order_by(Bars1m.ts).limit(1)).scalar_one_or_none()
+        return float(v) if v else None
+    except Exception as exc:
+        log("open %s: %s" % (sym, str(exc)[:100]))
+        return None
+
+
 # ---------------------------------------------------------------- one pass
 def process(db=True):
     day = L.now_et().strftime("%Y%m%d")
@@ -164,6 +185,10 @@ def process(db=True):
             if sym not in dec:
                 continue
             L.STEP[sym] = strike_step(dec[sym])
+            if db and sym not in state.get("open", {}) and ts[11:16] >= "09:31":   # added mid-session
+                o = day_open(sym, today)
+                if o:
+                    state.setdefault("open", {})[sym] = o
             try:
                 sd, fl = L.build_symbol(sym, dec, today, state, ts)
             except Exception as exc:

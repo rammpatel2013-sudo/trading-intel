@@ -68,7 +68,7 @@ PULLS = [
     {"name":"ext", "symbols":["SPX","SPY","QQQ"], "exps":list(range(12, 26)), "rng":0.02,
      "every":5, "file":"ext_raw"},
     # 2026-11-20 (focus names): Mithil's up-to-4 picks for today (database table focus_names, set in the
-    # cockpit box). ONE request for all of them: first 4 expiries (always covers 0-7 DTE), +-12% of spot,
+    # cockpit box; a name saved during the session is pulled from the next minute). ONE request for all of them: first 4 expiries (always covers 0-7 DTE), +-12% of spot,
     # same PARAMS. Skipped on the ext minute so a minute never carries more than 3 requests (idx + vix +
     # ext, or idx + vix + focus): each pick refreshes 4 minutes in 5. Its OWN file focus_raw_YYYYMMDD so
     # nothing that reads raw_*.ndjson.gz - the Map included - ever sees it (MAP rule). No picks = no request.
@@ -205,9 +205,9 @@ _FOCUS = {"at": 0.0, "syms": [], "err_at": 0.0}
 
 
 def focus_symbols():
-    """Today's focus names from the database, re-read every 2 minutes. Any failure = no focus pull
-    (the index and VIX pulls never depend on this)."""
-    if time.time() - _FOCUS["at"] < 120:
+    """Today's focus names from the database, re-read every 30 s so a name saved in the cockpit box goes live
+    on the next minute's pulls. Any failure = no focus pull (the index and VIX pulls never depend on this)."""
+    if time.time() - _FOCUS["at"] < 30:
         return _FOCUS["syms"]
     _FOCUS["at"] = time.time()
     try:

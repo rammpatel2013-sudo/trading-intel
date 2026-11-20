@@ -102,11 +102,12 @@ def test_clean():
 
 def test_day_rule():
     assert focus.edit_day(dt.datetime(2026, 11, 20, 8, 0)) == FRI           # before the open: today
-    assert focus.edit_day(dt.datetime(2026, 11, 20, 10, 0)) == MON          # in the session: next day
+    assert focus.edit_day(dt.datetime(2026, 11, 20, 10, 0)) == FRI          # in the session: today, live at once
+    assert focus.edit_day(dt.datetime(2026, 11, 20, 15, 59)) == FRI
     assert focus.edit_day(dt.datetime(2026, 11, 20, 17, 0)) == MON          # after the close: next day
     assert focus.edit_day(dt.datetime(2026, 11, 21, 12, 0)) == MON          # weekend
     assert focus.edit_day(dt.datetime(2026, 11, 25, 18, 0)) == dt.date(2026, 11, 27)   # Thanksgiving skipped
-    assert focus.locked(FRI, dt.datetime(2026, 11, 20, 9, 30)) and not focus.locked(FRI, dt.datetime(2026, 11, 20, 9, 29))
+    assert focus.locked(FRI, dt.datetime(2026, 11, 20, 16, 0)) and not focus.locked(FRI, dt.datetime(2026, 11, 20, 15, 59))
 
 
 def test_set_state_live(db):
@@ -114,12 +115,17 @@ def test_set_state_live(db):
     assert focus.set_picks(db, FRI, ["nvda", "AMD"], now=pre) == ["NVDA", "AMD"]
     focus.set_picks(db, FRI, ["TSLA", "NVDA"], now=pre)                       # replace
     assert focus.get_picks(db, FRI) == ["TSLA", "NVDA"]
-    with pytest.raises(focus.FocusError):                                      # fixed after 09:30
-        focus.set_picks(db, FRI, ["AAPL"], now=dt.datetime(2026, 11, 20, 9, 31))
+    focus.set_picks(db, FRI, ["TSLA", "NVDA", "AAPL"], now=dt.datetime(2026, 11, 20, 11, 0))   # mid-session add
+    assert focus.live_picks(db, dt.datetime(2026, 11, 20, 11, 1)) == ["TSLA", "NVDA", "AAPL"]
+    focus.set_picks(db, FRI, ["TSLA", "NVDA"], now=dt.datetime(2026, 11, 20, 11, 2))
+    with pytest.raises(focus.FocusError):                                      # over after the close
+        focus.set_picks(db, FRI, ["AAPL"], now=dt.datetime(2026, 11, 20, 16, 1))
     with pytest.raises(focus.FocusError):
         focus.set_picks(db, dt.date(2026, 11, 21), ["AAPL"], now=pre)          # Saturday
     s = focus.state(db, dt.datetime(2026, 11, 20, 11, 0))
-    assert s["today_picks"] == ["TSLA", "NVDA"] and s["today_locked"] and s["edit_day"] == "2026-11-23"
+    assert s["today_picks"] == ["TSLA", "NVDA"] and not s["today_locked"] and s["edit_day"] == "2026-11-20"
+    s = focus.state(db, dt.datetime(2026, 11, 20, 16, 30))
+    assert s["today_locked"] and s["edit_day"] == "2026-11-23"
     assert s["live"] == ["TSLA", "NVDA"]
     assert focus.live_picks(db, dt.datetime(2026, 11, 21, 11, 0)) == []        # weekend: nothing pulled
     rows = db.execute(select(FocusName)).scalars().all()
@@ -179,6 +185,7 @@ def test_focus_live_writer(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(FL, "to_db", lambda dec, syms, today, ts: calls.append((ts, tuple(syms))) or (1, 1))
     monkeypatch.setattr(FL.L, "now_et", lambda: dt.datetime(2026, 11, 20, 10, 7, 30))
+    monkeypatch.setattr(FL, "day_open", lambda sym, today: 170.0 if sym == "NVDA" else None)   # added mid-session
     monkeypatch.setattr(FL.L, "today_et", lambda: FRI)
     raw = tmp_path / "focus_raw_20261120.ndjson.gz"
     with gzip.open(raw, "at", encoding="utf-8") as fh:
@@ -191,6 +198,8 @@ def test_focus_live_writer(tmp_path, monkeypatch):
     assert nv["step"] == 2.5 and len(nv["rows"]) >= 15 and nv["dte"] == 0 and nv["spot"] > 170
     assert all(r["k"] in {round(x * 2.5, 4) for x in range(40, 120)} for r in nv["rows"])
     assert live["AMD"]["step"] == 1
+    assert nv["open"] == 170.0 and nv["pct"] == pytest.approx(nv["spot"] / 170 - 1)   # 09:30 open, not the first spot
+    assert live["AMD"]["open"] == pytest.approx(151.2 + 0.4)                          # no bar yet: first spot
     lines = (tmp_path / "focus_flow_NVDA_20261120.ndjson").read_text().splitlines()
     assert len(lines) == 3 and json.loads(lines[-1])["t"] == "10:06" and json.loads(lines[0])["s"] == "NVDA"
     tail = json.loads((tmp_path / "focus_tail_NVDA.json").read_text())

@@ -160,8 +160,8 @@ class FocusName(Base):
 
     The picks drive the live ConvexValue focus pull (0-7 DTE, same fields as the index), whose minute files
     feed the cockpit like SPX / SPY / QQQ, and whose 5-minute snapshots land in greeks_chain /
-    greeks_snapshots as source ``convex_focus``. A day's list can be changed until 09:30 ET that day and is
-    fixed after; edits made during or after the session go to the next trading day."""
+    greeks_snapshots as source ``convex_focus``. A day's list can be changed until the 16:00 close that day (a name saved
+    during the session goes live at once); after the close the box edits the next trading day."""
 
     __tablename__ = "focus_names"
     __table_args__ = (
