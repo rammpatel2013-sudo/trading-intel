@@ -690,6 +690,79 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
 .rkrange{display:inline-flex;gap:4px;margin-left:10px}
 .rkread{font-size:15px;color:#DCE6F2;min-height:22px;margin:2px 0 4px}
 .rkgrp{margin:14px 0 6px}
+/* Vol monitor (2026-11-19) */
+.vmread{border:2px solid #3FD0B0;border-radius:12px;padding:14px 16px;background:var(--pane2);margin:4px 0 14px}
+.vmhead{font-size:24px;font-weight:800;margin-bottom:6px}
+.vmai{font-size:19px;line-height:1.6;color:#fff;margin:6px 0}
+.vmsrc{font-size:14px;color:#DCE6F2;margin:2px 0 8px}
+.vmfacts{margin:8px 0 4px 20px;padding:0}
+.vmfacts li{font-size:18px;line-height:1.55;color:#fff;margin:4px 0}
+.vmline{font-size:18px;line-height:1.55;color:#fff;margin:6px 0}
+.vmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin:6px 0 14px}
+.vmg{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:12px 14px}
+.vmgh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.vmgh b{font-size:22px;color:#fff}
+.vmchip{font-size:14px;font-weight:800;border-radius:12px;padding:2px 10px}
+.vmwhat{font-size:15px;color:#DCE6F2;margin:4px 0;line-height:1.4}
+.vmval{font-size:40px;font-weight:800;line-height:1.1;margin:4px 0}
+.vmval small{font-size:17px;font-weight:600;color:#fff}
+.vmpb{position:relative;height:12px;background:#ffffff1f;border-radius:6px;margin:6px 0 2px;overflow:hidden}
+.vmpb i{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.vmpb b{position:absolute;top:0;bottom:0;width:2px;background:#0b1220}
+.vmpbl{font-size:15px;color:#fff}
+.vmspark{width:100%;height:54px;display:block;margin:6px 0}
+.vmmean{font-size:17px;line-height:1.45;color:#fff}
+.vmmean i{color:#DCE6F2}
+.vmtwo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin:0 0 14px}
+.vmterm{width:100%;max-width:560px;display:block}
+.vmh3{font-size:21px;color:#fff;margin:14px 0 4px}
+.vmcombos{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin:6px 0 14px}
+.vmc{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;opacity:.78}
+.vmc.on{border-width:3px;opacity:1}
+.vmch{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.vmch b{font-size:19px}
+.vmch span{font-size:14px;color:#DCE6F2}
+.vmcm{font-size:17px;line-height:1.5;color:#fff;margin:6px 0}
+.vmcw{font-size:16px;line-height:1.5;color:#fff;margin:4px 0}
+.vmst{font-size:16px;line-height:1.5;color:#DCE6F2;margin:6px 0}
+.vmst b{color:#fff}
+.vmsl{font-size:13px;color:#DCE6F2;margin-top:4px}
+.vmstrip{width:100%;height:14px;display:block}
+.vmguide{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:10px 14px;margin:6px 0 14px}
+.vmguide summary{font-size:20px;font-weight:700;color:#fff;cursor:pointer}
+.vmdl dt{font-size:18px;font-weight:800;color:#fff;margin-top:10px}
+.vmdl dd{font-size:17px;line-height:1.5;color:#fff;margin:2px 0 0 0}
+body.phone .vmtwo{grid-template-columns:1fr}
+/* Vol monitor views (2026-11-19 night) */
+.vmg[data-g],.vmc[data-c],.vmpair{cursor:pointer}
+.vmg[data-g]:hover,.vmc[data-c]:hover,.vmpair:hover{outline:2px solid #ffffff55}
+.vmhint{font-size:13px;color:#DCE6F2;margin-top:6px}
+.vmpairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:12px;margin:6px 0 14px}
+.vmpair{background:var(--pane2);border:1px solid var(--rule);border-radius:10px;padding:10px 12px}
+.vmpair h4,#vmFull h4{font-size:19px;color:#fff;margin:6px 0}
+.vmchart{width:100%;display:block}
+.vmleg{display:flex;flex-wrap:wrap;gap:14px;font-size:16px;color:#fff;margin:2px 0}
+.vmleg i{display:inline-block;width:18px;height:5px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.vmrd{font-size:16px;color:#fff;min-height:22px}
+.vmcap{font-size:16px;line-height:1.5;color:#DCE6F2;margin:4px 0 2px}
+.vmrng{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 8px}
+#vmFull{position:fixed;inset:0;z-index:9999;background:#0b1220}
+#vmFull[hidden]{display:none}
+.vmfbox{position:absolute;inset:0;overflow-y:auto;padding:14px 22px 40px;max-width:1500px;margin:0 auto}
+.vmfbar{position:sticky;top:-14px;z-index:2;background:#0b1220;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--rule)}
+.vmfbar h2{font-size:24px;color:#fff;margin:0}
+.vmclose{font-size:34px;line-height:1;background:none;border:2px solid #ffffff66;color:#fff;border-radius:10px;padding:2px 14px;cursor:pointer}
+.vmfread{position:sticky;top:62px;z-index:2;background:#13203a;border:1px solid var(--rule);border-radius:8px;padding:8px 12px;font-size:17px;color:#fff;margin:10px 0}
+.vmtl{width:100%;display:block}
+.vmtw{overflow-x:auto}
+.vmtab{border-collapse:collapse;width:100%;font-size:17px;color:#fff}
+.vmtab th{font-size:15px;color:#DCE6F2;text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule)}
+.vmtab td{padding:7px 8px;border-bottom:1px solid #ffffff14}
+.vmtab tr[data-c]{cursor:pointer}
+.vmtab tr.sel td{background:#ffffff14}
+.vmtab tr.all td{color:#DCE6F2;border-top:2px solid var(--rule)}
+@media (max-width:980px){.vmpairs{grid-template-columns:1fr}.vmfbox{padding:10px 10px 40px}.vmfbar{position:static}.vmfbar h2{font-size:20px;padding-right:56px}.vmfread{top:0}.vmclose{position:fixed;top:8px;right:8px;z-index:4;background:#0b1220}}
+@media (max-width:980px){.vmtwo{grid-template-columns:1fr}.vmcombos{grid-template-columns:1fr}.vmval{font-size:34px}}
 .rkgrp h3{font-size:18px;color:#fff;margin:0 0 6px;font-weight:700}
 .rkgrp h3 span{font-size:14px;color:var(--ink);font-weight:500;margin-left:10px}
 .rkwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
@@ -7441,6 +7514,7 @@ function renderRisk(){
     `<div class="rkcard"><div class="vxh"><h2 style="font-size:19px">What drives it</h2><span class="vxsub">the three score inputs · bar = how much each pushes today&rsquo;s risk</span></div><div class="rkdrv">${drv}</div>`+
     (sim?`<p class="rkline" style="margin-top:12px"><b>Days like today since 2010</b> (score ${rkPct(sim.lo)}–${rkPct(sim.hi)}, ${sim.n} days): a 3%+ drop followed <b style="color:${rkCol(sim.drop_rate)}">${rkPct(sim.drop_rate)}</b> of the time · typical worst close next 5 sessions <b>${sim.median_worst5}%</b> · bad case (1 in 10) <b>${sim.p10_worst5}%</b>.</p>`:"")+
     `<p class="rkline">Context tiles in their top 10% now: <b style="color:${warnN>=ctx.length/3?"#FF5C5C":"#fff"}">${warnN} of ${ctx.length}</b>${S.max20!=null?` · highest score in the last 20 sessions: <b>${rkPct(S.max20)}</b>`:""}</p>`+rkFlagsHtml(D)+`</div></div>`;
+  h+=veSec("rkVm","Vol monitor - how scared is the market, and where?","8 fear gauges, each coloured against its own past year · term structure · what the combinations mean · end of day",vmHtml(D.volmon));
   h+=veSec("rkHist","Score history","coloured by band · grey = SPX (right scale) · red ticks = a 3%+ drop began · orange ◆ = false all-clear · green ● = fear release",
     `<div><span class="rkrange tabs" id="rkRangeSeg">${["6m","1y","3y"].map(r=>`<button data-v="${r}" aria-pressed="${st.rkRange===r}">${r.toUpperCase()}</button>`).join("")}</span></div><div class="rkread" id="rkHover">Move across the chart to read a day.</div>${rkHistChart(D)}`);
   h+=`<div class="vegrid">`+veSec("rkCal5","Does the % mean what it says?","tested on years the model never saw · bar = what really happened · white mark = what it said",rkCalib(D.calib5,"5 sessions, 3%+ drop"))+
@@ -7451,6 +7525,7 @@ function renderRisk(){
   const M=D.method||{};
   h+=`<p class="vxnote" style="font-size:14px;color:var(--ink);margin-top:14px"><b style="color:#fff">How it is built.</b> Event: ${veEsc(M.event||"")}. Score: ${veEsc(M.fit||"")}. Ranking quality on unseen years (0.5 = coin flip, 1 = perfect): score ${(M.auc&&M.auc.score||[]).join(" / ")} vs VIX alone ${(M.auc&&M.auc.vix_only||[]).join(" / ")}. ${veEsc(M.lift||"")}. Breadth, credit, correlation, sector, beta and gamma tiles each warn on their own, but once VIX, VIX/VIX3M and financial conditions are known they added nothing, so they are shown and not counted. It ranks risk; it does not time the drop. Not a trade signal.</p>`;
   body.innerHTML=h;
+  vmWireAll(body,D.volmon);
   body.querySelectorAll(".rktile").forEach(el=>{ el.onclick=()=>rkModal(el.dataset.id); el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); rkModal(el.dataset.id); } }; });
   body.querySelectorAll("#rkRangeSeg button").forEach(b=>b.onclick=()=>{ st.rkRange=b.dataset.v; save("rkRange",st.rkRange); renderRisk(); });
   const svg=document.getElementById("rkHistSvg"), hov=document.getElementById("rkHover");
@@ -7459,6 +7534,191 @@ function renderRisk(){
       const xx=L+Wd*i/(n-1); cr.setAttribute("x1",xx); cr.setAttribute("x2",xx); cr.setAttribute("opacity",".6");
       hov.innerHTML=`<b>${hh[0]}</b> · score <b style="color:${rkCol(hh[2])}">${rkPct(hh[2],1)}</b> (${rkLab(hh[2])}) · 10-session ${rkPct(hh[3],1)} · SPX ${hh[1]==null?"—":hh[1].toFixed(0)}${(D.drop_starts||[]).includes(hh[0])?' · <b style="color:#FF5C5C">a 3%+ drop began here</b>':""}${hh[4]?' · <b style="color:#FF9F43">false all-clear</b>':""}${hh[5]?' · <b style="color:#3FD0B0">fear release</b>':""}`; });
     svg.addEventListener("mouseleave",()=>{ cr.setAttribute("opacity","0"); }); }
+}
+/* ---- Vol monitor (2026-11-19): 8 fear gauges + term structure + combinations + plain read (scripts/risk/vol_monitor.py, rule set vm-v1) */
+var VM_ZC=["#3FD0B0","#FFFFFF","#FF9F43","#FF5C5C"], VM_ZL=["Low","Normal","High","Very high"];
+function vmSpark(v,c){
+  const a=(v||[]).map(x=>x==null?null:+x), ok=a.filter(x=>x!=null&&isFinite(x)); if(ok.length<2) return "";
+  const lo=Math.min(...ok), hi=Math.max(...ok), W=240, H=54, n=a.length, X=i=>4+(W-8)*i/(n-1), Y=y=>H-5-(H-10)*(y-lo)/((hi-lo)||1);
+  let d="",pen=false; a.forEach((y,i)=>{ if(y==null||!isFinite(y)){ pen=false; return; } d+=(pen?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1); pen=true; });
+  const li=a.length-1; return `<svg class="vmspark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="${c}" stroke-width="2.4"/>${a[li]!=null?`<circle cx="${X(li).toFixed(1)}" cy="${Y(a[li]).toFixed(1)}" r="4" fill="${c}"/>`:""}</svg>`;
+}
+function vmPctBar(p,c){ const w=p==null?0:Math.round(100*p); return `<div class="vmpb"><i style="width:${w}%;background:${c}"></i><b style="left:70%"></b><b style="left:90%"></b></div><div class="vmpbl">${p==null?"no history yet":`${w}th percentile of the past year`}</div>`; }
+function vmGauge(g){
+  const c=VM_ZC[g.zone||1], ch=g.chg5;
+  return `<div class="vmg" data-g="${g.id}" title="${veEsc(g.what)} · click for the full view"><div class="vmgh"><b>${veEsc(g.name)}</b><span class="vmchip" style="background:${c};color:#0b1220">${VM_ZL[g.zone||1]}</span></div>`+
+    `<div class="vmwhat">${veEsc(g.what)}</div>`+
+    `<div class="vmval" style="color:${c}">${g.value==null?"—":(+g.value).toFixed(2)}<small>${ch==null?"":` ${ch>=0?"▲":"▼"} ${Math.abs(ch).toFixed(2)} in 5 days`}</small></div>`+
+    vmPctBar(g.pct,c)+vmSpark(g.spark,c)+`<div class="vmmean">${veEsc(g.meaning)}${g.stale?' <i>(no new print today)</i>':""}</div><div class="vmhint">click for the full view ›</div></div>`;
+}
+function vmTerm(T){
+  const pts=[["9 days",T.vix9d],["1 month",T.vix],["3 months",T.vix3m],["6 months",T.vix6m]], ok=pts.filter(p=>p[1]!=null);
+  if(ok.length<2) return '<p class="veread">No term data.</p>';
+  const vals=ok.map(p=>+p[1]), lo=Math.min(...vals)-1, hi=Math.max(...vals)+1, W=560, H=200, L=60, R=60, Tp=28, B=36;
+  const X=i=>L+(W-L-R)*i/(pts.length-1), Y=y=>Tp+(H-Tp-B)*(1-(y-lo)/(hi-lo));
+  const inv=T.shape==="inverted"||T.shape==="front_high", c=inv?"#FF5C5C":T.shape==="kink"?"#FF9F43":"#3FD0B0";
+  let d="",g=""; pts.forEach((p,i)=>{ if(p[1]==null) return; d+=(d?"L":"M")+X(i).toFixed(1)+" "+Y(+p[1]).toFixed(1);
+    g+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(+p[1]).toFixed(1)}" r="6" fill="${c}"/><text x="${X(i).toFixed(1)}" y="${(Y(+p[1])-12).toFixed(1)}" text-anchor="middle" style="fill:#fff;font-size:18px;font-weight:700">${(+p[1]).toFixed(2)}</text><text x="${X(i).toFixed(1)}" y="${H-10}" text-anchor="middle" style="fill:#DCE6F2;font-size:16px">${p[0]}</text>`; });
+  return `<svg class="vmterm" viewBox="0 0 ${W} ${H}"><path d="${d}" fill="none" stroke="${c}" stroke-width="4"/>${g}</svg><p class="vmline" style="color:${c}"><b>${veEsc(T.text)}</b></p>`;
+}
+function vmStrip(a,c){ if(!a||!a.length) return ""; const W=260,H=14,w=W/a.length; return `<svg class="vmstrip" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${a.map((x,i)=>x?`<rect x="${(i*w).toFixed(2)}" y="0" width="${(w+.4).toFixed(2)}" height="${H}" fill="${c}"/>`:"").join("")}<rect x="0" y="0" width="${W}" height="${H}" fill="none" stroke="#ffffff40"/></svg>`; }
+function vmStats(s,b){
+  if(!s||!s.n_fwd) return '<div class="vmst">Not seen in the history yet.</div>';
+  const pc=x=>x==null?"—":Math.round(100*x)+"%", sg=x=>x==null?"—":(x>=0?"+":"−")+Math.abs(x).toFixed(1)+"%";
+  const hot=s.drop5!=null&&b&&b.drop5&&s.drop5>1.5*b.drop5;
+  return `<div class="vmst">Since 2010: <b>${s.days}</b> days in <b>${s.episodes}</b> separate episodes. After them the S&amp;P 500 was <b>higher 20 sessions later ${pc(s.up20)}</b> of the time (all days ${pc(b&&b.up20)}), typical move <b>${sg(s.med20)}</b>, bad case (1 in 10) <b>${sg(s.p10_20)}</b>. A 3%+ dip within 5 sessions: <b style="color:${hot?"#FF5C5C":"#fff"}">${pc(s.drop5)}</b> (all days ${pc(b&&b.drop5)}).</div>`;
+}
+function vmCombo(c,b){
+  return `<div class="vmc${c.on?" on":""}" data-c="${c.id}" style="border-color:${c.on?c.color:"var(--rule)"}"><div class="vmch"><b style="color:${c.on?c.color:"#fff"}">${c.on?"● ON NOW · ":""}${veEsc(c.title)}</b>${!c.on&&c.last_on?`<span>last on ${veEsc(c.last_on)}</span>`:""}</div>`+
+    `<div class="vmcm">${veEsc(c.meaning)}</div><div class="vmcw"><b>Watch:</b> ${veEsc(c.watch)}</div>${vmStats(c.stats,b)}`+
+    `<div class="vmsl">last 6 months (coloured = on)</div>${vmStrip(c.strip,c.color)}<div class="vmhint">click for the full view with all combinations ›</div></div>`;
+}
+function vmHtml(V){
+  if(!V||!V.gauges) return '<p class="veread">Vol monitor not built yet - it is added to the evening Risk build.</p>';
+  const R=V.read||{}, A=V.ai||{}, on=(V.combos||[]).filter(c=>c.on), off=(V.combos||[]).filter(c=>!c.on), top=on[0];
+  let h=`<div class="vmread" style="border-color:${top?top.color:"#3FD0B0"}"><div class="vmhead" style="color:${top?top.color:"#3FD0B0"}">${veEsc(R.headline||"")}</div>`;
+  if(A.ok&&A.text) h+=`<p class="vmai">${veEsc(A.text)}</p><div class="vmsrc">Written by the laptop's free local AI from the facts below · checked: every number it uses is in the data</div>`;
+  h+=`<ul class="vmfacts">${(R.sentences||[]).map(x=>`<li>${veEsc(x)}</li>`).join("")}</ul><p class="vmline"><b>Watch next:</b> ${veEsc(R.watch||"")}</p>`+
+     (A.ok?"":`<div class="vmsrc">Rule-written read${A.error&&A.error!=="not run"?` (local AI skipped: ${veEsc(A.error)})`:""}</div>`)+`</div>`;
+  h+=`<div class="vmgrid">${(V.gauges||[]).map(vmGauge).join("")}</div>`;
+  const D=V.derived||{};
+  h+=`<div class="vmtwo"><div class="rkcard"><div class="vxh"><h2 style="font-size:19px">Term structure</h2><span class="vxsub">VIX for 9 days → 6 months · upward = normal, upside-down = panic</span></div>${vmTerm(D.term||{})}</div>`+
+     `<div class="rkcard"><div class="vxh"><h2 style="font-size:19px">Where the fear sits</h2><span class="vxsub">the gaps between gauges</span></div>`+
+     ["cor_slope","eq_gap","tech_gap","credit"].map(k=>D[k]&&D[k].text?`<p class="vmline">${veEsc(D[k].text)}</p>`:"").join("")+`</div></div>`;
+  h+=`<h3 class="vmh3">Side by side - the pairs that tell the story</h3><div id="vmPairsBox">${vmPairsHtml(V)}</div>`;
+  h+=`<h3 class="vmh3">Combinations - what the gauges mean together</h3><p class="vmline" style="color:var(--ink)">${on.length?`${on.length} on today, shown first.`:"None on today - a normal market."} Each card says what it means, what to watch, and what the S&amp;P 500 did after it in the past.</p>`;
+  h+=`<div class="vmcombos">${on.concat(off).map(c=>vmCombo(c,V.base)).join("")}</div>`;
+  const G=V.guide||{};
+  h+=`<details class="vmguide"><summary>How to read this panel (plain English)</summary><p class="vmline">${veEsc(G.intro||"")}</p>`+
+     `<div class="vmsteps">${(G.steps||[]).map(x=>`<p class="vmline"><b>${veEsc(x)}</b></p>`).join("")}</div>`+
+     `<dl class="vmdl">${(G.gauges||[]).map(x=>`<dt>${veEsc(x[0])}</dt><dd>${veEsc(x[1])}</dd>`).join("")}</dl><p class="vmline" style="color:var(--ink)">${veEsc(G.caveat||"")} Rule set ${veEsc(V.ruleset||"")} · data to ${veEsc(V.asof||"")}.</p></details>`;
+  return h;
+}
+/* ---- Vol monitor views (2026-11-19 night): side-by-side pair charts + full-page view (click any gauge, pair or combination) */
+st.vmRange=load("vmRange","6m");
+var VM_RNG={"6m":126,"1y":252,"3y":756};
+function vmW(){ return window.innerWidth<700?560:1100; }  // narrower drawing on a phone so the text stays readable
+var VM_GC={vix:"#FFFFFF",vvix:"#B79BFF",cor1m:"#FF9F43",cor3m:"#4C8DFF",vixeq:"#3FD0B0",vxn:"#FF5CA8",move:"#F4D03F",dspx:"#7FB8FF",vix9d:"#FF5C5C",vix3m:"#4C8DFF",vix6m:"#7FB8FF",spx:"#DCE6F2"};
+var VM_NM={vix:"VIX",vvix:"VVIX",cor1m:"COR1M",cor3m:"COR3M",vixeq:"VIXEQ",vxn:"VXN",move:"MOVE",dspx:"DSPX",vix9d:"VIX9D",vix3m:"VIX3M",vix6m:"VIX6M",spx:"S&P 500"};
+/* pair id -> [title, lines [[key, use percentile?]], gap rule, plain caption] */
+var VM_PAIRS=[
+ ["cor","Stocks moving together: COR1M vs COR3M",[["cor1m",0],["cor3m",0]],"gap",
+  "Red fill = the 1-month line is above the 3-month line: the 'everything moves together' worry is near-term, a scare. Green = normal (longer-term priced higher)."],
+ ["term","Term structure over time: VIX9D vs VIX vs VIX3M",[["vix9d",0],["vix",0],["vix3m",0]],"gap01",
+  "Red fill = 9-day fear above 1-month fear: the market fears the next few days most (panic). Green = normal. Panics end when it turns green again."],
+ ["eq","Index fear vs single-stock fear: VIX vs VIXEQ",[["vixeq",0],["vix",0]],"band",
+  "The shaded band is the gap. Single stocks are almost always jumpier than the index. A band that shrinks = the whole index is being hedged as one block (a macro worry). A wide band = stock-by-stock risk."],
+ ["tech","Tech fear vs S&P fear: VXN vs VIX",[["vxn",0],["vix",0]],"band",
+  "The shaded band is how much more scared tech is than the S&P. A band that widens = the worry is in tech."],
+ ["bond","Stock fear vs bond fear (each vs its own past year): VIX vs MOVE",[["vix",1],["move",1]],"none",
+  "Both drawn as 0-100 = where each sits in its own past year (100 = the most scared day of the year). Both high = broad stress. Only VIX high = a stock-only scare. Only MOVE high = bonds nervous, stocks not yet."]
+];
+function vmSlice(V){ const L=V&&V.long; if(!L||!L.dates) return null; const n=Math.min(L.dates.length,VM_RNG[st.vmRange]||126), a=L.dates.length-n;
+  const cut=o=>{ const r={}; for(const k in o) r[k]=o[k].slice(a); return r; };
+  return {dates:L.dates.slice(a), s:cut(L.s), p:cut(L.p||{}), c:cut(L.c||{}), n}; }
+/* one chart: lines [{v,c,w,name}], o = {h, gap:[a,b] (red where a>b, green else), band:[a,b] (grey band), shade:[0/1], pct:true, hl:[{y,c,label}]} */
+function vmChart(id,dates,lines,o){
+  o=o||{}; const W=vmW(),H=Math.round((o.h||300)*(W<1100?0.8:1)),L=64,R=18,T=16,B=40,n=dates.length; if(n<2) return '<p class="veread">Not enough history yet.</p>';
+  let lo=Infinity,hi=-Infinity; lines.forEach(l=>l.v.forEach(y=>{ if(y!=null&&isFinite(y)){ lo=Math.min(lo,y); hi=Math.max(hi,y); } }));
+  if(o.pct){ lo=0; hi=100; } if(!isFinite(lo)) return '<p class="veread">No data.</p>'; if(hi-lo<1e-9){ hi+=1; lo-=1; } if(!o.pct){ const p=(hi-lo)*.06; lo-=p; hi+=p; }
+  const X=i=>L+(W-L-R)*i/(n-1), Y=y=>T+(H-T-B)*(1-(y-lo)/(hi-lo)); let g="";
+  if(o.shade){ const w=(W-L-R)/(n-1); o.shade.forEach((x,i)=>{ if(x) g+=`<rect x="${(X(i)-w/2).toFixed(1)}" y="${T}" width="${(w+.6).toFixed(1)}" height="${H-T-B}" fill="${o.shadeC||"#FF9F43"}" fill-opacity=".28"/>`; }); }
+  const sy=tnStep(hi-lo,5); for(let j=Math.ceil(lo/sy);j*sy<=hi+1e-9;j++){ const k=j*sy; g+=`<line x1="${L}" x2="${W-R}" y1="${Y(k).toFixed(1)}" y2="${Y(k).toFixed(1)}" stroke="#ffffff30" stroke-dasharray="2 5"/><text x="${L-8}" y="${(Y(k)+6).toFixed(1)}" text-anchor="end" style="fill:#DCE6F2;font-size:17px">${tnFmt(k)}</text>`; }
+  const step=Math.max(1,Math.round(n/(W<1100?4:6))); for(let i=0;i<n;i+=step) g+=`<text x="${X(i).toFixed(1)}" y="${H-12}" text-anchor="middle" style="fill:#DCE6F2;font-size:16px">${dates[i].slice(2,7)}</text>`;
+  (o.hl||[]).forEach(h=>{ g+=`<line x1="${L}" x2="${W-R}" y1="${Y(h.y).toFixed(1)}" y2="${Y(h.y).toFixed(1)}" stroke="${h.c}" stroke-width="1.6" stroke-dasharray="6 5"/><text x="${W-R-4}" y="${(Y(h.y)-6).toFixed(1)}" text-anchor="end" style="fill:${h.c};font-size:15px">${h.label}</text>`; });
+  const pair=o.gap||o.band;
+  if(pair){ const A=pair[0],Bv=pair[1];
+    for(let i=0;i<n-1;i++){ const a0=A[i],a1=A[i+1],b0=Bv[i],b1=Bv[i+1]; if([a0,a1,b0,b1].some(v=>v==null||!isFinite(v))) continue;
+      const c=o.band?"#ffffff":((a0+a1)/2>(b0+b1)/2?"#FF5C5C":"#3FD0B0"), op=o.band?".13":".42";
+      g+=`<path d="M${X(i).toFixed(1)} ${Y(a0).toFixed(1)}L${X(i+1).toFixed(1)} ${Y(a1).toFixed(1)}L${X(i+1).toFixed(1)} ${Y(b1).toFixed(1)}L${X(i).toFixed(1)} ${Y(b0).toFixed(1)}Z" fill="${c}" fill-opacity="${op}"/>`; } }
+  lines.forEach(l=>{ let d="",pen=false; l.v.forEach((y,i)=>{ if(y==null||!isFinite(y)){ pen=false; return; } d+=(pen?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1); pen=true; });
+    g+=`<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${l.w||3}" stroke-linejoin="round"/>`; });
+  g+=`<line class="vmx" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="#fff" stroke-width="1.5" opacity="0"/>`;
+  const leg=lines.filter(l=>l.name).map(l=>`<span><i style="background:${l.c}"></i>${veEsc(l.name)}</span>`).join("");
+  return (leg?`<div class="vmleg">${leg}</div>`:"")+`<svg class="vmchart" id="${id}" viewBox="0 0 ${W} ${H}" data-l="${L}" data-w="${W-L-R}" data-full="${W}" data-n="${n}" role="img">${g}</svg>`;
+}
+/* hover / tap on any chart inside root: same day on every chart + read-out */
+function vmWire(root,fn){
+  root.querySelectorAll("svg.vmchart").forEach(svg=>{
+    const L=+svg.dataset.l, Wd=+svg.dataset.w, full=+svg.dataset.full, n=+svg.dataset.n;
+    const go=cx=>{ const r=svg.getBoundingClientRect(), x=(cx-r.left)*full/r.width, i=Math.max(0,Math.min(n-1,Math.round((x-L)/Wd*(n-1))));
+      root.querySelectorAll("svg.vmchart").forEach(s2=>{ const n2=+s2.dataset.n; if(n2!==n) return; const xx=+s2.dataset.l+(+s2.dataset.w)*i/(n-1), c=s2.querySelector(".vmx"); if(c){ c.setAttribute("x1",xx); c.setAttribute("x2",xx); c.setAttribute("opacity",".8"); } });
+      fn(i,svg); };
+    svg.addEventListener("mousemove",e=>go(e.clientX));
+    svg.addEventListener("touchmove",e=>{ if(e.touches[0]) go(e.touches[0].clientX); },{passive:true});
+  });
+}
+function vmPairLines(S,pr){ return pr[2].map(([k,pc])=>({v:(pc?S.p[k]:S.s[k])||[],c:VM_GC[k],w:3.2,name:VM_NM[k]+(pc?" (0-100 of its year)":"")})); }
+function vmPairOpts(S,pr,h){ const ln=pr[2].map(([k,pc])=>(pc?S.p[k]:S.s[k])||[]);
+  return {h, pct:pr[2].some(x=>x[1]), gap:pr[3]==="gap"?[ln[0],ln[1]]:pr[3]==="gap01"?[ln[0],ln[1]]:null, band:pr[3]==="band"?[ln[0],ln[1]]:null,
+          hl:pr[2].some(x=>x[1])?[{y:90,c:"#FF5C5C",label:"top 10% of the year"},{y:70,c:"#FF9F43",label:"top 30%"}]:[]}; }
+function vmRead(S,i,keys){ return `<b>${S.dates[i]}</b> · `+keys.map(k=>{ const v=(S.s[k]||[])[i]; return `${VM_NM[k]} <b style="color:${VM_GC[k]}">${v==null?"—":k==="spx"?Math.round(v).toLocaleString():(+v).toFixed(2)}</b>`; }).join(" · "); }
+function vmPairsHtml(V){
+  const S=vmSlice(V); if(!S) return "";
+  let h=`<div class="vmrng tabs" id="vmRngSeg">${["6m","1y","3y"].map(r=>`<button data-v="${r}" aria-pressed="${st.vmRange===r}">${r.toUpperCase()}</button>`).join("")}<span class="vmsrc">move across a chart to read a day · click a chart for the full view</span></div><div class="vmpairs">`;
+  VM_PAIRS.forEach(pr=>{ h+=`<div class="vmpair" data-pair="${pr[0]}"><h4>${veEsc(pr[1])}</h4>${vmChart("vmP_"+pr[0],S.dates,vmPairLines(S,pr),vmPairOpts(S,pr,300))}<div class="vmrd" id="vmP_${pr[0]}Read">&nbsp;</div><p class="vmcap">${veEsc(pr[4])}</p></div>`; });
+  return h+`</div>`;
+}
+function vmPairsWire(body,V){
+  const S=vmSlice(V); if(!S) return;
+  body.querySelectorAll("#vmRngSeg button").forEach(b=>b.onclick=()=>{ st.vmRange=b.dataset.v; save("vmRange",st.vmRange); const box=document.getElementById("vmPairsBox"); if(box){ box.innerHTML=vmPairsHtml(V); vmPairsWire(box,V); } });
+  VM_PAIRS.forEach(pr=>{ const el=body.querySelector(`.vmpair[data-pair="${pr[0]}"]`); if(!el) return;
+    vmWire(el,i=>{ const rd=document.getElementById("vmP_"+pr[0]+"Read"); if(rd) rd.innerHTML=vmRead(S,i,pr[2].map(x=>x[0])); });
+    el.onclick=()=>vmFull({kind:"pair",id:pr[0]}); });
+}
+/* ---- full-page view */
+function vmFull(focus){
+  const D=rkData, V=D&&D.volmon; if(!V||!V.long) return;
+  let m=document.getElementById("vmFull");
+  if(!m){ m=document.createElement("div"); m.id="vmFull"; m.hidden=true; document.body.appendChild(m);
+    m.addEventListener("click",e=>{ if(e.target.closest(".vmclose")){ m.hidden=true; document.body.style.overflow=""; } });
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!m.hidden){ m.hidden=true; document.body.style.overflow=""; } }); }
+  st.vmFocus=focus; const S=vmSlice(V), cmb=V.combos||[], byId={}; cmb.forEach(c=>byId[c.id]=c);
+  const selC=focus.kind==="combo"?focus.id:(st.vmSelC&&byId[st.vmSelC]?st.vmSelC:((V.on||[])[0]||"panic_curve")); st.vmSelC=selC;
+  let title="", top="", keys=[];
+  if(focus.kind==="gauge"){ const g=(V.gauges||[]).find(x=>x.id===focus.id)||{}; title=`${g.name||""} - ${g.what||""}`; keys=[focus.id];
+    const pv=S.p[focus.id]||[], th=[];
+    top=vmChart("vmF_main",S.dates,[{v:S.s[focus.id]||[],c:VM_GC[focus.id]||"#fff",w:3.4,name:VM_NM[focus.id]}],{h:380})+
+        `<h4>Where it sat in its own past year (0-100)</h4>`+vmChart("vmF_pct",S.dates,[{v:pv,c:VM_GC[focus.id]||"#fff",w:2.6}],{h:200,pct:true,hl:[{y:90,c:"#FF5C5C",label:"very high"},{y:70,c:"#FF9F43",label:"high"}]})+
+        `<p class="vmcap">${veEsc(g.meaning||"")}</p>`; }
+  else if(focus.kind==="pair"){ const pr=VM_PAIRS.find(p=>p[0]===focus.id)||VM_PAIRS[0]; title=pr[1]; keys=pr[2].map(x=>x[0]);
+    top=vmChart("vmF_main",S.dates,vmPairLines(S,pr),vmPairOpts(S,pr,400))+`<p class="vmcap">${veEsc(pr[4])}</p>`; }
+  else { const c=byId[focus.id]||{}; title=c.title||""; keys=["vix","cor1m","cor3m","move"];
+    top=`<p class="vmline">${veEsc(c.meaning||"")}</p><p class="vmline"><b>Watch:</b> ${veEsc(c.watch||"")}</p>`+
+        `<h4>Main gauges, each 0-100 vs its own past year · shaded = days this combination was on</h4>`+
+        vmChart("vmF_main",S.dates,["vix","vvix","cor1m","move"].map(k=>({v:S.p[k]||[],c:VM_GC[k],w:k==="vix"?3.4:2.4,name:VM_NM[k]})),{h:340,pct:true,shade:S.c[c.id],shadeC:c.color,hl:[{y:90,c:"#FF5C5C",label:"top 10%"}]}); }
+  const sc=byId[selC]||{};
+  let h=`<div class="vmfbar"><div><h2>${veEsc(title)}</h2><span class="vmsrc">Vol monitor full view · data to ${veEsc(V.asof||"")} · Esc or × to close</span></div>`+
+        `<div class="vmrng tabs" id="vmFRng">${["6m","1y","3y"].map(r=>`<button data-v="${r}" aria-pressed="${st.vmRange===r}">${r.toUpperCase()}</button>`).join("")}</div><button class="vmclose" aria-label="close">×</button></div>`+
+        `<div class="vmfread" id="vmFRead">Move across any chart (or drag a finger) to read that day on every chart.</div>`+top;
+  h+=`<h4>S&amp;P 500 with "<span style="color:${sc.color||"#fff"}">${veEsc(sc.title||"")}</span>" days shaded</h4>`+
+     vmChart("vmF_spx",S.dates,[{v:S.s.spx||[],c:VM_GC.spx,w:2.8,name:"S&P 500"}],{h:260,shade:S.c[selC],shadeC:sc.color})+`<p class="vmcap">Click a row below to shade a different combination.</p>`;
+  // same x scale as the charts above (L 64, R 18 of 1100) so a day lines up straight down the page
+  const W=vmW(),Lc=64,Rc=18,rowH=50, n=S.n, X=i=>Lc+(W-Lc-Rc)*i/Math.max(1,n-1), xw=(W-Lc-Rc)/Math.max(1,n-1); let tl="";
+  cmb.forEach((c,r)=>{ const y=r*rowH, sel=c.id===selC;
+    tl+=`<g class="vmtlrow" data-c="${c.id}" style="cursor:pointer"><rect x="0" y="${y}" width="${W}" height="${rowH-3}" fill="${sel?"#ffffff1f":"#ffffff0a"}"/><text x="${Lc}" y="${y+18}" style="fill:${sel?c.color:"#fff"};font-size:${W<1100?20:16}px;font-weight:${sel?800:600}">${veEsc(c.title)}${c.on?" · ON NOW":""}</text>`;
+    (S.c[c.id]||[]).forEach((x,i)=>{ if(x) tl+=`<rect x="${(X(i)-xw/2).toFixed(2)}" y="${y+25}" width="${(xw+.6).toFixed(2)}" height="${rowH-31}" fill="${c.color}"/>`; });
+    tl+=`</g>`; });
+  const Ht=cmb.length*rowH;
+  tl+=`<line class="vmx" x1="0" x2="0" y1="0" y2="${Ht}" stroke="#fff" stroke-width="1.5" opacity="0"/>`;
+  h+=`<h4>All 9 combinations on the same dates (lined up with the charts above)</h4><svg class="vmchart vmtl" viewBox="0 0 ${W} ${Ht}" data-l="${Lc}" data-w="${W-Lc-Rc}" data-full="${W}" data-n="${n}">${tl}</svg>`;
+  const pc=x=>x==null?"—":Math.round(100*x)+"%", sg=x=>x==null?"—":(x>=0?"+":"−")+Math.abs(x).toFixed(1)+"%", b=V.base||{};
+  h+=`<h4>What the S&amp;P 500 did after each combination (2010-2026)</h4><div class="vmtw"><table class="vmtab"><tr><th>Combination</th><th>Now</th><th>Days</th><th>Episodes</th><th>Higher 20 sessions later</th><th>Typical 20-session move</th><th>Bad case (1 in 10)</th><th>3%+ dip within 5 sessions</th></tr>`+
+     cmb.map(c=>{ const s=c.stats||{}; return `<tr class="${c.id===selC?"sel":""}" data-c="${c.id}"><td style="color:${c.color}"><b>${veEsc(c.title)}</b></td><td>${c.on?'<b style="color:#FF9F43">ON</b>':"–"}</td><td>${s.days??"—"}</td><td>${s.episodes??"—"}</td><td>${pc(s.up20)}</td><td>${sg(s.med20)}</td><td>${sg(s.p10_20)}</td><td style="color:${s.drop5!=null&&b.drop5&&s.drop5>1.5*b.drop5?"#FF5C5C":"#fff"}">${pc(s.drop5)}</td></tr>`; }).join("")+
+     `<tr class="all"><td><b>All days</b></td><td></td><td>${b.n_fwd??""}</td><td></td><td>${pc(b.up20)}</td><td>${sg(b.med20)}</td><td>${sg(b.p10_20)}</td><td>${pc(b.drop5)}</td></tr></table></div>`+
+     `<p class="vmcap">${veEsc((V.guide||{}).caveat||"")}</p>`;
+  m.innerHTML=`<div class="vmfbox" role="dialog" aria-modal="true">${h}</div>`; m.hidden=false; document.body.style.overflow="hidden";
+  const rd=document.getElementById("vmFRead"), rk=Array.from(new Set(keys.concat(["spx"])));
+  vmWire(m,i=>{ const on=cmb.filter(c=>(S.c[c.id]||[])[i]).map(c=>`<b style="color:${c.color}">${veEsc(c.title)}</b>`);
+    rd.innerHTML=vmRead(S,i,rk)+`<br>${on.length?"On that day: "+on.join(" · "):"No combination on that day"}`; });
+  m.querySelectorAll("#vmFRng button").forEach(bt=>bt.onclick=e=>{ e.stopPropagation(); st.vmRange=bt.dataset.v; save("vmRange",st.vmRange); vmFull(focus); });
+  m.querySelectorAll(".vmtlrow,.vmtab tr[data-c]").forEach(r=>r.onclick=e=>{ e.stopPropagation(); st.vmSelC=r.dataset.c; const k=m.querySelector(".vmfbox").scrollTop; vmFull(focus.kind==="combo"?{kind:"combo",id:r.dataset.c}:focus); m.querySelector(".vmfbox").scrollTop=k; });
+}
+function vmWireAll(body,V){
+  if(!V||!V.long) return;
+  body.querySelectorAll(".vmg[data-g]").forEach(el=>el.onclick=()=>vmFull({kind:"gauge",id:el.dataset.g}));
+  body.querySelectorAll(".vmc[data-c]").forEach(el=>el.onclick=()=>vmFull({kind:"combo",id:el.dataset.c}));
+  const box=document.getElementById("vmPairsBox"); if(box) vmPairsWire(box,V);
 }
 /* ============================================================ Tenor tab (2026-11-09)
    Reads tenor.json, written each evening by scripts/tenor_gamma_report.py (end-of-day book only).

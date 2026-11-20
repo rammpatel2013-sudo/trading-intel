@@ -117,7 +117,7 @@ GROUPS = [("score", "In the score"), ("vol", "Volatility"), ("breadth", "Breadth
           ("appetite", "Risk appetite"), ("gamma", "Dealer gamma"), ("kurt", "Kurt's dashboard (rebuilt)"), ("corr", "Correlation · havens · trend")]
 SECT = ["XLY", "XLP", "XLU", "XLK", "XLF", "XLE", "XLI", "XLB", "XLV"]
 FMP_SYMS = ["^SPX", "^VIX", "^VIX3M", "^VIX9D", "^VIX1D", "^VVIX", "^COR1M", "^MOVE", "SPHB", "SPLV", "LQD", "IEF", "HYG",
-            "GLD"] + SECT
+            "GLD"] + SECT + ["^VIX6M", "^COR3M", "^VIXEQ", "^DSPX", "^VXN"]   # last 5: Vol monitor (2026-11-19)
 
 
 def env_val(name: str) -> str:
@@ -445,7 +445,37 @@ def gamma_track(gh: pd.DataFrame, spx: pd.Series) -> dict:
     return out
 
 
-def run(use_db: bool = True, out: Path | None = None) -> dict:
+def local_llm():
+    """The laptop's free local AI for the Vol monitor read (rule 7: never a cloud model). None if it is not answering."""
+    try:
+        sys.path.insert(0, str(REPO / "scripts" / "cvxmap"))
+        from doc_ai import _settings_for_nas  # noqa: PLC0415
+        from trading_intel.config import get_settings  # noqa: PLC0415
+        from trading_intel.scheduler.jobs.letters_fetch import ollama_up  # noqa: PLC0415
+        from trading_intel.synthesis.llm import OllamaProvider  # noqa: PLC0415
+        st = _settings_for_nas(get_settings())
+        if not ollama_up(st.OLLAMA_HOST):
+            print("Vol monitor: laptop AI not answering - rule read only")
+            return None, None
+        return OllamaProvider(st, timeout=240.0, purpose="risk_read", lock_wait=120.0), st.LLM_DAILY_MODEL
+    except Exception as e:  # noqa: BLE001
+        print("Vol monitor: no local AI:", type(e).__name__, str(e)[:120])
+        return None, None
+
+
+def vol_panel(X: pd.DataFrame, use_ai: bool = True) -> dict | None:
+    """Vol monitor panel (scripts/risk/vol_monitor.py). Never breaks the Risk tab: errors -> None."""
+    try:
+        sys.path.insert(0, str(REPO / "scripts" / "risk"))
+        import vol_monitor  # noqa: PLC0415
+        llm, model = local_llm() if use_ai else (None, None)
+        return vol_monitor.build_panel(X, llm=llm, model=model)
+    except Exception as e:  # noqa: BLE001
+        print("Vol monitor failed:", type(e).__name__, str(e)[:200])
+        return None
+
+
+def run(use_db: bool = True, out: Path | None = None, use_ai: bool = True) -> dict:
     t0 = time.time()
     with ThreadPoolExecutor(8) as ex:
         ser = list(ex.map(lambda s: fmp_close(s, START), FMP_SYMS))
@@ -668,8 +698,9 @@ def run(use_db: bool = True, out: Path | None = None) -> dict:
             "fit": "logistic, 4,009 days 2010-11 to 2026-11; trained on one half, tested on the other, both ways",
             "lift": "tile lift = drop odds when the tile is in the top 10% of its own last year, divided by the base rate",
         },
-        "runtime_s": round(time.time() - t0, 1),
+        "volmon": vol_panel(X, use_ai),
     }
+    obj["runtime_s"] = round(time.time() - t0, 1)
     out = out or DATA_DIR / "risktab.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
@@ -682,11 +713,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-db", action="store_true")
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--no-ai", action="store_true", help="Vol monitor: rule read only, skip the local AI")
     a = ap.parse_args()
-    o = run(use_db=not a.no_db, out=a.out)
+    o = run(use_db=not a.no_db, out=a.out, use_ai=not a.no_ai)
     sc = o["score"]
     print(f"risktab.json asof {o['asof']}: 5-session 3% drop odds {sc['p5']:.1%} (base {sc['base5']:.0%}), "
           f"10-session 5% {sc['p10']:.1%} · {sc['band_label']} · {len(o['tiles'])} tiles · {o['runtime_s']}s")
+    vm = o.get("volmon") or {}
+    print(f"vol monitor: {', '.join(vm.get('on') or ['none'])} · AI read {'ok' if (vm.get('ai') or {}).get('ok') else (vm.get('ai') or {}).get('error')}")
     return 0
 
 
