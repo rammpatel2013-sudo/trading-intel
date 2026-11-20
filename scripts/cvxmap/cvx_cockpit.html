@@ -1081,6 +1081,18 @@ body.phone #navRail,body.phone #navPin{display:none}
 body.phone #sideNav #pageTabs{display:flex}
 body.phone #navPhone{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:var(--pane2);color:var(--ink);font-size:22px;width:44px;height:40px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){body.phone #sideNav{transition:none}}
+/* 2026-11-20 focus names: the cockpit box (+), focus name buttons, the night-before levels card */
+#symTabs .foc{border-style:dashed}
+#symTabs #focBtn{min-width:30px;font-weight:700}
+#focPop{position:fixed;top:56px;left:8px;z-index:9999;width:min(460px,94vw);background:#0A1426;border:2px solid #FFD23F;border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.7)}
+#focPop h4{margin:0 0 6px;font-size:16px}#focPop .fp-row{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+#focPop input{width:84px;font:inherit;text-transform:uppercase;background:#10203d;color:#fff;border:1px solid #3a5a8a;border-radius:6px;padding:4px 6px}
+#focPop button{font:inherit;padding:4px 10px;border-radius:6px;border:1px solid #3a5a8a;background:#16305a;color:#fff;cursor:pointer}
+#focPop .fp-note{color:var(--mute);font-size:13px}#focPop .fp-err{color:var(--warn);font-size:14px;min-height:1.2em}
+#focCard{grid-column:1/-1;margin:0;padding:8px 12px;border:1px solid #3a5a8a;border-radius:8px;background:#0b1830;font-size:14px;line-height:1.45}
+#focCard .fc-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer}#focCard .fc-h b{font-size:15px}
+#focCard .fc-chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}#focCard .fc-chip{padding:2px 8px;border-radius:5px;background:#132a50;white-space:nowrap}
+#focCard ul{margin:4px 0 0 18px;padding:0}#focCard .fc-note{color:var(--mute);font-size:12px}
 </style>
 </head>
 <body>
@@ -1135,6 +1147,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
       <button data-sym="SPX" aria-pressed="true">SPX</button>
       <button data-sym="SPY" aria-pressed="false">SPY</button>
       <button data-sym="QQQ" aria-pressed="false">QQQ</button>
+      <span id="focSyms"></span><button id="focBtn" type="button" title="Focus names: up to 4 stocks a day, live like the index (0-7 DTE from ConvexValue). Today's list is fixed from 09:30; after that the box edits the next trading day.">+</button>
     </div>
     <div class="spot"><b id="spot">–</b><span class="chg" id="chg"></span></div>
     <div class="xcalc" id="xcalc" title="SPX ↔ SPY level: type a level (above 2000 = SPX, else SPY), converted with the live SPX / SPY ratio. Hover for the strikes and their activity; click a strike to jump to it.">
@@ -1147,8 +1160,10 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     <span class="demo-flag">Demo data</span>
     <button class="snapbtn" id="screenshotBtn" title="Copy a picture of what you are looking at to the clipboard, ready to paste. If the browser does not allow copying, it downloads a PNG."><span class="ic">📷</span><span class="tx">Copy view</span></button><div class="fresh"><span class="dot" id="fdot"></span><span id="ftxt">connecting…</span></div>
   </header>
+  <div id="focPop" hidden></div>
 
   <section class="read" aria-live="polite">
+    <div id="focCard" aria-live="off" hidden></div>
     <div class="regime na" id="regime">No read yet</div>
     <div class="readtxt" id="readtxt">Waiting for the live feed.</div>
     <div class="levels" id="levels"></div>
@@ -2100,6 +2115,9 @@ const st = {
   rob: load("rob","0")==="1", f2full: load("f2full","0")==="1", prevShare: {}, focus: load("focus","map"), ladMode: load("ladMode","gamma"), premOv: load("premOv","0")==="1"
 };
 if(!["5m","1m","touch"].includes(st.conv)) st.conv="5m";
+/* 2026-11-20 focus names (see the FOCUS NAMES block): picks change day to day, so only SPX / SPY / QQQ are remembered */
+const FOC={syms:[],state:null,live:null,card:null,ft:{},open:load("focCardOpen","1")==="1"};
+if(!["SPX","SPY","QQQ"].includes(st.sym)) st.sym="SPX";
 if(!["bubble","ridge","heat","iv","gamma"].includes(st.view)) st.view="ridge";
 if(load("bubDef")!=="1"){ st.view="bubble"; save("view","bubble"); st.rows="21"; save("rows","21"); save("bubDef","1"); }   // one-time: Bubbles becomes the default view
 st.bubMode=load("bubMode","split"); if(!["split","total","net","pie"].includes(st.bubMode)) st.bubMode="split";
@@ -2193,7 +2211,7 @@ const sideTag = s => s==="cp"?"C+P":s.toUpperCase();
 async function pollLive(){
   if(DEMO||pollPaused()) return;
   try{ const r=await fetch("live.json",{cache:"no-cache"}); if(!r.ok) throw new Error(r.status);
-    const j=JSON.parse(await r.text()); st.live=j; st.liveAt=Date.now(); preOpenSpotFix();
+    const j=JSON.parse(await r.text()); focMerge(j); st.live=j; st.liveAt=Date.now(); preOpenSpotFix();
     if(!st.flowFromFile) accumulateFromLive(j);
     render(); }
   catch(e){ freshness(); }   // half-written file or server down: keep the last good copy
@@ -2213,7 +2231,7 @@ async function flowFull(name){
   const txt=await r.text(); const per={SPX:[],SPY:[],QQQ:[]};
   for(const line of txt.split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(per[o.s]&&tmin(o.t)>=LOG_FROM) per[o.s].push(o); }catch(e){} }   // pre-open rows carry yesterday's volume
   FT.name=name; FT.size=new TextEncoder().encode(txt).length; FT.gen=gen; FT.etag=et;
-  if(Object.values(per).some(a=>a.length)){ st.flow=per; st.flowFromFile=true; st.flowFile=name; render(); }
+  if(Object.values(per).some(a=>a.length)){ for(const s of FOC.syms) per[s]=st.flow[s]||[]; st.flow=per; st.flowFromFile=true; st.flowFile=name; render(); }
 }
 async function pollFlow(){
   if(DEMO||pollPaused()) return;
@@ -3519,6 +3537,7 @@ function freshness(){
 }
 function renderHeader(d,book,se){
   document.querySelectorAll("#symTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sym===st.sym));
+  if(FOC.syms.length||!document.getElementById("focCard").hidden) focCardRender();
   const S=book?book.S:(d&&d.spot); document.getElementById("spot").textContent=S?fmtN(S,2):"–";
   let chg=d&&d.pct?d.pct:null; if(chg==null&&se) chg=se.spot[se.m-1]/se.spot[0]-1;
   const ce=document.getElementById("chg");
@@ -3829,7 +3848,7 @@ skewC.addEventListener("mousemove",e=>{ const g=skewGeo, se=series(st.sym); if(!
 skewC.addEventListener("mouseleave",()=>skewTip.style.display="none");
 skewC.addEventListener("wheel",e=>{ if(e.ctrlKey||e.metaKey||!skewGeo) return; e.preventDefault(); const d=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:e.deltaX; if(!d) return;
   const r=skewC.getBoundingClientRect(), g=skewGeo; zoomTime(Math.exp(Math.max(-300,Math.min(300,d))*0.0018), g.t0+(e.clientX-r.left-g.padL)/(g.w-g.padL-g.padR)*(g.t1-g.t0)); },{passive:false});
-document.querySelectorAll("#symTabs button").forEach(b=>b.addEventListener("click",()=>{ st.sym=b.dataset.sym; save("sym",st.sym); st.sel=null; st.rowOff=0; render(); }));
+document.querySelectorAll("#symTabs button[data-sym]").forEach(b=>b.addEventListener("click",()=>{ st.sym=b.dataset.sym; save("sym",st.sym); st.sel=null; st.rowOff=0; render(); }));
 document.getElementById("liveBtn").addEventListener("click",()=>{ resetView(); syncSeg("winSeg",st.win.preset); syncSeg("gridWin",st.win.preset); syncSeg("rowSeg",st.rows); render(); });
 document.getElementById("maxBtn").addEventListener("click",()=>{ st.max=!st.max; save("max",st.max?"1":"0"); render(); });
 document.querySelectorAll("#focusSeg button").forEach(b=>b.addEventListener("click",()=>setFocus(b.dataset.v)));
@@ -5040,10 +5059,11 @@ function buildMap(kind,se,d,bookArg,view){
   const _mapCache=mapCacheFor(key);
   const liveRows=mapRowsAt(null,se,d); const byT=new Map(snaps.map((s,j)=>[tmin(s.t),j]));
   const grid=[]; let vmax=1e-9;
-  const VC=!!st.clockVar, tyNow=Math.max(MAP_T1-Math.max(now,MAP_OPEN),1)/525600, rNow=vcRem(Math.max(now,MAP_OPEN));
-  for(const t of times){ const ty=Math.max(MAP_T1-t,1)/525600; let col, jj=null;
+  const fOff=FOC.syms.includes(st.sym)?(d.dte||0)*390:0;   // 2026-11-20 focus names only (0 for SPX / SPY / QQQ)
+  const VC=!!st.clockVar, tyNow=(Math.max(MAP_T1-Math.max(now,MAP_OPEN),1)+fOff)/525600, rNow=vcRem(Math.max(now,MAP_OPEN));
+  for(const t of times){ const ty=(Math.max(MAP_T1-t,1)+fOff)/525600; let col, jj=null;
     const cm=VC&&kind==="charm"?vcRate(t):1, tyF=VC&&t>now?Math.max(tyNow*vcRem(t)/Math.max(rNow,1e-9),1/525600):ty;
-    if(t<MAP_OPEN){ const ck="pre"; if(_mapCache.cols.has(ck)) col=_mapCache.cols.get(ck); else { col=prices.map(p=>greekCol(kind,liveRows,p,Math.max(MAP_T1-MAP_OPEN,1)/525600)); _mapCache.cols.set(ck,col); } }
+    if(t<MAP_OPEN){ const ck="pre"; if(_mapCache.cols.has(ck)) col=_mapCache.cols.get(ck); else { col=prices.map(p=>greekCol(kind,liveRows,p,(Math.max(MAP_T1-MAP_OPEN,1)+fOff)/525600)); _mapCache.cols.set(ck,col); } }
     else if(t<=now){ // history: nearest logged minute at/after t within 3 min
       let j=null; for(let q=0;q<4;q++){ if(byT.has(t+q)){ j=byT.get(t+q); break; } }
       jj=j; const ck="h"+t+"|"+(j==null?"x":j);
@@ -5501,10 +5521,109 @@ function takeSnap(){
 }
 document.getElementById("screenshotBtn").addEventListener("click",takeSnap);
 
+/* ============================================================ FOCUS NAMES (2026-11-20)
+   Mithil: "i can select any equity and it start collecting and provide me same calculation and visualization as
+   index ... allow max 4" + "cockpit box but ability to change after day is over. so its day to day add".
+   The picks live in the database (focus_names) via /api/focus on the page server. Today's list is fixed from 09:30;
+   after that the box edits the next trading day. Each pick gets a button next to SPX / SPY / QQQ and reads its own
+   files (focus_live.json, focus_flow_<SYM>_<day>.ndjson + focus_tail_<SYM>.json) - the index files are untouched.
+   Under a pick: the night-before levels card (focus_card.json, from the hourly chain bank + 1-minute bars). */
+function focMerge(j){ if(!j||!FOC.live) return; for(const s of FOC.syms){ if(FOC.live[s]) j[s]=FOC.live[s]; } }
+function focIs(s){ return FOC.syms.includes(s); }
+function focKeyHdr(){ const k=load("focusKey",""); return k?{"X-Focus-Key":k}:{}; }
+function focDay(iso){ if(!iso) return "–"; const d=new Date(iso+"T12:00:00"); return d.toLocaleDateString("en-US",{weekday:"short",month:"numeric",day:"numeric"}); }
+async function focState(){
+  try{ const r=await fetch("api/focus",{cache:"no-cache"}); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    FOC.state=j; const syms=(j.live||[]).slice(0,4);
+    if(syms.join()!==FOC.syms.join()){ FOC.syms=syms; for(const s of syms) if(!st.flow[s]) st.flow[s]=[]; focButtons();
+      if(!["SPX","SPY","QQQ"].includes(st.sym)&&!focIs(st.sym)){ st.sym="SPX"; }
+      pollFocLive(); focCardGet(); render(); }
+    if(!document.getElementById("focPop").hidden) focPopRender();
+  }catch(e){ FOC.err=String(e.message||e); }
+}
+function focButtons(){
+  const box=document.getElementById("focSyms"); box.innerHTML=FOC.syms.map(s=>`<button class="foc" data-sym="${esc(s)}" aria-pressed="${st.sym===s}" title="${esc(s)}: focus name for today (live 0-7 DTE)">${esc(s)}</button>`).join("");
+  box.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ st.sym=b.dataset.sym; st.sel=null; st.rowOff=0; pollFocFlow(); render(); }));
+}
+async function pollFocLive(){
+  if(DEMO||pollPaused()||!FOC.syms.length) return;
+  try{ const r=await fetch("focus_live.json",{cache:"no-cache"}); if(!r.ok) return; const j=await r.json();
+    if(String(j.ts||"").slice(0,10)!==liveClock().date) return;      // yesterday's file: nothing live yet
+    FOC.live=j; if(st.live){ focMerge(st.live); if(focIs(st.sym)) render(); } }catch(e){}
+}
+async function focFlowFull(sym,name){
+  const r=await fetch(name,{cache:"no-cache"}); if(!r.ok) return; const txt=await r.text(); const arr=[];
+  for(const line of txt.split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(o.s===sym&&tmin(o.t)>=LOG_FROM) arr.push(o); }catch(e){} }
+  const tr=await fetch(`focus_tail_${sym}.json`,{cache:"no-cache"}).catch(()=>null); const tj=tr&&tr.ok?await tr.json():null;
+  FOC.ft[sym]={name,size:new TextEncoder().encode(txt).length,gen:tj&&tj.gen,idle:Date.now()}; st.flow[sym]=arr; render();
+}
+async function pollFocFlow(){
+  const sym=st.sym; if(DEMO||pollPaused()||!focIs(sym)) return;
+  const c=liveClock(), day=c.date.replace(/-/g,""), name=`focus_flow_${sym}_${day}.ndjson`, F=FOC.ft[sym];
+  try{
+    if(!F||F.name!==name) return await focFlowFull(sym,name);
+    const r=await fetch(`focus_tail_${sym}.json`,{cache:"no-cache"}); if(!r.ok) return; const tj=await r.json();
+    if(tj.day!==day||tj.gen!==F.gen||tj.size<F.size||tj.from>F.size) return await focFlowFull(sym,name);
+    if(tj.size===F.size){ if(Date.now()-F.idle>300000) return await focFlowFull(sym,name); return; }
+    const off=F.size-tj.from; if(off>0&&tj.text[off-1]!=="\n") return await focFlowFull(sym,name);
+    let n=0; for(const line of tj.text.slice(off).split(/\r?\n/)){ if(!line.trim()) continue; try{ const o=JSON.parse(line); if(o.s===sym&&tmin(o.t)>=LOG_FROM){ st.flow[sym].push(o); n++; } }catch(e){} }
+    F.size=tj.size; F.idle=Date.now(); if(n) render();
+  }catch(e){}
+}
+async function focCardGet(){ if(DEMO) return; try{ const r=await fetch("focus_card.json",{cache:"no-cache"}); if(r.ok){ FOC.card=await r.json(); focCardRender(); } }catch(e){} }
+function focCardRender(){
+  const el=document.getElementById("focCard"); const c=FOC.card&&FOC.card.cards&&FOC.card.cards[st.sym];
+  if(!focIs(st.sym)){ el.hidden=true; FOC.cardKey=""; return; } el.hidden=false;
+  const key=st.sym+"|"+FOC.open+"|"+(FOC.card&&FOC.card.generated); if(key===FOC.cardKey) return; FOC.cardKey=key;
+  if(!c){ el.innerHTML=`<div class="fc-h"><b>${esc(st.sym)} · levels card</b><span class="fc-note">building… (written right after the pick is saved, and again at 16:30)</span></div>`; return; }
+  const f=(v,dp=2)=>v==null?"–":fmtN(v,dp), S=c.spot, rel=v=>v!=null&&S?` (${v>=S?"+":""}${((v/S-1)*100).toFixed(1)}%)`:"";
+  if(c.in_bank===false){ el.innerHTML=`<div class="fc-h"><b>${esc(st.sym)} · levels card</b><span class="fc-note">not in the hourly chain bank (S&amp;P 1500 + Nasdaq-100 + key ETFs), so no history - the live map below still works.</span></div>`; return; }
+  const w7=c.walls_7d||{}, w45=c.walls_45d||{}, va=c.value_5d||{}, pr=c.prior||{}, em=c.em||{};
+  const chips=[["Bank spot",f(S)],["Gamma flip",f(c.gex_flip)+rel(c.gex_flip)],["Call wall 7d",f(w7.call_wall)+rel(w7.call_wall)],["Put wall 7d",f(w7.put_wall)+rel(w7.put_wall)],
+    ["Call wall 45d",f(w45.call_wall)],["Put wall 45d",f(w45.put_wall)],["Value area 5d",va.val!=null?`${f(va.val)}–${f(va.vah)} · POC ${f(va.poc)}`:"–"],
+    ["Prior day",pr.high!=null?`H ${f(pr.high)} · L ${f(pr.low)} · C ${f(pr.close)}`:"–"],["Move 1d / 5d",em.d1!=null?`±${f(em.d1)} / ±${f(em.d5)}`:"–"],
+    ["IV30",c.iv30!=null?(c.iv30*100).toFixed(1)+"%":"–"],["IV30/IV90",c.ts_30_90!=null?c.ts_30_90.toFixed(2):"–"],["25Δ skew",c.skew25!=null?(c.skew25*100).toFixed(1)+" pts":"–"]];
+  const oi=c.top_oi_7d||{}, oiTxt=["calls","puts"].map(k=>(oi[k]||[]).map(x=>`${f(x.k)}${k==="calls"?"C":"P"} ${fmtN(x.oi)}`).join(" · ")).filter(Boolean).join("  |  ");
+  const tr=(c.trend||[]).map(x=>`${x.d.slice(5)} IV ${x.iv30!=null?(x.iv30*100).toFixed(0):"–"}%`).join(" · ");
+  el.innerHTML=`<div class="fc-h" id="focCardH"><b>${esc(st.sym)} · levels card ${FOC.open?"▾":"▸"}</b><span class="fc-note">from the database (chain bank ${esc(String(c.bank_ts||"").replace("T"," "))}; 1-minute bars) · descriptive, not a signal</span></div>`
+    +(FOC.open?`<div class="fc-chips">${chips.map(([a,b])=>`<span class="fc-chip">${a} <b>${b}</b></span>`).join("")}</div>`
+    +(c.read&&c.read.length?`<ul>${c.read.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:"")
+    +(oiTxt?`<div class="fc-note">Biggest OI next 7 days: ${esc(oiTxt)}</div>`:"")+(tr?`<div class="fc-note">IV30 trend: ${esc(tr)}</div>`:""):"");
+  document.getElementById("focCardH").onclick=()=>{ FOC.open=!FOC.open; save("focCardOpen",FOC.open?"1":"0"); focCardRender(); };
+}
+function focPopRender(){
+  const el=document.getElementById("focPop"), S=FOC.state;
+  if(!S){ el.innerHTML=`<h4>Focus names</h4><div class="fp-err">${esc(FOC.err||"loading…")}</div><div class="fp-row"><button data-a="close">Close</button></div>`; el.querySelector('[data-a="close"]').onclick=()=>{ el.hidden=true; }; return; }
+  const sameDay=S.today&&S.edit_day===S.today, ed=S.edit||[], vals=[0,1,2,3].map(i=>ed[i]||"");
+  const todayLine=S.today?(sameDay?`Today ${focDay(S.today)}: editable until 09:30.`:`Today ${focDay(S.today)}: <b>${S.today_picks.length?S.today_picks.map(esc).join(", "):"none"}</b> - fixed for the session.`):"Market closed today.";
+  el.innerHTML=`<h4>Focus names</h4><div>${todayLine}</div>
+    <div style="margin-top:8px">List for <b>${focDay(S.edit_day)}</b> (max ${S.max}):</div>
+    <div class="fp-row">${vals.map((v,i)=>`<input data-i="${i}" maxlength="8" value="${esc(v)}" placeholder="ticker" autocomplete="off">`).join("")}</div>
+    <div class="fp-row"><button data-a="save">Save</button>${!sameDay&&S.today_picks&&S.today_picks.length?`<button data-a="keep">Keep today's</button>`:""}<button data-a="clear">Clear</button><button data-a="close">Close</button></div>
+    <div class="fp-err" id="focErr">${esc(FOC.msg||"")}</div>
+    <div class="fp-note">Each pick: live chain for the first 4 expiries (0-7 DTE) from ConvexValue, refreshed 4 minutes in 5, the same map / flow / walls as the index, and every 5 minutes into the database. Before the session: the levels card from the hourly chain bank.</div>`;
+  const ins=[...el.querySelectorAll("input")], err=el.querySelector("#focErr");
+  const send=async syms=>{ err.textContent="saving…";
+    try{ let r=await fetch("api/focus",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},focKeyHdr()),body:JSON.stringify({day:S.edit_day,symbols:syms})}); let j=await r.json();
+      if(r.status===403&&j.need_key){ const k=prompt("Focus key (FOCUS_KEY in the NAS .env):"); if(!k){ err.textContent="not saved: key needed"; return; } save("focusKey",k); return send(syms); }
+      if(!r.ok) throw new Error(j.error||r.status); FOC.state=j; FOC.msg=`saved: ${(j.edit||[]).join(", ")||"no focus names"} for ${focDay(j.edit_day)}`; focPopRender(); focState(); setTimeout(focCardGet,8000); }
+    catch(e){ FOC.msg=String(e.message||e); const x=document.getElementById("focErr"); if(x) x.textContent=FOC.msg; } };
+  el.querySelector('[data-a="save"]').onclick=()=>send(ins.map(x=>x.value.trim().toUpperCase()).filter(Boolean));
+  el.querySelector('[data-a="clear"]').onclick=()=>send([]);
+  const kp=el.querySelector('[data-a="keep"]'); if(kp) kp.onclick=()=>send(S.today_picks.slice());
+  el.querySelector('[data-a="close"]').onclick=()=>{ el.hidden=true; };
+  ins.forEach(x=>x.addEventListener("keydown",e=>{ if(e.key==="Enter") el.querySelector('[data-a="save"]').click(); }));
+}
+function focBoot(){
+  document.getElementById("focBtn").addEventListener("click",()=>{ const el=document.getElementById("focPop"); el.hidden=!el.hidden; if(!el.hidden){ FOC.msg=""; focPopRender(); focState(); } });
+  focState(); setInterval(focState,60000); setInterval(pollFocLive,POLL_LIVE); setInterval(pollFocFlow,15000); setInterval(focCardGet,300000);
+}
+
 /* ============================================================ boot */
 if(DEMO){ demo(); pollFlowPrev(); render(); }
 else { pollLive(); pollFlow(); pollTI(); pollFlowPrev(); setTimeout(pollSides,1500); setInterval(pollLive,POLL_LIVE); setInterval(pollFlow,POLL_FLOW); setInterval(pollTI,POLL_TI); setInterval(pollSides,60000); setInterval(freshness,5000);
-  document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ pollLive(); pollFlow(); pollTI(); pollSides(); } }); }   // 2026-11-14 O3 A4: refresh once on return
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ pollLive(); pollFlow(); pollTI(); pollSides(); } });   // 2026-11-14 O3 A4: refresh once on return
+  focBoot(); }
 
 /* ---- premium.js (v2 release 1) ---- */
 /* ============================================================ Premium tab (v2, 2026-10-25)

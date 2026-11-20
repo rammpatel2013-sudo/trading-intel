@@ -501,7 +501,7 @@ def run(use_db: bool = True, out: Path | None = None, use_ai: bool = True) -> di
             X = X.join(sq.astype(float))
             mag = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"]
             rows = db_rows(conn, """select distinct on (symbol) symbol, ts, gex_total, gex_flip, spot from greeks_snapshots
-                                     where symbol = any(%s) and gex_total <> 0 and source <> 'cvforge_bank' and ts > now() - interval '5 days'
+                                     where symbol = any(%s) and gex_total <> 0 and source not in ('cvforge_bank', 'convex_focus') and ts > now() - interval '5 days'
                                      order by symbol, ts desc""", (["SPX"] + mag,))
             g = {r[0]: (r[1], float(r[2]) if r[2] is not None else None) for r in rows}
             fl = {r[0]: (float(r[3]) if r[3] is not None else None, float(r[4]) if r[4] is not None else None) for r in rows}
@@ -516,7 +516,7 @@ def run(use_db: bool = True, out: Path | None = None, use_ai: bool = True) -> di
                                           "at": str(max(g[s][0] for s in mg))[:16]}
             # daily history (last snapshot of each day; exact-zero rows are failed walks)
             rows = db_rows(conn, """select distinct on (symbol, ts::date) symbol, ts::date, gex_total, gex_flip, spot
-                                     from greeks_snapshots where symbol = any(%s) and gex_total <> 0 and source <> 'cvforge_bank'
+                                     from greeks_snapshots where symbol = any(%s) and gex_total <> 0 and source not in ('cvforge_bank', 'convex_focus')
                                      order by symbol, ts::date, ts desc""", (["SPX"] + mag,))
             gh = pd.DataFrame(rows, columns=["sym", "d", "gex", "flip", "spot"])
             gh["d"] = pd.to_datetime(gh["d"])

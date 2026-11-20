@@ -66,6 +66,8 @@ case "${1:-}" in
       run_one cvxmap-blocks  "-e TI_DIR=/app -e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/blocks_feed.py"
       # 2026-11-05: per-trade sides (quote rule at bid/ask, tick rule between) from tas_prints -> sides_YYYYMMDD.json
       run_one cvxmap-sides   "-e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/sides_feed.py"
+      # 2026-11-20: focus names - focus_raw_YYYYMMDD -> focus_live.json + focus_flow_<SYM>_* + DB (convex_focus)
+      run_one cvxmap-focus   "" "python scripts/cvxmap/focus_live.py"
       run_one cvxmap-serve   "-p ${PORT}:${PORT}" "python scripts/cvxmap/serve_cvx.py ${PORT}"
       echo "  cockpit: http://192.168.1.211:${PORT}/cvx_cockpit.html"
     } >> "$LOG" 2>&1
@@ -73,7 +75,7 @@ case "${1:-}" in
   stop)
     {
       echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap STOP ==="
-      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-ledger; do
+      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-focus cvxmap-ledger; do
           "$DOCKER" rm -f "$n" >/dev/null 2>&1 && echo "  stopped $n" || echo "  $n not running"
       done
       echo "  (serve left up so the cockpit stays readable)"
@@ -106,6 +108,26 @@ case "${1:-}" in
       "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
       run_one cvxmap-s12bf "" "python scripts/cvxmap/straddle_feed.py --all --build && python scripts/cvxmap/constellation.py --all"
       echo "  backfill launched (docker logs -f cvxmap-s12bf)"
+    } >> "$LOG" 2>&1
+    ;;
+  focusup)
+    # Start ONLY the focus-names writer (mid-session, without restarting the collector):
+    #     sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_cvxmap.sh focusup
+    {
+      echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap FOCUS UP ==="
+      "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+      "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
+      run_one cvxmap-focus   "" "python scripts/cvxmap/focus_live.py"
+    } >> "$LOG" 2>&1
+    ;;
+  serveup)
+    # Restart ONLY the page server (picks up a new serve_cvx.py / cockpit page; the collector keeps running):
+    #     sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_cvxmap.sh serveup
+    {
+      echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap SERVE UP ==="
+      "$DOCKER" network create "$NETWORK" 2>/dev/null || true
+      "$DOCKER" network connect "$NETWORK" "$PG_CONTAINER" 2>/dev/null || true
+      run_one cvxmap-serve   "-p ${PORT}:${PORT}" "python scripts/cvxmap/serve_cvx.py ${PORT}"
     } >> "$LOG" 2>&1
     ;;
   sidesup)
@@ -143,7 +165,7 @@ case "${1:-}" in
     } >> "$LOG" 2>&1
     ;;
   stopall)
-    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-serve cvxmap-ledger cvxmap-s12bf cvxmap-sidesbf cvxmap-n1 >/dev/null 2>&1
+    "$DOCKER" rm -f cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-focus cvxmap-serve cvxmap-ledger cvxmap-s12bf cvxmap-sidesbf cvxmap-n1 >/dev/null 2>&1
     echo "all cvxmap containers removed"
     ;;
   status)
@@ -151,6 +173,7 @@ case "${1:-}" in
     echo
     echo "--- collector ---"; tail -3 "$DATA_DIR"/collector_*.log 2>/dev/null || echo "  (none)"
     echo "--- writer ---";    tail -3 "$DATA_DIR"/stage2_*.log    2>/dev/null || echo "  (none)"
+    echo "--- focus ---";    tail -3 "$DATA_DIR"/focus_*.log    2>/dev/null || echo "  (none)"
     echo "--- ledger ---";   tail -3 "$DATA_DIR"/pos_ledger_*.log 2>/dev/null || echo "  (none)"
     echo "--- shared feeds ---"
     for f in ti.json blocks.json; do
@@ -162,7 +185,7 @@ case "${1:-}" in
     done
     ;;
   *)
-    echo "usage: run_cvxmap.sh start|stop|stopall|ledger [YYYYMMDD]|s12backfill|status" >&2
+    echo "usage: run_cvxmap.sh start|stop|stopall|ledger [YYYYMMDD]|s12backfill|focusup|serveup|status" >&2
     exit 2
     ;;
 esac

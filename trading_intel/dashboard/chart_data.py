@@ -13,13 +13,13 @@ from sqlalchemy.orm import Session
 
 from trading_intel.memory.models import GreeksSnapshot, QuoteDaily
 from trading_intel.prices.technicals import rsi
-from trading_intel.chain_bank import BANK_SOURCE  # 2026-11-20: the hourly chain bank rows stay out of this reader
+from trading_intel.chain_bank import SIDE_SOURCES  # 2026-11-20: the hourly chain bank rows stay out of this reader
 
 
 def list_chart_symbols(session: Session) -> list[str]:
     """Symbols with price or greeks history (union, alphabetical)."""
     qd = set(session.execute(select(QuoteDaily.symbol).distinct()).scalars())
-    gs = set(session.execute(select(GreeksSnapshot.symbol).where(GreeksSnapshot.source != BANK_SOURCE).distinct()).scalars())
+    gs = set(session.execute(select(GreeksSnapshot.symbol).where(GreeksSnapshot.source.notin_(SIDE_SOURCES)).distinct()).scalars())
     return sorted(qd | gs)
 
 

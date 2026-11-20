@@ -130,7 +130,7 @@ def build(sym: str, *, days: int = 180) -> str:
     ohlc["date"] = pd.to_datetime(ohlc["date"])
     gam = pd.DataFrame(
         rows("SELECT ts,spot,gex_total,dex_total,vex_total,chex_total,gex_flip,atm_iv "
-             "FROM greeks_snapshots WHERE symbol=:s AND source <> 'cvforge_bank' ORDER BY ts DESC LIMIT :n", s=sym, n=days),
+             "FROM greeks_snapshots WHERE symbol=:s AND source not in ('cvforge_bank', 'convex_focus') ORDER BY ts DESC LIMIT :n", s=sym, n=days),
         columns=["ts", "spot", "gex_total", "dex_total", "vex_total", "chex_total", "gex_flip", "atm_iv"],
     ).iloc[::-1].reset_index(drop=True)
     gam["ts"] = pd.to_datetime(gam["ts"]).dt.tz_localize(None)

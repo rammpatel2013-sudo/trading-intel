@@ -26,6 +26,10 @@ import numpy as np
 import pandas as pd
 
 BANK_SOURCE = "cvforge_bank"
+# 2026-11-20 focus names: Mithil's up-to-4 picks a day, live from ConvexValue (0-7 DTE), every 5 minutes
+FOCUS_SOURCE = "convex_focus"
+# rows the older readers never saw: they read only the sources they were built on (schema rule 9)
+SIDE_SOURCES = (BANK_SOURCE, FOCUS_SOURCE)
 INDEXES = ("SPX", "NDX", "RUT", "VIX", "XSP")
 # cross-asset ETFs for the Macro Compass (bonds, commodities, world, sectors, vol) - on top of ETF_LIST
 MACRO_ETFS = (
@@ -142,8 +146,8 @@ def add_greeks(d: pd.DataFrame, ref: date, floor: date) -> pd.DataFrame:
     return d
 
 
-def chain_records(d: pd.DataFrame, ts: datetime, stamp: datetime) -> list[dict]:
-    """greeks_chain rows (source BANK_SOURCE)."""
+def chain_records(d: pd.DataFrame, ts: datetime, stamp: datetime, source: str = BANK_SOURCE) -> list[dict]:
+    """greeks_chain rows (source BANK_SOURCE unless told otherwise)."""
     out = d[["symbol", "root", "cp", "strike", "oi", "volume", "delta", "gamma", "theta", "vega", "vanna", "charm",
              "iv", "gxoi", "dxoi", "vxoi", "cxoi", "spot", "px_vwap", "px_close"]].copy()
     out["expiry"] = d["expiry"].dt.date
@@ -152,7 +156,7 @@ def chain_records(d: pd.DataFrame, ts: datetime, stamp: datetime) -> list[dict]:
     out = out.astype(object).where(out.notna(), None)
     recs = out.to_dict("records")
     for r in recs:
-        r["ts"], r["source"], r["ingested_at"] = ts, BANK_SOURCE, stamp
+        r["ts"], r["source"], r["ingested_at"] = ts, source, stamp
     return recs
 
 
@@ -241,7 +245,8 @@ def vol_summary(g: pd.DataFrame, spot: float, day: date) -> dict:
     return r
 
 
-def snapshot_record(g: pd.DataFrame, symbol: str, day: date, ts: datetime, stamp: datetime) -> dict | None:
+def snapshot_record(g: pd.DataFrame, symbol: str, day: date, ts: datetime, stamp: datetime,
+                    source: str = BANK_SOURCE) -> dict | None:
     """greeks_snapshots row for one name: the house totals (exactly what CVForgeClient.exposures returns for the
     sector rows) + the bank's vol / OI / premium columns."""
     from trading_intel.greeks.exposures import compute_exposures, positioning_extras
@@ -255,7 +260,7 @@ def snapshot_record(g: pd.DataFrame, symbol: str, day: date, ts: datetime, stamp
     ch["opt_kind"] = ch["opt_kind"].map({"C": "call", "P": "put"})
     ch["underlying_price"] = spot
     live = ch[(ch["iv"] > 0) & (ch["iv"] < 5)]
-    rec: dict = {"symbol": symbol, "ts": ts, "spot": spot, "source": BANK_SOURCE, "ingested_at": stamp,
+    rec: dict = {"symbol": symbol, "ts": ts, "spot": spot, "source": source, "ingested_at": stamp,
                  "n_contracts": int(len(g))}
     if len(live):
         ex = compute_exposures(live, spot) or {}

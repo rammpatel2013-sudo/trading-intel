@@ -164,7 +164,7 @@ def build(*, days=90, gap_days=4, iv_max=2.0, out=None):
         for sym in symbols:
             rows = [tuple(r) for r in cx.execute(text(
                 "SELECT ts, gex_total, dex_total, atm_iv FROM greeks_snapshots "
-                "WHERE symbol=:s AND source <> 'cvforge_bank' AND ts >= now() - (:d || ' days')::interval ORDER BY ts ASC"),
+                "WHERE symbol=:s AND source not in ('cvforge_bank', 'convex_focus') AND ts >= now() - (:d || ' days')::interval ORDER BY ts ASC"),
                 {"s": sym, "d": days})]
             d, gex, dex, iv = _dedupe_last_per_day(rows)
             if len(d) < 2:

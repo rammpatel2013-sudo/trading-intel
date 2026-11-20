@@ -14,6 +14,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from trading_intel.chain_bank import SIDE_SOURCES  # 2026-11-20: bank + focus rows stay out of this reader (rule 9)
 from trading_intel.greeks.walls import compute_walls
 from trading_intel.memory.models import GreeksChain
 
@@ -43,7 +44,7 @@ def load_wall_history(
     ts_list = list(
         session.execute(
             select(GreeksChain.ts)
-            .where(GreeksChain.symbol == symbol)
+            .where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES))
             .distinct()
             .order_by(GreeksChain.ts.desc())
         ).scalars()
@@ -65,7 +66,7 @@ def load_wall_history(
         rows = list(
             session.execute(
                 select(GreeksChain).where(
-                    GreeksChain.symbol == symbol, GreeksChain.ts == ts
+                    GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES), GreeksChain.ts == ts
                 )
             ).scalars()
         )

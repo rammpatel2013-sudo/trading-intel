@@ -46,7 +46,7 @@ from trading_intel.memory.models import (
     WatchlistEntry,
 )
 from trading_intel.timeutils import eastern_now
-from trading_intel.chain_bank import BANK_SOURCE  # 2026-11-20: the hourly chain bank rows stay out of this reader
+from trading_intel.chain_bank import SIDE_SOURCES  # 2026-11-20: the hourly chain bank rows stay out of this reader
 
 log = structlog.get_logger(__name__)
 
@@ -81,7 +81,7 @@ def _symbols_with_recent_data(
     ts_cut = now - timedelta(days=stale_days)
     date_cut = (now - timedelta(days=stale_days)).date()
     stmts = [
-        select(GreeksSnapshot.symbol).where(GreeksSnapshot.ts >= ts_cut, GreeksSnapshot.source != BANK_SOURCE).distinct(),
+        select(GreeksSnapshot.symbol).where(GreeksSnapshot.ts >= ts_cut, GreeksSnapshot.source.notin_(SIDE_SOURCES)).distinct(),
         select(LiveGex.symbol).where(LiveGex.ts >= ts_cut).distinct(),
     ]
     if include_quotes:

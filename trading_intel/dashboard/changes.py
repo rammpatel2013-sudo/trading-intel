@@ -16,6 +16,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from trading_intel.chain_bank import SIDE_SOURCES  # 2026-11-20: bank + focus rows stay out of this reader (rule 9)
 from trading_intel.errors import ComputationError
 from trading_intel.greeks.surface_changes import (
     atm_term_changes,
@@ -53,7 +54,7 @@ def load_recent_chain_snapshots(
     ts_list = list(
         session.execute(
             select(GreeksChain.ts)
-            .where(GreeksChain.symbol == symbol)
+            .where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES))
             .distinct()
             .order_by(GreeksChain.ts.desc())
             .limit(n)
@@ -64,7 +65,7 @@ def load_recent_chain_snapshots(
         rows = list(
             session.execute(
                 select(GreeksChain).where(
-                    GreeksChain.symbol == symbol, GreeksChain.ts == ts
+                    GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES), GreeksChain.ts == ts
                 )
             ).scalars()
         )

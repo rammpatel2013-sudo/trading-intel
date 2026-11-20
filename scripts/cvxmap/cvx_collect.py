@@ -67,6 +67,13 @@ PULLS = [
     # raw_*.ndjson.gz - the Map's All book included - ever sees it (MAP rule).
     {"name":"ext", "symbols":["SPX","SPY","QQQ"], "exps":list(range(12, 26)), "rng":0.02,
      "every":5, "file":"ext_raw"},
+    # 2026-11-20 (focus names): Mithil's up-to-4 picks for today (database table focus_names, set in the
+    # cockpit box). ONE request for all of them: first 4 expiries (always covers 0-7 DTE), +-12% of spot,
+    # same PARAMS. Skipped on the ext minute so a minute never carries more than 3 requests (idx + vix +
+    # ext, or idx + vix + focus): each pick refreshes 4 minutes in 5. Its OWN file focus_raw_YYYYMMDD so
+    # nothing that reads raw_*.ndjson.gz - the Map included - ever sees it (MAP rule). No picks = no request.
+    {"name":"focus", "symbols":[], "exps":list(range(4)), "rng":0.12,
+     "dynamic":True, "skip_every":5, "file":"focus_raw"},
 ]
 
 POLL_S     = 60
@@ -194,6 +201,34 @@ def pull(S, spec):
     return j, el, len(r.content)
 
 
+_FOCUS = {"at": 0.0, "syms": [], "err_at": 0.0}
+
+
+def focus_symbols():
+    """Today's focus names from the database, re-read every 2 minutes. Any failure = no focus pull
+    (the index and VIX pulls never depend on this)."""
+    if time.time() - _FOCUS["at"] < 120:
+        return _FOCUS["syms"]
+    _FOCUS["at"] = time.time()
+    try:
+        from trading_intel import focus
+        from trading_intel.config import get_settings
+        from trading_intel.memory.db import make_session_factory
+        if "sf" not in _FOCUS:
+            _FOCUS["sf"] = make_session_factory(get_settings())
+        with _FOCUS["sf"]() as s:
+            syms = focus.live_picks(s)
+        if syms != _FOCUS["syms"]:
+            log("focus names now: %s" % (", ".join(syms) or "none"))
+        _FOCUS["syms"] = syms
+    except Exception as exc:
+        if time.time() - _FOCUS["err_at"] > 600:
+            log("focus names unavailable (%s) - no focus pull" % str(exc)[:120])
+            _FOCUS["err_at"] = time.time()
+        _FOCUS["syms"] = []
+    return _FOCUS["syms"]
+
+
 def main():
     os.makedirs(DATA, exist_ok=True)
     log("=" * 70)
@@ -209,6 +244,13 @@ def main():
         for spec in PULLS:
             if cycles % spec.get("every", 1):
                 continue
+            if spec.get("skip_every") and cycles % spec["skip_every"] == 0:
+                continue
+            if spec.get("dynamic"):
+                syms = focus_symbols()
+                if not syms:
+                    continue
+                spec = dict(spec, symbols=syms)
             raw_path = os.path.join(DATA, "%s_%s.ndjson.gz" % (spec.get("file", "raw"), now.strftime("%Y%m%d")))
             try:
                 j, el, nbytes = pull(S, spec)

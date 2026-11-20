@@ -331,7 +331,7 @@ def attach_gex(tk: pd.DataFrame) -> pd.DataFrame:
         for root in tk["root"]:
             row = session.execute(
                 select(GreeksSnapshot)
-                .where(GreeksSnapshot.symbol == root, GreeksSnapshot.source != "cvforge_bank")  # 2026-11-20 chain bank rows stay out
+                .where(GreeksSnapshot.symbol == root, GreeksSnapshot.source.notin_(("cvforge_bank", "convex_focus")))  # 2026-11-20 chain bank rows stay out
                 .order_by(GreeksSnapshot.ts.desc())
                 .limit(1)
             ).scalar_one_or_none()

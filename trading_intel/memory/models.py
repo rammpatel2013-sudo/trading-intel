@@ -155,6 +155,28 @@ class GreeksChain(Base):
     ingested_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class FocusName(Base):
+    """Mithil's focus names (2026-11-20): up to 4 single names a trading day, picked in the cockpit box.
+
+    The picks drive the live ConvexValue focus pull (0-7 DTE, same fields as the index), whose minute files
+    feed the cockpit like SPX / SPY / QQQ, and whose 5-minute snapshots land in greeks_chain /
+    greeks_snapshots as source ``convex_focus``. A day's list can be changed until 09:30 ET that day and is
+    fixed after; edits made during or after the session go to the next trading day."""
+
+    __tablename__ = "focus_names"
+    __table_args__ = (
+        UniqueConstraint("day", "symbol", name="uq_focus_names_day_symbol"),
+        UniqueConstraint("day", "slot", name="uq_focus_names_day_slot"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    day: Mapped[date] = mapped_column(Date, index=True)  # the trading day the pick is for
+    slot: Mapped[int] = mapped_column(Integer)  # 1-4, the order shown in the cockpit
+    symbol: Mapped[str] = mapped_column(String(16))
+    source: Mapped[str] = mapped_column(String(16), default="cockpit")  # where the pick was entered
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=eastern_now)  # naive Eastern
+
+
 class OiChainDaily(Base):
     """Never-pruned per-(symbol, day) roll-up of ``oi_chain_eod``.
 

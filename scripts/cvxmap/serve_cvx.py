@@ -13,8 +13,15 @@ Chrome only sends If-None-Match on an HTTP/1.1 answer (on 1.0 it re-downloads ev
 also keeps the connection open between polls. Idle connections are dropped after 60 s. Text files (.html .json
 .ndjson .js .css .txt .csv .svg, >= 1 KB) go out gzipped when the browser accepts it (page 911 KB ->
 ~294 KB, live.json 607 -> ~186 KB). The page still never sees stale data: no-cache = always revalidate.
+
+2026-11-20 (focus names): /api/focus is the cockpit box. GET = today's focus names (fixed after 09:30) and
+the list the box edits; POST {"day": "YYYY-MM-DD", "symbols": [...]} saves that day's list (max 4) into the
+database table focus_names (trading_intel.focus - the only writer) and rebuilds focus_card.json in the
+background. Every other path is served exactly as before; the database is touched only by /api/focus.
+If FOCUS_KEY is set in the .env, a POST must carry it in the X-Focus-Key header (a shared cockpit viewer
+cannot change the picks).
 """
-import gzip, http.server, os, shutil, socketserver, sys, threading
+import gzip, http.server, json, os, shutil, socketserver, sys, threading
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8899
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -59,6 +66,44 @@ def _gzipped(path, etag, data):
     return gz
 
 
+_FOCUS = {"sf": None, "lock": threading.Lock()}
+
+
+def _focus_session():
+    """Database session for /api/focus only (lazy: the page server starts and serves without a database)."""
+    if _FOCUS["sf"] is None:
+        from trading_intel.config import get_settings
+        from trading_intel.memory.db import make_session_factory
+        _FOCUS["sf"] = make_session_factory(get_settings())
+    return _FOCUS["sf"]()
+
+
+def _focus_key():
+    k = os.environ.get("FOCUS_KEY", "")
+    if k:
+        return k
+    for p in ("/app/.env", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env")):
+        try:
+            with open(p, encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    if line.strip().startswith("FOCUS_KEY="):
+                        return line.split("=", 1)[1].split("#")[0].strip().strip('"').strip("'")
+        except OSError:
+            pass
+    return ""
+
+
+def _focus_card_bg():
+    def go():
+        try:
+            from trading_intel.scheduler.jobs.focus_card import run
+            with _focus_session() as s:
+                run(s, out_dir=ROOT)
+        except Exception as exc:          # the card is a convenience; the picks are already saved
+            print("focus card: %s" % str(exc)[:200], flush=True)
+    threading.Thread(target=go, daemon=True).start()
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"   # 1.0 answers are never revalidated by Chrome (measured 2026-11-14)
     timeout = 60                    # drop idle keep-alive connections
@@ -71,7 +116,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        if self.path.split("?")[0] == "/api/focus":
+            return self._focus(None)
         self._serve(True)
+
+    def do_POST(self):
+        if self.path.split("?")[0] != "/api/focus":
+            self.send_error(405, "POST only on /api/focus")
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(min(n, 4096)) or b"{}")
+        except Exception:
+            return self._json(400, {"error": "bad JSON"})
+        key = _focus_key()
+        if key and self.headers.get("X-Focus-Key", "") != key:
+            return self._json(403, {"error": "focus key needed", "need_key": True})
+        return self._focus(body)
+
+    def _json(self, code, obj):
+        data = json.dumps(obj, default=str).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def _focus(self, body):
+        try:
+            import datetime as _dt
+            from trading_intel import focus
+            with _FOCUS["lock"], _focus_session() as s:
+                if body is not None:
+                    day = _dt.date.fromisoformat(str(body.get("day") or focus.edit_day(focus.eastern_now()).isoformat()))
+                    focus.set_picks(s, day, body.get("symbols") or [], source="cockpit")
+                out = focus.state(s)
+            out["key_needed"] = bool(_focus_key())
+            if body is not None:
+                _focus_card_bg()
+            return self._json(200, out)
+        except Exception as exc:
+            ferr = getattr(sys.modules.get("trading_intel.focus"), "FocusError", None)
+            if ferr is not None and isinstance(exc, ferr):
+                return self._json(400, {"error": str(exc)})
+            return self._json(503, {"error": "focus store unavailable: %s" % str(exc)[:160]})
 
     def do_HEAD(self):
         self._serve(False)

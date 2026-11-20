@@ -23,6 +23,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from trading_intel.chain_bank import SIDE_SOURCES  # 2026-11-20: bank + focus rows stay out of this reader (rule 9)
 from trading_intel.dashboard.ticker_data import (
     _chain_rows_to_frame,
     gex_by_strike,
@@ -43,7 +44,7 @@ def _recent_chain_ts(session: Session, symbol: str, *, days: int) -> list[dateti
     rows = list(
         session.execute(
             select(GreeksChain.ts)
-            .where(GreeksChain.symbol == symbol)
+            .where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES))
             .distinct()
             .order_by(GreeksChain.ts.desc())
             .limit(days)
@@ -113,7 +114,7 @@ def load_gex_strike_series(
     rows = list(
         session.execute(
             select(GreeksChain).where(
-                GreeksChain.symbol == symbol, GreeksChain.ts.in_(ts_list)
+                GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES), GreeksChain.ts.in_(ts_list)
             )
         ).scalars()
     )
@@ -187,7 +188,7 @@ def load_latest_chain_rich(
     """
     ts = session.execute(
         select(GreeksChain.ts)
-        .where(GreeksChain.symbol == symbol)
+        .where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES))
         .order_by(GreeksChain.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -197,7 +198,7 @@ def load_latest_chain_rich(
         )
     rows = list(
         session.execute(
-            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.ts == ts)
+            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES), GreeksChain.ts == ts)
         ).scalars()
     )
     frame = pd.DataFrame(

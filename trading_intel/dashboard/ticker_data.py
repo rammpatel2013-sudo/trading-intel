@@ -27,6 +27,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from trading_intel.chain_bank import SIDE_SOURCES  # 2026-11-20: bank + focus rows stay out of this reader (rule 9)
 from trading_intel.memory.models import (
     GreeksChain,
     GreeksSnapshot,
@@ -194,7 +195,7 @@ def latest_chain_ts(session: Session, symbol: str) -> datetime | None:
     """Timestamp of the most recent ``greeks_chain`` snapshot for ``symbol``."""
     return session.execute(
         select(GreeksChain.ts)
-        .where(GreeksChain.symbol == symbol)
+        .where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES))
         .order_by(GreeksChain.ts.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -213,7 +214,7 @@ def load_latest_chain(session: Session, symbol: str) -> tuple[datetime | None, p
         )
     rows = list(
         session.execute(
-            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.ts == ts)
+            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES), GreeksChain.ts == ts)
         ).scalars()
     )
     return ts, _chain_rows_to_frame(rows)
@@ -223,7 +224,7 @@ def available_chain_dates(session: Session, symbol: str, *, limit: int = 60) -> 
     """Distinct stored ``greeks_chain`` snapshot timestamps for ``symbol``, newest first."""
     rows = session.execute(
         select(GreeksChain.ts)
-        .where(GreeksChain.symbol == symbol)
+        .where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES))
         .group_by(GreeksChain.ts)
         .order_by(GreeksChain.ts.desc())
         .limit(limit)
@@ -235,7 +236,7 @@ def load_chain_at(session: Session, symbol: str, ts: datetime) -> pd.DataFrame:
     """Per-strike chain frame for ``symbol`` at a specific snapshot ``ts``."""
     rows = list(
         session.execute(
-            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.ts == ts)
+            select(GreeksChain).where(GreeksChain.symbol == symbol, GreeksChain.source.notin_(SIDE_SOURCES), GreeksChain.ts == ts)
         ).scalars()
     )
     return _chain_rows_to_frame(rows)
