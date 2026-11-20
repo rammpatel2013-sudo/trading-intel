@@ -5,6 +5,7 @@
                           rows, the checks (one book, one spot, smooth odds) and the SOURCE of every number.
     generate_odte_card  - the same, written as the phone page (scripts/odte_card_report.py render) under
                           reports/odte_card/; returns the path. No Telegram from here.
+    get_week_map        - 2026-11-20: the SPX week / month map (market.week_map).
 
 One book + one spot for every number (market.book_spot). Descriptor, not a signal (rule 4).
 """
@@ -42,6 +43,18 @@ def register(mcp: Any, settings: Any, session_factory: Any) -> None:  # noqa: AN
         ``sources`` = where each number came from. ``as_of`` YYYY-MM-DD = that day's book. Descriptor only."""
         with session_factory() as session:
             return build_odte_card(session, symbol, as_of=_d(as_of))
+
+    @mcp.tool()
+    def get_week_map(which: str = "week", as_of: str | None = None) -> dict[str, Any]:
+        """SPX WEEK map (to this week's Friday; on a Friday, next week's) or MONTH map (``which="month"``, to
+        the 3rd-Friday monthly), VolSignals-style, from the 08:35 SPX book: the Line (largest dealer short
+        gamma strike), dealer-long strikes, gamma flip + vanna flip for each day left, decay zones (where time
+        decay makes dealers buy / sell), the 1-sigma cone, AM-settlement marker, and three illustrated paths
+        (vol down / unchanged / up). Naive dealer side. Paths are illustrations, not forecasts."""
+        from trading_intel.market.week_map import build_from_db
+
+        with session_factory() as session:
+            return build_from_db(session, "month" if which.lower().startswith("m") else "week", as_of=_d(as_of))
 
     @mcp.tool()
     def generate_odte_card(symbol: str = "SPX", as_of: str | None = None) -> dict[str, Any]:
