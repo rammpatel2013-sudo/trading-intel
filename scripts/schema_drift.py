@@ -98,6 +98,7 @@ def main() -> int:
 
     import trading_intel.memory.models_desk  # register tables
     import trading_intel.memory.models_equity  # noqa: F401
+    import trading_intel.memory.models_flow  # noqa: F401
     from trading_intel.memory.models import Base
 
     eng = create_engine(_engine_url(_url()), pool_pre_ping=True)

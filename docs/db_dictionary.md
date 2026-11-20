@@ -35,7 +35,7 @@ Known type drift (report 2026-11-19, not fixed — renaming/retyping costs more 
 in the DB but naive in the ORM; the server TimeZone is UTC. `documents.ingested_at` now writes an
 aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
-## Tables (77)
+## Tables (81)
 
 ### Options chains and greeks
 
@@ -69,6 +69,9 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | `desk_und_daily` | symbol per day: option volume split | date+symbol | `date` | desk_snapshot | Convex app | raw |
 | `pos_days` | contract per day: customer buy/sell volume | symbol+trade_date+expiry+strike+right | `trade_date` | scripts/cvxmap/pos_ledger.py | Convex raw NDJSON | derived |
 | `pos_ledger` | contract per morning: running signed position | symbol+as_of_date+expiry+strike+right | `as_of_date` | scripts/cvxmap/pos_ledger.py | from pos_days | derived |
+| `flow_und_daily` | symbol per day: option flow, ~50 fields (buy/sell $ / contracts / delta / gamma / vega, call/put, ratios, no-side volume, share day_volume) | date+symbol | `date` | flow_bank 16:25 | Convex und screener + index rows by name | raw |
+| `flowchart_15s` | symbol per 15 s: flownet, vflownet, call/put bought-sold, call/put gxoi/dxoi/vxoi/txoi, prop1-4 | symbol+ts | `ts` naive ET, `trade_date` | flow_bank 16:25 | Convex flowchart (today only) | raw |
+| `od_flow_daily` | symbol × expiration (NULL = all) × right × category (regular/spread/eth/eth_spread) × side (buy/sell/undecided) | date+symbol+expiration+right+category+side (NULLS NOT DISTINCT) | `date` | flow_bank --steps od_flow 17:25 | optionsdata.ai files from od_nightly | raw |
 
 ### Vol, skew and VIX
 
@@ -109,6 +112,7 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | `finra_short_volume` | symbol per day: short volume | date+symbol | `date` | finra_dix, desk_backfill | FINRA | raw |
 | `finra_dix_daily` | one day: our DIX | date | `date` | finra_dix | own | derived |
 | `short_interest_snapshots` | symbol per day: SVR, settled SI | symbol+ts+source | `ts` date | short_interest_snapshots | FINRA | raw |
+| `bars_1m` | symbol per minute: OHLCV (ETFs) | symbol+ts+source | `ts` naive ET (bar start) | flow_bank 16:25 | FMP historical-chart/1min via CVForge | raw |
 | `letf_shares_snapshots` | LETF per day: shares outstanding | symbol+ts | `ts` date | letf_flows (CVForge since 2026-11-19) | FMP via CVForge | raw |
 
 ### Equity swing side

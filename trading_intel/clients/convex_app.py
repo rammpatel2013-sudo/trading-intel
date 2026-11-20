@@ -13,6 +13,7 @@ data only — not signals (FlashAlpha rule 4).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
@@ -59,7 +60,12 @@ class ConvexAppClient:
         self._logged_in = True
 
     def _request(
-        self, method: str, path: str, *, json: dict | None = None, params: dict | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict | list | None = None,
+        params: dict | None = None,
     ) -> Any:  # noqa: ANN401
         if not self._logged_in and path != "/api/access/login":
             self.login()
@@ -103,7 +109,7 @@ class ConvexAppClient:
         return self._request("POST", "/api/data/und", json={"params": params, "query": query})
 
     # field names the live und screener accepts (probed 2026-11-14; OHLC fields are NOT in und)
-    UND_FIELDS: tuple[str, ...] = (
+    UND_FIELDS: tuple[str, ...] = (  # fmt: skip
         "symbol", "price", "change", "option_volume", "call_volume", "put_volume",
         "volm_call_buy", "volm_call_sell", "volm_put_buy", "volm_put_sell", "gxoi", "volatility",
     )
@@ -130,11 +136,37 @@ class ConvexAppClient:
                 out.append(dict(zip(self.UND_FIELDS, r)))
         return out
 
-    def flowchart(self, symbol: str, *, d: date | None = None) -> dict:
-        """POST /api/data/flowchart -> {data: [header, rows]}. ``day`` needs a real day_id."""
-        cols = ["flownet", "vflownet", "value_call_bs", "value_put_bs"]
+    def flowchart(
+        self, symbol: str, *, d: date | None = None, cols: Sequence[str] | None = None
+    ) -> dict:
+        """POST /api/data/flowchart -> {data: [header, rows]}. ``day`` needs a real day_id.
+
+        15-second series, served for TODAY only (every past day comes back empty)."""
+        cols = list(cols or ["flownet", "vflownet", "value_call_bs", "value_put_bs"])
         body = {"symbol": symbol.upper(), "cols": cols, "day": day_id(d or eastern_today())}
         return self._request("POST", "/api/data/flowchart", json=body)
+
+    def und_flow(self, fields: Sequence[str], *, limit: int = 20_000) -> dict:
+        """Every underlying with option premium traded, ONE POST (flow bank, 2026-11-19).
+
+        Filters on ``value > 0``, not option_volume: index rows (SPX) report option_volume 0.
+        Raw ``{data: [[row, ...]]}``; ``trading_intel.flow.bank.parse_und`` reads it."""
+        query = (
+            "select symbol from und where value > 0 "  # noqa: S608
+            f"order by value desc nulls last limit {int(limit)}"
+        )
+        return self._request(
+            "POST", "/api/data/und", json={"params": ["symbol", *fields], "query": query}
+        )
+
+    def und_get(self, symbols: Sequence[str], fields: Sequence[str]) -> dict:
+        """Named underlyings via ``/api/core/get``; same ``{data: [[row, ...]]}`` shape as ``und``.
+
+        Index rows (SPX, VIX, XSP) drop out of the ``und`` screener after the close, and their
+        counters zero out before ~18:00 ET (seen 2026-11-19), so the flow bank asks for them by name.
+        """
+        body = [{"Und": {"s": [x.upper() for x in symbols], "v": list(fields)}}]
+        return self._request("POST", "/api/core/get", json=body)  # type: ignore[arg-type]
 
     def trm_chain(self, symbols: list[str], *, params: list[str] | None = None) -> dict:
         """Per-name IV term structure (POST /api/get/trmchain) -> {data: [{series: [...]}]}."""
