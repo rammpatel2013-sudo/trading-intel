@@ -215,6 +215,24 @@ def test_vendor_groups_ignore_the_size_rule() -> None:
     assert recs[0]["leg_group"] and len({r["leg_group"] for r in recs}) == 1
 
 
+def test_roll_across_spx_and_spxw_roots_is_one_group() -> None:
+    """2026-11-20: 11/19 roll printed Nov SPXW legs + Jan SPX legs ~100 ms apart, vendor-flagged."""
+    from trading_intel.scheduler.jobs.tas_capture_job import _assign_leg_groups
+
+    recs = [_leg("SPX", 0.0, 1347, True), _leg("SPXW", 0.0, 1347, True),
+            _leg("SPX", 0.1, 1347, True), _leg("SPXW", 0.1, 1347, True)]
+    _assign_leg_groups(recs)
+    assert recs[0]["leg_group"] and len({r["leg_group"] for r in recs}) == 1
+
+
+def test_unflagged_spx_spxw_legs_group_by_family() -> None:
+    from trading_intel.scheduler.jobs.tas_capture_job import _assign_leg_groups
+
+    recs = [_leg("SPX", 0.0, 500), _leg("SPXW", 0.5, 500)]
+    _assign_leg_groups(recs)
+    assert recs[0]["leg_group"] and recs[0]["leg_group"] == recs[1]["leg_group"]
+
+
 # --- 2026-11-19 (A1b): every tape session is captured and tagged ------------------------------------
 def test_prints_tagged_with_session_and_gth_goes_to_next_day(session: Session) -> None:
     df = pd.DataFrame(

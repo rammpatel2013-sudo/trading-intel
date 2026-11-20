@@ -731,6 +731,24 @@ def test_get_oi_changes_computes_change_when_vendor_column_is_zero(session: Sess
     assert "computed vs the 2026-11-11 17:15 book" in out["oi_change_source"]
 
 
+def test_get_oi_changes_keeps_am_and_pm_books_apart(session: Session) -> None:
+    """2026-11-20: SPX AM (``convex_am_set``) and PM (``convex_am``) rows share expiry+strike+side;
+    the computed change must diff each book against itself, not mix them."""
+    exp = date(2026, 12, 18)
+    t0, t1 = datetime(2026, 11, 18), datetime(2026, 11, 19)
+
+    def row(ts, src, oi):
+        return OiChainEod(symbol="SPX", ts=ts, source=src, expiry=exp, strike=7000.0, cp="P",
+                          dte=30, oi=oi, gxoi=1.0, oi_change=0, volume=0.0)
+
+    session.add_all([row(t0, "convex_am_set", 461_031), row(t0, "convex_am", 5_446),
+                     row(t1, "convex_am_set", 461_268), row(t1, "convex_am", 5_447)])
+    session.commit()
+    out = et.get_oi_changes(session, "SPX")
+    got = {r["settle"]: r["oi_change"] for r in out["rows"]}
+    assert got == {"AM": 237.0, "PM": 1.0}
+
+
 def test_get_vix_blanks_a_stale_copy_row(session: Session) -> None:
     a = VixData(date=date(2026, 9, 22), vix=16.0, vvix=90.0, vix9d=15.0, vix3m=18.0, vix6m=19.0)
     b = VixData(date=date(2026, 9, 23), vix=17.2, vvix=90.0, vix9d=15.0, vix3m=18.0, vix6m=19.0)

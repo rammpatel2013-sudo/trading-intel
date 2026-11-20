@@ -259,28 +259,47 @@ def _plausible_structure(sizes: list) -> bool:
     return {round(v / vals[0], 6) for v in vals} <= _LEG_RATIOS
 
 
+# 2026-11-20: one index trades under several roots (SPX monthly/AM, SPXW weekly/PM, SPXO Wed AM).
+# A roll across them (11/19: Nov 27 SPXW 6975/7000 -> Jan 15 SPX 6775/6800, 4 legs ~100 ms apart)
+# was split by root, so legs are matched on the root FAMILY.
+_ROOT_FAMILY = {"SPXW": "SPX", "SPXO": "SPX", "NDXP": "NDX", "RUTW": "RUT"}
+_VENDOR_GAP_S = 0.5                         # vendor-flagged legs of one order print within this gap
+
+
+def _family(root: str | None) -> str:
+    r = (root or "").upper()
+    return _ROOT_FAMILY.get(r, r)
+
+
 def _assign_leg_groups(recs: list[dict], window_s: float = _LEG_WINDOW_S) -> None:
     """Tag size-matched, same-root, near-simultaneous legs with a shared group id.
 
     A structure (vertical / fly / calendar / roll) prints its legs within the
     same instant; both land in one poll. Singletons keep ``leg_group=None``.
     2026-11-04: prints the VENDOR flags as ``spread_leg`` are grouped first, by
-    (root, exact print time) - no guessing; the time-window heuristic below only
+    (root family, prints chained <= 0.5 s apart) - no size
+    guessing; the time-window heuristic below only
     handles the rest, and only keeps a cluster that looks like one structure (``_plausible_structure``).
     """
-    byts: dict = {}
-    for i, r in enumerate(recs):
-        if r.get("spread_leg"):
-            byts.setdefault((r["root"], r["ts"]), []).append(i)
+    vend = sorted((i for i, r in enumerate(recs) if r.get("spread_leg")),
+                  key=lambda i: (_family(recs[i]["root"]), recs[i]["ts"]))
+    vgroups: list[list[int]] = []
+    for i in vend:
+        last = vgroups[-1][-1] if vgroups else None
+        if last is not None and _family(recs[i]["root"]) == _family(recs[last]["root"]) \
+                and abs((recs[i]["ts"] - recs[last]["ts"]).total_seconds()) <= _VENDOR_GAP_S:
+            vgroups[-1].append(i)
+        else:
+            vgroups.append([i])
     taken: set[int] = set()
-    for idx in byts.values():
+    for idx in vgroups:
         if len(idx) >= 2:
             gid = uuid.uuid4().hex[:24]
             for i in idx:
                 recs[i]["leg_group"] = gid
             taken.update(idx)
     recs_free = [i for i in range(len(recs)) if i not in taken]
-    order = sorted(recs_free, key=lambda i: (recs[i]["root"] or "", recs[i]["ts"]))
+    order = sorted(recs_free, key=lambda i: (_family(recs[i]["root"]), recs[i]["ts"]))
     cluster: list[int] = []
 
     def flush(c: list[int]) -> None:
@@ -291,7 +310,7 @@ def _assign_leg_groups(recs: list[dict], window_s: float = _LEG_WINDOW_S) -> Non
 
     for i in order:
         r = recs[i]
-        if cluster and r["root"] == recs[cluster[-1]]["root"] \
+        if cluster and _family(r["root"]) == _family(recs[cluster[-1]]["root"]) \
                 and abs((r["ts"] - recs[cluster[-1]]["ts"]).total_seconds()) <= window_s:
             cluster.append(i)
         else:

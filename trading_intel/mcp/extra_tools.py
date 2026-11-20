@@ -372,6 +372,7 @@ def get_oi_changes(
             OiChainEod.oi,
             OiChainEod.oi_change,
             OiChainEod.volume,
+            OiChainEod.source,
         ).where(
             OiChainEod.symbol == sym,
             OiChainEod.source.like("convex%"),
@@ -383,17 +384,22 @@ def get_oi_changes(
     if not rows:
         return {"symbol": sym, "found": False, "rows": [], "count": 0}
 
-    chg = {(r.expiry, r.strike, r.cp): r.oi_change for r in rows}
+    # 2026-11-20: key by source too - SPX carries an AM-settled book (``convex_am_set``: SPX
+    # monthly / SPXO) and a PM book (``convex_am``: SPXW) on the same expiry+strike+side; one key
+    # made them overwrite each other (Dec 7000P showed -461k = SPXW OI minus both books' prior OI).
+    def _key(r: Any) -> tuple:
+        return (r.source, r.expiry, r.strike, r.cp)
+
+    chg = {_key(r): r.oi_change for r in rows}
     source = "vendor oi_change"
     if not any(v for v in chg.values()):
         # 2026-11-13 data check D6: the vendor's oi_change was all zero on 11/12 (the newest book
         # was a morning pull before the counts rolled). Fall back to OI minus the newest earlier
-        # book whose OI totals differ, matched on expiry + strike + side.
+        # book whose OI totals differ, matched on source + expiry + strike + side.
         prev = _prev_distinct_oi(session, sym, ts, rows)
         if prev is not None:
             pts, prev_oi = prev
-            chg = {k: (float(r.oi or 0.0) - prev_oi.get(k, 0.0))
-                   for r in rows for k in [(r.expiry, r.strike, r.cp)]}
+            chg = {k: float(r.oi or 0.0) - prev_oi.get(k, 0.0) for r in rows for k in [_key(r)]}
             source = f"computed vs the {pts:%Y-%m-%d %H:%M} book (vendor oi_change was all zero)"
     recs = [
         {
@@ -402,8 +408,9 @@ def get_oi_changes(
             "cp": r.cp,
             "dte": r.dte,
             "oi": _num(r.oi),
-            "oi_change": _num(chg.get((r.expiry, r.strike, r.cp))),
+            "oi_change": _num(chg.get(_key(r))),
             "volume": _num(r.volume),
+            "settle": "AM" if str(r.source or "").endswith("_set") else "PM",
         }
         for r in rows
     ]
@@ -427,9 +434,10 @@ def _prev_distinct_oi(
     session: Session, sym: str, ts: datetime, rows: list
 ) -> tuple[datetime, dict[tuple, float]] | None:
     """The newest book before ``ts`` whose total OI differs from ``rows`` (an unrolled morning
-    pull repeats the prior close's OI), as {(expiry, strike, cp): oi}. Looks back 6 books."""
+    pull repeats the prior close's OI), as {(source, expiry, strike, cp): oi}.
+    Looks back 6 books."""
     tot_now = sum(float(r.oi or 0.0) for r in rows)
-    keys = {(r.expiry, r.strike, r.cp) for r in rows}
+    keys = {(r.source, r.expiry, r.strike, r.cp) for r in rows}
     cand = session.execute(
         select(OiChainEod.ts)
         .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"), OiChainEod.ts < ts)
@@ -439,11 +447,12 @@ def _prev_distinct_oi(
     ).scalars().all()
     for pts in cand:
         prev = session.execute(
-            select(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp, func.sum(OiChainEod.oi))
+            select(OiChainEod.source, OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp,
+                   func.sum(OiChainEod.oi))
             .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"), OiChainEod.ts == pts)
-            .group_by(OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp)
+            .group_by(OiChainEod.source, OiChainEod.expiry, OiChainEod.strike, OiChainEod.cp)
         ).all()
-        m = {(e, k, c): float(o or 0.0) for e, k, c, o in prev if (e, k, c) in keys}
+        m = {(s, e, k, c): float(o or 0.0) for s, e, k, c, o in prev if (s, e, k, c) in keys}
         if m and abs(sum(m.values()) - tot_now) > 1e-6 * max(1.0, tot_now):
             return pts, m
     return None
