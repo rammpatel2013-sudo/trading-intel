@@ -35,7 +35,7 @@ Known type drift (report 2026-11-19, not fixed — renaming/retyping costs more 
 in the DB but naive in the ORM; the server TimeZone is UTC. `documents.ingested_at` now writes an
 aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
-## Tables (85)
+## Tables (86)
 
 ### Options chains and greeks
 
@@ -104,7 +104,8 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
 | Table | One row = | Key | Time key | Writer | Source | Kind |
 | --- | --- | --- | --- | --- | --- | --- |
-| `symbol_map` | one symbol: our spelling + convex / cvforge / od (+ od_iid) / fmp / finra / yahoo spellings + asset type (stock / etf / index) | symbol | — | symbol_map_sync (17:20, after contracts_sync); contracts_sync sets od_iid | clients.symbols rules over equity_bars, tickers, desk_names, equity_profiles | derived (rebuildable) |
+| `symbol_map` | one symbol: our spelling + convex / cvforge / od (+ od_iid) / fmp / finra / yahoo spellings + asset type (stock / etf / index) + tags (alt_etf_selects) + trades_24h | symbol | — | symbol_map_sync (17:20, after contracts_sync); contracts_sync sets od_iid | clients.symbols rules over equity_bars, tickers, desk_names, equity_profiles | derived (rebuildable) |
+| `etf_board_daily` | ETF per day: Mithil's "Alt ETF Selects" board (48): 1D/5D, buy/sell $ from 1-min bars, BSR, Strength, Building, corr vs QQQ, Stretch, Mo1-3, RelVol, P/C, IVs | date+symbol | `date` | etf_board (16:45) | from equity_bars + bars_1m + flow_und_daily | derived (rebuildable) |
 | `contracts` | one listed option, OCC 21-char key + optionsdata iid, Polygon/CVForge ticker, dxfeed/Convex symbol, settlement, exercise, multiplier, first/last seen | occ (+ unique od_iid) | `first_seen` / `last_seen` date | contracts_sync (17:20) | optionsdata.ai nightly files reports/optionsdata/YYYYMMDD | raw (rebuildable from the files) |
 
 ### Prices, breadth and market

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ETF board · Alt ETF Selects</title>
+<!-- etf_board.html - created 2026-11-19. Copied into scripts/cvxmap/data/ by the etf_board job; reads etf_board.json
+     (same folder, served by cvxmap-serve on :8899). Display only; every number comes from the NAS DB. -->
+<style>
+:root{--bg:#0b1220;--pane:#111a2e;--rule:#24324d;--fg:#f2f5f8;--dim:#b9c6d8;--up:#3ddc84;--dn:#ff6b6b;--font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:16px var(--font)}
+header{padding:12px 16px;border-bottom:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline}
+h1{font-size:22px;margin:0} .sub{color:var(--dim);font-size:15px}
+.wrap{overflow:auto;padding:0 8px 24px}
+table{border-collapse:collapse;width:100%;font-size:16px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap}
+th{position:sticky;top:0;background:var(--pane);cursor:pointer;font-size:14px;color:var(--dim);user-select:none}
+th.on{color:#fff} td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--bg);font-weight:700}
+tr:hover td{background:#16223a} .up{color:var(--up)} .dn{color:var(--dn)}
+.b24{font-size:11px;background:#334;color:#cde;border-radius:3px;padding:0 3px;margin-left:4px;font-weight:600}
+#card{position:fixed;inset:auto 0 0 0;background:var(--pane);border-top:2px solid var(--rule);padding:12px 16px;display:none;max-height:60vh;overflow:auto}
+#card .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 14px;font-size:16px} #card b{font-size:20px}
+#card .x{float:right;cursor:pointer;font-size:22px;color:var(--dim)} .note{color:var(--dim);font-size:14px;padding:8px 16px}
+body.phone .ph{display:none}
+</style>
+</head>
+<body>
+<header><h1>ETF board</h1><span class="sub" id="sub">Loading etf_board.json…</span></header>
+<div class="wrap"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+<div class="note" id="note"></div>
+<div id="card"></div>
+<script>
+const COLS=[["symbol","Symbol",null],["chg_1d","1D %",v=>pct(v,2),1],["chg_5d","5D %",v=>pct(v,2),1],["bsr","BSR",v=>num(v,1),1],
+ ["buy_usd","Buying",money],["sell_usd","Selling",money],["strength","Strength",v=>num(v,2),1],["building","Building",v=>num(v,3),1],
+ ["corr20","Corr QQQ",v=>num(v,2)],["stretch","Stretch",v=>num(v,2),1],["mo1","Mo1",v=>num(v,2),1],["mo2","Mo2",v=>num(v,2),1],["mo3","Mo3",v=>v==null?"–":String(v)],
+ ["price_vol","Price vol",v=>num(v,2)],["relvol","RelVol",v=>num(v,2)],["volume","Volume",v=>v==null?"–":Math.round(v).toLocaleString()],
+ ["last","Last",v=>num(v,2)],["vwap","Weighted",v=>num(v,2)],["chg_open","Ch %",v=>pct(v,2),1],["pc_ratio","P/C",v=>num(v,2)],
+ ["iv","IV",v=>ivp(v)],["iv_front","Front",v=>ivp(v)],["iv_back","Back",v=>ivp(v)],["iv_diff","Vol diff",v=>ivp(v),1],["iv_chg_1d","IV 1D",v=>num(v,1),1],["iv_chg_5d","IV 5D",v=>num(v,1),1]];
+const PHONE=new Set(["symbol","chg_1d","bsr","corr20","stretch"]);
+function num(v,d){ return v==null||!isFinite(v)?"–":(+v).toFixed(d); }
+function pct(v,d){ return v==null?"–":(v*100).toFixed(d); }
+function ivp(v){ return v==null?"–":(Math.abs(v)<3?(v*100).toFixed(1):(+v).toFixed(1)); }
+function money(v){ if(v==null) return "–"; const a=Math.abs(v); return a>=1e9?"$"+(a/1e9).toFixed(2)+"B":a>=1e6?"$"+(a/1e6).toFixed(1)+"M":"$"+(a/1e3).toFixed(0)+"k"; }
+let J=null, sortK="bsr", asc=false;
+function render(){ if(!J) return; document.body.classList.toggle("phone",innerWidth<700);
+  const ph=document.body.classList.contains("phone");
+  document.getElementById("th").innerHTML="<tr>"+COLS.map(c=>`<th data-k="${c[0]}" class="${c[0]===sortK?"on":""} ${PHONE.has(c[0])?"":"ph"}">${c[1]}${c[0]===sortK?(asc?" ▲":" ▼"):""}</th>`).join("")+"</tr>";
+  const rows=[...J.rows].sort((a,b)=>{ const x=a[sortK], y=b[sortK]; if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1; return typeof x==="string"?(asc?x.localeCompare(y):y.localeCompare(x)):(asc?x-y:y-x); });
+  const mx=Math.max(1,...rows.map(r=>Math.abs(r.bsr||0)).filter(isFinite));
+  document.getElementById("tb").innerHTML=rows.map(r=>"<tr data-s='"+r.symbol+"'>"+COLS.map(c=>{ const v=r[c[0]]; let cls=c[3]&&v!=null?(v>0?"up":v<0?"dn":""):"", st="";
+      if(c[0]==="bsr"&&v!=null){ const a=Math.min(1,Math.abs(v)/mx); st=`background:${v>0?"rgba(61,220,132,":"rgba(255,107,107,"}${(0.12+0.5*a).toFixed(2)});color:#fff`; cls=""; }
+      if(c[0]==="corr20"&&v!=null) st=`background:rgba(127,176,255,${(0.08+0.45*Math.abs(v)).toFixed(2)})`;
+      const txt=c[0]==="symbol"?r.symbol+(r.trades_24h?"<span class='b24'>24</span>":""):c[2](v);
+      return `<td class="${cls} ${PHONE.has(c[0])?"":"ph"}" style="${st}">${txt}</td>`; }).join("")+"</tr>").join("");
+  document.querySelectorAll("#th th").forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(k===sortK) asc=!asc; else { sortK=k; asc=k==="symbol"; } render(); });
+  document.querySelectorAll("#tb tr").forEach(tr=>tr.onclick=()=>card(J.rows.find(r=>r.symbol===tr.dataset.s)));
+  const nm=J.rows.filter(r=>r.n_minutes).length;
+  document.getElementById("sub").textContent=`${J.date} · ${J.rows.length} ETFs · ${nm} with today's 1-minute bars · tap a row for all numbers · tap a header to sort`;
+  document.getElementById("note").textContent=J.note||""; }
+function card(r){ if(!r) return; const el=document.getElementById("card");
+  el.innerHTML=`<span class="x" onclick="this.parentNode.style.display='none'">✕</span><b>${r.symbol}</b> ${r.trades_24h?"<span class='b24'>24</span>":""}<div class="g">`+
+    COLS.slice(1).map(c=>`<div><span class="sub">${c[1]}</span><br>${c[2](r[c[0]])}</div>`).join("")+`<div><span class="sub">Prev close</span><br>${num(r.prev_close,2)}</div><div><span class="sub">H / L</span><br>${num(r.high,2)} / ${num(r.low,2)}</div><div><span class="sub">Corr 10d</span><br>${num(r.corr10,2)}</div><div><span class="sub">Call / put vol</span><br>${r.call_vol==null?"–":Math.round(r.call_vol).toLocaleString()} / ${r.put_vol==null?"–":Math.round(r.put_vol).toLocaleString()}</div></div>`;
+  el.style.display="block"; }
+async function load(){ try{ const r=await fetch("etf_board.json",{cache:"no-cache"}); if(!r.ok) throw new Error("HTTP "+r.status); J=await r.json(); render(); }
+  catch(e){ document.getElementById("sub").textContent="Could not read etf_board.json ("+e.message+") - written by the etf_board job (DSM 16:45 Mon-Fri)."; } }
+addEventListener("resize",render); load(); setInterval(load,300000);
+</script>
+</body>
+</html>

@@ -764,6 +764,8 @@ def build_server(
     card_tools.register(mcp, settings, session_factory)
     from trading_intel.mcp import close_flow_tools  # leveraged-ETF close flow (2026-11-19)
     close_flow_tools.register(mcp, settings, session_factory)
+    from trading_intel.mcp import etf_board_tools  # ETF board (2026-11-19)
+    etf_board_tools.register(mcp, settings, session_factory)
 
     return mcp
 

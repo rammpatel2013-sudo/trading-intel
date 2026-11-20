@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, Float, Index, String
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, Float, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from trading_intel.memory.models import Base
@@ -31,6 +31,8 @@ class SymbolMap(Base):
     fmp: Mapped[str | None] = mapped_column(String(24))
     finra: Mapped[str | None] = mapped_column(String(24))
     yahoo: Mapped[str | None] = mapped_column(String(24))
+    tags: Mapped[str | None] = mapped_column(String(64))       # comma list, e.g. alt_etf_selects (0064)
+    trades_24h: Mapped[bool | None] = mapped_column(Boolean)  # trades overnight 24/5 (0064)
     ingested_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
