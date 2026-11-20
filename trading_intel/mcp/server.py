@@ -762,6 +762,8 @@ def build_server(
     desk_tools.register(mcp, settings, session_factory)
     from trading_intel.mcp import card_tools  # SPX 0DTE map card (2026-11-14)
     card_tools.register(mcp, settings, session_factory)
+    from trading_intel.mcp import close_flow_tools  # leveraged-ETF close flow (2026-11-19)
+    close_flow_tools.register(mcp, settings, session_factory)
 
     return mcp
 

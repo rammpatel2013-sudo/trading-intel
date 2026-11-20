@@ -185,7 +185,8 @@ class Settings(BaseSettings):
     # estimate that sits beside GEX/DEX. Descriptive only (rule 4).
     LETF_SYMBOLS: str = (
         "TQQQ,SQQQ,SOXL,SOXS,SPXL,SPXU,TNA,TZA,FAS,FAZ,LABU,LABD,"
-        "NUGT,DUST,JNUG,JDST,BOIL,KOLD,YINN,YANG,TSLL,TSLQ,NVDL,NVD"
+        "NUGT,DUST,JNUG,JDST,BOIL,KOLD,YINN,YANG,TSLL,TSLQ,NVDL,NVD,"
+        "UPRO,SSO,SDS,SPXS,SH,SPDN,QLD,QID,PSQ"
     )
 
     # ── Factor scoring (ADR-005) ───────────────────────────────
