@@ -10,6 +10,7 @@ import trading_intel.memory.models_ref  # noqa: F401
 import trading_intel.memory.models_etf  # noqa: F401
 import trading_intel.memory.models_close_flow  # noqa: F401
 import trading_intel.memory.models_compass  # noqa: F401
+import trading_intel.memory.models_positions  # noqa: F401
 from trading_intel.memory.models import Base
 
 DOC = Path(__file__).resolve().parents[1] / "docs" / "db_dictionary.md"
