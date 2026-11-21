@@ -167,10 +167,10 @@ Mithil 11/13 20:18 "build" (#87, reversing the drop) and the backlog cut (#21 = 
 
 ## Orbs+ (OP), added 2026-11-21
 Mithil 11/21 "build all together": the replay-video features (strike ridge, corrected dealer-walls / charm / break / push videos) as a live view on the **Orbs** tab. Five TEST buttons on the Orbs header (dashed yellow), all OFF by default; off = Orbs pixel-identical to production and nothing fetched. Code `build/tg_orbsplus.js`, section 22 of `make_test_page.py`.
-- **Ridge** (display): each strike as a line, spikes = contracts traded at that strike per block (cyan = calls traded more, pink = puts); the first block and collector gaps are not drawn (unknown minutes). Bubbles hidden while on; candles on top.
+- **Ridge** (display): each strike as a line, spikes = contracts traded at that strike per block (cyan = calls traded more, pink = puts); the first block and collector gaps are not drawn (unknown minutes); rows kept ~16 px apart (every 2nd / 3rd strike when zoomed out, busy strikes always shown), quiet strikes (<4% of the busiest) hidden. Bubbles hidden while on; candles on top.
 - **Flip** (MAP maths): the Map's own OI + vol gamma flip (buildMap + zoneLines with basis oiv and the Orbs Expiries book; the user's basis / Ledger are restored straight after). 11/20 replay: the 10:00 high touched it at 7,192.
-- **Walls $** (MAP maths): 5 biggest dealer gamma strikes now on OI + signed ($ per 1%), yellow + / purple −.
-- **Notes** (display, rules, no AI): biggest one-block strike volume of the day, first touch of the flip line (from 09:45), price crossing the biggest wall within 30 pts (at most one per 30 min). Newest 4 shown.
+- **Walls $** (MAP maths): 4 biggest (labels at least 26 px apart) dealer gamma strikes now on OI + signed ($ per 1%), yellow + / purple −.
+- **Notes** (display, rules, no AI): biggest one-block strike volume of the day, first touch of the flip line (from 09:45), price crossing the biggest wall within 30 pts (at most one per 30 min). Newest 3 shown.
 - **Strip** (MAP maths + tape): under the Orbs - charm in ES contracts per hour (OI + signed, −Σcharm$ / (50·S); last 20 min cut) and, per 15 min, outside traders' net delta from whales_live.json (orange) vs dealers forced by the move (blue, −gamma$ at spot × move%, model), in ES.
 - Greeks come from the Orbs feed (wide_feed: one flat IV per expiry). Not scored yet; the nightly replay will score the flip line (touch → turn) before anything moves to main.
 - Tests: `tests/orbsplus.js` 22/22 on the 11/13 files (+ a wide_20261113.json fixture built from the minute log, `orbsplus_expect.py` = independent Python for the strip and the biggest block).

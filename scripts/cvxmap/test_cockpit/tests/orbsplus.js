@@ -21,7 +21,7 @@ const click=async(o,k)=>{ await o.p.click(`.tgopb[data-op="${k}"]`); await o.p.w
   ok(await grab(A)===await grab(N),'OFF: buildMap identical to the old test page');
   ok(await canv(A)===await canv(N),'OFF: Orbs canvases pixel-identical');
   ok(await A.p.$eval('#orRead',e=>e.innerHTML)===await N.p.$eval('#orRead',e=>e.innerHTML),'OFF: Orbs read-out identical');
-  ok((await N.p.$$('.tgopb')).length===5,'OFF: five TEST buttons on the Orbs header');
+  ok((await N.p.$$(".tgopb")).length===5,'OFF: five TEST buttons on the Orbs header');
   ok(await N.p.$eval('#tgOp',e=>e.hidden)===true,'OFF: strip hidden');
   ok(!A.errs.length&&!N.errs.length,'OFF: 0 JS errors '+JSON.stringify(N.errs.slice(0,3)));
   const c0=await canv(N);

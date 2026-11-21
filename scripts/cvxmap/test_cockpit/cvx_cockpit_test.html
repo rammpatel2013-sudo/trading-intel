@@ -5071,7 +5071,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
    Close / 1DTE / Friday prediction: zero line nearest spot on the profile at the target (target close − 10 min);
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
-const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-18f23d1bb469";
+const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-7e835e78fd0e";
 const TG_CFGS=[["off",{}],["smp",{sg:true,e2:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["d4",{d4:true}]];   // 2026-11-21: off = production (Week IV, 0DTE IV clean, 16:00 clock now on main)
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
@@ -5802,14 +5802,14 @@ function tgFpDraw(){ const el=document.getElementById("tgFp"); if(!el) return; c
    Walls  = MAP maths: the 5 biggest dealer gamma strikes NOW on OI + signed ($ per 1% move), labels right of the
             current block. Yellow + = dealers long (absorb), purple - = short (speed up).
    Notes  = display: rule-built labels, no AI - biggest block at one strike today, first touch of the flip line,
-            price crossing the biggest wall near it. Newest 4 shown.
+            price crossing the biggest wall near it. Newest 3 shown.
    Strip  = MAP maths + tape: under the Orbs, charm (OI + signed, ES contracts per hour dealers must trade as time
             passes: green = BUY, red = SELL) and, per 15 min, outside traders' net delta (orange, whales_live.json,
             customer signed $ delta) vs dealers forced by the move (blue = -gamma at spot x move, OI + signed), in ES.
    Greeks come from the Orbs feed (wide_feed: one flat IV per expiry); scored nightly with the replay before main. */
 const TG_OP_KEYS=[["ridge","Ridge","Each strike as a line; spikes = contracts traded there each block (cyan = calls traded more, pink = puts). Bubbles hidden."],
   ["flip","Flip","Gamma flip of the OI + volume book (yellow dashes), same rule as the Map's Flip line. Price touching it from below/above = test of the line."],
-  ["walls","Walls $","5 biggest dealer gamma strikes now, OI + signed, $ per 1% move. Yellow + = dealers long (absorb), purple − = short (speed up)."],
+  ["walls","Walls $","4 biggest dealer gamma strikes now, OI + signed, $ per 1% move. Yellow + = dealers long (absorb), purple − = short (speed up)."],
   ["notes","Notes","Plain labels: biggest block at one strike, first touch of the flip line, price crossing the biggest wall."],
   ["strip","Strip","Under the Orbs: charm (ES per hour dealers trade as time passes) and, per 15 min, outside traders vs dealers forced by the move."]];
 st.tgOp=(()=>{ try{ return Object.assign({},JSON.parse(load("tgOp","{}"))); }catch(e){ return {}; } })();
@@ -5851,8 +5851,10 @@ function tgOpDraw(cv){ const P=OR.P, g=OR.g; if(!P||!g) return; const strip=docu
   ctx.save(); ctx.beginPath(); ctx.rect(g.AXL,top,g.w-g.AXL,bot-top); ctx.clip();
   if(tgOpOn("ridge")&&vol){ ctx.fillStyle="#0A1426"; ctx.globalAlpha=0.94; ctx.fillRect(g.AXL,top,g.w-g.AXL,bot-top); ctx.globalAlpha=1;
     let vmax=1; for(let q=0;q<=OR.i;q++) for(const v of vol[q].values()) vmax=Math.max(vmax,v.c+v.p);
-    const rowH=Math.abs(y.Y(0)-y.Y(step)), amp=Math.max(6,rowH*2.6);
-    for(const k of P.ks){ if(k<y.lo-step||k>y.hi+step) continue; const y0=y.Y(k); let c=0,p=0; ctx.beginPath(); ctx.moveTo(X(P.bk[0].t0),y0);
+    const rowH=Math.abs(y.Y(0)-y.Y(step)), every=Math.max(1,Math.ceil(16/Math.max(rowH,1))), sk=step*every, amp=Math.max(10,rowH*every*2.2);
+    const tot=new Map(); for(let q=0;q<=OR.i;q++) for(const [k,v] of vol[q]) tot.set(k,(tot.get(k)||0)+v.c+v.p); const tmax=Math.max(1,...tot.values());
+    // 2026-11-21 (Mithil "strikes a bit crowded"): rows at least ~16 px apart (every 2nd / 3rd strike when zoomed out); quiet strikes (<4% of the busiest) not drawn
+    for(const k of P.ks){ if(k<y.lo-step||k>y.hi+step) continue; if(Math.abs(Math.round(k/sk)*sk-k)>1e-6&&(tot.get(k)||0)<0.5*tmax) continue; if((tot.get(k)||0)<0.04*tmax) continue; const y0=y.Y(k); let c=0,p=0; ctx.beginPath(); ctx.moveTo(X(P.bk[0].t0),y0);
       for(let q=0;q<=OR.i;q++){ const v=vol[q].get(k)||{c:0,p:0}; c+=v.c; p+=v.p; ctx.lineTo(X(P.bk[q].t0+OR.blk/2),y0-amp*Math.sqrt((v.c+v.p)/vmax)); }
       const f=Math.min(1,(c+p)/(vmax*8)); ctx.strokeStyle=(c>=p?"#3FC1E8":"#FF5FA2")+orA(0.35+0.65*f); ctx.lineWidth=0.8+1.6*f; ctx.stroke(); }
     for(let q=0;q<=OR.i;q++){ const c=P.bk[q].cd, x=X(c.t+OR.blk/2), up=c.c>=c.o, bw=Math.max(1.5,colW*0.6); ctx.strokeStyle=up?"#F1F5FB":"#9FB2CC"; ctx.fillStyle=up?"#0A1426":"#9FB2CC";
@@ -5864,13 +5866,13 @@ function tgOpDraw(cv){ const P=OR.P, g=OR.g; if(!P||!g) return; const strip=docu
     if(last){ ctx.font="bold 15px "+C("--font"); const s="flip (OI + vol) "+Math.round(last[1]).toLocaleString(), tw=ctx.measureText(s).width, xx=Math.max(g.AXL+4,X(last[0])-tw-12), yy=y.Y(last[1])-8;
       ctx.fillStyle="#0A1426d9"; ctx.fillRect(xx-3,yy-15,tw+6,19); ctx.fillStyle="#FFD23F"; ctx.fillText(s,xx,yy); } }
   if(tgOpOn("walls")){ const sl=b.s, v=tgOpSigned(sl,"g"), idx=sl.k.map((k,i)=>i).filter(i=>sl.k[i]>=y.lo&&sl.k[i]<=y.hi).sort((i,j)=>Math.abs(v[j])-Math.abs(v[i])), pick=[];
-    for(const i of idx){ if(pick.every(j=>Math.abs(sl.k[j]-sl.k[i])>=step*3)) pick.push(i); if(pick.length===5) break; }
+    for(const i of idx){ if(pick.every(j=>Math.abs(y.Y(sl.k[j])-y.Y(sl.k[i]))>=26)) pick.push(i); if(pick.length===4) break; }
     ctx.font="bold 15px "+C("--font"); const xs=Math.min(X(b.t0)+colW+10,g.w-170);
     for(const i of pick){ const k=sl.k[i], val=v[i], col=val>=0?OR_COL.pos:OR_COL.neg, yy=y.Y(k), s=orFk(k)+"  "+orMoney(val), tw=ctx.measureText(s).width;
       ctx.strokeStyle=col+"aa"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(g.AXL,yy); ctx.lineTo(xs-4,yy); ctx.setLineDash([2,4]); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle="#0A1426e6"; ctx.fillRect(xs-3,yy-11,tw+8,21); ctx.strokeStyle=col; ctx.strokeRect(xs-3,yy-11,tw+8,21); ctx.fillStyle=col; ctx.fillText(s,xs+1,yy+5); } }
   if(tgOpOn("notes")) for(const n of tgOpNotes(P,vol,flip)) notes.push(n);
-  if(notes.length){ ctx.font="15px "+C("--font"); notes.slice(-4).forEach((n,i)=>{ const xx=X(n.t), yy=y.Y(n.v);
+  if(notes.length){ ctx.font="15px "+C("--font"); notes.slice(-3).forEach((n,i)=>{ const xx=X(n.t), yy=y.Y(n.v);
       ctx.fillStyle=n.col; ctx.beginPath(); ctx.arc(xx,yy,5,0,7); ctx.fill();
       const tw=ctx.measureText(n.s).width, bx=Math.max(g.AXL+4,Math.min(xx-tw/2,g.w-tw-12)), by=top+22+i*24;
       ctx.strokeStyle=n.col; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(bx+tw/2,by+4); ctx.stroke();
