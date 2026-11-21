@@ -170,7 +170,7 @@ class Settings(BaseSettings):
     TAS_EXCLUDE_ROOTS: str = "SPY,QQQ,SPX,SPXW"  # high-volume index roots (covered by other jobs)
     TAS_POLL_INTERVAL: int = 30  # seconds between polls (NAS capture daemon)
     TAS_RETENTION_DAYS: int = 30  # prune raw tas_prints older than this
-    TAS_SPX_TAPE_MIN_PREMIUM: float = 5_000.0  # SPX/SPXW prints kept from this $ (retail 0DTE puts, put buy-ratio report); SPY/QQQ use TAS_MIN_PREMIUM (2026-11-05)
+    TAS_SPX_TAPE_MIN_PREMIUM: float = 5_000.0  # SPX/SPXW + (2026-11-21) SPY/QQQ prints kept from this $ (retail 0DTE, put buy-ratio, strike ridge); single stocks use TAS_MIN_PREMIUM
     TAS_INDEX_MIN_PREMIUM: float = 250_000.0  # un-exclude big index prints >= this $ (SPX/SPXW; ETFs use 0.4x)
     TAS_CROWD_AGG: bool = True  # 2026-11-13 #97: every SPX/SPXW print (any size) summed per minute x strike into tas_crowd_minute (whales vs crowd); no extra Convex calls
     TAS_WHALE_MIN_SIZE: int = 20  # #97: a print of >= this many contracts is a 'whale', smaller = 'crowd'

@@ -166,7 +166,8 @@ def test_spx_tape_floor_quote_loc_and_vendor_legs(session: Session) -> None:
     )
     tas_capture_job.run(session, _StubSource(df), settings=_settings(), force=True)
     rows = sorted(_rows(session), key=lambda r: r.strike)
-    assert [r.root for r in rows] == ["SPXW", "SPXW", "SPXW"]          # QQQ $5k print stays under its floor
+    assert [r.root for r in rows] == ["QQQ", "SPXW", "SPXW", "SPXW"]   # 2026-11-21: QQQ $5k print kept too (SPX + SPY + QQQ floor)
+    rows = [r for r in rows if r.root == "SPXW"]
     by_k = {r.strike: r for r in rows}
     assert by_k[5900].quote_loc == "at_ask" and by_k[5850].quote_loc == "at_bid"
     assert by_k[5880].quote_loc == "mid"
@@ -254,3 +255,21 @@ def test_prints_tagged_with_session_and_gth_goes_to_next_day(session: Session) -
         (240.0, "rth", date(2026, 11, 20)),
         (245.0, "curb", date(2026, 11, 20)),
     ]
+
+
+def test_5k_floor_covers_spx_spy_qqq_not_single_stocks(session: Session) -> None:
+    """2026-11-21: SPY / QQQ prints from $5k are kept like SPX; a $5k single-stock print is still dropped ($25k floor)."""
+    df = pd.DataFrame(
+        {
+            "time": ["2026-06-03T13:30:01", "2026-06-03T13:30:02", "2026-06-03T13:30:03", "2026-06-03T13:30:04"],
+            "symbol": [".SPY260603C600", ".QQQ260603P500", ".NVDA260603C150", ".SPXW260603P5900"],
+            "price": [0.60, 0.50, 0.60, 1.00],
+            "size": [100, 100, 100, 60],
+            "aggressor_side": ["buy", "sell", "buy", "buy"],
+            "bid_price": [0.55, 0.45, 0.55, 0.95],
+            "ask_price": [0.60, 0.55, 0.60, 1.00],
+            "spread_leg": [False, False, False, False],
+        }
+    )
+    tas_capture_job.run(session, _StubSource(df), settings=_settings(), force=True)
+    assert sorted(r.root for r in _rows(session)) == ["QQQ", "SPXW", "SPY"]

@@ -18,6 +18,7 @@ keeps its own A5 + B2 toggles, so production's two clockSync() calls are removed
 every 30 min, role labels, hover card, 5-min candles, price tag, contours + pills. VIX tab, OFF by default, display only.
 2026-11-19 (night, later): + the Flow panel F1-F3 (tg_flowpanel.js, section 20), Flow tab, OFF by default, display only.
 2026-11-20: + BQ Book clean (tg_book.js, toggle bq in tg_module.js, section 21): 08:35 Week book IV cleaned with provenance.
+2026-11-21: + ORBS+ (tg_orbsplus.js, section 22): Ridge / Flip (OI + vol) / Walls $ (OI + signed) / Notes / Strip (charm + push bars) on the Orbs tab, OFF by default.
 Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
@@ -34,7 +35,8 @@ CO = open(os.path.join(HERE, "tg_color.js"), encoding="utf-8").read()   # 2026-1
 SM = open(os.path.join(HERE, "tg_strike.js"), encoding="utf-8").read()   # 2026-11-13 (night) Short strikes marker sm-v0
 VS = open(os.path.join(HERE, "tg_vixmap.js"), encoding="utf-8").read()   # 2026-11-19 VIX map Strike map (C1 + C2)
 FP = open(os.path.join(HERE, "tg_flowpanel.js"), encoding="utf-8").read()   # 2026-11-19 Flow panel F1-F3
-MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM + VS + FP).encode("utf-8")).hexdigest()[:12])
+OP = open(os.path.join(HERE, "tg_orbsplus.js"), encoding="utf-8").read()   # 2026-11-21 Orbs+ (replay features live)
+MOD = MOD.replace("__TG_PAGE_V__", "test-" + hashlib.sha256((MOD + UI + DL + LN + PF + CO + SM + VS + FP + OP).encode("utf-8")).hexdigest()[:12])
 H = P
 def rep(old, new, count=1):
     global H
@@ -66,6 +68,11 @@ CSS = """<style>
 #tgProf{grid-column:1/-1} #tabMap.pfon{grid-template-rows:auto minmax(0,1fr)} body.phone #tabMap.pfon{grid-template-rows:auto 420px 300px 420px}
 #tgFp{margin-top:8px} #tgFpC{width:100%;height:340px;display:block;margin-top:6px}
 .tgcolor{border:2px dashed #ffcc00;margin:4px 6px;padding:6px 8px;background:#0b0f14;color:#f2f5f8;font:15px system-ui,sans-serif} .tgcolor #tgColorHead{line-height:1.4} .tgcolor i{font-style:normal;color:#C9D4E3} #tabMap #tgColorC{width:100%;height:110px;display:block;margin-top:4px;cursor:crosshair}
+.tgopseg{display:inline-flex;gap:2px;background:var(--pane);border:1px solid var(--rule);border-radius:7px;padding:2px}
+.tgopseg button{border:0;background:transparent;color:#C9D6E6;font:600 16px var(--font);padding:5px 11px;border-radius:5px;cursor:pointer}
+.tgopseg button[aria-pressed=true]{background:#1F8FC4;color:#fff}
+.tgop{border:1px dashed #ffcc00;border-radius:8px;margin-top:8px;padding:6px 8px;font-size:16px;line-height:1.5;color:#fff;background:var(--pane)}
+.tgop canvas{display:block;width:100%;height:260px;margin-top:4px}
 </style>"""
 
 # 1. title + bar
@@ -76,7 +83,7 @@ rep("let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPE
     "let MAP_T1 = 16*60; const MAP_T0 = 8*60, MAP_STEP = 2, MAP_SUB = 2, MAP_OPEN = 9*60+30;   // TEST: MAP_T1 is let (A5)")
 # 3. module after PHI
 anchor = "const PHI = x => Math.exp(-x*x/2)*0.398942280401433;\n"
-rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n" + VS + "\n" + FP + "\n")
+rep(anchor, anchor + MOD + "\n" + DL + "\n" + LN + "\n" + PF + "\n" + CO + "\n" + SM + "\n" + VS + "\n" + FP + "\n" + OP + "\n")
 # 4. E2 inside smileBeta
 rep("function smileBeta(k,S,dte){ if(!SB) return null; ",
     "function smileBeta(k,S,dte){ if(!SB) return null; if(TG.e2){ const bs=tgBetaSmooth(k,S,dte); if(bs!=null) return bs; } ")
@@ -222,6 +229,11 @@ rep('      <div class="f2foot" id="f2Foot"></div>\n    </section>',
     '      <div class="f2foot" id="f2Foot"></div>\n      <div class="tgprof" id="tgFp" hidden><div id="tgFpHead"></div><canvas id="tgFpC"></canvas></div>\n    </section>')
 rep('<button class="btn" id="tgSmBtn" ', '<button class="btn" id="tgFpBtn" aria-pressed="false" title="TEST Flow panel (off by default): F1 dealer gamma at spot through the day (OI + today\'s measured trades), F2 option volume imbalance 0DTE vs next expiry, F3 price terrain badge (HVN / LVN / NEW over the last 3 sessions). Display only.">Flow panel</button><button class="btn" id="tgSmBtn" ')
 rep('function renderFlow2(se,d,book){\n', 'function renderFlow2(se,d,book){\n  try{ tgFpDraw(); }catch(e){ console.error(e); }   // TEST FP\n')
+# 22. (2026-11-21) ORBS+ (tg_orbsplus.js): the replay-video features live on the Orbs tab - Ridge, Flip (OI + vol), Walls $
+#     (OI + signed), Notes, Strip (charm + outside traders vs dealers forced). Five TEST buttons on the Orbs header, OFF by default.
+rep('      `<button class="sxbtn" id="orReset" ', '      tgOpBtns()+`<button class="sxbtn" id="orReset" ')
+rep('<div class="orread" id="orRead"></div>`;', '<div class="tgop" id="tgOp" hidden><div id="tgOpHead"></div><canvas id="tgOpC"></canvas></div><div class="orread" id="orRead"></div>`;')
+rep('orDrawMain(document.getElementById("orMainC")); orDrawLadder', 'orDrawMain(document.getElementById("orMainC")); try{ tgOpDraw(document.getElementById("orMainC")); }catch(e){ console.error(e); } orDrawLadder')
 # 12. UI script before </body>
 rep("\n})();\n</script>\n</body>", "\n" + UI + "\n})();\n</script>\n</body>")
 open(out, "w", encoding="utf-8", newline="\n").write(H)

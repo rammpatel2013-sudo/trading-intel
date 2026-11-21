@@ -56,8 +56,10 @@ _SWEEP_CODES = frozenset({"I"})          # ISO / intermarket sweep
 _BLOCK_CODES = frozenset({"t", "m", "D"})  # negotiated / block prints on the tape
 _BLOCK_MIN_SIZE = 250                     # large single print = block even without a block code
 _INDEX_ETF = frozenset({"SPY", "QQQ"})   # index ETFs get a lower premium floor than SPX/SPXW
-_SPX_TAPE = frozenset({"SPX", "SPXW"})  # kept from Settings.TAS_SPX_TAPE_MIN_PREMIUM ($5k); 2026-11-05 SPY moved to the ETF rule
-_ETF_TAPE = frozenset({"SPY", "QQQ"})   # 2026-11-05: index ETFs kept from the market-wide floor (TAS_MIN_PREMIUM, $25k)
+# 2026-11-21 (Mithil): the $5k tape floor (Settings.TAS_SPX_TAPE_MIN_PREMIUM) now covers SPX + SPY + QQQ; single stocks
+# stay on the market-wide floor (TAS_MIN_PREMIUM, $25k). Was SPX/SPXW only since 2026-11-05.
+_SPX_TAPE = frozenset({"SPX", "SPXW", "SPY", "QQQ"})
+_ETF_TAPE = frozenset({"SPY", "QQQ"})   # index ETFs: also un-excluded at the market-wide floor (kept for the floor maths)
 _LAST_ERROR: list = [None]              # 2026-11-19: last fetch error text (the daemon re-logs in on 401/403)
 _LAST_TS: list = [None]                 # newest print time of the previous poll (daemon = one process) -> gap check
 
