@@ -71,6 +71,7 @@ from trading_intel.memory.models import (
     WatchlistEntry,
 )
 from trading_intel.prices.realized_vol import rv_rolloff_projection
+from trading_intel.market.clean_iv import book_fix
 
 log = structlog.get_logger(__name__)
 
@@ -132,6 +133,7 @@ def get_walls(
             OiChainEod.cp,
             func.sum(OiChainEod.gxoi).label("gxoi"),
             func.sum(OiChainEod.oi).label("oi"),
+            func.avg(OiChainEod.iv).label("iv"),
         )
         .where(
             OiChainEod.symbol == sym,
@@ -144,10 +146,18 @@ def get_walls(
     ).all()
     if not raw:
         return {"symbol": sym, "found": False, "call_wall": None, "put_wall": None}
+    # 2026-11-21: the 08:35 book's vendor IV is broken on some expiries (11/13 fake 7,860 call wall from a 0.23%
+    # IV) -> rescale gamma-OI to our own IVs from the quote mids. End-of-day books are unchanged.
+    fix = book_fix(session, sym, ts)
+    if fix is not None:
+        raw = [_Raw(r.expiry, r.strike, r.cp, fix.gxoi(r.expiry, r.strike, r.cp, r.oi, r.gxoi), r.oi)
+               for r in raw]
     rows, matched_oi = _walls_rows(raw, drop_matched=drop_matched)
 
     out: dict[str, Any] = {"symbol": sym, "as_of": _iso_day(ts), "dte_max": dte_c,
                            "matched_removed": bool(drop_matched), "matched_oi_removed": matched_oi}
+    if fix is not None:
+        out["iv_source"] = "own IVs from the 08:35 quote mids (gamma-OI rescaled)"
     if drop_matched:
         out["matched_note"] = ("open interest held on both the call and the put at the same strike "
                                "and expiry (box / conversion financing) is left out of the walls")
@@ -183,6 +193,15 @@ def get_walls(
         out["magnet"] = {"strike": mk, "gxoi": by_strike[mk]}
     out["found"] = True
     return out
+
+
+class _Raw:
+    """A grouped (expiry, strike, cp) row with gxoi rescaled to own IVs."""
+
+    __slots__ = ("expiry", "strike", "cp", "gxoi", "oi")
+
+    def __init__(self, expiry: Any, strike: Any, cp: Any, gxoi: float | None, oi: Any) -> None:
+        self.expiry, self.strike, self.cp, self.gxoi, self.oi = expiry, strike, cp, gxoi, oi
 
 
 class _WallRow:
@@ -261,7 +280,7 @@ def _straddle_from_oi(
     """
     floor = floor or ts.date()
     rows = session.execute(
-        select(OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.iv).where(
+        select(OiChainEod.strike, OiChainEod.cp, OiChainEod.dte, OiChainEod.iv, OiChainEod.expiry).where(
             OiChainEod.symbol == symbol,
             OiChainEod.source.like("convex%"),
             OiChainEod.ts == ts,
@@ -273,8 +292,10 @@ def _straddle_from_oi(
     if not rows:
         return None
     d0 = same_day_years(ts.date()) * 365.0  # in days, for the dte-0 leg
+    fix = book_fix(session, symbol, ts)   # 2026-11-21: own IVs on the 08:35 book (None for EOD books)
     frame = pd.DataFrame(
-        [{"opt_kind": r.cp, "strike": r.strike, "iv": r.iv,
+        [{"opt_kind": r.cp, "strike": r.strike,
+          "iv": fix.iv(r.expiry, r.strike, r.iv) if fix is not None else r.iv,
           "expiration": r.dte if r.dte else d0} for r in rows]
     )
     try:
@@ -285,7 +306,10 @@ def _straddle_from_oi(
         return None
     if isinstance(res.get("dte"), (int, float)) and res["dte"] < 1:
         res["dte"] = 0  # the same-day leg was priced in fractional days; report it as 0DTE
-    return {k: (_num(v) if isinstance(v, float) else v) for k, v in res.items()}
+    out = {k: (_num(v) if isinstance(v, float) else v) for k, v in res.items()}
+    if fix is not None:
+        out["iv_source"] = "own IVs from the 08:35 quote mids"
+    return out
 
 
 def get_straddle(session: Session, symbol: str, *, dte_max: int = 400) -> dict[str, Any]:

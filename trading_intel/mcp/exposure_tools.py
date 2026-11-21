@@ -33,6 +33,7 @@ from trading_intel.memory.models import (
     LiveGex,
     OiChainEod,
 )
+from trading_intel.market.clean_iv import book_fix
 from trading_intel.timeutils import eastern_now, live_expiry_floor
 
 
@@ -92,6 +93,7 @@ def get_exposure_by_strike(
             OiChainEod.oi,
             OiChainEod.expiry,
             OiChainEod.dte,
+            OiChainEod.iv,
         ).where(
             OiChainEod.symbol == sym,
             OiChainEod.source.like("convex%"),
@@ -103,6 +105,9 @@ def get_exposure_by_strike(
 
     if not rows:
         return {"symbol": sym, "found": False, "reason": "empty chain"}
+
+    # 2026-11-21: own IVs on the 08:35 book -> stored dxoi / gxoi rescaled (None for EOD books: unchanged)
+    fix = book_fix(session, sym, ts)
 
     # Aggregate by strike
     strikes: dict[float, dict[str, float]] = {}
@@ -117,6 +122,9 @@ def get_exposure_by_strike(
         s = strikes[k]
         dx = float(r.dxoi) if r.dxoi is not None else 0.0
         gx = float(r.gxoi) if r.gxoi is not None else 0.0
+        if fix is not None:
+            dx = float(fix.dxoi(r.expiry, r.strike, r.cp, r.oi, dx) or 0.0)
+            gx = float(fix.gxoi(r.expiry, r.strike, r.cp, r.oi, gx) or 0.0)
         oi_val = int(r.oi) if r.oi is not None else 0
         s["net_dex"] += dx
         s["total_oi"] += oi_val
@@ -186,6 +194,8 @@ def get_exposure_by_strike(
         "strikes": series,
         "count": len(series),
         "units": "vendor-scaled dxoi/gxoi; net_gex = call - put (naive)",
+        "iv_source": ("own IVs from the 08:35 quote mids (dxoi/gxoi rescaled)" if fix is not None
+                      else "vendor"),
     }
 
 

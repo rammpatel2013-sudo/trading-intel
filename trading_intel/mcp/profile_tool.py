@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from trading_intel.greeks.exposure_profile import greek_profiles
 from trading_intel.memory.models import GreeksSnapshot, OiChainEod
+from trading_intel.market.clean_iv import book_fix
 from trading_intel.timeutils import eastern_now, live_expiry_floor, same_day_years
 
 
@@ -67,18 +68,22 @@ def _book_chain(
     d0_end = datetime.combine(book_day, time()) + timedelta(
         seconds=same_day_years(book_day) * 365.0 * 24 * 3600
     )
-    return pd.DataFrame(
+    fix = book_fix(session, sym, ts)   # 2026-11-21: own IVs on the 08:35 book (None for EOD books)
+    df = pd.DataFrame(
         [
             {
                 "strike": r.strike,
                 "opt_kind": "call" if str(r.cp).upper().startswith("C") else "put",
-                "iv": r.iv,
+                "iv": fix.iv(r.expiry, r.strike, r.iv) if fix is not None else r.iv,
                 "oi": r.oi,
                 "expiration": d0_end if r.expiry == book_day else r.expiry,
             }
             for r in rows
         ]
     )
+    if fix is not None:
+        df.attrs["iv_source"] = "own IVs from the 08:35 quote mids"
+    return df
 
 
 def expired_rolloff(
@@ -171,5 +176,6 @@ def get_profile(
         "spot": float(spot),
         "found": bool(profiles),
         "n_strikes": int(len(chain)),
+        "iv_source": chain.attrs.get("iv_source", "vendor"),
         "profiles": profiles,
     }
