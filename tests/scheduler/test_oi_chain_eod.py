@@ -193,3 +193,50 @@ def test_prune_keeps_full_chain_rows():
         prune_oi_chain.run(s, settings=_S(), now=datetime(2026, 11, 21))
         left = sorted(s.scalars(select(OiChainEod.source)).all())
     assert left == ["cvx_full", "cvx_full_set"]
+
+
+def test_spx_closing_book_written_at_1600(monkeypatch):
+    """The SPX full pull is also the day's closing book: convex_eod*, <= 180 d, 16:00 stamp, no signed cols."""
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import Session
+
+    from trading_intel.memory.models import OiChainEod
+    from trading_intel.scheduler.jobs import oi_chain_eod as job
+
+    engine = create_engine("sqlite://")
+    OiChainEod.__table__.create(engine)
+
+    class _Source:
+        def full_chain(self, symbol):
+            return _full_chain()
+
+    monkeypatch.setattr(job, "is_trading_session", lambda d: True)
+    with Session(engine) as session:
+        job.run(session, _Source(), settings=object(), full_only=True)
+        job.run(session, _Source(), settings=object(), full_only=True)   # re-run: no duplicates
+        book = session.scalars(select(OiChainEod).where(OiChainEod.source.like("convex%"))).all()
+        full = session.scalars(select(OiChainEod).where(OiChainEod.source.like("cvx_full%"))).all()
+    assert len(full) == 2
+    assert len(book) == 1                                   # the 5-year LEAPS stays out of the 180 d book
+    b = book[0]
+    assert b.source == "convex_eod" and b.strike == 6200.0 and b.oi == 500
+    assert (b.ts.hour, b.ts.minute) == (16, 0)
+    assert all(f.ts.hour == 0 for f in full)                # the bank keeps the 00:00 stamp
+    assert b.vol_buy is None and b.val_sell is None         # signed columns stay on the bank only
+
+
+def test_closing_book_am_root_tag_and_window():
+    ts = datetime(2026, 11, 20)
+    recs = [
+        {"source": "cvx_full", "dte": 3, "ts": ts, "vol_buy": 1.0, "vol_sell": 2.0, "val_buy": 3.0, "val_sell": 4.0},
+        {"source": "cvx_full_set", "dte": 28, "ts": ts, "vol_buy": None, "vol_sell": None, "val_buy": None,
+         "val_sell": None},
+        {"source": "cvx_full", "dte": 181, "ts": ts},
+        {"source": "cvx_full", "dte": None, "ts": ts},
+    ]
+    from trading_intel.scheduler.jobs.oi_chain_eod import _closing_book
+
+    out = _closing_book(recs, ts)
+    assert [r["source"] for r in out] == ["convex_eod", "convex_eod_set"]
+    assert all(r["ts"] == datetime(2026, 11, 20, 16) for r in out)
+    assert all("vol_buy" not in r for r in out)

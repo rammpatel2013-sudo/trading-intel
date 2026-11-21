@@ -11,6 +11,10 @@ Two kinds of book share the 00:00 stamp:
   - AM book (source ``convex_am`` / ``convex_am_set``, written ~08:35 by index_walls_am, replaced by the EOD
     book that evening): pre-open IVs -> the last convex spot BEFORE that day's 09:30 open (= prior close).
 Anything else (old ``convex`` rows) is treated as an EOD book.
+
+2026-11-21: SPX also gets a closing book (``convex_eod`` / ``convex_eod_set``, from the oi_chain_eod SPX full
+pull) stamped 16:00 of the day instead of 00:00 - its 08:35 book keeps the 00:00 stamp, so the two never share a
+``ts``. Same rule applies: EOD book -> last spot on that day.
 """
 from __future__ import annotations
 

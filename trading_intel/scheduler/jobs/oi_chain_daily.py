@@ -13,6 +13,9 @@ Conventions: ``gxoi`` is stored unsigned per side, so ``net_gxoi`` = calls − p
 with the largest same-side gxoi over 0–60 DTE (matches ``get_walls``). Spot =
 that day's ``quotes_daily`` close. Descriptor only (rule 4).
 
+2026-11-21: reads only ``convex*`` rows (the SPX full-chain bank ``cvx_full*`` doubled SPX) and only the
+newest book of each day (SPX now has an 08:35 book at 00:00 and a closing book at 16:00).
+
 Manual run:
     python -m trading_intel.scheduler.jobs.oi_chain_daily            # last 10 days
     python -m trading_intel.scheduler.jobs.oi_chain_daily --all      # full backfill
@@ -37,11 +40,20 @@ log = structlog.get_logger(__name__)
 DEFAULT_LOOKBACK_DAYS = 10
 
 _SQL = text("""
-WITH base AS (
-    SELECT symbol, ts::date AS d, source, expiry, strike, cp, dte,
-           oi, oi_change, volume, gxoi, dxoi, vxoi, iv
+WITH book AS (
+    -- one book per (symbol, day): the newest stamp (SPX: the 16:00 closing book beats the 08:35 one).
+    -- Only reader books (convex*): the SPX full-chain bank (cvx_full*) would double every SPX total.
+    SELECT symbol, max(ts) AS ts
     FROM oi_chain_eod
-    WHERE ts >= :since
+    WHERE ts >= :since AND source LIKE 'convex%'
+    GROUP BY symbol, ts::date
+),
+base AS (
+    SELECT e.symbol, e.ts::date AS d, e.source, e.expiry, e.strike, e.cp, e.dte,
+           e.oi, e.oi_change, e.volume, e.gxoi, e.dxoi, e.vxoi, e.iv
+    FROM oi_chain_eod e
+    JOIN book b ON b.symbol = e.symbol AND b.ts = e.ts
+    WHERE e.source LIKE 'convex%'
 ),
 spot AS (
     SELECT symbol, date AS d, close FROM quotes_daily WHERE date >= :since_d

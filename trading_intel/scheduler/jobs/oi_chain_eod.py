@@ -20,6 +20,14 @@ under source ``cvx_full`` (PM) / ``cvx_full_set`` (AM-settled). The name deliber
 "convex": every reader filters ``source LIKE 'convex%'``, so these rows never double the SPX 08:35 book. Not
 pruned (the ledger needs the history). ~28k rows a night.
 
+2026-11-21 (later) SPX closing book: the same pull is ALSO written as an ordinary SPX EOD book - source
+``convex_eod`` / ``convex_eod_set``, expiries <= 180 d, no signed columns - stamped at 16:00 of the day
+(``EOD_BOOK_HOUR``), NOT 00:00. Why: every SPX tool read only the 08:35 book (pre-open quotes) all evening and
+all weekend. Why 16:00: the 08:35 book keeps its 00:00 stamp and its history (am_feed / opex_split / the AM
+card read ``convex_am`` by name), and a different ``ts`` means no reader ever sums the two books. Readers that
+take the newest book get the close after ~17:15 and the next morning's 08:35 book from 08:35.
+``book_spot`` treats it as an EOD book (spot = last spot on that day).
+
 Manual run:
     python -m trading_intel.scheduler.jobs.oi_chain_eod
     python -m trading_intel.scheduler.jobs.oi_chain_eod --full-only     # just the SPX full-chain step
@@ -51,6 +59,9 @@ DEFAULT_WINDOW_DAYS = 180
 FULL_SOURCE = "cvx_full"
 FULL_SYMBOLS = ("SPX",)
 FULL_WINDOW_DAYS = 4000   # every listed expiry (SPX LEAPS run ~5 years)
+# SPX closing book written from the same pull (see module doc): cvx_full -> convex_eod, stamped 16:00.
+EOD_BOOK_HOUR = 16
+_BOOK_SOURCE = {FULL_SOURCE: _SOURCE, FULL_SOURCE + "_set": _SOURCE + "_set"}
 # Postgres caps bound params at 65535/statement; ~22 cols/row -> stay well under
 # (~2978 rows max after the 2026-10-25 widening). Batch the multi-row INSERT so a
 # wide 180d chain doesn't blow it.
@@ -168,6 +179,21 @@ def _insert_records(session: Session, records: list[dict]) -> None:
         session.execute(_insert(OiChainEod).values(batch).on_conflict_do_nothing(index_elements=_UQ_COLS))
 
 
+def _closing_book(records: list[dict], ts: datetime) -> list[dict]:
+    """The ``cvx_full`` rows re-tagged as the day's SPX EOD book (``convex_eod*``, <= 180 d, 16:00 stamp)."""
+    book_ts = ts.replace(hour=EOD_BOOK_HOUR, minute=0, second=0, microsecond=0)
+    signed = set(_SIGNED_COLS.values())
+    out = []
+    for r in records:
+        if r["dte"] is None or r["dte"] > DEFAULT_WINDOW_DAYS or r["source"] not in _BOOK_SOURCE:
+            continue
+        rec = {k: v for k, v in r.items() if k not in signed}
+        rec["source"] = _BOOK_SOURCE[r["source"]]
+        rec["ts"] = book_ts
+        out.append(rec)
+    return out
+
+
 def _spx_full(session: Session, source: OptionsDataSource, ts: datetime, bound) -> int:
     """SPX every-expiry chain + signed day volume -> ``cvx_full`` rows. Returns rows written (0 on failure)."""
     written = 0
@@ -183,11 +209,15 @@ def _spx_full(session: Session, source: OptionsDataSource, ts: datetime, bound) 
             bound.warning("oi_chain_eod.full_empty", symbol=symbol)
             continue
         _insert_records(session, records)
+        book = _closing_book(records, ts)
+        if book:
+            _insert_records(session, book)
         session.commit()
         n_signed = sum(1 for r in records if (r.get("vol_buy") or 0) or (r.get("vol_sell") or 0))
         exps = sorted({r["expiry"] for r in records})
         bound.info("oi_chain_eod.full", symbol=symbol, rows=len(records), expiries=len(exps),
-                   last_expiry=exps[-1].isoformat(), rows_with_signed_volume=n_signed)
+                   last_expiry=exps[-1].isoformat(), rows_with_signed_volume=n_signed,
+                   closing_book_rows=len(book), closing_book_ts=ts.replace(hour=EOD_BOOK_HOUR).isoformat())
         written += len(records)
     return written
 
