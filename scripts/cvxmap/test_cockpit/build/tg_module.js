@@ -5,30 +5,19 @@
    running on port 8899. Toggles are per browser (localStorage on this port only).
    v0 = a first rule whose numbers still come from the stage-1 investigation; its scores restart when the rule changes. */
 const TG_DEF=[ // id, short label, tracker ids, version, help
-  ["b2","One IV clock","B2","v1","0DTE IV is solved to 16:15 but the greeks run to 16:00. On: one clock for both. 16:00 = expiring SPXW stop trading at 16:00 and settle on the close; 16:15 = the vendor's convention. With r=0 Black-76 both give the SAME gamma at the current minute; projected columns, charm and vanna differ."],
-  ["a5","Half-day clock","A5","v1","On an early-close day (ti.json session, or ?earlyclose=13:00 in the address to simulate) the 0DTE clock, the IV and the map end at that close."],
-  ["b3","Quote filter","B3","v0","Drop a side's IV when its quote is unusable: bid 0, ask ≤ bid, or spread > 60% of mid. The other side is used, as for a failed solve."],
-  ["b6","Gap fill","B6","v0","A strike left with no IV keeps its position: IV filled linearly from the nearest strikes with IV (production drops that strike)."],
-  ["b5","Week IV = live","B5","v1","Week book IV from the live chain (same contract: expiry, AM/PM, strike), rescaled to the contract's real time left. Morning IV + ½×ATM shift only where live IV is missing. OI unchanged."],
   ["b4","Bad-book check","B4a","v0","Flag only (changes nothing): compares the 08:35 book IV with the live chain near spot. ⚠ when the median gap > 8 vol pts or > 25% of strikes are off by > 10 pts, or IVs are outside 3%–150% (10/28 was 50+ pts off). Normal intraday IV drift is several points, so the bar is set well above it."],
-  ["bq","Book clean","BQ","v0","(2026-11-20, review round 2 item 1) 08:35 Week book IV cleaned before use: a side counts only inside 3%–150%; calls and puts > 10 vol pts apart = conflict, resolved toward the expiry's agreeing neighbours; one good side = that side; none = filled from strikes ≤ 3 away, else LEFT OUT (never guessed). Read-out shows the share of each kind."],
   ["e2","Smooth β","E2","v1","Smile β blended across zone centres (Gaussian, half a zone wide) instead of hard steps at the zone edges. Needs Smile ON."],
   ["d1","Full Smile slope","D1","v1","Adds Vega·db/dS to Smile gamma (the slope's own change with price). Needs Smile ON; with hard zones only the 1/S part counts."],
   ["c2","IV path","C2","v0","IV at a map price moves along β from the anchor spot: σ(S) = σ₀ + ∫ β/x dx. Greeks are computed at that IV. Smile ON adds the slope terms on top. Needs the β file."],
   ["d4","Real 5-min charm","D4","v1","Charm = the actual change in delta over the next 5 minutes (instead of rate × 5 min, which overstates the last 10–30 minutes)."],
   ["f2","Levels from raw","F2","v0","Peaks/troughs counted beyond 8% of the RAW field's 95th percentile, not of the colour field (so colour scaling and median removal don't decide which levels count)."],
   ["fx","Display labels","F1 F3–F5","v1","Legend says raw vs median-relative and day vs column scale; flat zone around troughs/peaks; how the lines are found; Smile OFF/ON zero-line check (model-sensitive ≥ 10 pts)."],
-  ["v9","Week IV = VIX9D","V9","v0","(2026-11-13 overnight, backlog #21) Week book IV re-marked by the change in VIX9D since the first reading of the day (live.json v9dq) instead of ½ × the change in 0DTE ATM IV. Production writes v9d = 0 (V9D_INTO_MAP = False), so production never uses VIX9D. Recorded every 15 min (config v9) and, separately, both rules are checked against the live week chain IV (v9_score.py, nightly)."],
-  ["wk","Week IV","WK","v1","(2026-11-20) Week book IV: after 09:35 the live Week chain per contract; before (or where missing) the 08:35 book DELTA-WEIGHTED (at the money the average of call and put IV, far out the out-of-the-money side; the 08:35 calls sat 2.6-6.6 vol pts under the puts on 11/19). Week greeks taken at the forward F = spot + basis measured from the live Week deltas (+5 to +14 pts on 11/19). Replaces B5 / BQ / V9."],
-  ["ab","Data check","AB","v0","(2026-11-20, round-2 step 3) Warn, never hide: amber outline on the gamma map and a read-out line saying why the data is not trustworthy now (stale feed, old Week book, 08:35 call/put gap, few live Week IVs, 0DTE strikes without IV, pre-open). Display only."],
-  ["pin","Close pin","P3","v0","(2026-11-20, round-2 step 4) Dashed magenta line: the close pin from the gamma profile projected to 15:50 (rule cp-v0: long gamma at spot -> nearest positive-gamma peak within 1.5%; short gamma -> no pin, flip shown). Scored nightly vs the 16:00 close (S4pin)."],
   ["sg","Shadow","SG","v0","Alma's shadow greeks (2026-11-13): IV moves with price by our measured β (the Smile button's β file) along the path from that minute's price. Gamma = gamma + vanna × (IV change per point); Delta pane = the plain option delta at that moving IV, computed directly; charm / vanna use the path IV. Overrides Smile while on (Smile measures the min-variance hedge, a different object - never both). Needs the β file."]];
 // 2026-11-09: the Density DN1-DN6 and VIX VX1/VX2 toggles moved to the production page as options (OFF by default).
-const TG_SEL={b2:["","1600","1615"]};
+const TG_SEL={};   // 2026-11-21: B2 retired (production runs one 16:00 clock)
 let TG={}; for(const [id] of TG_DEF) TG[id]=id in TG_SEL?"":false;
 let TG_ANYG=false, TG_GEND=16*60;
 const TG_STATS={rej:0,fill:0,wkLive:0,wkFb:0};
-const FEED_END=16*60+15;   // cvx_live.py EXPIRY_MIN: the writer solves 0DTE IV to 16:15
 function tgApply(){ TG_ANYG=!!(TG.c2||TG.d1||TG.d4||TG.sg); }
 function tgLoad(){ try{ const j=JSON.parse(localStorage.getItem("tg_v1")||"{}"); for(const k in TG) if(k in j) TG[k]=j[k]; }catch(e){} tgApply(); }
 function tgSave(){ try{ localStorage.setItem("tg_v1",JSON.stringify(TG)); }catch(e){} }
@@ -39,8 +28,8 @@ function tgEarly(){ // early-close minute today, or null
   if(ss&&ss.early_close&&ss.date===day){ const m=/(\d\d):(\d\d)/.exec(String(ss.close||"")); if(m) return (+m[1])*60+(+m[2]); }
   return null; }
 function tgEarlySim(){ try{ return !!new URLSearchParams(location.search).get("earlyclose"); }catch(e){ return false; } }
-function tgClockSync(){ const e=TG.a5?tgEarly():null; MAP_T1=e||16*60; TG_GEND=MAP_T1+(TG.b2==="1615"?15:0); }
-function tgRowsOn(){ return !!(TG.b3||TG.b2||(TG.a5&&tgEarly())); }
+function tgClockSync(){ TG_GEND=MAP_T1; }   // 2026-11-21: production owns the clock (A5 half day, 16:00 feed clock)
+function tgRowsOn(){ return false; }   // B2 / B3 / A5 retired 2026-11-21 (production)
 function tgKey(){ const a=[]; for(const [id] of TG_DEF) if(TG[id]) a.push(id+(TG[id]===true?"":TG[id]));
   if(TG.a5) a.push("ec"+tgEarly()); if(TG.c2){ const d=st.live&&st.live[st.sym]; a.push("s0"+(d&&d.spot||0).toFixed(1)); }
   return a.join(","); }
@@ -149,7 +138,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
 const TG_SCORE_V="score-v1"; const TG_PAGE_V="__TG_PAGE_V__";
-const TG_CFGS=[["off",{}],["wk",{wk:true}],["smp",{sg:true,e2:true}],["clock",{b2:"1600",a5:true}],["iv0",{b3:true,b6:true}],["wk_smp",{wk:true,sg:true,e2:true}],["b2_1600",{b2:"1600"}],["b2_1615",{b2:"1615"}],["a5",{a5:true}],["b3",{b3:true}],["b6",{b6:true}],["b5",{b5:true}],["bq",{bq:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["v9",{v9:true}]];
+const TG_CFGS=[["off",{}],["smp",{sg:true,e2:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["d4",{d4:true}]];   // 2026-11-21: off = production (Week IV, 0DTE IV clean, 16:00 clock now on main)
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
 function tgCross(prices,col,i,lev){ const a=col[i-1], b=col[i]; return prices[i-1]+(prices[i]-prices[i-1])*(lev-a)/((b-a)||1); }
@@ -189,7 +178,7 @@ function tgReadoutOne(d,day,now){ // current toggles + st.smileOn; basis/ledger 
   const gS=colNow[i0]+(colNow[Math.min(P.length-1,i0+1)]-colNow[i0])*((S-P[i0])/dp);
   const tC=MAP_T1-10, tyC=Math.max(TG_GEND-tC,1)/525600, colC=P.map(p=>greekCol("gamma",live,p,tyC)+(near.length?greekColWeek("gamma",near,p,tC,day):0)), zC=tgZeros(P,colC,tgP95(colC));
   const out={g_spot:+gS.toFixed(4),R:+R.toFixed(4),zeros:zN.filter(z=>inWin(z.z)),peaks:ex.pk.filter(x=>inWin(x.p)),troughs:ex.tr.filter(x=>inWin(x.p)),
-    close:{target_min:tC,pred:tgNearestZero(zC,S),zeros:zC.map(z=>z.z),pin:tgPinFrom(P,colC,S,dp)}};
+    close:{target_min:tC,pred:tgNearestZero(zC,S),zeros:zC.map(z=>z.z),pin:mfPinFrom(P,colC,S)}};
   const T=tgTargets(near,day), P3=tgGrid(S,0.03,dp);
   for(const k of ["d1","fri"]){ const tg=T[k]; if(!tg){ out[k]=null; continue; } const col=tgProfileAt(near,P3,tg.target_ms), zs=tgZeros(P3,col,tgP95(col));
     out[k]={e:tg.e,exp_t:tg.exp_t,pred:tgNearestZero(zs,S),zeros:zs.map(z=>z.z)}; }

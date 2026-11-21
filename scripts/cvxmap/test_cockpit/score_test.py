@@ -39,6 +39,7 @@ RULES = "score-v1"
 TOUCH, HELD, BROKE, BROKE_N, WIN, MFE_WIN, ZONE_PCT = 2.0, 10.0, 5.0, 3, 60, 15, 0.01
 LOCK_PTS = 5.0
 OPEN = 9 * 60 + 30
+SCORE_FROM = 9 * 60 + 45   # 2026-11-21 (Mithil Q1: he trades from ~09:45): read-outs before 09:45 are never scored
 
 
 def hm(m):
@@ -226,7 +227,9 @@ def score_all(data, outdir):
     days_out, board = {}, {}
     f5 = {}   # (horizon, cfg, target) -> list of (date, t, slot, pred, spot, straddle)
     for day in sorted(by_day):
-        rs = sorted(by_day[day], key=lambda r: r["t"])
+        rs = sorted((r for r in by_day[day] if r["t"] >= SCORE_FROM), key=lambda r: r["t"])
+        if not rs:
+            continue
         px = px_of(day)
         close_min = rs[0].get("session_close") or 16 * 60
         exp = [hm(m) for m in expected_slots(close_min)]

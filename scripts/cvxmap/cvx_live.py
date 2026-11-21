@@ -268,11 +268,15 @@ def group_issues(d):
 # MEASURED 2026-10-27: sweeping the assumed expiry time against ToS's own cIV/pIV
 # over 40 strikes, mean IV bias was +0.89 vol pts at 16:00 and -0.04 at 16:15.
 # ToS prices SPX 0DTE to the 16:15 SETTLEMENT PRINT, not the 16:00 cash close.
-EXPIRY_MIN = 16 * 60 + 15
+# 2026-11-21 (Mithil, Q3 "both 16:00"): ONE clock for the map - the 0DTE IV is now solved to the 16:00 cash close, the
+# same clock the map's greeks run to (they ran to 16:00 on IVs solved to 16:15 before). The payload says which clock
+# ("iv_end", minutes after midnight ET) so the cockpit can re-express older 16:15 logs. Half days: the cockpit
+# re-expresses from iv_end to the early close (earlySg).
+EXPIRY_MIN = 16 * 60
 
 
 def minutes_to_close(now=None):
-    """Minutes until the 16:15 ET settlement, floored at 1 (as the map's ty is)."""
+    """Minutes until EXPIRY_MIN (16:00 ET since 2026-11-21; was the 16:15 settlement), floored at 1."""
     now = now or now_et()
     return max(EXPIRY_MIN - (now.hour * 60 + now.minute), 1)
 
@@ -516,7 +520,7 @@ def build_symbol(sym, dec, today, state, pull_ts=None):
         "xrows": xrows,
         "forward": F, "forward_sd": Fsd, "basis": F - spot,
         "focus_k": focus["k"], "dte": dte,
-        "T_greeks": T, "T_iv": Tiv, "mins_to_close": minutes_to_close(),
+        "T_greeks": T, "T_iv": Tiv, "mins_to_close": minutes_to_close(), "iv_end": EXPIRY_MIN,
         "n_strikes_available": len(book0),
     }
 

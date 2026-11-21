@@ -152,3 +152,15 @@ Mithil 11/13 20:18 "build" (#87, reversing the drop) and the backlog cut (#21 = 
 - **Test:** `tests/week_expect.py <dir>` then `node tests/weekiv.js` (25 checks; 11/19 13:17: OFF identical to the old page; basis,
   868 blended and 312 live IVs = Python; Week gamma at spot = independent sum at the forward; 0DTE unchanged; AB / P3 / groups).
   11/19 13:17 effect: Week gamma trough near price moved from ~7,229 to ~7,189.
+
+## 2026-11-21 — promoted to MAIN (Mithil Q1–Q6), test toggles retired
+- **Main cockpit now:** Week IV (live Week IV after 09:35, 08:35 delta-weighted before, Book-clean fallback, Week greeks at
+  F = S + B), 0DTE IV clean (quote filter + gap fill), ONE 16:00 clock (cvx_live.py solves 0DTE IV to 16:00 and writes
+  `iv_end`; the cockpit re-expresses older 16:15 logs / half days via earlySg), buttons **Data check** and **Close pin**
+  (off by default). Code: the `mf*` block in cvx_cockpit.html (before greekColNear). 11/19 13:17: Week trough 7,230 → 7,185,
+  All-book trough 7,208 → 7,188, 0DTE unchanged.
+- **Retired on the test page:** B2, A5, B3, B6, B5, BQ, V9, WK, AB, P3 (files tg_book.js, tg_week.js removed; tests weekiv.js,
+  bookclean.js replaced by `tests/mainfix.js` on the production page, 26 checks vs iv0_expect.py / week_expect.py / book_expect.py).
+  The test page "off" = the new main. Groups left: Smile path (SG + E2, scored 20 sessions first — Q4), Real charm, Levels.
+- **Score:** read-outs before 09:45 are never scored (SCORE_FROM in score_test.py, Q1). Close pin still scored (S4pin) from
+  the test page's read-outs (mfPinFrom).
