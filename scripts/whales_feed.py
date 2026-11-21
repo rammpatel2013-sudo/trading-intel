@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import sys
 import time
@@ -196,17 +197,33 @@ def score(days: list[dict]) -> dict:
 
 # ---------------------------------------------------------------- DB + files
 def load_rows(sf: Callable, trade_date: date) -> list[dict]:
-    from sqlalchemy import select
+    """2026-11-21: the database adds up the day (one row per minute x bucket x 0DTE-or-not, ~1,600 rows) instead of
+    shipping every minute x contract row to Python each pass (hundreds of thousands on a heavy day: a pass took
+    longer than a minute and held a whole NAS core). Same numbers: minute_flows() only ever sums signed_delta per
+    minute and bucket, split 0DTE vs the rest, and uses one spot per minute (now the newest print's spot)."""
+    from sqlalchemy import and_, case, func, select
 
     from trading_intel.memory.models import TasCrowdMinute as T
+    win = and_(T.trade_date == trade_date, T.root.in_(("SPX", "SPXW")),
+               T.minute >= datetime.combine(trade_date, dtime(9, 30)),
+               T.minute < datetime.combine(trade_date, dtime(16, 15)))
+    is0 = case((T.expiry == trade_date, 1), else_=0)
     with sf() as s:
-        # 2026-11-19 A1b: tas_crowd_minute now also holds VIX rows and overnight / pre-market minutes -
+        # 2026-11-19 A1b: tas_crowd_minute also holds VIX rows and overnight / pre-market minutes -
         # this feed is SPX regular hours only.
-        q = (select(T.minute, T.expiry, T.bucket, T.signed_delta, T.spot, T.buy_contracts, T.sell_contracts)
-             .where(T.trade_date == trade_date, T.root.in_(("SPX", "SPXW")),
-                    T.minute >= datetime.combine(trade_date, dtime(9, 30)),
-                    T.minute < datetime.combine(trade_date, dtime(16, 15))))
-        return [dict(r._mapping) for r in s.execute(q)]
+        q = (select(T.minute, T.bucket, is0.label("z"), func.sum(T.signed_delta).label("sd"))
+             .where(win).group_by(T.minute, T.bucket, is0))
+        out = [{"minute": r.minute, "bucket": r.bucket, "expiry": trade_date if r.z else None,
+                "signed_delta": float(r.sd or 0.0), "spot": None} for r in s.execute(q)]
+        if s.get_bind().dialect.name == "postgresql":      # newest print's spot per minute
+            sq = (select(T.minute, T.spot).where(win, T.spot.isnot(None))
+                  .order_by(T.minute, T.last_ts.desc()).distinct(T.minute))
+        else:
+            sq = select(T.minute, func.max(T.spot)).where(win, T.spot.isnot(None)).group_by(T.minute)
+        spots = {m: sp for m, sp in s.execute(sq)}
+    for r in out:                                    # spot rows first so minute_flows sees it for every minute
+        r["spot"] = spots.get(r["minute"])
+    return out
 
 
 def write_json(path: Path, obj: dict) -> None:
@@ -260,6 +277,10 @@ def main() -> int:
     from trading_intel.config import get_settings
     from trading_intel.memory.db import make_session_factory
 
+    try:                                          # 2026-11-21: the cockpit writer and page server come first on the 2-core NAS
+        os.nice(10)
+    except (AttributeError, OSError):
+        pass
     settings = get_settings()
     sf = make_session_factory(settings)
     wm = int(getattr(settings, "TAS_WHALE_MIN_SIZE", 20))
@@ -286,7 +307,7 @@ def main() -> int:
                 run_once(sf, now.date(), _mins(now), wm, final=False)
             except Exception as exc:
                 print(f"whales_feed ERROR: {str(exc)[:200]}", flush=True)
-        time.sleep(EVERY_S - (time.time() % EVERY_S) + 3)
+        time.sleep(EVERY_S - (time.time() % EVERY_S) + 3)    # always waits for the NEXT minute, never back-to-back
 
 
 if __name__ == "__main__":
