@@ -41,7 +41,7 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 
 | Table | One row = | Key | Time key | Writer | Source | Kind |
 | --- | --- | --- | --- | --- | --- | --- |
-| `oi_chain_eod` | contract per day (~180 DTE wide) | symbol+ts+source+expiry+strike+cp | `ts` timestamp | oi_chain_eod | Convex | raw; kept 365 days |
+| `oi_chain_eod` | contract per day (~180 DTE wide; SPX `cvx_full*` = every expiry ±50% + signed day volume vol_buy/vol_sell/val_buy/val_sell, 2026-11-21) | symbol+ts+source+expiry+strike+cp | `ts` timestamp | oi_chain_eod | Convex | raw; kept 365 days (`cvx_full*` kept) |
 | `oi_chain_daily` | symbol per day: OI, volume, walls, ATM IV | symbol+ts | `ts` date | oi_chain_daily | from oi_chain_eod | derived |
 | `greeks_chain` | contract per snapshot (+ option root, underlying price, day VWAP / close) | symbol+ts+source+root+expiry+strike+cp | `ts` timestamptz | chain_snapshot, chain_bank (source cvforge_bank, hourly 10:05–16:05, ~1,550 names), focus_live (source convex_focus, every 5 min, up to 4 focus names, first 4 expiries) | Convex; CVForge | raw; no prune yet (13 GB + ~1.5 GB/day from the chain bank) |
 | `greeks_snapshots` | symbol per snapshot: GEX/DEX/VEX/CHEX totals (+ cvforge_bank rows: IV30/IV90, term, 25Δ skew, call/put OI + $ premium) | symbol+ts+source | `ts` timestamptz | greeks_snapshot, index_greeks_snapshot, sector_greeks, chain_bank (hourly), focus_live (convex_focus, every 5 min) | Convex; CVForge for sector ETFs | raw† |

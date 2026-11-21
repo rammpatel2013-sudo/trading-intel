@@ -261,6 +261,12 @@ class OiChainEod(Base):
     gammas_sell: Mapped[float | None] = mapped_column(Float)
     deltas_buy: Mapped[float | None] = mapped_column(Float)
     deltas_sell: Mapped[float | None] = mapped_column(Float)
+    # 2026-11-21 (0070): the day's SIGNED contract volume / premium (vendor aggressor split). Filled only by the
+    # SPX full-chain step (source "cvx_full" / "cvx_full_set": every expiry, +-50%); NULL on every other row.
+    vol_buy: Mapped[float | None] = mapped_column(Float)
+    vol_sell: Mapped[float | None] = mapped_column(Float)
+    val_buy: Mapped[float | None] = mapped_column(Float)
+    val_sell: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(32), default="convex")
 
 

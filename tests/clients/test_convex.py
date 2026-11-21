@@ -186,3 +186,32 @@ def test_front_expiry_request_and_settled_filter(monkeypatch):
     monkeypatch.setattr(cx, "eastern_now", lambda: datetime(2026, 10, 22, 17, 0))
     kept = cx._live_front(df, 2)["expiration"].dt.date.tolist()
     assert kept == [today + timedelta(days=1), today + timedelta(days=2)]   # evening: settled
+
+
+def test_full_chain_signed_params_and_fallback(monkeypatch):
+    """full_chain: explicit 0-based chunks, signed params asked for, chain() tiers when the vendor rejects them."""
+    from trading_intel.clients import convex as cvx
+    from trading_intel.errors import DataSourceError
+
+    client = _make_client(monkeypatch, [_row()])
+    seen = []
+
+    def fake_fetch(symbol, params, *, exps, strike_range):
+        seen.append((exps, params))
+        if exps[0] == 40:
+            raise DataSourceError("param rejected")
+        return pd.DataFrame([{"symbol": ".SPXW261123C7000", "expiration": pd.Timestamp("2026-11-23"),
+                              "strike": 7000.0, "opt_kind": "call", "oi": 5, "volm_buy": 3.0, "volm_sell": 1.0,
+                              "value_buy": 300.0, "value_sell": 90.0}])
+
+    monkeypatch.setattr(client, "_fetch_chain", fake_fetch)
+    monkeypatch.setattr(client, "chain", lambda symbol, exps, strike_range: pd.DataFrame(
+        [{"symbol": ".SPX271217P5000", "expiration": pd.Timestamp("2027-12-17"), "strike": 5000.0,
+          "opt_kind": "put", "oi": 9}]))
+    df = client.full_chain("SPX")
+    assert seen[0][0] == tuple(range(0, 40)) and "volm_buy" in seen[0][1] and "value_sell" in seen[0][1]
+    assert len(df) == 2
+    assert {"volm_buy", "volm_sell", "value_buy", "value_sell"} <= set(df.columns)
+    put = df[df["opt_kind"] == "put"].iloc[0]
+    assert pd.isna(put["volm_buy"])                       # fallback chunk: signed columns NaN, row kept
+    assert cvx.FULL_CHAIN_CHUNKS[1][0] == 40

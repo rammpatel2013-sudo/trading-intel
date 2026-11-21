@@ -5,6 +5,7 @@ for the whole watchlist, daily). The day-over-day analytics only need the last
 couple of snapshots; longer history is for ad-hoc study. This deletes
 ``oi_chain_eod`` rows older than ``OI_CHAIN_RETENTION_DAYS`` (default 90) to keep
 the table bounded. Deletes are naturally idempotent (CLAUDE.md rule 5).
+2026-11-21: the SPX full-chain rows (source ``cvx_full*``) are KEPT - the position ledger needs their history.
 
 Manual run:
     python -m trading_intel.scheduler.jobs.prune_oi_chain
@@ -42,7 +43,7 @@ def run(
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="prune_oi_chain")
 
-    result = session.execute(delete(OiChainEod).where(OiChainEod.ts < cutoff))
+    result = session.execute(delete(OiChainEod).where(OiChainEod.ts < cutoff, OiChainEod.source.notlike("cvx_full%")))
     deleted = int(result.rowcount or 0)
     session.commit()
     bound.info("prune_oi_chain.done", cutoff=cutoff.isoformat(), deleted=deleted, days=days)

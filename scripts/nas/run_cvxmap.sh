@@ -68,6 +68,8 @@ case "${1:-}" in
       run_one cvxmap-sides   "-e DASH_DIR=/app/scripts/cvxmap/data" "python scripts/cvxmap/sides_feed.py"
       # 2026-11-20: focus names - focus_raw_YYYYMMDD -> focus_live.json + focus_flow_<SYM>_* + DB (convex_focus)
       run_one cvxmap-focus   "" "python scripts/cvxmap/focus_live.py"
+      # 2026-11-21: one-shot - waits for the first SPX pull, puts TODAY's OI into the ledger (oi1 was a day stale), exits
+      run_one cvxmap-ledgeram "-e TI_DIR=/app" "python scripts/cvxmap/pos_ledger.py --morning"
       run_one cvxmap-serve   "-p ${PORT}:${PORT}" "python scripts/cvxmap/serve_cvx.py ${PORT}"
       echo "  cockpit: http://192.168.1.211:${PORT}/cvx_cockpit.html"
     } >> "$LOG" 2>&1
@@ -75,7 +77,7 @@ case "${1:-}" in
   stop)
     {
       echo "=== $(date '+%Y-%m-%d %H:%M:%S') cvxmap STOP ==="
-      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-focus cvxmap-ledger; do
+      for n in cvxmap-collect cvxmap-write cvxmap-doc cvxmap-blocks cvxmap-sides cvxmap-focus cvxmap-ledger cvxmap-ledgeram; do
           "$DOCKER" rm -f "$n" >/dev/null 2>&1 && echo "  stopped $n" || echo "  $n not running"
       done
       echo "  (serve left up so the cockpit stays readable)"

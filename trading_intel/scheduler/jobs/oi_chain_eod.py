@@ -13,8 +13,16 @@ is the right cadence for a meaningful "vs yesterday" comparison. Idempotent:
 (CLAUDE.md rule 5), with ``ts`` floored to the day so a same-day re-run does not
 duplicate. Data collection only — emits no signals (FlashAlpha rule 4).
 
+2026-11-21 SPX full-chain step (folds in scripts/eod_chain.py, DSM "TI EOD chain"): SPX/SPXW are excluded from the
+per-strike watchlist loop (CHAIN_EXCLUDE_ROOTS), but the position ledger needs EVERY SPX expiry with the day's
+signed volume. ``_spx_full`` pulls ``full_chain`` (every listed expiry, +-50%, volm/value buy+sell) and writes it
+under source ``cvx_full`` (PM) / ``cvx_full_set`` (AM-settled). The name deliberately does NOT start with
+"convex": every reader filters ``source LIKE 'convex%'``, so these rows never double the SPX 08:35 book. Not
+pruned (the ledger needs the history). ~28k rows a night.
+
 Manual run:
     python -m trading_intel.scheduler.jobs.oi_chain_eod
+    python -m trading_intel.scheduler.jobs.oi_chain_eod --full-only     # just the SPX full-chain step
 """
 from __future__ import annotations
 
@@ -40,6 +48,9 @@ log = structlog.get_logger(__name__)
 _SOURCE = "convex_eod"
 _UQ_COLS = ["symbol", "ts", "source", "expiry", "strike", "cp"]
 DEFAULT_WINDOW_DAYS = 180
+FULL_SOURCE = "cvx_full"
+FULL_SYMBOLS = ("SPX",)
+FULL_WINDOW_DAYS = 4000   # every listed expiry (SPX LEAPS run ~5 years)
 # Postgres caps bound params at 65535/statement; ~22 cols/row -> stay well under
 # (~2978 rows max after the 2026-10-25 widening). Batch the multi-row INSERT so a
 # wide 180d chain doesn't blow it.
@@ -66,6 +77,8 @@ _FLOAT_COLS = (
     "deltas_buy",
     "deltas_sell",
 )
+# vendor name -> column (0070). NaN / absent -> NULL, like every optional field.
+_SIGNED_COLS = {"volm_buy": "vol_buy", "volm_sell": "vol_sell", "value_buy": "val_buy", "value_sell": "val_sell"}
 _INT_COLS = ("oi", "oi_change", "volume")
 
 
@@ -76,6 +89,7 @@ def _chain_to_records(
     ts: datetime,
     window_days: int,
     source: str = _SOURCE,
+    signed: bool = False,
 ) -> list[dict]:
     """Map a normalized ``chain_long`` frame to ``oi_chain_eod`` rows.
 
@@ -133,6 +147,7 @@ def _chain_to_records(
             "dte": dte.astype("Int64"),
             "source": src,
             **{name: col(name) for name in (*_INT_COLS, *_FLOAT_COLS)},
+            **({out: col(vendor) for vendor, out in _SIGNED_COLS.items()} if signed else {}),
         }
     )
     out = out.astype(object).where(pd.notna(out), None)
@@ -145,6 +160,38 @@ def _chain_to_records(
     return records
 
 
+def _insert_records(session: Session, records: list[dict]) -> None:
+    dialect = session.bind.dialect.name if session.bind is not None else "postgresql"
+    _insert = sqlite_insert if dialect == "sqlite" else pg_insert
+    for start in range(0, len(records), _INSERT_BATCH):
+        batch = records[start : start + _INSERT_BATCH]
+        session.execute(_insert(OiChainEod).values(batch).on_conflict_do_nothing(index_elements=_UQ_COLS))
+
+
+def _spx_full(session: Session, source: OptionsDataSource, ts: datetime, bound) -> int:
+    """SPX every-expiry chain + signed day volume -> ``cvx_full`` rows. Returns rows written (0 on failure)."""
+    written = 0
+    for symbol in FULL_SYMBOLS:
+        try:
+            chain = source.full_chain(symbol)  # type: ignore[attr-defined]
+        except (TradingIntelError, AttributeError) as exc:
+            bound.warning("oi_chain_eod.full_failed", symbol=symbol, error=str(exc))
+            continue
+        records = _chain_to_records(chain, symbol=symbol, ts=ts, window_days=FULL_WINDOW_DAYS,
+                                    source=FULL_SOURCE, signed=True)
+        if not records:
+            bound.warning("oi_chain_eod.full_empty", symbol=symbol)
+            continue
+        _insert_records(session, records)
+        session.commit()
+        n_signed = sum(1 for r in records if (r.get("vol_buy") or 0) or (r.get("vol_sell") or 0))
+        exps = sorted({r["expiry"] for r in records})
+        bound.info("oi_chain_eod.full", symbol=symbol, rows=len(records), expiries=len(exps),
+                   last_expiry=exps[-1].isoformat(), rows_with_signed_volume=n_signed)
+        written += len(records)
+    return written
+
+
 def run(
     session: Session,
     source: OptionsDataSource,
@@ -152,8 +199,9 @@ def run(
     settings: Settings | None = None,
     window_days: int = DEFAULT_WINDOW_DAYS,
     symbols: list[str] | None = None,
+    full_only: bool = False,
 ) -> None:
-    """Snapshot the watchlist's wide EOD per-strike chain into ``oi_chain_eod``."""
+    """Snapshot the watchlist's wide EOD per-strike chain into ``oi_chain_eod`` (+ the SPX full chain first)."""
     settings = settings or get_settings()
     correlation_id = uuid.uuid4().hex
     bound = log.bind(correlation_id=correlation_id, job="oi_chain_eod")
@@ -167,6 +215,12 @@ def run(
         return
 
     ts = eastern_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # SPX full chain FIRST (2 requests, ~10 s): the watchlist loop below takes ~1 h at 7 calls/min.
+    if symbols is None:
+        full_rows = _spx_full(session, source, ts, bound)
+        bound.info("oi_chain_eod.full_done", rows=full_rows)
+    if full_only:
+        return
     symbols = symbols or effective_symbols(session, settings)
     # Index ETFs we only want the aggregate GEX/DEX line for stay out of the
     # heavy per-strike persistence (greeks_snapshot still collects them).
@@ -200,14 +254,7 @@ def run(
                 OiChainEod.source.in_(("convex_am", "convex_am_set")),
             )
         )
-        dialect = session.bind.dialect.name if session.bind is not None else "postgresql"
-        _insert = sqlite_insert if dialect == "sqlite" else pg_insert
-        for start in range(0, len(records), _INSERT_BATCH):
-            batch = records[start : start + _INSERT_BATCH]
-            stmt = _insert(OiChainEod).values(batch).on_conflict_do_nothing(
-                index_elements=_UQ_COLS
-            )
-            session.execute(stmt)
+        _insert_records(session, records)
         rows_written += len(records)
         bound.debug("oi_chain_eod.symbol", symbol=symbol, rows=len(records))
 
@@ -230,10 +277,15 @@ def main() -> None:
         ]
     )
 
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--full-only", action="store_true", help="only the SPX full-chain step")
+    args = ap.parse_args()
     source = ConvexClient(settings)
     session_factory = make_session_factory(settings)
     with session_factory() as session:
-        run(session, source, settings=settings)
+        run(session, source, settings=settings, full_only=args.full_only)
 
 
 if __name__ == "__main__":

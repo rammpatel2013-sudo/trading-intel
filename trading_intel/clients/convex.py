@@ -168,6 +168,15 @@ _CHAIN_FLOW_PARAMS = (
 
 _CHAIN_PARAMS = (*_CHAIN_CORE_PARAMS, *_CHAIN_OI_CH, *_CHAIN_FLOW_PARAMS)
 
+# 2026-11-21: the day's SIGNED contract volume / premium (vendor aggressor split). Day counters - still intact at
+# 23:05 ET on 11/20 - so one pull after the close gives the whole session. Only ``full_chain`` asks for them, so a
+# rejection never costs the other callers their request.
+_CHAIN_SIGNED_PARAMS = ("volm_buy", "volm_sell", "value_buy", "value_sell")
+
+#: Expiry-index chunks for ``full_chain``: 0-based Convex indices (index 0 = the front, today's 0DTE until 16:15).
+#: SPX 11/20: 60 expiries to Dec 2031; an empty second chunk is fine.
+FULL_CHAIN_CHUNKS: tuple[tuple[int, ...], ...] = (tuple(range(0, 40)), tuple(range(40, 80)))
+
 #: Post-rename column names for every optional param, so a degraded pull still
 #: returns a frame with the full column set (filled NaN).
 _OPTIONAL_OUT_COLS = ("oi_change", *_CHAIN_FLOW_PARAMS)
@@ -414,6 +423,39 @@ class ConvexClient(OptionsDataSource):
         if last_err is not None:
             return self.chain(symbol, strike_range=strike_range)
         return self.chain(symbol, strike_range=strike_range)
+
+    def full_chain(
+        self,
+        symbol: str,
+        *,
+        chunks: tuple[tuple[int, ...], ...] = FULL_CHAIN_CHUNKS,
+        strike_range: float = 0.50,
+    ) -> pd.DataFrame:
+        """EVERY listed expiry at +-``strike_range`` with the day's signed volume (2026-11-21, SPX ledger).
+
+        Explicit 0-based indices pass through ``_front_request`` untouched (no front skip, no live-front trim).
+        Per chunk: core + oi_ch + quote/flow + signed params, falling back to ``chain``'s own tiers (signed
+        columns NaN) if the vendor rejects them. Returns the normalized frame with ``volm_buy`` / ``volm_sell`` /
+        ``value_buy`` / ``value_sell`` always present.
+        """
+        parts: list[pd.DataFrame] = []
+        for idx in chunks:
+            try:
+                df = self._fetch_chain(symbol, (*_CHAIN_PARAMS, *_CHAIN_SIGNED_PARAMS),
+                                       exps=tuple(idx), strike_range=strike_range)
+            except DataSourceError:
+                df = self.chain(symbol, exps=tuple(idx), strike_range=strike_range)
+            if not df.empty:
+                parts.append(df)
+        cols = (*_OPTIONAL_OUT_COLS, *_CHAIN_SIGNED_PARAMS)
+        if not parts:
+            return pd.DataFrame(columns=[*_CHAIN_STRUCT, *cols])
+        out = pd.concat(parts, ignore_index=True)
+        for col in cols:
+            if col not in out.columns:
+                out[col] = float("nan")
+        keys = [c for c in ("symbol", "expiration", "strike", "opt_kind") if c in out.columns]
+        return out.drop_duplicates(subset=keys).reset_index(drop=True)
 
     def flow_chain(
         self,

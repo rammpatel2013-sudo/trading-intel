@@ -17,6 +17,13 @@ Run:
     python pos_ledger.py                   # today's date
     python pos_ledger.py --date 20261028   # specific date
     python pos_ledger.py --backfill 7      # last N days
+    python pos_ledger.py --morning         # 2026-11-21: today's OI into the ledger (started by run_cvxmap.sh start)
+
+--morning (fix for the stale oi1): the nightly run (~17:10) exports the next morning's ledger before that
+morning's OI exists, so ledger.json / ledger_D.json carried the PREVIOUS morning's OI as oi1. --morning waits for
+the collector's first SPX idx pull of the day (up to 30 min), runs the existing reconcile_oi() (oi_current + pos_oi
+from that OI; pos_raw untouched - the ledger is never seeded with OI) and re-exports ledger.json + ledger_D.json,
+keeping the night's health block.
 """
 from __future__ import annotations
 
@@ -586,6 +593,55 @@ def reconcile_oi(engine, as_of_date: datetime.date) -> int:
     return reconciled
 
 
+def first_idx_pull_ready(raw_path: str, day: datetime.date) -> bool:
+    """True once the raw file holds an SPX idx pull stamped ``day``."""
+    if not os.path.exists(raw_path):
+        return False
+    opener = gzip.open if raw_path.endswith(".gz") else open
+    try:
+        with opener(raw_path, "rt", encoding="utf-8") as fh:
+            for line in fh:
+                head = line[:400]
+                if '"idx"' not in head:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue      # the collector may be mid-write on the last line
+                if rec.get("pull") == "idx" and SYMBOL in (rec.get("symbols") or []) \
+                        and str(rec.get("ts", ""))[:10] == day.isoformat():
+                    return True
+    except (OSError, EOFError):
+        return False              # gzip still being appended
+    return False
+
+
+def morning_refresh(engine, day: datetime.date, wait_s: int = 1800, poll_s: int = 60) -> int:
+    """Wait for today's first SPX pull, reconcile today's OI into the ledger, re-export ledger.json."""
+    import time as _time
+
+    raw_path = os.path.join(DATA, f"raw_{day.strftime('%Y%m%d')}.ndjson.gz")
+    waited = 0
+    while not first_idx_pull_ready(raw_path, day):
+        if waited >= wait_s:
+            log(f"morning: no SPX idx pull for {day} after {wait_s} s - ledger OI left as is")
+            return 0
+        _time.sleep(poll_s)
+        waited += poll_s
+    n = reconcile_oi(engine, day)
+    health = None
+    try:
+        with open(os.path.join(DATA, "ledger.json"), encoding="utf-8") as fh:
+            old = json.load(fh)
+        if old.get("as_of") == day.isoformat():
+            health = old.get("health")
+    except (OSError, ValueError):
+        pass
+    export_ledger_json(engine, day, health)
+    log(f"morning: {n} ledger rows got {day} OI (waited {waited} s); ledger.json re-exported")
+    return n
+
+
 # ---------- JSON export for cockpit ----------
 def export_ledger_json(engine, as_of_date: datetime.date, health: dict | None = None) -> str:
     """Export the latest ledger state as JSON for the cockpit panel.
@@ -747,10 +803,21 @@ def main():
     parser.add_argument("--backfill", type=int, help="Process last N days")
     parser.add_argument("--reconcile", help="Run OI reconciliation for date (YYYYMMDD)")
     parser.add_argument("--export", help="Export ledger.json for date (YYYYMMDD), no processing")
+    parser.add_argument("--morning", nargs="?", const="today",
+                        help="Wait for today's first pull, put today's OI in the ledger, re-export (YYYYMMDD or today)")
     args = parser.parse_args()
 
     engine = get_engine()
     log("=" * 60)
+
+    if args.morning:
+        d = now_et().date() if args.morning == "today" else datetime.datetime.strptime(args.morning, "%Y%m%d").date()
+        if d.weekday() >= 5:
+            log(f"morning: {d} is a weekend - nothing to do")
+            return
+        log(f"morning OI refresh for {d}")
+        morning_refresh(engine, d)
+        return
 
     if args.export:
         d = datetime.datetime.strptime(args.export, "%Y%m%d").date()
