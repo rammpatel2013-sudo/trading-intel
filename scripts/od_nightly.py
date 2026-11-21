@@ -11,7 +11,8 @@ Run (NAS DSM task "od nightly", Mon-Fri 16:20 ET, user root):
 Options:
     --symbols AAPL,MSFT   (default: Mag7 + SPX,SPY,QQQ,VIX)
     --force               run outside 16:15-17:00 ET / on weekends (testing)
-    --max-dte N           skip expirations further out than N days (default 400)
+    --max-dte N           skip expirations further out than N days (default 2500 = every listed expiry;
+                          was 400 until 2026-11-21, which dropped SPX Dec-2028+ LEAPS)
     --out DIR             default reports/optionsdata
     --workers N           symbols pulled at the same time (default 3)
     --day YYYY-MM-DD      folder label; weekend catch-up of the last session, e.g.
@@ -234,7 +235,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbols", default=",".join(DEFAULT_SYMS))
     ap.add_argument("--force", action="store_true")
-    ap.add_argument("--max-dte", type=int, default=400)
+    ap.add_argument("--max-dte", type=int, default=2500)
     ap.add_argument("--out", default=os.path.join("reports", "optionsdata"))
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--day", help="YYYY-MM-DD label for the folder (weekend catch-up of the last session); default today ET")
