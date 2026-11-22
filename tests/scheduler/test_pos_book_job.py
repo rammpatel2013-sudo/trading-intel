@@ -157,3 +157,10 @@ def test_prune_archives_before_delete_and_keeps_a_year(s, tmp_path):
     f = tmp_path / "2026" / "tas_prints_2026-10-09.csv.gz"
     with gzip.open(f, "rt") as fh:
         assert sum(1 for _ in fh) == 31  # header + 30 prints
+
+
+def test_coverage_text_before_any_percent_exists():
+    assert pos_book.coverage_text(None) is None
+    assert pos_book.coverage_text((None, None, "ok", None, 447529)) == "Tape captured: 447,529 prints (ok)"
+    assert pos_book.coverage_text((96.4, None, "ok", None, 1)) == "Tape captured: 96% of normal (ok)"
+    assert pos_book.coverage_text((None, 40.0, "thin", "10:30", 1)).endswith("(thin) · empty: 10:30")

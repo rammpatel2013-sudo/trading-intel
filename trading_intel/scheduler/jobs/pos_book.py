@@ -344,18 +344,23 @@ def _send(session: Session, t: date, rows: list[dict], sight: list[dict]) -> Non
     unnamed = [r[0] for r in players if r[2] == "unnamed"]
     cov = session.execute(
         text(
-            "SELECT coverage_pct, vs_median_pct, status, empty_rth_slots FROM tape_coverage_daily "
+            "SELECT coverage_pct, vs_median_pct, status, empty_rth_slots, prints FROM tape_coverage_daily "
             "WHERE date = :d AND root = 'SPX*'"
         ),
         {"d": t},
     ).first()
-    cov_txt = None
-    if cov:
-        pct = cov[0] if cov[0] is not None else cov[1]
-        cov_txt = f"Tape captured: {pct:.0f}% ({cov[2]})" + (
-            f" · empty: {cov[3]}" if cov[3] else ""
-        )
-    TelegramClient(get_settings()).send_message(card(t, rows, sight, names, unnamed, cov_txt))
+    TelegramClient(get_settings()).send_message(
+        card(t, rows, sight, names, unnamed, coverage_text(cov))
+    )
+
+
+def coverage_text(cov) -> str | None:
+    """One line on how much of that session's tape we caught; works before any % exists (first weeks)."""
+    if not cov:
+        return None
+    pct = cov[0] if cov[0] is not None else cov[1]
+    size = f"{pct:.0f}% of normal" if pct is not None else f"{(cov[4] or 0):,} prints"
+    return f"Tape captured: {size} ({cov[2]})" + (f" · empty: {cov[3]}" if cov[3] else "")
 
 
 def main(argv: list[str] | None = None) -> int:
