@@ -21,8 +21,12 @@ header{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;padding:14p
 h1{font-size:22px;margin:0} .asof{font:14px var(--mono);color:var(--axis)} a.back{margin-left:auto;font:600 15px var(--sans);
  color:#2B4C9B;text-decoration:none;border:1px solid #C9D3EA;background:#fff;padding:5px 12px;border-radius:6px}
 .how{margin:0 16px 12px;font-size:16px;line-height:1.5;color:var(--body);max-width:1100px}
-main{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:14px;padding:0 16px 40px}
-.card{background:#fff;border:1px solid #E1E1E1;border-radius:6px;padding:14px 16px;min-width:0}
+main{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:14px;padding:0 16px 8px}
+.card{background:#fff;border:1px solid #E1E1E1;border-radius:6px;padding:14px 16px;min-width:0;cursor:zoom-in;
+ transition:box-shadow .15s,border-color .15s} .card:hover{border-color:#9FB3D9;box-shadow:0 3px 12px rgba(30,50,90,.14)}
+.card.big{grid-column:1/-1;cursor:zoom-out;border-color:#5878C8;box-shadow:0 4px 18px rgba(30,50,90,.18)}
+svg.lg{display:none} .card.big svg.sm{display:none} .card.big svg.lg{display:block} .card.big .verdict{font-size:20px} .card.big .hist{font-size:17px;max-width:1100px}
+.tipx{font-size:14px;color:var(--axis);margin-left:auto}
 .top{display:flex;flex-wrap:wrap;gap:6px;align-items:center} .top h2{font-size:22px;margin:0 auto 0 0}
 .chip{font:600 13px var(--mono);letter-spacing:.04em;padding:3px 8px;border-radius:4px;white-space:nowrap}
 .b-zone-hi{background:#A8473A;color:#fff} .b-zone-lo{background:#487850;color:#fff}
@@ -36,12 +40,25 @@ svg .call{font-weight:700;fill:var(--ink);paint-order:stroke;stroke:#fff;stroke-
 hr{border:0;border-top:1px solid #E1E1E1;margin:8px 0 10px}
 .verdict{font:18px/1.4 var(--serif);margin:0 0 8px} .verdict b{font-weight:700}
 .hist{font-size:15px;line-height:1.5;color:var(--body);margin:0}
+.grp{margin:18px 16px 8px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;border-bottom:2px solid #D9DDE3;padding-bottom:6px}
+.grp h3{margin:0;font-size:20px} .grp .cnt{font:600 14px var(--mono);color:#A8473A} .grp .cnt.ok{color:#3F7A4E}
+.grp p{flex-basis:100%;margin:2px 0 0;font-size:15px;color:var(--body)} main+.grp{margin-top:24px}
 .fuse{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 16px 12px;padding:10px 14px;background:#fff;
  border:1px solid #E1E1E1;border-radius:6px} .fuse .ph{font:700 16px var(--mono);letter-spacing:.06em;padding:3px 10px;
  border-radius:4px;border:2px solid currentColor} .ph-QUIET{color:#3F7A4E} .ph-LOADED{color:#A06A10}
  .ph-TRANSMITTING{color:#A8473A} .ph-RELEASING{color:#2B6C9B} .fuse .sc{font:15px var(--mono)} .fuse .sc b{font-size:20px}
  .fuse .lab{font-size:15px;color:var(--body)}
 """
+
+
+JS = """<script>
+/* click (or Enter) a card to make it full width; click again / Esc to shrink. Page reads fully without this. */
+document.querySelectorAll(".card").forEach(function(c){c.tabIndex=0;c.title="Click to enlarge";
+ function t(){var on=!c.classList.contains("big");document.querySelectorAll(".card.big").forEach(function(x){x.classList.remove("big")});
+  if(on){c.classList.add("big");c.title="Click to shrink";c.scrollIntoView({block:"start",behavior:"smooth"})}else{c.title="Click to enlarge"}}
+ c.addEventListener("click",t);c.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();t()}})});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")document.querySelectorAll(".card.big").forEach(function(x){x.classList.remove("big")})});
+</script>"""
 
 
 def esc(s) -> str:
@@ -57,14 +74,14 @@ def sig(z: float) -> str:
     return f"{z:+.2f}σ"
 
 
-def chart(c: dict) -> str:
+def chart(c: dict, W: int = W, H: int = H, cls: str = "sm") -> str:
     d, z = c["chart"]["d"], c["chart"]["z"]
     n = len(d)
     zmax = min(6.0, max(3.0, math.ceil(max(abs(v) for v in z if v is not None) + 0.3)))
     iw, ih = W - PL - PR, H - PT - PB
     X = lambda i: PL + iw * i / max(n - 1, 1)  # noqa: E731
     Y = lambda v: PT + ih * (zmax - max(-zmax, min(zmax, v))) / (2 * zmax)  # noqa: E731
-    o = [f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="{esc(c["title"])} z-score, last year">',
+    o = [f'<svg class="{cls}" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(c["title"])} z-score, last year">',
          f'<rect x="{PL}" y="{PT}" width="{iw}" height="{Y(2) - PT:.1f}" fill="var(--sellb)"/>',
          f'<rect x="{PL}" y="{Y(-2):.1f}" width="{iw}" height="{PT + ih - Y(-2):.1f}" fill="var(--buyb)"/>',
          f'<line x1="{PL}" x2="{W - PR}" y1="{Y(0):.1f}" y2="{Y(0):.1f}" stroke="var(--grid)"/>']
@@ -149,7 +166,7 @@ def card_html(c: dict) -> str:
             f'<span class="chip r-{c["record"]}">{c["record"]} record</span></div>'
             f'<div class="meta"><span>Now <b>{fmt(c["value"])}</b></span><span>50-day avg <b>{fmt(c["mean50"])}</b>'
             f' <span class="{"neg" if dv > 0 else "pos"}">({dv:+.2f})</span></span>{z2}</div>'
-            f'{chart(c)}<hr><p class="verdict"><b>{esc(lead)}</b> {esc(second)}</p><p class="hist">{esc(hist)}</p>'
+            f'{chart(c)}{chart(c, 1100, 340, "lg")}<hr><p class="verdict"><b>{esc(lead)}</b> {esc(second)}</p><p class="hist">{esc(hist)}</p>'
             f'</section>')
 
 
@@ -171,13 +188,24 @@ def page(o: dict, fuse: dict | None = None) -> str:
            "standard deviations (σ). Past +2σ or −2σ it sits in a shaded zone. Under the chart, "
            "the grey paragraph says what SPX did over the next 20 sessions the past times the gauge entered the same "
            f"zone, next to any 20 sessions ({b['up']:g}% up, avg {b['avg']:+.1f}%, a 5%+ drop {b['drop']:g}% of the "
-           "time). <b>strong record</b> = that difference held up; <b>weak record</b> = it did not, so the zone is "
-           "context, not a trade. Cards in a zone come first.")
-    cards = "".join(card_html(c) for c in o["cards"])
+           "time). Click any card to make it big. <b>strong record</b> = that difference held up; <b>weak record</b> = it did not, so the zone is "
+           "context, not a trade.")
+    secs = []
+    for g in o.get("groups") or [{"id": None, "title": "", "about": ""}]:
+        cs = [c for c in o["cards"] if g["id"] is None or c.get("group") == g["id"]]
+        if not cs:
+            continue
+        nz = sum(c["state"] == "zone" for c in cs)
+        nn = sum(c["state"] == "near" for c in cs)
+        cnt = (f"{nz} of {len(cs)} in a zone" + (f", {nn} nearing" if nn else "")) if nz or nn else f"all {len(cs)} normal"
+        head = (f'<div class="grp"><h3>{esc(g["title"])}</h3><span class="cnt{"" if nz or nn else " ok"}">{cnt}</span>'
+                f'<p>{esc(g["about"])}</p></div>') if g["id"] else ""
+        secs.append(head + "<main>" + "".join(card_html(c) for c in cs) + "</main>")
+    cards = "".join(secs)
     return (f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" '
             f'content="width=device-width, initial-scale=1"><title>Zone cards</title>'
             f'<!-- zones.html - written by scripts/zone_cards.py ({esc(o["built"])}); display only (rule 4). -->'
             f'<style>{CSS}</style></head><body><header><h1>Zone cards</h1>'
             f'<span class="asof">closes to {esc(o["asof"])} · history from {esc(o["start"][:4])}</span>'
             f'<a class="back" href="fuse.html">← Fuse score</a></header>{fuse_strip(fuse)}<p class="how">{how}</p>'
-            f'<main>{cards}</main></body></html>')
+            f'{cards}{JS}</body></html>')

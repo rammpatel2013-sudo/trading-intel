@@ -25,23 +25,32 @@ DROP = 5.0          # "big drop" = SPX falls 5%+ below the day's close at some p
 CHART_DAYS = 252
 ZONE, NEAR = 2.0, 1.5
 
-# id, title, what a HIGH reading means, what a LOW reading means
+# Groups in reading order; cards keep this order inside each group (never re-sorted by z).
+GROUPS = [
+    ("vix", "S&P 500 vol (VIX complex)", "How much fear is priced into the index, how fast it is moving, and the shape of its curve."),
+    ("ndx", "Nasdaq-100 vol", "The same fear gauge for the Nasdaq-100, and how it sits against the S&P 500's."),
+    ("corr", "Implied correlation", "Whether stocks are priced to move together (stress reaching the index) or apart (calm that can hide single-stock risk)."),
+    ("tail", "Tails and rates", "Crash-put demand and the rates market, the two places stress often shows first."),
+]
+# group, id, title, what a HIGH reading means, what a LOW reading means
 GAUGES = [
-    ("VIX", "VIX", "Index fear priced high", "Index fear priced low"),
-    ("VVIX", "VVIX", "VIX options bid: traders pay up for a vol spike", "Nobody paying for a vol spike"),
-    ("COR1M", "Implied correlation 1M", "Stocks priced to move together: stress reaching the index",
+    ("vix", "VIX", "VIX", "Index fear priced high", "Index fear priced low"),
+    ("vix", "IVRV", "VIX / 20d realized", "Index options rich vs what SPX has done", "Options cheap vs recent moves"),
+    ("vix", "FRONT", "VIX9D / VIX", "Front panic: next 9 days priced above 30 days", "Front calm"),
+    ("vix", "CURVE", "VIX / VIX3M", "VIX curve flat or inverted: stress now", "Steep calm curve"),
+    ("vix", "VVIX", "VVIX", "VIX options bid: traders pay up for a vol spike", "Nobody paying for a vol spike"),
+    ("vix", "VV_RATIO", "VVIX / VIX", "Crash insurance bought while VIX is low", "Vol-of-vol lagging the VIX level"),
+    ("ndx", "VXN", "VXN (Nasdaq-100 VIX)", "Nasdaq fear priced high", "Nasdaq fear priced low"),
+    ("ndx", "VXN_VIX", "VXN / VIX", "Tech priced riskier than the S&P 500 than usual", "Tech priced calmer than usual vs the S&P 500"),
+    ("corr", "COR1M", "Implied correlation 1M", "Stocks priced to move together: stress reaching the index",
      "Stocks priced to move apart: index calm can hide single-stock risk"),
-    ("COR3M", "Implied correlation 3M", "Longer-dated correlation bid", "Longer-dated correlation cheap"),
-    ("EQ_RATIO", "VIXEQ / VIX", "Stocks wild under a calm index (fuse loading)",
-     "Index catching single-stock vol (correlation bid)"),
-    ("CURVE", "VIX / VIX3M", "VIX curve flat or inverted: stress now", "Steep calm curve"),
-    ("FRONT", "VIX9D / VIX", "Front panic: next 9 days priced above 30 days", "Front calm"),
-    ("VV_RATIO", "VVIX / VIX", "Crash insurance bought while VIX is low", "Vol-of-vol lagging the VIX level"),
-    ("CSKEW", "COR90D / COR10D", "Puts priced as a crash together, calls as no rally together",
+    ("corr", "COR3M", "Implied correlation 3M", "Longer-dated correlation bid", "Longer-dated correlation cheap"),
+    ("corr", "CSKEW", "COR90D / COR10D", "Puts priced as a crash together, calls as no rally together",
      "Upside and downside correlation alike"),
-    ("MOVE", "MOVE (rates vol)", "Rates market unstable", "Rates market calm"),
-    ("SKEW", "Cboe SKEW", "Far-out crash puts expensive", "Crash puts cheap"),
-    ("IVRV", "VIX / 20d realized", "Index options rich vs what SPX has done", "Options cheap vs recent moves"),
+    ("corr", "EQ_RATIO", "VIXEQ / VIX", "Stocks wild under a calm index (fuse loading)",
+     "Index catching single-stock vol (correlation bid)"),
+    ("tail", "SKEW", "Cboe SKEW", "Far-out crash puts expensive", "Crash puts cheap"),
+    ("tail", "MOVE", "MOVE (rates vol)", "Rates market unstable", "Rates market calm"),
 ]
 
 
@@ -55,7 +64,9 @@ def _series(X: dict) -> dict:
     for t in range(20, n):
         r = [math.log(spx[i] / spx[i - 1]) for i in range(t - 19, t + 1)]
         rv[t] = math.sqrt(sum(x * x for x in r) / 20 * 252) * 100
-    out = {k: X.get(k) for k in ("VIX", "VVIX", "COR1M", "COR3M", "MOVE", "SKEW")}
+    out = {k: X.get(k) for k in ("VIX", "VVIX", "COR1M", "COR3M", "MOVE", "SKEW", "VXN")}
+    if X.get("VXN"):
+        out["VXN_VIX"] = div(X["VXN"], X["VIX"])
     out["EQ_RATIO"] = div(X["VIXEQ"], X["VIX"])
     out["CURVE"] = div(X["VIX"], X["VIX3M"])
     out["FRONT"] = div(X["VIX9D"], X["VIX"])
@@ -131,7 +142,7 @@ def record(ep: dict | None, base: dict) -> tuple[str, str]:
     return "weak", which
 
 
-def card(gid: str, title: str, hi: str, lo: str, dates: list, x: list, oc: list, base: dict) -> dict | None:
+def card(group: str, gid: str, title: str, hi: str, lo: str, dates: list, x: list, oc: list, base: dict) -> dict | None:
     z, mu = zscores(x)
     last = max((t for t in range(len(z)) if z[t] is not None), default=None)
     if last is None:
@@ -144,7 +155,7 @@ def card(gid: str, title: str, hi: str, lo: str, dates: list, x: list, oc: list,
     rec, which = record(ep, base)
     ago = last - 10 if last >= 10 else 0
     t0 = max(0, last - CHART_DAYS + 1)
-    return {"id": gid, "title": title, "asof": dates[last], "value": round(x[last], 3), "mean50": round(mu[last], 3),
+    return {"group": group, "id": gid, "title": title, "asof": dates[last], "value": round(x[last], 3), "mean50": round(mu[last], 3),
             "z": round(zn, 2), "z_2wk": None if z[ago] is None else round(z[ago], 2), "side": side, "state": state,
             "level": level if state != "none" else ZONE, "meaning": hi if side > 0 else lo, "record": rec,
             "record_on": which, "hist": ep, "base": base,
@@ -159,15 +170,14 @@ def build(dates: list, X: dict) -> dict:
             "drop": round(100 * sum(r[1] for r in allx) / len(allx), 1)}
     S = _series(X)
     cards = []
-    for gid, title, hi, lo in GAUGES:
+    for group, gid, title, hi, lo in GAUGES:
         if S.get(gid) is None:
             continue
-        c = card(gid, title, hi, lo, dates, S[gid], oc, base)
+        c = card(group, gid, title, hi, lo, dates, S[gid], oc, base)
         if c:
             cards.append(c)
-    order = {"zone": 0, "near": 1, "none": 2}
-    cards.sort(key=lambda c: (order[c["state"]], -abs(c["z"])))
-    return {"asof": dates[-1], "start": dates[WIN], "base": base, "cards": cards,
+    groups = [{"id": g, "title": t, "about": a} for g, t, a in GROUPS]
+    return {"asof": dates[-1], "start": dates[WIN], "base": base, "groups": groups, "cards": cards,
             "rule": f"z vs prior {WIN} sessions; zones +/-{ZONE} sigma, nearing +/-{NEAR}; outcome = SPX next {FWD} "
                     f"sessions; big drop = {DROP:.0f}%+ below the day's close; entries {COOL}+ sessions apart",
             "built": datetime.now().isoformat(timespec="seconds")}

@@ -44,7 +44,7 @@ UA = {"User-Agent": "Mozilla/5.0 (trading-intel fuse_tab)"}
 START = "2014-06-19"          # VIXEQ's first day = the study start
 SERIES_DAYS = 1260            # ~5 years of daily rows in the json (6M / 1Y / 3Y / 5Y windows)
 CBOE_CSV = "https://cdn.cboe.com/api/global/us_indices/daily_prices/{name}_History.csv"
-CBOE = ["COR1M", "COR3M", "COR10D", "COR90D", "VIXEQ", "VIX", "VIX9D", "VIX3M", "VVIX", "SPX", "SKEW"]
+CBOE = ["COR1M", "COR3M", "COR10D", "COR90D", "VIXEQ", "VIX", "VIX9D", "VIX3M", "VVIX", "SPX", "SKEW", "VXN"]
 FMP_SYM = {"SPX": "^GSPC"}    # every other index = "^" + name
 NEED = ["VIX", "VIXEQ", "COR1M", "COR3M", "COR90D", "COR10D", "VIX9D", "VIX3M", "VVIX", "SPX"]
 
@@ -184,10 +184,10 @@ VIX_CAP = {"F5": 20, "F8": 22}   # these two count only while equity vol is stil
 
 
 def align(S: dict) -> tuple[list, dict]:
-    """Dates where every NEED series has a close (from START), MOVE / HY / SKEW forward-filled."""
+    """Dates where every NEED series has a close (from START), MOVE / HY / SKEW / VXN forward-filled."""
     dates = sorted(d for d in set.intersection(*[set(S[k]) for k in NEED]) if d >= START)
     X = {k: [S[k][d] for d in dates] for k in NEED}
-    for k in ("MOVE", "HY", "SKEW"):
+    for k in ("MOVE", "HY", "SKEW", "VXN"):
         src, out = S.get(k) or {}, []
         first = min(src) if src else None
         before = [d for d in src if dates and d < dates[0]]

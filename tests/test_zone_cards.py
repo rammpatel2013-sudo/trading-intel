@@ -33,6 +33,7 @@ def _panel(n=600):
         X[k] = [b + 3 * math.sin(i / 6 + b) for i in range(n)]
     X["MOVE"] = [None] * 100 + [100 + 5 * math.sin(i / 9) for i in range(n - 100)]
     X["SKEW"] = [140 + 4 * math.sin(i / 8) for i in range(n)]
+    X["VXN"] = [v * 1.3 for v in X["VIX"]]
     return ds, X
 
 
@@ -70,11 +71,14 @@ def test_build_and_page(tmp_path):
     ds, X = _panel()
     o = zc.write(ds, X, tmp_path)
     ids = {c["id"] for c in o["cards"]}
-    assert {"VIX", "COR1M", "EQ_RATIO", "IVRV", "MOVE", "SKEW"} <= ids
-    order = [c["state"] for c in o["cards"]]
-    assert order == sorted(order, key={"zone": 0, "near": 1, "none": 2}.get)
+    assert {"VIX", "COR1M", "EQ_RATIO", "IVRV", "MOVE", "SKEW", "VXN", "VXN_VIX"} <= ids
+    want = [g[1] for g in zc.GAUGES if g[1] in ids]
+    assert [c["id"] for c in o["cards"]] == want                      # fixed reading order, never sorted by z
+    gpos = [[g[0] for g in zc.GROUPS].index(c["group"]) for c in o["cards"]]
+    assert gpos == sorted(gpos)                                       # groups stay together, in group order
     page = (tmp_path / "zones.html").read_text(encoding="utf-8")
-    assert "<script" not in page and page.count('class="card"') == len(o["cards"])
+    assert page.count("<script") == 1 and page.count('class="card"') == len(o["cards"])
+    assert page.index("S&amp;P 500 vol") < page.index("Nasdaq-100 vol") < page.index("Implied correlation</h3>")
     assert (tmp_path / "zonecards.json").exists()
     for c in o["cards"]:
         lead, second, hist = zh.words(c)
