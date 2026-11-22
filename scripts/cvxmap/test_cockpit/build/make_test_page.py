@@ -19,7 +19,10 @@ every 30 min, role labels, hover card, 5-min candles, price tag, contours + pill
 2026-11-19 (night, later): + the Flow panel F1-F3 (tg_flowpanel.js, section 20), Flow tab, OFF by default, display only.
 2026-11-20: + BQ Book clean (tg_book.js, toggle bq in tg_module.js, section 21): 08:35 Week book IV cleaned with provenance.
 2026-11-21: + ORBS+ (tg_orbsplus.js, section 22): Ridge / Flip (OI + vol) / Walls $ (OI + signed) / Notes / Strip (charm + push bars) on the Orbs tab, OFF by default.
-Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>"""
+Usage: python make_test_page.py <production cvx_cockpit.html> <out.html>2026-11-21: + C3 + C4 in the same file (no new hooks): 60-session demand / supply zones + dated naked POCs from the vixmap
+file's "zones", per-minute VIX option volume bars, and a whales-vs-crowd pane (lots) + tape box from vix_whales_live.json
+(whales feed). Only while the Strike map is ON; off = nothing drawn or fetched.
+"""
 import sys, hashlib, os
 src, out = sys.argv[1], sys.argv[2]
 P = open(src, encoding="utf-8").read()

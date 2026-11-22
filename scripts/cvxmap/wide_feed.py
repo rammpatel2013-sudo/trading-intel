@@ -67,6 +67,9 @@ BASES (2026-11-09: Orbs "Positions from" = the MAP's set OI | Vol | OI + vol | O
 RUN
   python scripts/cvxmap/wide_feed.py                  live loop (09:25-16:20 ET, exits by itself)
   python scripts/cvxmap/wide_feed.py --date 20261106  rebuild one stored day from its raw file, then exit
+  python scripts/cvxmap/wide_feed.py --date 20261106 --vix-only   (2026-11-21) only the VIX map file of that day
+  python scripts/cvxmap/wide_feed.py --date --vix-only --all-raw   every stored day before today, oldest first
+       (fills "vp" / "zones" for the VIX map C4 zones; ~1-2 min a day on the NAS, reads only the VIX pulls)
   NAS:  sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_wide.sh start | stop | status | day YYYYMMDD...
 """
 import os, sys, json, math, time, zlib, shutil, datetime, traceback
@@ -385,7 +388,7 @@ def decode_slots(slots, step):
 
 # ---------------------------------------------------------------- day state
 class Day:
-    def __init__(self, ymd, live_mode=False):
+    def __init__(self, ymd, live_mode=False, vix_only=False):
         self.ymd = ymd
         self.today = datetime.date(int(ymd[:4]), int(ymd[4:6]), int(ymd[6:]))
         self.slots = {s: [] for s in SYMS}     # one block per pull
@@ -395,6 +398,12 @@ class Day:
         self.live_mode = live_mode
         self.live_writes = 0
         self.vix = vix_map.VixDay(ymd) if vix_map is not None else None
+        self.vix_only = vix_only        # 2026-11-21 (C4 backfill): replay only the VIX pulls, write only vixmap
+        if self.vix is not None:
+            try:   # 2026-11-21 C4: demand / supply zones + naked POCs from the stored days before this one
+                self.vix.zones = vix_map.zones_from_dir(DATA, ymd)
+            except Exception as exc:
+                log("vix zones %s: %s" % (ymd, str(exc)[:120]))
         self.dirty = False
         self.beta = {s: SF.BetaTracker() for s in SF.SURFACE_SYMS} if SF is not None else {}
         self.surf = {}
@@ -414,6 +423,8 @@ class Day:
             return False
         if pull == "vix":
             return self.feed_vix(rec, now)
+        if self.vix_only:
+            return False
         dec = L.decode(rec)
         got = []
         for s in SYMS:
@@ -554,6 +565,21 @@ def copy_page():
             log("page copy failed: %s" % exc)
 
 
+def rebuild_vix(ymd):
+    """2026-11-21 (C4 backfill): replay only the day's VIX pulls -> vixmap_YYYYMMDD.json (cols, px, books, vp, rng,
+    zones). Run oldest day first: each day's zones are read from the files of the days before it."""
+    t0 = time.time()
+    day = Day(ymd, vix_only=True)
+    n = sum(1 for rec in day.reader.iter_records(want=b'"vix"') if day.feed(rec))
+    if day.vix is None or not day.vix.cols:
+        log("%s: no vix pulls in raw_%s.ndjson.gz" % (ymd, ymd))
+        return 1
+    day.write()
+    vp = day.vix.payload().get("vp") or {}
+    log("%s: %d vix pulls -> vixmap_%s.json  vp %d levels  %.0fs" % (ymd, n, ymd, len(vp.get("lv") or []), time.time() - t0))
+    return 0
+
+
 def rebuild(ymd):
     t0 = time.time()
     day = Day(ymd)
@@ -598,10 +624,16 @@ def main():
     if "--date" in sys.argv:
         copy_page()
         days = [a for a in sys.argv[sys.argv.index("--date") + 1:] if a.isdigit() and len(a) == 8]
+        if "--vix-only" in sys.argv:
+            days = sorted(days)          # oldest first: zones read the days before
+        if "--all-raw" in sys.argv:      # every raw_YYYYMMDD.ndjson.gz stored (with --vix-only)
+            today = L.now_et().strftime("%Y%m%d")      # never today's file: the live feed owns it
+            days = sorted(f[4:12] for f in os.listdir(DATA)
+                          if f.startswith("raw_2") and f.endswith(".ndjson.gz") and f[4:12] < today)
         rc = 0
         for ymd in days:
             try:
-                rc |= rebuild(ymd)
+                rc |= rebuild_vix(ymd) if "--vix-only" in sys.argv else rebuild(ymd)
             except Exception:
                 log("%s FAILED\n%s" % (ymd, traceback.format_exc()))
                 rc = 1

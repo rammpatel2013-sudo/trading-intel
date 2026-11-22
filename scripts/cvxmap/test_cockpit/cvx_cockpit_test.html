@@ -5071,7 +5071,7 @@ function greekColTG(kind, rows, S, ty, cm){ // greekCol with the C2 / D1 / D4 / 
    Close / 1DTE / Friday prediction: zero line nearest spot on the profile at the target (target close − 10 min);
      equal distance → the lower price; no zero line on the grid → null (a miss, never dropped).
    The scorer (score_test.py) only joins these frozen records to later prices. */
-const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-7e835e78fd0e";
+const TG_SCORE_V="score-v1"; const TG_PAGE_V="test-8dd17b9bef0d";
 const TG_CFGS=[["off",{}],["smp",{sg:true,e2:true}],["e2",{e2:true}],["d1",{d1:true}],["c2",{c2:true}],["sg",{sg:true}],["d4",{d4:true}]];   // 2026-11-21: off = production (Week IV, 0DTE IV clean, 16:00 clock now on main)
 function tgGrid(S,pct,dp){ const out=[]; for(let p=Math.round(S*(1-pct)/dp)*dp;p<=S*(1+pct)+1e-9;p+=dp) out.push(+p.toFixed(4)); return out; }
 function tgP95(col){ const a=col.map(Math.abs).sort((x,y)=>x-y); return Math.max(1e-12,a[Math.floor(a.length*0.95)]||1e-12); }
@@ -5619,13 +5619,38 @@ setTimeout(tgSmInit,0);
        grey price tag on the axis + red dotted line across the chart at VIX now.
    C2  bands are flat between books (book every 30 min, kink at each refresh, dashed line at the newest book); thin white
        contour where neighbouring bands change sign; white rounded outline (pill) around the hottest cores (>= 60% of the
-       scale). */
+       scale).
+   C3  (2026-11-21) whales vs crowd IN CONTRACTS under the maps (vix_whales_live.json from scripts/whales_feed.py: VIX + VIXW
+       option prints from tas_crowd_minute, whales >= 20 lots): two cumulative lines from 09:30 (whales blue, crowd orange),
+       fill between, zero dashed, purple ticks = opposed 5-minute stretches, the overnight + pre-market total as a number;
+       TAPE box (last 5 minutes: who is winning, strength, lots a minute, whale share, which way customers pushed VIX,
+       absorption, heavy-volume minute vs the same minute's median of earlier sessions); per-minute volume bars at the
+       bottom of the gamma map (green = more bought than sold, red = more sold).
+   C4  (2026-11-21) demand / supply zones + dated naked POCs on the gamma map (vixmap file "zones", vix_map.py): VIX option
+       volume of the last 60 stored sessions by VIX level (each contract's volume drawn where the front forward reaches its
+       strike); a zone = a busy level +- the neighbouring bins with >= 50% of its volume, at most 0.25 wide; label at the
+       right "Demand 19.10-19.30 · 683K" (Demand = more bought than sold); brightest = the busiest (POC) with a full-width
+       line. Dashed lines from the left with "<- date" = an earlier day's busiest level that no later day has touched
+       (today's range so far checked here too). Display only. */
 st.tgVxs=load("tgVxs","0")==="1";
+var VXW={J:null,at:0,busy:false,err:null};
+/* C3 data: vix_whales_live.json every 30 s while the Strike map is on and the VIX map is open */
+async function tgVxwFetch(force){ if(!st.tgVxs||st.tab!=="vix"||!st.vxo.vmap||VXW.busy) return; if(!force&&Date.now()-VXW.at<25000) return;
+  VXW.busy=true; VXW.at=Date.now(); const was=VXW.J&&VXW.J.asof;
+  try{ const r=await fetch("vix_whales_live.json",{cache:"no-cache"}); if(!r.ok) throw new Error("HTTP "+r.status); VXW.J=await r.json(); VXW.err=null; }
+  catch(e){ VXW.err=String(e&&e.message||e); }
+  VXW.busy=false; if((VXW.J&&VXW.J.asof)!==was||force){ VXM.key=""; if(st.tab==="vix") vxmRender(); } }
+setInterval(()=>tgVxwFetch(false),30000);
 function tgVxsOn(){ return !!st.tgVxs; }
-function tgVxsKey(){ return st.tgVxs?"vs1":"vs0"; }
+function tgVxsKey(){ return st.tgVxs?"vs1:"+(VXW.J?(VXW.J.date||"")+(VXW.J.asof||""):VXW.err||""):"vs0"; }
 function tgVxsBtn(){ return `<button class="tgb${st.tgVxs?" on":""}" id="tgVxsBtn" style="font-size:15px" title="TEST Strike map (off by default): rows = the listed VIX strikes (0.5 / 1.0 apart), the strike book every 30 minutes, top-10 role labels (FLOOR / CEILING / MAGNET), hover card, 5-minute candles, price tag, white contours and pills. Display only.">Strike map (TEST)</button>`; }
 document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("#tgVxsBtn"); if(!b) return;
-  st.tgVxs=!st.tgVxs; save("tgVxs",st.tgVxs?"1":"0"); VXM.key=""; vxmRender(); });
+  st.tgVxs=!st.tgVxs; save("tgVxs",st.tgVxs?"1":"0"); VXM.key=""; vxmRender(); if(st.tgVxs) tgVxwFetch(true); });
+/* C4: today's VIX range so far (minute VIX) -> a naked POC inside it was touched today */
+function tgVxsTodayRng(J){ let lo=1e9,hi=-1e9; for(const p of vxmPath(J)){ const v=p[1]; if(v!=null&&isFinite(v)){ lo=Math.min(lo,v); hi=Math.max(hi,v); } } return hi>=lo?[lo,hi]:null; }
+function tgVxsZones(J){ const Z=J&&J.zones; if(!Z) return {zones:[],naked:[],Z:null}; const r=tgVxsTodayRng(J);
+  return {Z, zones:Z.zones||[], naked:(Z.naked||[]).filter(n=>!r||n.y<r[0]-1e-9||n.y>r[1]+1e-9)}; }
+function tgVxsDay(d){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d||"")); if(!m) return String(d||""); return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[2]-1]+" "+(+m[3]); }
 /* one book's values on the map's basis and dealer side (vxmVals on the book arrays) */
 function tgVxsVals(b,g){ return vxmVals(b,g); }
 function tgVxsBookIdx(J,t){ let q=-1; for(let j=0;j<J.books.length;j++) if(tmin(J.books[j].t)<=t+0.01) q=j; return q; }
@@ -5671,6 +5696,19 @@ function tgVxsDraw(cv,J,k,lim,isG,R){
   // book refresh: dashed vertical at the newest stored (30-min) book
   const lastBook=[...B].reverse().find(b=>!b.live)||B[B.length-1];
   if(lastBook){ const x=X(tmin(lastBook.t)); ctx.strokeStyle="#ffffff90"; ctx.lineWidth=1; ctx.setLineDash([5,5]); ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+H); ctx.stroke(); ctx.setLineDash([]); }
+  // C4: demand / supply zones (right labels) + naked POCs (dashed from the left) - gamma map only
+  if(isG){ const ZZ=tgVxsZones(J); const lab=[]; ctx.save(); ctx.font="bold 13px "+C("--font");
+    ZZ.zones.forEach((z,j)=>{ if(z.hi<ylo||z.lo>yhi) return; const y0=Y(z.hi), y1=Y(z.lo), dem=z.kind!=="Supply", top=j===0;
+      ctx.fillStyle=dem?(top?"#39E07A40":"#39E07A22"):(top?"#FF5A5A40":"#FF5A5A22"); ctx.fillRect(padL,y0,W,Math.max(2,y1-y0));
+      if(top){ ctx.strokeStyle=dem?"#39E07A":"#FF5A5A"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(padL,Y(z.poc)); ctx.lineTo(padL+W,Y(z.poc)); ctx.stroke(); }
+      lab.push({y:(y0+y1)/2,txt:`${z.kind} ${vxN(z.lo,2)}–${vxN(z.hi,2)} · ${tgVxsK(z.n)}`,dem,top}); });
+    lab.sort((a,b)=>a.y-b.y); let prv=-1e9; for(const o of lab){ o.ly=Math.max(o.y,prv+20); prv=o.ly; }
+    for(const o of lab){ const tw=ctx.measureText(o.txt).width, x=padL+W-tw-14; ctx.fillStyle=o.top?(o.dem?"#39E07A":"#FF5A5A"):"#0A1426"; ctx.fillRect(x,o.ly-9,tw+10,18);
+      ctx.strokeStyle=o.dem?"#39E07A":"#FF5A5A"; ctx.lineWidth=1.5; ctx.strokeRect(x,o.ly-9,tw+10,18); ctx.fillStyle=o.top?"#0A1426":(o.dem?"#39E07A":"#FF5A5A"); ctx.fillText(o.txt,x+5,o.ly+5); }
+    for(const n of ZZ.naked){ if(n.y<ylo||n.y>yhi) continue; const y=Y(n.y), txt="← "+tgVxsDay(n.day)+" "+vxN(n.y,2), tw=ctx.measureText(txt).width;
+      ctx.strokeStyle="#39E07Acc"; ctx.lineWidth=1.5; ctx.setLineDash([7,5]); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W*0.55,y); ctx.stroke(); ctx.setLineDash([]);
+      const x=padL+W*0.55+4; ctx.fillStyle="#0A1426"; ctx.fillRect(x,y-9,tw+10,18); ctx.strokeStyle="#39E07A"; ctx.lineWidth=1.2; ctx.strokeRect(x,y-9,tw+10,18); ctx.fillStyle="#39E07A"; ctx.fillText(txt,x+5,y+5); }
+    ctx.restore(); }
   // candles (5 min) + front forward
   const pth=vxmPath(J); ctx.strokeStyle="#7FE7FF"; ctx.lineWidth=1.6; ctx.setLineDash([6,4]); ctx.beginPath(); let st0=false;
   for(const p of pth){ const v=p[2]; if(v==null||!isFinite(v)) continue; const x=X(tmin(p[0])), y=Y(v); st0?ctx.lineTo(x,y):ctx.moveTo(x,y); st0=true; } ctx.stroke(); ctx.setLineDash([]);
@@ -5680,6 +5718,10 @@ function tgVxsDraw(cv,J,k,lim,isG,R){
     const ya=Y(Math.max(c[1],c[4])), yb=Y(Math.min(c[1],c[4])); ctx.fillStyle=clr; ctx.fillRect(xm-cw/2,ya,cw,Math.max(1.5,yb-ya)); ctx.strokeStyle="#000"; ctx.lineWidth=1; ctx.strokeRect(xm-cw/2,ya,cw,Math.max(1.5,yb-ya)); }
   // price line across the whole chart at VIX now
   const lp=pth[pth.length-1]; if(lp&&lp[1]>=ylo&&lp[1]<=yhi){ ctx.strokeStyle="#FF5A5A"; ctx.lineWidth=1.2; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(padL,Y(lp[1])); ctx.lineTo(padL+W,Y(lp[1])); ctx.stroke(); ctx.setLineDash([]); }
+  // C3: per-minute volume bars at the bottom of the gamma map (green = more bought than sold, red = more sold)
+  const VW=VXW.J; if(isG&&VW&&VW.ok&&VW.vol&&(!J.day||!VW.date||VW.date===J.day)){ const tot=VW.vol.tot||[], mx=Math.max(1,...tot), bh=H*0.16, x0=tmin(VW.t0||"09:30"), bw=Math.max(1,(X(1)-X(0))*0.85);
+    for(let i=0;i<tot.length;i++){ if(!tot[i]) continue; const x=X(x0+i), hh=bh*tot[i]/mx, up=(VW.vol.buy[i]||0)>=(VW.vol.sell[i]||0);
+      ctx.fillStyle=up?"#39E07Ab0":"#FF5A5Ab0"; ctx.fillRect(x-bw/2,padT+H-hh,bw,hh); } }
   // role labels (gamma map): top 10 of the newest book, boxes at the left inside the plot
   const lb=B[B.length-1], vixNow=lp?lp[1]:lb.x, roles=isG?tgVxsRoles(lb,vixNow).slice(0,10):[];
   if(roles.length){ ctx.font="bold 13px "+C("--font"); const L=roles.filter(r=>r.y>=ylo&&r.y<=yhi).map(r=>({r,y:Y(r.y)})).sort((a,b)=>a.y-b.y); let prev=-1e9;
@@ -5713,15 +5755,57 @@ function tgVxsHover(e){ const g=VXM.geo, J=VXM.J; if(!g||!J||!J.books||!J.books.
   const bar=ro?`<span style="display:inline-block;vertical-align:middle;width:120px;height:10px;background:#ffffff22;margin-right:6px"><span style="display:block;height:10px;width:${Math.round(ro.pct*100)}%;background:${ro.role==="PIN"?"#FFE27A":ro.up?"#39E07A":"#FF5A5A"}"></span></span>${Math.round(ro.pct*100)}% of the strongest strike in this book · rank #${ro.rank} of ${R.length}`:"no dealer position on this basis";
   const cust=`customers ${dl?"long":"short"} ${tgVxsK(c[0])} calls, ${dl?"short":"long"} ${tgVxsK(c[1])} puts (open interest, assumed side)${c[4]||c[5]||c[6]||c[7]?` · today customers bought ${tgVxsK(c[4])} / sold ${tgVxsK(c[5])} calls, bought ${tgVxsK(c[6])} / sold ${tgVxsK(c[7])} puts (tape)`:""}`;
   const beh=gv>=0?`dealers are long gamma here: they sell VIX into rises and buy dips at ${vxN(b.k[i],b.k[i]%1?1:0)}`:`dealers are short gamma here: they buy VIX into rises and sell into drops - moves through ${vxN(b.k[i],b.k[i]%1?1:0)} speed up`;
-  hv.innerHTML=head+`<br><b>${ro?tgVxsRoleTxt(ro):"–"} ${vxN(b.k[i],b.k[i]%1?1:0)}</b> ${help} · strike drawn at VIX ≈ ${vxN(b.y[i],2)} (front forward on the strike) · gamma <b>${vxmK(gv)}</b> per pt · vanna <b>${vxmK(vv)}</b> per vol pt<br>${bar}<br>${cust}<br>${beh}`;
+  const ZZ=tgVxsZones(J), zh=ZZ.zones.find(z=>v>=z.lo&&v<=z.hi), nk=ZZ.naked.find(n=>Math.abs(n.y-v)<=0.06);
+  const zl=(zh?`<br><b style="color:${zh.kind==="Supply"?"#FF5A5A":"#39E07A"}">${zh.kind} zone ${vxN(zh.lo,2)}–${vxN(zh.hi,2)}</b>: ${tgVxsK(zh.n)} VIX option contracts traded at these VIX levels over the last ${ZZ.Z.days} stored sessions${zh.buy_pct!=null?` · ${zh.buy_pct}% bought`:""}${zh===ZZ.zones[0]?" · the busiest zone (POC "+vxN(zh.poc,2)+")":""}`:"")+
+    (nk?`<br><b style="color:#39E07A">Naked POC ${vxN(nk.y,2)}</b> from ${tgVxsDay(nk.day)} (${tgVxsK(nk.n)} contracts that day) - no session since has traded VIX through it`:"");
+  hv.innerHTML=head+`<br><b>${ro?tgVxsRoleTxt(ro):"–"} ${vxN(b.k[i],b.k[i]%1?1:0)}</b> ${help} · strike drawn at VIX ≈ ${vxN(b.y[i],2)} (front forward on the strike) · gamma <b>${vxmK(gv)}</b> per pt · vanna <b>${vxmK(vv)}</b> per vol pt<br>${bar}<br>${cust}<br>${beh}${zl}`;
   return true; }
+/* C3: whales vs crowd pane + tape box (under the read-out) */
+function tgVxwPane(J){ const old=document.getElementById("tgVxw"); if(old) old.remove(); const rd=document.getElementById("vxmRead"); if(!rd) return;
+  const W_=VXW.J, box=document.createElement("div"); box.id="tgVxw"; box.style.cssText="border:2px dashed #ffcc00;margin-top:8px;padding:8px 10px;background:#0b0f14;color:#F2F6FC;font:16px system-ui,sans-serif";
+  if(!W_||!W_.ok){ const pre=W_&&W_.pre&&W_.pre.tot?` Overnight + pre-market so far: whales ${W_.pre.whale>=0?"+":""}${W_.pre.whale} lots, crowd ${W_.pre.crowd>=0?"+":""}${W_.pre.crowd} lots (${W_.pre.tot} contracts).`:"";
+    box.innerHTML=`<b>TEST Whales vs crowd · VIX options</b> — ${W_?esc(W_.reason||"no data"):`waiting for <b>vix_whales_live.json</b> (${esc(VXW.err||"loading")}) - written every minute from 09:31 ET by the whales feed (DSM "TI whales feed")`}.${pre}`; rd.after(box); return; }
+  const stale=J&&J.day&&W_.date!==J.day, t=W_.tape||{}, wc=t.who==="BUYERS"?"#39E07A":t.who==="SELLERS"?"#FF5A5A":"#C9D4E3", pre=W_.pre||{};
+  const sg=x=>(x>=0?"+":"−")+tgVxsK(Math.abs(x));
+  box.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start"><div style="flex:1 1 520px;min-width:300px"><div style="font-size:17px"><b>Whales vs crowd · VIX options</b> · whales ≥ ${W_.whale_min} lots, crowd smaller · signed lots (bought − sold) from 09:30 · as of ${esc(W_.asof)}${stale?` · <span style="color:#FFE27A">tape day ${esc(W_.date)} ≠ map day ${esc(J.day)}</span>`:""}</div>`+
+    `<div style="margin:3px 0"><b style="color:#4DA3FF">whales ${sg(W_.totals.whale)}</b> · <b style="color:#FFA64D">crowd ${sg(W_.totals.crowd)}</b> · <b style="color:#C77DFF">${W_.opp.length} opposed stretch${W_.opp.length===1?"":"es"}</b> (5 min each, purple ticks)${pre.tot?` · overnight + pre-market${pre.from?" since "+esc(pre.from):""}: whales ${sg(pre.whale)}, crowd ${sg(pre.crowd)} (${tgVxsK(pre.tot)} contracts)`:""}</div>`+
+    `<canvas id="tgVxwC" style="width:100%;height:220px;display:block"></canvas></div>`+
+    `<div id="tgVxwTape" style="flex:0 1 330px;min-width:260px;border:1px solid #556;border-radius:6px;padding:8px 10px;background:#111820;font-size:16px;line-height:1.45">`+
+    `<div><b style="color:${wc};font-size:18px">${t.who==="NOBODY"?"BALANCED":esc(t.who)+" winning"}</b> <span style="color:#C9D4E3">(${esc(t.strength||"")})</span></div>`+
+    `<div>last ${t.win_min||5} min: bought <b>${tgVxsK(t.bought||0)}</b> · sold <b>${tgVxsK(t.sold||0)}</b> · ${t.lots_min} lots a minute${t.whale_pct!=null?` · whales ${t.whale_pct}%`:""}</div>`+
+    `<div>customers pushed <b>${esc(t.push||"flat")}</b>${t.vix_move!=null?` · VIX ${t.vix_move>=0?"+":""}${vxN(t.vix_move,2)} over the window`:""}${t.vix!=null?` · VIX ${vxN(t.vix,2)}`:""}</div>`+
+    (t.absorption?`<div style="color:#FF9F43"><b>ABSORPTION</b> — ${esc(t.absorption)}</div>`:"")+
+    (t.heavy?`<div style="color:#FFE27A"><b>Heavy volume</b>: ${t.heavy.n} contracts at ${esc(t.heavy.t)}, ${t.heavy.x}x normal (${esc(t.heavy.basis)})</div>`:"")+
+    `<div style="color:#C9D4E3;font-size:14px">Source: exchange tape (VIX + VIXW options, aggressor side), every minute. Display only.</div></div></div>`;
+  rd.after(box); tgVxwDraw(); }
+function tgVxwDraw(){ const cv=document.getElementById("tgVxwC"), W_=VXW.J; if(!cv||!W_||!W_.ok) return; const {ctx,w,h}=fitCanvas(cv); ctx.clearRect(0,0,w,h);
+  const padL=62,padR=96,padT=14,padB=26, Wp=w-padL-padR, Hp=h-padT-padB, t0=570, t1=975, x0=tmin(W_.t0||"09:30");
+  const A=W_.series.whale||[], Bc=W_.series.crowd||[], all=A.concat(Bc,[0]), lo=Math.min(...all), hi=Math.max(...all), pad=(hi-lo)*0.08||1;
+  const X=t=>padL+Wp*(t-t0)/(t1-t0), Y=v=>padT+Hp*(1-(v-(lo-pad))/((hi-lo+2*pad)||1));
+  ctx.fillStyle="rgb(14,27,51)"; ctx.fillRect(padL,padT,Wp,Hp);
+  // fill between the lines (blue when whales above, orange when the crowd is above)
+  for(let i=1;i<A.length;i++){ const xa=X(x0+i-1), xb=X(x0+i); ctx.fillStyle=(A[i]>=Bc[i])?"#1E4E8C80":"#8C5A1E80";
+    ctx.beginPath(); ctx.moveTo(xa,Y(A[i-1])); ctx.lineTo(xb,Y(A[i])); ctx.lineTo(xb,Y(Bc[i])); ctx.lineTo(xa,Y(Bc[i-1])); ctx.closePath(); ctx.fill(); }
+  ctx.strokeStyle="#ffffff80"; ctx.setLineDash([5,5]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,Y(0)); ctx.lineTo(padL+Wp,Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  const line=(arr,clr)=>{ ctx.strokeStyle=clr; ctx.lineWidth=2.2; ctx.beginPath(); arr.forEach((v,i)=>{ const x=X(x0+i), y=Y(v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.stroke(); };
+  line(A,"#4DA3FF"); line(Bc,"#FFA64D");
+  ctx.fillStyle="#C77DFF"; for(const o of W_.opp||[]){ const xa=X(tmin(o.t0)), xb=X(tmin(o.t1)); ctx.fillRect(xa,padT,Math.max(2,xb-xa),6); }
+  ctx.font="14px "+C("--font"); ctx.fillStyle="#F2F6FC"; ctx.textAlign="right"; for(const v of [lo,0,hi]){ ctx.fillText((v<0?"−":v>0?"+":"")+tgVxsK(v),padL-6,Y(v)+5); }
+  ctx.textAlign="center"; for(let hh=10;hh<=16;hh++) ctx.fillText(String(hh>12?hh-12:hh)+(hh>=12?" pm":" am"),X(hh*60),h-8); ctx.textAlign="left";
+  const tag=(v,txt,bg)=>{ ctx.font="bold 14px "+C("--font"); const tw=ctx.measureText(txt).width, y=Math.max(padT+9,Math.min(padT+Hp-9,Y(v))); ctx.fillStyle=bg; ctx.fillRect(padL+Wp+4,y-10,Math.min(tw+8,padR-4),20); ctx.fillStyle="#0A1426"; ctx.fillText(txt,padL+Wp+8,y+5); };
+  const fa=A[A.length-1]||0, fb=Bc[Bc.length-1]||0; tag(fa,(fa>=0?"+":"−")+tgVxsK(Math.abs(fa)),"#4DA3FF"); tag(fb+(Math.abs(Y(fa)-Y(fb))<20?(fb<fa?-1:1)*(hi-lo+2*pad)*22/Hp:0),(fb>=0?"+":"−")+tgVxsK(Math.abs(fb)),"#FFA64D"); }
 /* read-out add-on: the top 5 roles now */
 function tgVxsRead(){ if(!tgVxsOn()) return; const J=VXM.J, el=document.getElementById("vxmRead"); if(!J||!el) return;
   if(!J.books||!J.books.length){ el.insertAdjacentHTML("beforeend",`<div style="border:2px dashed #ffcc00;padding:4px 8px">TEST Strike map: this file has no strike book (written by vix_map.py before 2026-11-19) - showing the production map.</div>`); return; }
   const b=J.books[J.books.length-1], pth=vxmPath(J), lp=pth[pth.length-1], R=tgVxsRoles(b,lp?lp[1]:b.x).slice(0,5);
   document.querySelectorAll("#vxMap .vxmleg i").forEach(i=>i.style.background="linear-gradient(90deg,#FF4D4D,#0E1B33,#3DDC84)");
   el.insertAdjacentHTML("beforeend",`<div style="border:2px dashed #ffcc00;padding:4px 8px">TEST Strike map colours: <b style="color:#3DDC84">green</b> = dealers long gamma / vanna at the strike, <b style="color:#FF4D4D">red</b> = short (the key above describes the production map). White line edges = sign changes between strikes; white pills = the strongest strikes while they stay hot; dashed line = newest 30-min book. Book ${esc(b.t)}${b.live?" (live)":""}: `+R.map(r=>`<b style="color:${r.role==="PIN"?"#FFE27A":r.up?"#39E07A":"#FF5A5A"}">#${r.rank} ${vxN(r.k,r.k%1?1:0)} ${tgVxsRoleTxt(r)}</b>`).join(" · ")+
-    `. Roles rule rv-v0: dealers long gamma = FLOOR below VIX / CEILING above (they lean against moves there); short gamma = MAGNET toward the strike (moves speed up). Green helps VIX up, red helps it down. Strikes drawn where the front forward reaches them.</div>`); }
+    `. Roles rule rv-v0: dealers long gamma = FLOOR below VIX / CEILING above (they lean against moves there); short gamma = MAGNET toward the strike (moves speed up). Green helps VIX up, red helps it down. Strikes drawn where the front forward reaches them.</div>`);
+  const ZZ=tgVxsZones(J); el.insertAdjacentHTML("beforeend",ZZ.Z&&ZZ.Z.days?`<div style="border:2px dashed #ffcc00;padding:4px 8px">TEST zones: VIX option volume of the last <b>${ZZ.Z.days}</b> stored sessions (${esc(ZZ.Z.from)} → ${esc(ZZ.Z.to)}) by VIX level (each contract where the front forward reaches its strike). `+
+    ZZ.zones.slice(0,4).map(z=>`<b style="color:${z.kind==="Supply"?"#FF5A5A":"#39E07A"}">${z.kind} ${vxN(z.lo,2)}–${vxN(z.hi,2)} · ${tgVxsK(z.n)}</b>`).join(" · ")+
+    (ZZ.naked.length?` · naked POCs (dashed, untouched since): `+ZZ.naked.slice(0,5).map(n=>`${tgVxsDay(n.day)} ${vxN(n.y,2)}`).join(", "):"")+`. Demand = more contracts bought than sold there.</div>`
+    :`<div style="border:2px dashed #ffcc00;padding:4px 8px">TEST zones: no earlier session in this file's history carries volume by level yet (written from 2026-11-21; older days need <code>run_wide.sh vixdays</code> once).</div>`);
+  tgVxwPane(J); tgVxwFetch(false); }
 
 /* TEST FP (2026-11-19 night) - FLOW PANEL F1-F3 on the Flow tab (four-thread plan section F). Test cockpit only, OFF by
    default, display only: no map / flow number changes; off = nothing drawn, nothing fetched. Button "Flow panel" in the

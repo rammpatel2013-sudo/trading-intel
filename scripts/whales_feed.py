@@ -24,6 +24,18 @@ RUN (NAS, DSM task "TI whales feed", Mon-Fri 09:31, user root; exits by itself a
   A stored day:            ... run_script.sh whales_feed --date 2026-11-16
   Re-score all days:       ... run_script.sh whales_feed --score
 
+2026-11-21 (VIX map redesign C3, test cockpit "Strike map"): the same pass also writes
+scripts/cvxmap/data/vix_whales_live.json from the VIX / VIXW rows of tas_crowd_minute (summed there since 11/19, every
+print, every tape session) - IN CONTRACTS (signed lots = bought - sold), not $ delta:
+  * whales vs crowd cumulative from 09:30 (+ the overnight / pre-market total before 09:30 as its own number);
+  * opposed 5-minute stretches (each side >= OPP_MIN_SHARE of its median |5-min| lots and >= VIX_OPP_FLOOR lots);
+  * per-minute bought / sold / total contracts (the map's delta volume bars) and VIX each minute;
+  * a TAPE box from the last VIX_TAPE_MIN minutes: who is winning (bought vs sold share), lots per minute, whale share,
+    which way customers pushed VIX exposure (signed delta), ABSORPTION when that push met a VIX move the other way,
+    and "heavy volume" = the last full minute vs the median of the same minute over the previous VIX_NORM_DAYS
+    sessions (today's median minute until 3 sessions are stored).
+Display only, no score (yet).
+
 Read-only on the DB, no vendor calls (rule 1), no AI (rule 7). Descriptive flow, not a signal (rule 4).
 """
 from __future__ import annotations
@@ -58,6 +70,11 @@ OPP_FLOOR_M = 1.0       # and >= $1M signed delta
 MIN_SESSIONS = 20
 EVERY_S = 60
 START_HM, END_HM = (9, 31), (16, 5)
+VIX_OUT = DATA / "vix_whales_live.json"
+VIX_ROOTS = ("VIX", "VIXW")
+VIX_OPP_FLOOR = 10      # lots: an opposed VIX stretch needs >= 10 contracts each way
+VIX_TAPE_MIN = 5        # tape box window, minutes
+VIX_NORM_DAYS = 20      # "heavy volume" norm: median of the same minute over the previous 20 sessions
 
 
 # ---------------------------------------------------------------- pure logic (tests/test_whales_feed.py)
@@ -195,6 +212,164 @@ def score(days: list[dict]) -> dict:
     return out
 
 
+# ---------------------------------------------------------------- VIX (2026-11-21, C3): lots, not $ delta
+def vix_build(rows: list[dict], trade_date: date, now_m: int, whale_min: int, norm: dict | None = None) -> dict:
+    """rows = [{minute, bucket, buy, sell, other, sd, spot}] (one per minute x bucket, any session of trade_date).
+    norm = {minute of day: median total contracts of that minute over earlier sessions}. Pure (tests)."""
+    norm = norm or {}
+    rth = [r for r in rows if OPEN_M <= _mins(r["minute"]) <= CLOSE_M and r.get("bucket") in ("whale", "crowd")]
+    pre = [r for r in rows if r["minute"].date() < trade_date or _mins(r["minute"]) < OPEN_M]
+    if not rth and not pre:
+        return {"ok": False, "date": trade_date.isoformat(), "reason": "no VIX prints in tas_crowd_minute for this day yet"}
+    pre_out = {b: round(sum((r["buy"] or 0) - (r["sell"] or 0) for r in pre if r.get("bucket") == b)) for b in ("whale", "crowd")}
+    pre_out["tot"] = round(sum((r["buy"] or 0) + (r["sell"] or 0) + (r["other"] or 0) for r in pre))
+    if pre:
+        pre_out["from"] = min(r["minute"] for r in pre).strftime("%m-%d %H:%M")
+    if not rth:
+        return {"ok": False, "date": trade_date.isoformat(), "reason": "no VIX prints since 09:30 yet", "pre": pre_out}
+    last_m = max(OPEN_M, min(now_m, CLOSE_M, max(_mins(r["minute"]) for r in rth)))
+    net: dict = {b: defaultdict(float) for b in ("whale", "crowd")}
+    buy, sell, tot, sd, spot = defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(float), {}
+    wg: dict = defaultdict(float)                      # whale bought + sold (gross)
+    for r in rth:
+        m = _mins(r["minute"])
+        b, s_, o = float(r["buy"] or 0), float(r["sell"] or 0), float(r["other"] or 0)
+        net[r["bucket"]][m] += b - s_
+        if r["bucket"] == "whale":
+            wg[m] += b + s_
+        buy[m] += b
+        sell[m] += s_
+        tot[m] += b + s_ + o
+        sd[m] += float(r.get("sd") or 0)
+        if r.get("spot"):
+            spot[m] = float(r["spot"])
+    sp, lastv = [], None
+    for m in range(OPEN_M, last_m + 1):
+        lastv = spot.get(m, lastv)
+        sp.append(round(lastv, 2) if lastv else None)
+    rng = range(OPEN_M, last_m + 1)
+    out: dict = {"ok": True, "date": trade_date.isoformat(), "asof": _hm(last_m), "whale_min": whale_min,
+                 "t0": _hm(OPEN_M), "n": last_m - OPEN_M + 1, "units": "contracts",
+                 "series": {b: [round(x) for x in _cum(net[b], last_m)] for b in ("whale", "crowd")},
+                 "vol": {"buy": [round(buy[m]) for m in rng], "sell": [round(sell[m]) for m in rng],
+                         "tot": [round(tot[m]) for m in rng]},
+                 "spot": sp, "pre": pre_out,
+                 "opp": vix_opposed(net["whale"], net["crowd"], last_m),
+                 "tape": vix_tape(buy, sell, tot, sd, wg, sp, last_m, norm),
+                 "note": "VIX + VIXW option prints, signed lots (bought - sold), cumulative from 09:30; "
+                         "mid / unknown prints count in volume, not in the lines"}
+    out["totals"] = {b: out["series"][b][-1] if out["series"][b] else 0 for b in ("whale", "crowd")}
+    return out
+
+
+def _cum(per_min: dict, last_m: int) -> list[float]:
+    out, run = [], 0.0
+    for m in range(OPEN_M, last_m + 1):
+        run += per_min.get(m, 0.0)
+        out.append(run)
+    return out
+
+
+def vix_opposed(whale: dict, crowd: dict, last_m: int) -> list[dict]:
+    """Same rule as opposed() in lots: 5-minute windows where whales and crowd pushed opposite ways."""
+    wins = [(t0, sum(whale.get(m, 0.0) for m in range(t0, t0 + WIN)), sum(crowd.get(m, 0.0) for m in range(t0, t0 + WIN)))
+            for t0 in range(OPEN_M, last_m - WIN + 2, WIN)]
+    if not wins:
+        return []
+    med_w = statistics.median([abs(w) for _, w, _ in wins]) or 0.0
+    med_c = statistics.median([abs(c) for _, _, c in wins]) or 0.0
+    return [{"t0": _hm(t0), "t1": _hm(t0 + WIN), "whale": round(w), "crowd": round(c), "whales_side": "up" if w > 0 else "down"}
+            for t0, w, c in wins
+            if w * c < 0 and abs(w) >= max(OPP_MIN_SHARE * med_w, VIX_OPP_FLOOR) and abs(c) >= max(OPP_MIN_SHARE * med_c, VIX_OPP_FLOOR)]
+
+
+def vix_tape(buy: dict, sell: dict, tot: dict, sd: dict, wgross: dict, sp: list, last_m: int, norm: dict) -> dict:
+    """The tape box (last VIX_TAPE_MIN minutes)."""
+    ms = range(max(OPEN_M, last_m - VIX_TAPE_MIN + 1), last_m + 1)
+    b, s_ = sum(buy.get(m, 0.0) for m in ms), sum(sell.get(m, 0.0) for m in ms)
+    t = sum(tot.get(m, 0.0) for m in ms)
+    share = (b - s_) / (b + s_) if b + s_ else 0.0
+    a = abs(share)
+    strength = "strong" if a >= 0.4 else "moderate" if a >= 0.15 else "balanced"
+    who = "BUYERS" if share > 0 and a >= 0.15 else "SELLERS" if share < 0 and a >= 0.15 else "NOBODY"
+    push = sum(sd.get(m, 0.0) for m in ms)                  # customer VIX delta (contracts x delta x 100)
+    i0, i1 = ms.start - OPEN_M - 1, last_m - OPEN_M
+    v0 = sp[i0] if 0 <= i0 < len(sp) else (sp[0] if sp else None)
+    v1 = sp[i1] if 0 <= i1 < len(sp) else None
+    dv = (v1 - v0) if (v0 is not None and v1 is not None) else None
+    absorb = None
+    if dv is not None and a >= 0.15 and abs(push) > 0:
+        if (push > 0 and dv <= 0.02) or (push < 0 and dv >= -0.02):
+            absorb = ("customers added long VIX exposure but VIX did not rise" if push > 0
+                      else "customers added short VIX exposure but VIX did not fall") + " - passive side absorbing (reversal tell)"
+    lm = last_m - 1 if last_m - 1 >= OPEN_M else last_m        # last FULL minute
+    lv, nm = tot.get(lm, 0.0), norm.get(lm)
+    if not nm:                                                  # fallback: today's median minute so far
+        today = [tot.get(m, 0.0) for m in range(OPEN_M, lm)]
+        nm = statistics.median(today) if len(today) >= 10 else None
+        basis = "today's median minute"
+    else:
+        basis = f"median of {_hm(lm)} over earlier sessions"
+    heavy = None
+    if nm and lv >= 2 * nm and lv >= 50:
+        heavy = {"t": _hm(lm), "n": round(lv), "x": round(lv / nm, 1), "basis": basis}
+    return {"who": who, "strength": strength, "share": round(share, 3), "bought": round(b), "sold": round(s_),
+            "lots_min": round(t / len(ms), 1), "whale_pct": round(100 * sum(wgross.get(m, 0.0) for m in ms) / (b + s_)) if b + s_ else None,
+            "push": "long VIX" if push > 0 else "short VIX" if push < 0 else "flat", "vix_move": round(dv, 2) if dv is not None else None,
+            "absorption": absorb, "heavy": heavy, "win_min": len(ms), "vix": v1}
+
+
+def load_vix_rows(sf: Callable, trade_date: date) -> list[dict]:
+    """VIX / VIXW rows of trade_date summed per minute x bucket (every session: the overnight minutes carry this
+    trade_date too)."""
+    from sqlalchemy import func, select
+
+    from trading_intel.memory.models import TasCrowdMinute as T
+    with sf() as s:
+        q = (select(T.minute, T.bucket, func.sum(T.buy_contracts).label("b"), func.sum(T.sell_contracts).label("s"),
+                    func.sum(T.other_contracts).label("o"), func.sum(T.signed_delta).label("sd"), func.max(T.spot).label("sp"))
+             .where(T.trade_date == trade_date, T.root.in_(VIX_ROOTS)).group_by(T.minute, T.bucket))
+        return [{"minute": r.minute, "bucket": r.bucket, "buy": float(r.b or 0), "sell": float(r.s or 0),
+                 "other": float(r.o or 0), "sd": float(r.sd or 0), "spot": r.sp} for r in s.execute(q)]
+
+
+def load_vix_norm(sf: Callable, trade_date: date) -> dict:
+    """{minute of day: median total VIX contracts of that minute over the previous VIX_NORM_DAYS sessions}; {} when
+    fewer than 3 sessions are stored."""
+    from sqlalchemy import func, select
+
+    from trading_intel.memory.models import TasCrowdMinute as T
+    with sf() as s:
+        days = [d for (d,) in s.execute(select(T.trade_date).where(T.trade_date < trade_date, T.root.in_(VIX_ROOTS))
+                                         .group_by(T.trade_date).order_by(T.trade_date.desc()).limit(VIX_NORM_DAYS))]
+        if len(days) < 3:
+            return {}
+        q = (select(T.trade_date, T.minute, func.sum(T.buy_contracts + T.sell_contracts + T.other_contracts))
+             .where(T.trade_date.in_(days), T.root.in_(VIX_ROOTS)).group_by(T.trade_date, T.minute))
+        per: dict[int, dict] = defaultdict(dict)
+        for d, m, n in s.execute(q):
+            per[_mins(m)][d] = float(n or 0)
+    return {m: statistics.median([v.get(d, 0.0) for d in days]) for m, v in per.items() if OPEN_M <= m <= CLOSE_M}
+
+
+_VIX_NORM: dict = {}
+
+
+def run_vix(sf: Callable, trade_date: date, now_m: int, whale_min: int) -> dict:
+    if trade_date not in _VIX_NORM:
+        _VIX_NORM.clear()
+        _VIX_NORM[trade_date] = load_vix_norm(sf, trade_date)
+    live = vix_build(load_vix_rows(sf, trade_date), trade_date, now_m, whale_min, _VIX_NORM[trade_date])
+    write_json(VIX_OUT, live)
+    if live.get("ok"):
+        t = live["tape"]
+        print(f"whales_feed.vix date={live['date']} asof={live['asof']} whale={live['totals']['whale']:+d} crowd={live['totals']['crowd']:+d} "
+              f"lots opposed={len(live['opp'])} tape={t['who']} {t['strength']}", flush=True)
+    else:
+        print("whales_feed.vix_skip", live.get("reason"), flush=True)
+    return live
+
+
 # ---------------------------------------------------------------- DB + files
 def load_rows(sf: Callable, trade_date: date) -> list[dict]:
     """2026-11-21: the database adds up the day (one row per minute x bucket x 0DTE-or-not, ~1,600 rows) instead of
@@ -247,6 +422,10 @@ def run_score() -> dict:
 
 
 def run_once(sf: Callable, trade_date: date, now_m: int, whale_min: int, final: bool) -> dict:
+    try:                                           # 2026-11-21 C3: VIX in lots; never stops the SPX feed
+        run_vix(sf, trade_date, now_m, whale_min)
+    except Exception as exc:  # noqa: BLE001
+        print(f"whales_feed.vix ERROR: {str(exc)[:200]}", flush=True)
     live = build(load_rows(sf, trade_date), trade_date, now_m, whale_min)
     try:                                           # the running verdict, shown on the cockpit strip
         live["score"] = json.loads((REP / "score.json").read_text(encoding="utf-8")).get("verdict")

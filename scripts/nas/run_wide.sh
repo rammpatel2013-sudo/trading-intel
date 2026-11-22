@@ -12,6 +12,9 @@
 #   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_wide.sh status
 #   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_wide.sh days             # rebuild EVERY stored day that has a raw file
 #   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_wide.sh days 20261106    # rebuild named days
+#   sudo bash /var/services/homes/drmithil/trading-intel/scripts/nas/run_wide.sh vixdays          # 2026-11-21 VIX map C4: replay
+#        only the VIX pulls of every stored day before today, oldest first (volume by VIX level + zones), in the
+#        background at low priority; progress in scripts/cvxmap/data/vixdays.log
 REPO_DIR="/var/services/homes/drmithil/trading-intel"
 DATA_DIR="${REPO_DIR}/scripts/cvxmap/data"
 DOCKER="/usr/local/bin/docker"
@@ -51,8 +54,17 @@ case "${1:-}" in
         -v "${REPO_DIR}/scripts:/app/scripts" -e "PYTHONPATH=/app" \
         "$IMAGE" python scripts/cvxmap/wide_feed.py --date "$@" 2>&1 | tee -a "$LOG"
     ;;
+  vixdays)
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') VIX map C4 backfill (vix only, every stored day) ===" | tee -a "$LOG"
+    "$DOCKER" rm -f "${NAME}-vix" >/dev/null 2>&1 || true
+    "$DOCKER" run -d --rm --name "${NAME}-vix" \
+        -v "${REPO_DIR}/scripts:/app/scripts" -e "PYTHONPATH=/app" \
+        "$IMAGE" sh -c "nice -n 15 python scripts/cvxmap/wide_feed.py --date --vix-only --all-raw >> /app/scripts/cvxmap/data/vixdays.log 2>&1" >/dev/null \
+      && echo "  started ${NAME}-vix (log: ${DATA_DIR}/vixdays.log)" | tee -a "$LOG" \
+      || echo "  FAILED to start ${NAME}-vix" | tee -a "$LOG"
+    ;;
   *)
-    echo "usage: run_wide.sh start | stop | status | days [YYYYMMDD ...]"
+    echo "usage: run_wide.sh start | stop | status | days [YYYYMMDD ...] | vixdays"
     exit 2
     ;;
 esac

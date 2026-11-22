@@ -46,6 +46,19 @@ key):
   per strike [call OI, put OI, call vol, put vol, calls bought, calls sold, puts bought, puts
   sold] for the hover card. The page ranks the strikes and names the roles (FLOOR / CEILING /
   MAGNET) on the basis and sign chosen there.
+
+2026-11-21 (VIX map redesign C4, test cockpit "Strike map"; file v3 adds "vp" + "zones", older readers ignore them):
+  "vp" = today's VIX option VOLUME BY VIX LEVEL. Each minute, every contract's new volume (calls + puts, every expiry,
+  from the chain's day-volume counters, split into aggressor buys / sells from the trade tags) is placed at the VIX
+  level where the FRONT forward reaches that strike, y = K - (front forward - VIX) - the same rule as the strike rows
+  - in VP_BIN (0.05) bins. The first minute of the day carries the volume traded before 09:30 at the 09:30 basis.
+  "rng" = today's VIX low / high (from the minute VIX). "poc" = today's busiest level.
+  "zones" (computed once at the start of the day from the stored vixmap files of the last ZONE_DAYS sessions,
+  zones_from_dir): volume summed by level over those sessions -> up to ZONE_N zones, each grown from a peak bin
+  while the neighbouring bins carry >= ZONE_EDGE of the peak, at most ZONE_MAX_W wide, not closer than ZONE_GAP to
+  a stronger zone; label = "Demand" when buyers were >= 50% of the signed volume, else "Supply".
+  "naked" = earlier days' busiest levels (each day's POC) that no LATER stored day's VIX range has touched (the
+  page also checks today's range so far). Display only; nothing here is a signal.
 """
 from __future__ import annotations
 
@@ -65,6 +78,13 @@ GRID_STEP = 0.25                # VIX points between map rows
 SIGN_DEALER = (-1.0, 1.0)       # (calls, puts): dealers short calls, long puts  (default)
 SIGN_NAIVE = (1.0, -1.0)        # SPX-style: dealers long calls, short puts
 MULT = 100.0
+VP_BIN = 0.05                   # volume-by-level bin, VIX points (2026-11-21, C4)
+ZONE_DAYS = 60                  # sessions summed for the demand / supply zones
+ZONE_N = 6                      # zones kept
+ZONE_EDGE = 0.5                 # a zone grows while a neighbouring bin has >= 50% of the peak bin's volume
+ZONE_MAX_W = 0.25               # ... up to 0.25 VIX points wide
+ZONE_GAP = 0.30                 # a weaker peak closer than this to a kept zone is skipped
+NAKED_N = 8                     # naked POC lines kept (newest first)
 
 
 # ---------------------------------------------------------------- pure maths
@@ -367,6 +387,127 @@ def strike_book(ex: list[dict], vix: float) -> dict | None:
     return out
 
 
+def vp_bin(y: float) -> float:
+    return round(round(y / VP_BIN) * VP_BIN, 2)
+
+
+def vp_add(vp: dict, y: float, n: float, b: float = 0.0, s: float = 0.0) -> None:
+    """Add n contracts (b bought, s sold) at VIX level y to vp {bin: [n, b, s]}."""
+    if not n > 0:
+        return
+    a = vp.setdefault(vp_bin(y), [0.0, 0.0, 0.0])
+    a[0] += n
+    a[1] += b
+    a[2] += s
+
+
+def vp_payload(vp: dict) -> dict:
+    """{bin: [n, b, s]} -> {"bin", "lv", "n", "b", "s"} sorted by level (whole contracts)."""
+    ks = sorted(k for k, v in vp.items() if v[0] >= 0.5)
+    return {"bin": VP_BIN, "lv": ks, "n": [round(vp[k][0]) for k in ks], "b": [round(vp[k][1]) for k in ks],
+            "s": [round(vp[k][2]) for k in ks]}
+
+
+def vp_poc(vp: dict) -> float | None:
+    """Busiest level of a {"lv", "n"} payload (lowest level on a tie)."""
+    lv, n = vp.get("lv") or [], vp.get("n") or []
+    if not lv:
+        return None
+    i = max(range(len(lv)), key=lambda j: (n[j], -lv[j]))
+    return lv[i] if n[i] > 0 else None
+
+
+def zones(days: list[dict]) -> dict:
+    """days = [{"day", "vp": {"lv","n","b","s"}, "rng": [lo, hi]}], OLDEST first. Demand / supply zones over all of
+    them + the naked POCs (a day's busiest level that no later day's range touched). Pure, see the module notes."""
+    tot: dict[float, list[float]] = {}
+    for d in days:
+        vp = d.get("vp") or {}
+        for i, y in enumerate(vp.get("lv") or []):
+            a = tot.setdefault(round(y, 2), [0.0, 0.0, 0.0])
+            a[0] += (vp["n"][i] or 0)
+            a[1] += (vp.get("b") or [0] * len(vp["lv"]))[i] or 0
+            a[2] += (vp.get("s") or [0] * len(vp["lv"]))[i] or 0
+    out: dict = {"days": len(days), "from": days[0]["day"] if days else None, "to": days[-1]["day"] if days else None,
+                 "bin": VP_BIN, "zones": [], "naked": []}
+    if tot:
+        lv = sorted(tot)
+        used: list[tuple[float, float]] = []
+        for y in sorted(lv, key=lambda q: (-tot[q][0], q)):
+            peak = tot[y][0]
+            if not peak > 0 or len(out["zones"]) >= ZONE_N:
+                break
+            if any(lo - ZONE_GAP <= y <= hi + ZONE_GAP for lo, hi in used):
+                continue
+            lo = hi = y
+            while hi - lo + 2 * VP_BIN <= ZONE_MAX_W + 1e-9:   # zone width = hi - lo + one bin; grow by one bin
+                cand = []                                  # toward the bigger neighbour first
+                yl, yh = round(lo - VP_BIN, 2), round(hi + VP_BIN, 2)
+                if yl in tot:
+                    cand.append((tot[yl][0], yl, "lo"))
+                if yh in tot:
+                    cand.append((tot[yh][0], yh, "hi"))
+                cand = [c for c in cand if c[0] >= ZONE_EDGE * peak]
+                if not cand:
+                    break
+                _, yy, side = max(cand)
+                if side == "lo":
+                    lo = yy
+                else:
+                    hi = yy
+            n = b = s = 0.0
+            q = lo
+            while q <= hi + 1e-9:
+                a = tot.get(round(q, 2))
+                if a:
+                    n, b, s = n + a[0], b + a[1], s + a[2]
+                q = round(q + VP_BIN, 2)
+            used.append((lo, hi))
+            out["zones"].append({"lo": round(lo - VP_BIN / 2, 3), "hi": round(hi + VP_BIN / 2, 3), "poc": y,
+                                 "n": round(n), "buy_pct": round(100 * b / (b + s)) if b + s else None,
+                                 "kind": "Demand" if b >= s else "Supply"})
+        out["poc"] = out["zones"][0]["poc"] if out["zones"] else None
+    naked = []
+    for j, d in enumerate(days):
+        p = vp_poc(d.get("vp") or {})
+        if p is None:
+            continue
+        later = [x.get("rng") for x in days[j + 1:] if x.get("rng")]
+        if any(r[0] - 1e-9 <= p <= r[1] + 1e-9 for r in later):
+            continue
+        n = 0
+        vp = d["vp"]
+        for i, y in enumerate(vp["lv"]):
+            if abs(y - p) < 1e-9:
+                n = vp["n"][i]
+        naked.append({"day": d["day"], "y": p, "n": n})
+    out["naked"] = naked[::-1][:NAKED_N]                 # newest first
+    return out
+
+
+def zones_from_dir(data_dir: str, ymd: str, max_days: int = ZONE_DAYS) -> dict:
+    """zones() over the stored vixmap_YYYYMMDD.json files BEFORE ymd that carry "vp" (newest max_days)."""
+    import json
+
+    try:
+        names = sorted(f for f in os.listdir(data_dir)
+                       if f.startswith("vixmap_") and f.endswith(".json") and f[7:15].isdigit() and f[7:15] < ymd)
+    except OSError:
+        names = []
+    days: list[dict] = []
+    for f in reversed(names):
+        if len(days) >= max_days:
+            break
+        try:
+            with open(os.path.join(data_dir, f), encoding="utf-8") as fh:
+                j = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if j.get("vp") and j.get("rng"):
+            days.append({"day": j.get("day") or f[7:15], "vp": j["vp"], "rng": j["rng"]})
+    return zones(days[::-1])
+
+
 class VixDay:
     """Day state inside wide_feed: one column per 5 minutes + the newest minute."""
 
@@ -379,6 +520,10 @@ class VixDay:
         self.px: list[list] = []        # every minute: [HH:MM, VIX, front forward]
         self.books: list[dict] = []     # strike book every 30 minutes (2026-11-19, C1)
         self.book_last: dict | None = None
+        self.vp: dict[float, list[float]] = {}   # 2026-11-21 C4: today's volume by VIX level {bin: [n, buys, sells]}
+        self.vprev: dict[tuple, tuple] = {}      # (expiry, strike) -> last cumulative (calls+puts, buys, sells)
+        self.rng: list[float] | None = None      # today's VIX [low, high]
+        self.zones: dict | None = None           # set by wide_feed at the start of the day (zones_from_dir)
         self.changed = False
 
     def feed(self, dv: dict, now: datetime.datetime) -> bool:
@@ -394,6 +539,8 @@ class VixDay:
         col = column(dv, now, self.levels, ex)
         if col is None:
             return False
+        self.add_volume(ex, vix)
+        self.rng = [min(self.rng[0], vix), max(self.rng[1], vix)] if self.rng else [vix, vix]
         pt = [t, col["x"], col["fF"]]
         if self.px and self.px[-1][0] == t:
             self.px[-1] = pt
@@ -423,6 +570,22 @@ class VixDay:
         self.changed = True
         return True
 
+    def add_volume(self, ex: list[dict], vix: float) -> None:
+        """New volume since the last minute per contract, placed at y = K - (front forward - VIX) (C4)."""
+        if not ex:
+            return
+        basis = ex[0]["F"] - vix
+        for e in ex:
+            for r in e["rows"]:
+                k = r[0]
+                cb, cs, pb, ps = _tags(r)
+                cur = ((r[3] or 0.0) + (r[4] or 0.0), cb + pb, cs + ps)
+                key = (e["e"], k)
+                old = self.vprev.get(key, (0.0, 0.0, 0.0))
+                self.vprev[key] = cur
+                d = [max(0.0, a - b) for a, b in zip(cur, old, strict=False)]
+                vp_add(self.vp, k - basis, d[0], d[1], d[2])
+
     def payload(self) -> dict:
         cols = list(self.cols)
         if self.last is not None:
@@ -435,6 +598,8 @@ class VixDay:
                 "sign": "dealers short calls, long puts (flip for the naive sign)",
                 "exps": self.exps, "cols": cols, "px": self.px,
                 "books": books, "book_min": BOOK_MIN,
+                "vp": vp_payload(self.vp), "rng": [round(x, 2) for x in self.rng] if self.rng else None,
+                "poc": vp_poc(vp_payload(self.vp)), "zones": self.zones,
                 "bases": "o = open interest, v = today's volume (dealer-default sign); "
                          "t = signed trades (measured: calls sold - bought + puts sold - bought), "
                          "not flipped by the sign switch"}

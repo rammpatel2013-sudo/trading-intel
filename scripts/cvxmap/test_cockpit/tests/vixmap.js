@@ -1,4 +1,5 @@
-// VIX map Strike map (C1 + C2) checks (2026-11-19 night). Folder served on TC_BASE with test_old.html (instrument.py of the
+// VIX map Strike map (C1 + C2) checks (2026-11-19 night); C3 + C4 checks added 2026-11-21 (zones, naked POCs, volume bars,
+// whales vs crowd pane, tape box; fixture adds 3 earlier days with volume by level + vix_whales_live.json). Folder served on TC_BASE with test_old.html (instrument.py of the
 // test page BEFORE this ship), test.html (instrument.py of the new test page) and vixmap_fixture.py's output
 // (vixmap_20261106.json v3 + wide_index.json). Checks: button OFF = VIX map canvases, read-out and hover identical to the old
 // test page; ON = strike rows drawn (canvases differ), role labels = rule rv-v0 recomputed here, hover card text, scale from
@@ -6,11 +7,11 @@
 const {chromium}=require('playwright'); const fs=require('fs');
 const BASE=process.env.TC_BASE||'http://localhost:8765/', OUT=process.env.OUT||'./shots/', OLD=process.env.TC_OLD||'test_old.html', NEW=process.env.TC_NEW||'test.html'; fs.mkdirSync(OUT,{recursive:true});
 let fails=0,n=0; const ok=(c,m)=>{ n++; if(!c) fails++; console.log((c?'OK   ':'FAIL ')+m); };
-async function open(B,page,ls){ const ctx=await B.newContext({viewport:{width:1600,height:1400}}); const p=await ctx.newPage(); const errs=[];
+async function open(B,page,ls){ const ctx=await B.newContext({viewport:{width:1600,height:1400}}); const p=await ctx.newPage(); const errs=[], reqs=[]; p.on('request',r=>reqs.push(r.url()));
   p.on('pageerror',e=>errs.push(String(e))); p.on('console',m=>{ if(m.type()==='error'&&!/Failed to load resource|404/.test(m.text())) errs.push('console: '+m.text()); });
   await p.addInitScript(s=>{ try{ const o=JSON.parse(s); for(const k in o) localStorage.setItem(k,o[k]); }catch(e){} }, JSON.stringify(Object.assign({'cockpit.tab':'vix','cockpit.vxOpt':'{"vmap":true}'},ls||{})));
   await p.goto(BASE+page); await p.waitForFunction(()=>{ const T=window.__T; if(!T) return false; const V=T.x('VXM'); return V&&V.J&&V.J.cols&&V.J.cols.length&&document.getElementById('vxmGC'); },null,{timeout:60000});
-  await p.waitForTimeout(1200); return {p,ctx,errs}; }
+  await p.waitForTimeout(1200); return {p,ctx,errs,reqs}; }
 const canv=o=>o.p.evaluate(()=>["vxmGC","vxmVC"].map(id=>{ const c=document.getElementById(id); return c?id+":"+c.width+"x"+c.height+":"+c.toDataURL().length+":"+c.toDataURL().slice(-300):id+":none"; }));
 const hover=async(o,id,fx,fy)=>{ const b=await o.p.$eval('#'+id,c=>{ const r=c.getBoundingClientRect(); return [r.left,r.top,r.width,r.height]; }); await o.p.mouse.move(b[0]+b[2]*fx,b[1]+b[3]*fy); await o.p.waitForTimeout(200); return o.p.$eval('#vxmHov',e=>e.innerHTML); };
 (async()=>{ const B=await chromium.launch(process.env.TC_CHROME?{executablePath:process.env.TC_CHROME,args:['--disable-dev-shm-usage']}:{});
@@ -21,6 +22,7 @@ const hover=async(o,id,fx,fy)=>{ const b=await o.p.$eval('#'+id,c=>{ const r=c.g
   ok(await hover(A,'vxmGC',0.4,0.5)===await hover(N,'vxmGC',0.4,0.5),'OFF: hover identical');
   ok(await N.p.$('#tgVxsBtn')!==null,'OFF: Strike map button present');
   ok(!A.errs.length&&!N.errs.length,'OFF: 0 JS errors '+JSON.stringify(N.errs.slice(0,3)));
+  ok(!A.reqs.some(u=>/vix_whales_live/.test(u))&&!N.reqs.some(u=>/vix_whales_live/.test(u)),'OFF: vix_whales_live.json never fetched');
   // ON by the button
   await N.p.click('#tgVxsBtn'); await N.p.waitForTimeout(800);
   ok(await N.p.evaluate(()=>localStorage.getItem('cockpit.tgVxs'))==='1','ON: button saves the toggle');
@@ -47,6 +49,35 @@ const hover=async(o,id,fx,fy)=>{ const b=await o.p.$eval('#'+id,c=>{ const r=c.g
   ok(flip.every((x,i)=>Math.abs(x+back[i])<1e-12),'ON: SPX-style sign = exactly the negative on the OI basis');
   await N.p.screenshot({path:OUT+'vixmap_on.png',fullPage:false});
   await N.p.$eval('#vxMap',e=>e.scrollIntoView()); await N.p.waitForTimeout(300); await N.p.screenshot({path:OUT+'vixmap_on_map.png'});
+  // C3 + C4 (2026-11-21): zones / naked POCs / volume bars on the map, whales-vs-crowd pane + tape box under the read-out
+  ok(await N.p.waitForFunction(()=>window.__T.x('VXW').J&&document.getElementById('tgVxw'),null,{timeout:8000}).then(()=>true,()=>false),'ON: whales file fetched + pane drawn');
+  const zz=await N.p.evaluate(()=>{ const T=window.__T, Z=T.x('tgVxsZones')(T.x('VXM').J); return {n:Z.zones.length,kinds:Z.zones.map(z=>z.kind),naked:Z.naked.map(x=>[x.day,x.y]),top:Z.zones[0]}; });
+  console.log('zones', JSON.stringify(zz));
+  ok(zz.n===6&&zz.kinds.includes('Demand')&&zz.kinds.includes('Supply'),'C4: 6 zones, demand + supply');
+  ok(JSON.stringify(zz.naked)===JSON.stringify([['2026-11-03',18.95]]),'C4: naked POCs touched today dropped (16.30 / 17.00), 11/03 18.95 kept');
+  const rd2=await N.p.$eval('#vxmRead',e=>e.innerText); ok(/TEST zones: VIX option volume of the last 3 stored sessions/.test(rd2)&&/Nov 3 18\.95/.test(rd2),'C4: read-out lists zones + naked POC');
+  const g=await N.p.evaluate(()=>{ const G=window.__T.x('VXM').geo.G; return [G.lo,G.hi,G.padT,G.H]; });
+  const hvN=await (async()=>{ const b=await N.p.$eval('#vxmGC',c=>{ const r=c.getBoundingClientRect(); return [r.left,r.top,r.width,r.height]; }); await N.p.mouse.move(b[0]+b[2]*0.5,b[1]+g[2]+g[3]*(1-(18.95-g[0])/(g[1]-g[0]))); await N.p.waitForTimeout(200); return N.p.$eval('#vxmHov',e=>e.innerText); })();
+  ok(/Naked POC 18\.95/.test(hvN)&&/Nov 3/.test(hvN),'C4: hover on the naked line names it');
+  const pane=await N.p.$eval('#tgVxw',e=>e.innerText); console.log('pane', pane.replace(/\s+/g,' ').slice(0,420));
+  ok(/whales \+1\.2K/.test(pane)&&/crowd −5\.3K/.test(pane),'C3: whales / crowd totals in lots');
+  ok(/18 opposed stretches/.test(pane)&&/overnight \+ pre-market.*crowd \+18/.test(pane),'C3: opposed count + overnight / pre-market number');
+  ok(/SELLERS winning \(strong\)/.test(pane)&&/lots a minute/.test(pane)&&/Source: exchange tape/.test(pane),'C3: tape box');
+  ok(await N.p.evaluate(()=>{ const c=document.getElementById('tgVxwC'); return !!c&&c.width>200&&c.toDataURL().length>5000; }),'C3: CVD canvas drawn');
+  // volume bars: the bottom strip of the gamma map differs from the same map without the whales file
+  const strip=()=>N.p.evaluate(()=>{ const c=document.getElementById('vxmGC'), G=window.__T.x('VXM').geo.G, d=window.devicePixelRatio||1;
+    const im=c.getContext('2d').getImageData(Math.round(G.padL*d),Math.round((G.padT+G.H*0.9)*d),Math.round(G.W*d),Math.round(G.H*0.09*d)).data; let h=0; for(let i=0;i<im.length;i+=97) h=(h*31+im[i])>>>0; return h; });
+  const s1=await strip(); await N.p.evaluate(()=>{ const T=window.__T; T.x('VXW').J=null; T.x('VXM').key=""; T.x('vxmRender()'); }); await N.p.waitForTimeout(300);
+  const s0=await strip(); ok(s1!==s0,'C3: per-minute volume bars drawn at the bottom of the gamma map');
+  ok(/waiting for vix_whales_live\.json/.test(await N.p.$eval('#tgVxw',e=>e.innerText)),'C3: no whales file = waiting note');
+  // a whales file from another day: pane says so, no bars
+  await N.p.evaluate(async()=>{ const T=window.__T, r=await fetch('vix_whales_live.json'); const j=await r.json(); j.date='2026-11-05'; T.x('VXW').J=j; T.x('VXM').key=""; T.x('vxmRender()'); }); await N.p.waitForTimeout(300);
+  ok(/tape day 2026-11-05 ≠ map day 2026-11-06/.test(await N.p.$eval('#tgVxw',e=>e.innerText))&&await strip()===s0,'C3: other-day file flagged, no bars');
+  await N.p.setViewportSize({width:390,height:900}); await N.p.waitForTimeout(400); await N.p.evaluate(()=>{ const T=window.__T; T.x('VXW').J=null; T.x('VXW').at=0; T.x('tgVxwFetch(true)'); }); await N.p.waitForTimeout(800);
+  await N.p.$eval('#tgVxw',e=>e.scrollIntoView()); await N.p.screenshot({path:OUT+'vixmap_c3_phone.png'});
+  await N.p.setViewportSize({width:1600,height:1400}); await N.p.waitForTimeout(400);
+  await N.p.$eval('#vxMap',e=>e.scrollIntoView()); await N.p.screenshot({path:OUT+'vixmap_c3c4.png',fullPage:false});
+  await N.p.$eval('#tgVxw',e=>e.scrollIntoView()); await N.p.screenshot({path:OUT+'vixmap_c3_pane.png'});
   // ON with a v2 file (no books) = production drawing + a note
   await N.p.evaluate(()=>{ const V=window.__T.x('VXM'); delete V.J.books; V.key=""; window.__T.x('vxmRender()'); }); await N.p.waitForTimeout(400);
   ok(await N.p.evaluate(()=>window.__T.x('VXM').geo.G.strike!==true),'ON + v2 file: production drawing');
