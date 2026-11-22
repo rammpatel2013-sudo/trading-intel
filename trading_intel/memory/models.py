@@ -562,6 +562,10 @@ class IndexSkewDaily(Base):
     dspx: Mapped[float | None] = mapped_column(Float)
     dspx_pctile_252d: Mapped[float | None] = mapped_column(Float)
     vixeq_vix_spread: Mapped[float | None] = mapped_column(Float)
+    # Cboe 3-month delta implied correlation — migration 0073 (2026-11-22, Correlation Fuse).
+    # ``cor10d`` = 10-delta call (upside) wing, ``cor90d`` = 90-delta call = 10-delta put (downside).
+    cor10d: Mapped[float | None] = mapped_column(Float)
+    cor90d: Mapped[float | None] = mapped_column(Float)
 
 
 class VixOptionsChain(Base):

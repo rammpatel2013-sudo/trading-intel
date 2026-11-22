@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Correlation Fuse</title>
+<!-- fuse.html - created 2026-11-22 (Correlation Fuse). Copied into scripts/cvxmap/data/ by scripts/fuse_tab.py; reads
+     fusetab.json (same folder, served by cvxmap-serve on :8899; also shown inside the cockpit's Fuse tab).
+     Display only (rule 4): every number comes from fusetab.json (Cboe / FMP / FRED end-of-day closes). -->
+<style>
+:root{--bg:#0A1426;--pane:#0E1B33;--pane2:#112141;--rule:#1B2C4C;--ink:#E6EEF8;--mute:#A9BBD3;--ok:#4ADE80;--warn:#FFC24A;
+  --bad:#FF6B6B;--cyan:#38BDF8;--vio:#A78BFA;--font:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px var(--font);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--bg);z-index:5}
+h1{font-size:22px;margin:0;letter-spacing:.04em} .asof{color:var(--mute);font-size:15px}
+.pill{font-weight:700;font-size:16px;letter-spacing:.08em;padding:3px 12px;border-radius:6px;border:2px solid currentColor}
+.p-QUIET{color:var(--ok)} .p-LOADED{color:var(--warn)} .p-TRANSMITTING{color:var(--bad)} .p-RELEASING{color:var(--cyan)}
+.seg{display:flex;gap:2px;background:var(--pane);padding:2px;border-radius:7px;margin-left:auto}
+.seg button,.btn{border:0;background:transparent;color:var(--mute);padding:6px 13px;border-radius:5px;font:600 15px var(--font);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--pane2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--cyan)}
+.btn{border:1px solid var(--rule);background:var(--pane)}
+main{padding:12px 16px 48px;max-width:1900px;margin:0 auto}
+.read{font-size:18px;margin:4px 0 14px;line-height:1.45} .read b{color:#fff}
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}
+@media(max-width:900px){.sum{grid-template-columns:1fr}}
+.card{background:var(--pane);border:1px solid var(--rule);border-radius:10px;padding:12px 14px}
+.card h2{margin:0;font-size:15px;letter-spacing:.08em;color:var(--mute);font-weight:700;display:flex;gap:8px;align-items:baseline}
+.card h2 .q{font-weight:500;letter-spacing:0;text-transform:none}
+.big{font-size:40px;font-weight:700;line-height:1.1;margin:6px 0 2px} .big small{font-size:18px;color:var(--mute);font-weight:500}
+.d5{font-size:14px;color:var(--mute)} .up{color:var(--bad)} .dn{color:var(--ok)}
+.cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;margin-top:10px}
+.cell{background:var(--pane2);border-radius:6px;padding:6px 4px;text-align:center;cursor:pointer;border:1px solid transparent}
+.cell:hover{border-color:#3a5a8a} .cell .k{font-size:12px;color:var(--mute);letter-spacing:.05em}
+.cell .v{font-size:19px;font-weight:700;margin:2px 0} .cell .c{font-size:12px;color:var(--mute)}
+.s-on{background:rgba(255,107,107,.16)} .s-on .v{color:var(--bad)} .s-near .v{color:var(--warn)} .s-off .v{color:var(--ok)}
+.grp-R .s-on{background:rgba(56,189,248,.14)} .grp-R .s-on .v{color:var(--cyan)}
+.grp-F .s-on{background:rgba(255,194,74,.14)} .grp-F .s-on .v{color:var(--warn)} .grp-F .s-near .v{color:#F5D88A}
+.note{color:var(--mute);font-size:14px;margin-top:6px;line-height:1.4}
+h3.sec{font-size:16px;letter-spacing:.08em;color:var(--mute);margin:22px 0 8px;display:flex;align-items:center;gap:10px}
+h3.sec .btn{margin-left:auto;font-size:13px;padding:4px 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.ch{background:var(--pane);border:1px solid var(--rule);border-radius:9px;padding:10px 10px 6px;position:relative;cursor:zoom-in;min-width:0}
+.ch.bigc{grid-column:1/-1;cursor:zoom-out}
+.ch .t{display:flex;gap:8px;align-items:baseline;font-size:14px;letter-spacing:.06em;font-weight:700;color:var(--mute);text-transform:uppercase}
+.ch .t .id{color:var(--ink)} .ch .t .val{margin-left:auto;font-size:18px;color:var(--ink);letter-spacing:0}
+.chip{font-size:12px;padding:1px 7px;border-radius:9px;border:1px solid var(--rule);color:var(--mute);letter-spacing:.04em}
+.chip.on{color:var(--bad);border-color:var(--bad)} .grp-F .chip.on{color:var(--warn);border-color:var(--warn)} .grp-R .chip.on{color:var(--cyan);border-color:var(--cyan)}
+.ch .m{font-size:13px;color:var(--mute);margin:2px 0 0} .ch .ex{display:none;font-size:14px;color:var(--mute);margin:6px 2px;line-height:1.4}
+.ch.bigc .ex{display:block}
+svg{display:block;width:100%} svg text{fill:#93A7C2;font:12px var(--font)}
+.tip{position:absolute;pointer-events:none;background:#071022;border:1px solid #3a5a8a;border-radius:7px;padding:6px 9px;font-size:14px;white-space:nowrap;z-index:9;display:none;color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:15px} th,td{padding:6px 8px;border-bottom:1px solid var(--rule);text-align:right}
+th{color:var(--mute);font-weight:600} td:first-child,th:first-child{text-align:left}
+.tw{overflow-x:auto} details{margin-top:10px} summary{cursor:pointer;color:var(--mute);font-size:15px}
+ol.how{line-height:1.5;padding-left:1.3em} ol.how li{margin-bottom:6px}
+.err{color:var(--bad);padding:30px;font-size:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>CORRELATION FUSE</h1>
+  <span id="pill" class="pill">…</span>
+  <span class="asof" id="asof"></span>
+  <div class="seg" id="rng">
+    <button data-r="126">6M</button><button data-r="252" aria-pressed="true">1Y</button><button data-r="756">3Y</button><button data-r="1260">5Y</button>
+  </div>
+  <a class="btn" href="zones.html" title="One card per gauge: how far it sits from its own 50-day range, and what SPX did the past times it got there (zone_cards.py)" style="color:var(--ink);text-decoration:none">Zone cards &rarr;</a>
+</header>
+<main id="main"><div class="note">Loading fusetab.json…</div></main>
+<div class="tip" id="tip"></div>
+<script>
+"use strict";
+const ST = { r: 252, big: {}, data: null };
+const GC = { F: "#FFC24A", T: "#FF6B6B", R: "#38BDF8" };
+const PHASE_TXT = {
+  QUIET: "Nothing loaded and nothing moving: stock moves are cancelling each other and the index is calm.",
+  LOADED: "The fuse is loaded: the index looks calm but the conditions that came before past vol spikes are in place. Cut size, own cheap protection.",
+  TRANSMITTING: "The move is happening: stocks are moving together, so single-stock stress is reaching the index. Stay defensive.",
+  RELEASING: "The move is burning out: correlation and front-end panic are easing. The all-clear is building; false starts happen.",
+};
+const $ = (id) => document.getElementById(id);
+const fmt = (v, k = 2) => (v == null || isNaN(v) ? "—" : (+v).toFixed(k));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function state(p, v) {                       // on / near / off for a value of point p
+  if (v == null) return "off";
+  const on = p.side === ">=" ? v >= p.level : v <= p.level;
+  if (on) return "on";
+  const span = Math.abs((p.hi ?? p.level) - (p.lo ?? p.level)) || 1;
+  return Math.abs(v - p.level) <= 0.2 * span ? "near" : "off";
+}
+const decimals = (p) => (Math.abs(p.level) < 1 || ["F2", "T1", "F6", "R5", "R1", "R7", "R3", "T6", "F4", "R6"].includes(p.id) ? 2 : 1);
+
+// ---------------------------------------------------------------- chart (inline SVG, no libraries)
+function chart(el, o) {
+  const S = ST.data.series, N = S.date.length, a = Math.max(0, N - ST.r);
+  const dates = S.date.slice(a), big = el.closest(".ch")?.classList.contains("bigc");
+  const W = Math.max(300, el.clientWidth || 340), H = big ? 360 : 150, m = { t: 8, r: 10, b: 20, l: 38 };
+  const ser = o.series.map((s) => ({ ...s, v: S[s.key].slice(a) }));
+  let vals = ser.flatMap((s) => s.v).filter((v) => v != null);
+  (o.extra || []).forEach((v) => v != null && vals.push(v));
+  let lo = o.yMin ?? Math.min(...vals), hi = o.yMax ?? Math.max(...vals);
+  if (o.yMin == null || o.yMax == null) { const p = (hi - lo) * 0.06 || 1; if (o.yMin == null) lo -= p; if (o.yMax == null) hi += p; }
+  const X = (i) => m.l + (i / Math.max(1, dates.length - 1)) * (W - m.l - m.r);
+  const Y = (v) => m.t + (1 - (v - lo) / (hi - lo || 1)) * (H - m.t - m.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label)}">`;
+  if (o.rule != null) {
+    const yr = Y(o.rule), top = o.side === ">=" ? m.t : yr, bot = o.side === ">=" ? yr : H - m.b;
+    s += `<rect x="${m.l}" y="${Math.min(top, bot)}" width="${W - m.l - m.r}" height="${Math.max(0, Math.abs(bot - top))}" fill="${o.zone}" opacity=".10"/>`;
+  }
+  for (let k = 0; k <= (big ? 6 : 3); k++) {
+    const v = lo + (hi - lo) * k / (big ? 6 : 3), y = Y(v);
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="#1B2C4C"/><text x="${m.l - 4}" y="${y + 4}" text-anchor="end">${Math.abs(hi - lo) < 5 ? v.toFixed(2) : Math.round(v)}</text>`;
+  }
+  const nT = Math.max(2, Math.floor(W / 110));
+  for (let k = 0; k <= nT; k++) {
+    const i = Math.round((dates.length - 1) * k / nT), d = dates[i];
+    s += `<text x="${X(i)}" y="${H - 5}" text-anchor="${k === 0 ? "start" : k === nT ? "end" : "middle"}">${d.slice(5, 7)}/${d.slice(2, 4)}</text>`;
+  }
+  const hl = (v, dash, col, lbl) => { if (v == null || v < lo || v > hi) return; const y = Y(v);
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="${col}" stroke-dasharray="${dash}" stroke-width="1.3"/>`;
+    if (big && lbl) s += `<text x="${W - m.r - 3}" y="${y - 4}" text-anchor="end" style="fill:${col}">${lbl}</text>`; };
+  hl(o.hi, "2 4", "#6B7F9C", "historic high (95th pct)");
+  hl(o.lo, "2 4", "#6B7F9C", "historic low (5th pct)");
+  (o.refs || []).forEach((v) => hl(v, "4 4", "#6B7F9C", String(v)));
+  if (o.rule != null) hl(o.rule, "6 4", o.zone, "concern line " + o.rule);
+  if (o.onKey) {                              // ticks along the bottom = days this point was ON
+    const on = S[o.onKey].slice(a), bw = Math.max(1, (W - m.l - m.r) / dates.length);
+    on.forEach((f, i) => { if (f) s += `<rect x="${X(i)}" y="${H - m.b - 4}" width="${bw}" height="4" fill="${o.zone}" opacity=".85"/>`; });
+  }
+  ser.forEach((sr) => {
+    if (sr.dots) { sr.v.forEach((v, i) => { if (v != null && v >= lo && v <= hi) s += `<circle cx="${X(i)}" cy="${Y(v)}" r="${big ? 2.6 : 1.8}" fill="${sr.color}" opacity=".85"/>`; }); return; }
+    if (sr.hidden) return;
+    let cur = null, d = "";                   // line coloured by state: one path per run of the same colour
+    const flush = () => { if (d) s += `<path d="${d}" fill="none" stroke="${cur}" stroke-width="${big ? 2 : 1.6}" stroke-linejoin="round"/>`; d = ""; };
+    let prev = null;
+    sr.v.forEach((v, i) => {
+      if (v == null) { flush(); prev = null; return; }
+      const col = sr.colorOf ? sr.colorOf(v) : sr.color;
+      const pt = `${X(i).toFixed(1)},${Y(Math.min(hi, Math.max(lo, v))).toFixed(1)}`;
+      if (col !== cur) { flush(); cur = col; d = prev ? `M${prev}L${pt}` : `M${pt}`; } else d += (d ? "L" : "M") + pt;
+      prev = pt;
+    });
+    flush();
+    const li = sr.v.length - 1;
+    if (sr.v[li] != null) s += `<circle cx="${X(li)}" cy="${Y(Math.min(hi, Math.max(lo, sr.v[li])))}" r="4" fill="${sr.colorOf ? sr.colorOf(sr.v[li]) : sr.color}"/>`;
+  });
+  s += `<rect class="hov" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/></svg>`;
+  el.innerHTML = s;
+  const r = el.querySelector(".hov"), tip = $("tip");
+  const show = (ev) => {
+    const box = el.getBoundingClientRect(), x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - box.left;
+    const i = Math.max(0, Math.min(dates.length - 1, Math.round(((x / box.width) * W - m.l) / (W - m.l - m.r) * (dates.length - 1))));
+    const j = a + i, rows = [`<b>${dates[i]}</b> · ${S.phase[j]}`];
+    o.series.forEach((sr) => rows.push(`${esc(sr.label)}: <b>${fmt(S[sr.key][j], sr.k ?? 2)}</b>`));
+    rows.push(`VIX ${fmt(S.vix[j], 1)} · score F ${S.F[j]} T ${S.T[j]} R ${S.R[j]}`);
+    tip.innerHTML = rows.join("<br>"); tip.style.display = "block";
+    const px = ev.touches ? ev.touches[0].pageX : ev.pageX, py = ev.touches ? ev.touches[0].pageY : ev.pageY;
+    tip.style.left = Math.min(px + 14, window.scrollX + window.innerWidth - tip.offsetWidth - 8) + "px";
+    tip.style.top = (py + 14) + "px";
+  };
+  r.addEventListener("mousemove", show); r.addEventListener("touchstart", show, { passive: true });
+  r.addEventListener("mouseleave", () => (tip.style.display = "none"));
+}
+
+// ---------------------------------------------------------------- page
+function card(id, title, sub, body, cls) {
+  return `<div class="ch ${cls || ""}${ST.big[id] ? " bigc" : ""}" data-id="${id}">${title}<div class="m">${sub}</div><div class="plot" id="pl-${id}"></div>${body || ""}</div>`;
+}
+function render() {
+  const D = ST.data, main = $("main");
+  $("pill").textContent = D.phase; $("pill").className = "pill p-" + D.phase;
+  $("asof").textContent = `close of ${D.asof} · 5 sessions ago ${D.phase5} · built ${D.built.replace("T", " ")}`;
+  const P = D.points, N = D.now;
+  let h = `<p class="read">${PHASE_TXT[D.phase] || ""} Implied correlation <b>${fmt(N.implied_corr, 1)}%</b> (VIXEQ ÷ VIX <b>${fmt(N.ratio)}</b>),
+    COR1M <b>${fmt(N.cor1m, 1)}</b> vs COR3M <b>${fmt(N.cor3m, 1)}</b>, puts vs calls correlation <b>${fmt(N.cor90d, 1)}</b> / <b>${fmt(N.cor10d, 1)}</b>, VIX beta <b>${fmt(N.beta21, 1)}</b> (normal ~7).</p><div class="sum">`;
+  const Q = { F: "Is the fuse loaded?", T: "Is the move happening?", R: "Is the move ending?" };
+  const RULE = { F: "3+ on = loaded", T: "3+ on = in the move", R: "4+ on after stress = all-clear building" };
+  ["F", "T", "R"].forEach((g) => {
+    const sc = D.score[g], d5 = sc - D.score5[g];
+    h += `<div class="card grp-${g}"><h2 style="color:${GC[g]}">${{ F: "FRAGILITY", T: "TRANSMISSION", R: "RELEASE" }[g]} <span class="q">${Q[g]}</span></h2>
+      <div class="big">${sc}<small> of ${D.count[g]}</small></div><div class="d5">Δ5d ${d5 > 0 ? "▲" + d5 : d5 < 0 ? "▼" + -d5 : "flat"} · ${RULE[g]}</div><div class="cells">`;
+    P.filter((p) => p.id[0] === g).forEach((p) => {
+      const capped = !p.on && p.cap && N.vix >= p.cap && state(p, p.now) === "on";   // over its line but VIX is no longer calm -> not counted
+      const stt = p.on ? "on" : capped ? "off" : state(p, p.now), dv = p.now != null && p.ago5 != null ? p.now - p.ago5 : null;
+      h += `<div class="cell s-${stt}" data-go="${p.id}" title="${esc(p.name)}${capped ? " (not counted: VIX above " + p.cap + ")" : ""}"><div class="k">${p.id}${capped ? " ·VIX" : ""}</div><div class="v">${fmt(p.now, decimals(p))}</div>
+        <div class="c">Δ5d ${dv == null ? "—" : (dv > 0 ? "▲" : dv < 0 ? "▼" : "") + Math.abs(dv).toFixed(decimals(p))}</div></div>`;
+    });
+    h += `</div></div>`;
+  });
+  h += `</div><p class="note">Coloured cell = point ON (concern), amber value = close to its line, green = clear. Click a cell or any chart to make it big. Line colours: red/amber/blue = in the concern zone, yellow = near the line, green = clear. Dashed line = the rule, dotted = historic low / high since ${D.start}; ticks on the bottom edge = days the point was on.</p>`;
+  h += `<h3 class="sec">SCORES <button class="btn" id="colAll">${Object.values(ST.big).some(Boolean) ? "COLLAPSE ALL" : "EXPAND ALL"}</button></h3><div class="grid">`;
+  ["F", "T", "R"].forEach((g) => (h += card("sc" + g, `<div class="t"><span class="id" style="color:${GC[g]}">${{ F: "Fragility", T: "Transmission", R: "Release" }[g]} score</span><span class="val">${D.score[g]} / ${D.count[g]}</span></div>`, "points on each day", "", "grp-" + g)));
+  h += `</div>`;
+  ["F", "T", "R"].forEach((g) => {
+    h += `<h3 class="sec" style="color:${GC[g]}">${{ F: "FRAGILITY POINTS", T: "TRANSMISSION POINTS", R: "RELEASE POINTS" }[g]}</h3><div class="grid">`;
+    P.filter((p) => p.id[0] === g).forEach((p) => {
+      const t = `<div class="t"><span class="id">${p.id}</span>${esc(p.name)} <span class="chip ${p.on ? "on" : ""}">${p.on ? "ON" : "off"}</span><span class="val">${fmt(p.now, decimals(p))}</span></div>`;
+      const ex = `<div class="ex">Concern when ${p.side === ">=" ? "at or above" : "at or below"} <b>${p.level}</b>${p.cap ? " (and VIX under " + p.cap + ")" : ""}. ${esc(p.meaning)}.
+        5 sessions ago ${fmt(p.ago5, decimals(p))} (${p.on5 ? "on" : "off"}). Since ${D.start}, ${esc(p.ev_what)}: <b>${fmt(p.ev_on, 1)}</b> when on (${p.ev_days} days) vs <b>${fmt(p.ev_off, 1)}</b> when off.</div>`;
+      h += card(p.id, t, esc(p.measure), ex, "grp-" + g);
+    });
+    h += `</div>`;
+  });
+  h += `<h3 class="sec">CORRELATION, SKEW AND VIX BETA</h3><div class="grid">`;
+  const ctx = [["cx1", "Correlation skew: puts vs calls", "COR90D (10-delta puts, red) vs COR10D (10-delta calls, blue). Calm: calls price almost no correlation. Panic: both jump."],
+    ["cx2", "VIXEQ ÷ VIX", "How much the stock moves cancel. Implied correlation ≈ (VIX ÷ VIXEQ)². Dashed 2.5 = fragile, 2.0 = transmitting."],
+    ["cx3", "VIX beta to SPX", "% VIX move per 1% SPX move. Line = 21-day; red dots = single down days; violet = VVIX beta. Normal ~7; 10/16/26 printed 19.6."],
+    ["cx4", "COR1M vs COR3M", "1-month (white) above 3-month (grey) = front-end correlation panic."],
+    ["cx5", "Cboe SKEW", "Price of far out-of-the-money SPX puts. Higher = more tail protection bought."],
+    ["cx6", "SPX down-day ÷ up-day vol (63 sessions)", "Above 1 = down days bigger than up days (what skew prices). Below 1 = 2022-style flat skew."]];
+  ctx.forEach(([id, t, sub]) => (h += card(id, `<div class="t"><span class="id">${t}</span></div>`, sub, "")));
+  h += `</div>`;
+  // evidence tables
+  h += `<h3 class="sec">DOES IT WORK? EVERY DAY SINCE ${D.start}</h3><div class="card tw"><table><tr><th>Score</th><th>Points on</th><th>What happened next</th><th>Average</th><th>Days</th></tr>`;
+  D.tests.forEach((t) => (h += `<tr><td>${t.group}</td><td>${t.on}</td><td style="text-align:left">${esc(t.what)}</td><td>${fmt(t.avg, 1)}</td><td>${t.days}</td></tr>`));
+  h += `</table><table style="margin-top:10px"><tr><th>Phase</th><th>Biggest VIX rise next 20d %</th><th>Worst SPX drop next 20d %</th><th>Days</th></tr>`;
+  D.phase_tests.forEach((t) => (h += `<tr><td class="p-${t.phase}">${t.phase}</td><td>${fmt(t.vix_rise_20d, 1)}</td><td>${fmt(t.spx_drop_20d, 1)}</td><td>${t.days}</td></tr>`));
+  h += `</table><p class="note">Neighbouring days share the same 20-day window, so these are averages, not independent trials. HY credit spreads (F4, R6) only have data for the last 3 years.</p></div>`;
+  h += `<h3 class="sec">CORRELATION SPIKES ALL STARTED FROM A LOW BASE</h3><div class="card tw"><table><tr><th>Calm low</th><th>COR1M</th><th>Peak</th><th>COR1M</th><th>COR10D</th><th>COR90D</th><th>VIX</th></tr>`;
+  D.events.forEach((e) => (h += `<tr><td>${e.low_date}</td><td>${fmt(e.cor1m_low, 1)}</td><td>${e.peak_date}</td><td>${fmt(e.cor1m_peak, 1)}</td><td>${fmt(e.cor10d_peak, 1)}</td><td>${fmt(e.cor90d_peak, 1)}</td><td>${fmt(e.vix_peak, 1)}</td></tr>`));
+  h += `</table></div><details><summary>SPX realized vol on up days vs down days, by year (1987 →)</summary><div class="card tw"><table><tr><th>Year</th><th>Up days</th><th>Down days</th><th>Up-day vol %</th><th>Down-day vol %</th><th>Down ÷ up</th><th>Total vol %</th></tr>`;
+  D.years.slice().reverse().forEach((y) => (h += `<tr><td>${y.year}</td><td>${y.up_days}</td><td>${y.down_days}</td><td>${fmt(y.up_vol, 1)}</td><td>${fmt(y.down_vol, 1)}</td><td style="color:${y.ratio >= 1.25 ? "var(--bad)" : y.ratio < 1 ? "var(--ok)" : "inherit"}">${fmt(y.ratio)}×</td><td>${fmt(y.total_vol, 1)}</td></tr>`));
+  h += `</table></div></details>
+  <details open><summary>How to read it</summary><ol class="how">
+  <li><b>Index vol = stock vol × √correlation.</b> Stocks can be wild while the index is calm because their moves cancel. VIXEQ ÷ VIX measures how much is cancelling.</li>
+  <li><b>Correlation has a skew.</b> COR90D is the correlation priced into downside options, COR10D into upside options. Calm: calls price almost none. Crash: both jump.</li>
+  <li><b>Fragility</b> = the fuse is loaded (very low correlation, stocks wild under a calm index, credit and rate vol leaking, crash insurance bought, upside correlation gone, VIX over-reacting to small SPX drops).</li>
+  <li><b>Transmission</b> = the fuse is lit (correlation jumps, VIX curve inverts, VIX itself unstable, call-side correlation bid).</li>
+  <li><b>Release</b> = the fire is burning out (correlation rolls over, front panic fades, vol-of-vol stops confirming, credit calms, call-side correlation fades).</li>
+  <li><b>Use:</b> Fragility 3+ → cut size and own cheap protection. Transmission 3+ → stay defensive. Release 4+ with COR1M back under COR3M → start adding risk back. A descriptor, not a trade signal.</li>
+  </ol><p class="note">Sources: ${Object.entries(D.sources).map(([k, v]) => k + " " + v).join(" · ")}</p></details>`;
+  main.innerHTML = h;
+  drawAll();
+  main.querySelectorAll(".ch").forEach((c) => c.addEventListener("click", () => { const id = c.dataset.id; ST.big[id] = !ST.big[id]; c.classList.toggle("bigc"); drawOne(id); }));
+  main.querySelectorAll(".cell").forEach((c) => c.addEventListener("click", () => {
+    const id = c.dataset.go, el = main.querySelector(`.ch[data-id="${id}"]`); if (!el) return;
+    if (!ST.big[id]) { ST.big[id] = true; el.classList.add("bigc"); drawOne(id); }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }));
+  $("colAll").addEventListener("click", () => {
+    const any = Object.values(ST.big).some(Boolean);
+    main.querySelectorAll(".ch").forEach((c) => { ST.big[c.dataset.id] = !any; c.classList.toggle("bigc", !any); });
+    $("colAll").textContent = any ? "EXPAND ALL" : "COLLAPSE ALL"; drawAll();
+  });
+}
+function colorFor(p, g) {
+  const z = GC[g];
+  return (v) => { const s = state(p, v); return s === "on" ? z : s === "near" ? "#E8D36A" : "#4ADE80"; };
+}
+function drawOne(id) {
+  const D = ST.data, el = $("pl-" + id); if (!el) return;
+  if (id.startsWith("sc")) {
+    const g = id[2], thr = g === "R" ? 4 : 3;
+    return chart(el, { label: g + " score", series: [{ key: g, label: "points on", color: GC[g], k: 0, colorOf: (v) => (v >= thr ? GC[g] : v >= thr - 1 ? "#E8D36A" : "#4ADE80") }],
+      rule: thr, side: ">=", zone: GC[g], yMin: 0, yMax: D.count[g] });
+  }
+  const p = D.points.find((x) => x.id === id);
+  if (p) { const g = id[0];
+    return chart(el, { label: p.name, series: [{ key: id, label: p.measure, colorOf: colorFor(p, g), k: decimals(p) }], rule: p.level, side: p.side,
+      zone: GC[g], lo: p.lo, hi: p.hi, extra: [p.level], onKey: id + "_on" }); }
+  const C = {
+    cx1: { series: [{ key: "cor90d", label: "COR90D (puts)", color: "#FF6B6B", k: 1 }, { key: "cor10d", label: "COR10D (calls)", color: "#38BDF8", k: 1 }] },
+    cx2: { series: [{ key: "ratio", label: "VIXEQ/VIX", color: "#4ADE80", k: 2, colorOf: (v) => (v <= 2 ? "#FF6B6B" : v >= 2.5 ? "#FFC24A" : "#4ADE80") }, { key: "implied_corr", label: "implied corr %", hidden: true, k: 1 }], refs: [2, 2.5] },
+    cx3: { series: [{ key: "beta21", label: "VIX beta 21d", color: "#E6EEF8", k: 1 }, { key: "beta_day", label: "VIX beta that day", color: "#FF6B6B", dots: true, k: 1 }, { key: "vvix_beta_day", label: "VVIX beta that day", color: "#A78BFA", dots: true, k: 1 }], refs: [7, 15] },
+    cx4: { series: [{ key: "cor1m", label: "COR1M", color: "#E6EEF8", k: 1 }, { key: "cor3m", label: "COR3M", color: "#6B7F9C", k: 1 }] },
+    cx5: { series: [{ key: "skew", label: "SKEW", color: "#A78BFA", k: 1 }] },
+    cx6: { series: [{ key: "updown", label: "down ÷ up vol", color: "#38BDF8", k: 2 }], refs: [1] },
+  }[id];
+  if (C) chart(el, { label: id, ...C });
+}
+function drawAll() { document.querySelectorAll(".ch").forEach((c) => drawOne(c.dataset.id)); }
+document.querySelectorAll("#rng button").forEach((b) => b.addEventListener("click", () => {
+  ST.r = +b.dataset.r; document.querySelectorAll("#rng button").forEach((x) => x.setAttribute("aria-pressed", x === b)); if (ST.data) drawAll();
+}));
+let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => ST.data && drawAll(), 150); });
+fetch("fusetab.json", { cache: "no-cache" }).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+  .then((d) => { ST.data = d; render(); })
+  .catch((e) => { $("main").innerHTML = `<div class="err">fusetab.json not found (${esc(e.message)}). It is written each evening by scripts/fuse_tab.py.</div>`; });
+</script>
+</body>
+</html>

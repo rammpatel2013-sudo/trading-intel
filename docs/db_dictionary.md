@@ -91,7 +91,7 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | `vol_surface_cm` | symbol × day × tenor × delta × wing | symbol+ts+dte+delta+side | `ts` date | vol_surface_cm | Convex | raw† |
 | `skew_snapshots` | symbol × day × horizon: RR, fly | symbol+ts+horizon_dte | `ts` date | skew_snapshots | stored chain | derived |
 | `vol_richness` | symbol × day × horizon: IV vs RV | symbol+ts+horizon_dte | `ts` date | vol_richness | stored data | derived |
-| `index_skew_daily` | one day: SKEW, SDEX, RR, VVIX, tail score | date | `date` | index_skew | Cboe + own | raw + derived |
+| `index_skew_daily` | one day: SKEW, SDEX, RR, VVIX, tail score, COR1M/3M/10D/90D, VIXEQ, DSPX (Cboe official closes since 2026-11-22) | date | `date` | index_skew | Cboe + own | raw + derived |
 | `vix_data` | one day: VIX term, VVIX, credit, MOVE | date | `date` | vix_snapshot | Cboe, FRED, FMP via CVForge | raw |
 | `vix_expirations` | VIX monthly settlement date | expiration | `expiration` | vix_expirations | calendar math | derived |
 | `vix_signal_snapshots` | one day: VIX overshoot vs SPX move | date | `date` | vol_tab | own | derived |

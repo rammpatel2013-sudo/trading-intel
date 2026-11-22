@@ -15,6 +15,8 @@ All vendor calls stay in ``clients/`` (CLAUDE.md rule 1).
 
 from __future__ import annotations
 
+from datetime import date
+
 import structlog
 
 log = structlog.get_logger(__name__)
@@ -38,6 +40,11 @@ _INDEX_RANGE: dict[str, tuple[float, float]] = {
     "_COR3M": (0, 100),
     "_VIXEQ": (0, 200),
     "_DSPX": (0, 200),
+    # Cboe 3-month delta implied correlation (added 2026-11-22; COR90D printed 123 on 2018-02-05).
+    "^COR10D": (0, 200),
+    "^COR90D": (0, 200),
+    "_COR10D": (0, 200),
+    "_COR90D": (0, 200),
 }
 
 
@@ -75,7 +82,9 @@ def fetch_fmp_index_close(symbol: str) -> float | None:
     return val
 
 
-def fetch_cboe_index_close(cboe_sym: str, *, fmp_sym: str | None = None) -> float | None:
+def fetch_cboe_index_close(
+    cboe_sym: str, *, fmp_sym: str | None = None, as_of: date | None = None
+) -> float | None:
     """Latest close for a Cboe-published index, from the Cboe delayed-quote CDN.
 
     Added 2026-10-25: ``^VIXEQ`` / ``^DSPX`` / ``^COR1M`` / ``^COR3M`` went NULL
@@ -89,6 +98,15 @@ def fetch_cboe_index_close(cboe_sym: str, *, fmp_sym: str | None = None) -> floa
     """
     from trading_intel.clients.cboe import CboeClient
 
+    if as_of is not None:
+        # 2026-11-22: the official close from the daily history CSV first (see CboeClient.daily_close).
+        try:
+            day = CboeClient(timeout=30.0).daily_close(cboe_sym.lstrip("_"), as_of)
+        except Exception as exc:  # noqa: BLE001 - degrade to the quote path
+            log.warning("cboe.daily_close_failed", sym=cboe_sym, error=str(exc)[:200])
+            day = None
+        if day is not None and _range_ok(cboe_sym, day):
+            return day
     try:
         val = CboeClient().quote(cboe_sym)
     except Exception as exc:  # network / shape - fall through to FMP
@@ -161,7 +179,7 @@ def fetch_tdex(*, period: str = "5d") -> float | None:
     return _yahoo_only_index_close("^TDEX", period=period)
 
 
-def fetch_cor1m(*, period: str = "5d") -> float | None:
+def fetch_cor1m(*, period: str = "5d", as_of: date | None = None) -> float | None:
     """Cboe 1-month S&P 500 Implied Correlation close (``^COR1M``): Cboe CDN, then FMP.
 
     The implied-correlation index is the cleanest market-based dispersion gauge:
@@ -169,20 +187,38 @@ def fetch_cor1m(*, period: str = "5d") -> float | None:
     low = dispersion regime (idiosyncratic moves). Returns ``None`` on any fetch
     failure.
     """
-    return fetch_cboe_index_close("_COR1M", fmp_sym="^COR1M")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_COR1M", fmp_sym="^COR1M", as_of=as_of)  # Cboe CDN first (2026-10-25)
 
 
-def fetch_cor3m(*, period: str = "5d") -> float | None:
+def fetch_cor3m(*, period: str = "5d", as_of: date | None = None) -> float | None:
     """Cboe 3-month S&P 500 Implied Correlation close (``^COR3M``): Cboe CDN, then FMP.
 
     The 3-month tenor paired with ``COR1M`` gives a correlation-curve slope:
     1m > 3m (inverted) flags acute near-term correlation stress, the mirror of
     a backwardated VIX term structure.
     """
-    return fetch_cboe_index_close("_COR3M", fmp_sym="^COR3M")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_COR3M", fmp_sym="^COR3M", as_of=as_of)  # Cboe CDN first (2026-10-25)
 
 
-def fetch_vixeq(*, period: str = "5d") -> float | None:
+def fetch_cor10d(*, as_of: date | None = None) -> float | None:
+    """Cboe 3-month 10-delta implied correlation (``COR10D``, upside / call-wing): daily CSV, quote, FMP.
+
+    Added 2026-11-22 (Correlation Fuse). Calm markets: 3-6 (calls price no correlation); panics:
+    18-55. FMP history starts 2022-03, the Cboe CSV 2006.
+    """
+    return fetch_cboe_index_close("_COR10D", fmp_sym="^COR10D", as_of=as_of)
+
+
+def fetch_cor90d(*, as_of: date | None = None) -> float | None:
+    """Cboe 3-month 90-delta (= 10-delta put) implied correlation (``COR90D``, downside wing).
+
+    Added 2026-11-22 (Correlation Fuse). COR90D / COR10D = the correlation skew (calm 5-8,
+    2022 flat skew 1.2).
+    """
+    return fetch_cboe_index_close("_COR90D", fmp_sym="^COR90D", as_of=as_of)
+
+
+def fetch_vixeq(*, period: str = "5d", as_of: date | None = None) -> float | None:
     """Cboe S&P 500 Constituent Volatility Index close (``^VIXEQ``): Cboe CDN, then FMP.
 
     The single-stock leg of the dispersion trade: a market-cap-weighted 30-day
@@ -191,13 +227,13 @@ def fetch_vixeq(*, period: str = "5d") -> float | None:
     flat VIX is dispersion/positioning, not a fundamental index repricing.
     History begins ~Nov 2024 (index launch). Returns ``None`` on fetch failure.
     """
-    return fetch_cboe_index_close("_VIXEQ", fmp_sym="^VIXEQ")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_VIXEQ", fmp_sym="^VIXEQ", as_of=as_of)  # Cboe CDN first (2026-10-25)
 
 
-def fetch_dspx(*, period: str = "5d") -> float | None:
+def fetch_dspx(*, period: str = "5d", as_of: date | None = None) -> float | None:
     """Cboe S&P 500 Dispersion Index close (``^DSPX``): Cboe CDN, then FMP.
 
     The official 30-day implied-dispersion gauge, tied to the others by the
     identity ``DSPX^2 = VIXEQ^2 - VIX^2``. History begins ~Sep 2023 (launch).
     """
-    return fetch_cboe_index_close("_DSPX", fmp_sym="^DSPX")  # Cboe CDN first (2026-10-25)
+    return fetch_cboe_index_close("_DSPX", fmp_sym="^DSPX", as_of=as_of)  # Cboe CDN first (2026-10-25)

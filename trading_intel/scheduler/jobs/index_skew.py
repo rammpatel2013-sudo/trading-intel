@@ -37,6 +37,8 @@ from trading_intel.clients.cboe import CboeClient
 from trading_intel.clients.prices import (
     fetch_cor1m,
     fetch_cor3m,
+    fetch_cor10d,
+    fetch_cor90d,
     fetch_dspx,
     fetch_sdex,
     fetch_tdex,
@@ -111,6 +113,9 @@ _UPDATE_COLS = (
     "dspx",
     "dspx_pctile_252d",
     "vixeq_vix_spread",
+    # Cboe 3-month delta implied correlation (migration 0073).
+    "cor10d",
+    "cor90d",
 )
 
 
@@ -303,18 +308,24 @@ def build_row(
 ) -> dict | None:
     """Compose one ``index_skew_daily`` row from stored + CBOE data."""
     as_of = as_of or eastern_now().date()
-    cboe_skew = cboe.skew_index()
+    # 2026-11-22: official close from the Cboe history CSV first; the delayed-quote API 403s from the NAS.
+    cboe_skew = cboe.daily_close("SKEW", as_of)
+    if cboe_skew is None:
+        cboe_skew = cboe.skew_index()
     # Nations indices via Yahoo (the only Yahoo use left, 2026-11-14). SDEX/TDEX/VOLI are public; CallDex/PutDex/
     # RiskDex are subscription-only and computed as proxies below.
     sdex = fetch_sdex()
     voli = fetch_voli()
     tdex = fetch_tdex()
     # Cboe implied correlation (dispersion): Cboe CDN, then FMP — degrade-to-None.
-    cor1m = fetch_cor1m()
-    cor3m = fetch_cor3m()
+    # 2026-11-22: as_of -> the official daily close from the Cboe history CSV first (Correlation Fuse).
+    cor1m = fetch_cor1m(as_of=as_of)
+    cor3m = fetch_cor3m(as_of=as_of)
+    cor10d = fetch_cor10d(as_of=as_of)
+    cor90d = fetch_cor90d(as_of=as_of)
     # Cboe constituent-vol (^VIXEQ) + dispersion index (^DSPX): Cboe CDN, then FMP.
-    vixeq = fetch_vixeq()
-    dspx = fetch_dspx()
+    vixeq = fetch_vixeq(as_of=as_of)
+    dspx = fetch_dspx(as_of=as_of)
 
     # VIX term-structure tenors from Cboe — drives the TERM dimension of the
     # vol-regime decomposition. Each tenor degrades to None on Cboe outage.
@@ -471,6 +482,9 @@ def build_row(
         "dspx": dspx,
         "dspx_pctile_252d": dspx_pctile,
         "vixeq_vix_spread": (vixeq - _vix) if (vixeq is not None and _vix is not None) else None,
+        # Cboe 3-month delta implied correlation (migration 0073).
+        "cor10d": cor10d,
+        "cor90d": cor90d,
     }
 
 

@@ -85,3 +85,17 @@ def test_index_history_reads_the_last_column_for_both_file_shapes():
     assert c.index_history("VIX") == [(date(2026, 10, 22), 19.03), (date(2026, 10, 23), 19.45)]
     assert c.index_history("VVIX") == [(date(2026, 10, 23), 109.70)]
     assert c.index_history("VIX6M") == []
+
+
+def test_daily_close_returns_only_the_as_of_row():
+    """2026-11-22 (Correlation Fuse): the official close for that day, never a stale row."""
+    from datetime import date
+
+    http = _TextHttp({
+        "COR90D": "DATE,OPEN,HIGH,LOW,CLOSE\n11/19/2026,40.13,54.84,39.36,52.36\n11/20/2026,55.17,62.51,46.16,52.16\n",
+    })
+    c = CboeClient(client=http)
+    assert c.daily_close("COR90D", date(2026, 11, 20)) == 52.16
+    assert c.daily_close("COR90D", date(2026, 11, 19)) == 52.36
+    assert c.daily_close("COR90D", date(2026, 11, 23)) is None  # not published yet -> caller falls back
+    assert c.daily_close("COR10D", date(2026, 11, 20)) is None  # 404

@@ -126,7 +126,8 @@ class CboeClient:
         return out
 
     def index_history(self, name: str) -> list[tuple[date, float]]:
-        """Daily close history for a Cboe index (``VIX``, ``VIX9D``, ``VIX3M``, ``VIX6M``, ``VVIX``).
+        """Daily close history for a Cboe index (``VIX``, ``VIX9D``, ``VIX3M``, ``VIX6M``, ``VVIX``,
+        ``COR1M``/``COR3M``/``COR10D``/``COR90D``, ``VIXEQ``, ``DSPX``, ``SKEW``, ``SPX``).
 
         Reads ``<name>_History.csv``; the close is the LAST column (VIX-family files are
         ``DATE,OPEN,HIGH,LOW,CLOSE``; ``VVIX_History.csv`` is ``DATE,VVIX``). ``[]`` on failure.
@@ -147,6 +148,21 @@ class CboeClient:
             out.append((d, c))
         out.sort(key=lambda t: t[0])
         return out
+
+    def daily_close(self, name: str, as_of: date) -> float | None:
+        """Official close of a Cboe index ON ``as_of`` from its daily history CSV, else ``None``.
+
+        Added 2026-11-22 (Correlation Fuse): the delayed-quote API answers 403 from the NAS since
+        2026-11-20 while the history CSVs still answer 200, and the CSV row is the official close
+        (the 17:xx quote path banked COR1M 37.41 on 11/20 vs Cboe's 36.05). Never returns a stale
+        row: no row for ``as_of`` -> ``None`` so the caller falls back.
+        """
+        for d, c in reversed(self.index_history(name)):
+            if d == as_of:
+                return c
+            if d < as_of:
+                break
+        return None
 
     def skew_index(self) -> float | None:
         """Cboe SKEW Index (30d, model-free third moment of SPX) close.

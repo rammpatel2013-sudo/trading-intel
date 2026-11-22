@@ -675,6 +675,7 @@ select.strike{background:var(--pane);border:1px solid var(--rule);border-radius:
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 /* --- Risk tab (2026-11-05): drop-risk score + evidence-ranked tiles, big high-contrast text --- */
 #tabCompass{display:block;min-height:0;min-width:0;overflow:hidden}
+#tabFuse{display:block;min-height:0;min-width:0;overflow:hidden}
 #tabFocus{display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;min-width:0}
 .fcbar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--rule)}
 .fcbar .fcsub{display:flex;gap:2px;background:var(--pane);padding:2px;border-radius:7px}
@@ -1148,6 +1149,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
         <button data-tab="voleod" aria-pressed="false" title="End-of-day vol board: VIX overshoot, VIX3M / VIX / realized, 0DTE straddle %, far-OTM put-IV floor, Color (time decay of dealer gamma), beta reset. Built nightly after the close.">Vol EOD</button>
         <button data-tab="risk" aria-pressed="false" title="Chance of a sharp SPX drop in the next days: one score from VIX, VIX/VIX3M and financial conditions, plus breadth, credit, sector, beta and gamma tiles ranked by how much they were worth since 2010. Built each evening.">Risk</button>
         <button data-tab="compass" aria-pressed="false" title="Compass (Macro view): cross-asset grid of today's moves in sigmas (move vs what options priced), scanners over ~1,550 names (vol, flow, positioning, auction, dark pool) and a full panel per name. Built each evening from the database.">Compass</button>
+        <button data-tab="fuse" aria-pressed="false" title="Correlation Fuse: is a big index move loading, happening or ending? 22 points in three scores (Fragility / Transmission / Release) from Cboe implied correlation (COR1M, COR3M, COR10D, COR90D), VIXEQ / VIX, the VIX curve, VVIX, VIX beta, credit and rate vol. Every point charted with its concern line. Built each evening (fuse_tab.py).">Fuse</button>
       </div>
       <div class="nvgrp" data-g="plan"><div class="nvh">Plan &amp; help</div>
         <button data-tab="plan" aria-pressed="false" title="Morning plan graded live, plus our own morning book">Plan</button>
@@ -1430,6 +1432,7 @@ body.phone #navPhone{display:inline-flex;align-items:center;justify-content:cent
     </div>
   </main>
   <main id="tabCompass" class="tab" hidden><iframe id="compassFrame" title="Compass" style="border:0;width:100%;height:100%;display:block;background:#0A1426"></iframe></main>
+  <main id="tabFuse" class="tab" hidden><iframe id="fuseFrame" title="Correlation Fuse" style="border:0;width:100%;height:100%;display:block;background:#0A1426"></iframe></main>
   <main id="tabRisk" class="tab" hidden>
     <div class="vxwrap vewrap">
       <section class="vxhead" id="rkHead"></section>
@@ -2154,7 +2157,7 @@ st.bubOpa=Math.max(10,Math.min(100,+load("bubOpa","85")||85));
 st.seqOn=load("seqOn","1")!=="0"; st.seqSnd=load("seqSnd","0")==="1";
 st.premDayU=load("premDayU","usd"); st.volCol=load("volCol","cp"); st.volWin=load("volWin","day"); if(!["5","15","30","day"].includes(st.volWin)) st.volWin="day"; st.volCol30=load("volCol30","cp"); st.volColD=load("volColD","cp"); st.coneAm=load("coneAm","1")!=="0"; st.coneLive=load("coneLive","1")!=="0"; st.gapOn=load("gapOn","1")!=="0"; st.mapLed=load("mapLed","0")==="1"; st.zoomOn=load("zoomOn","0")==="1"; st.zoomW=+load("zoomW","50")||50; st.zoomT=load("zoomT","rth"); st.zoomOff=0;
 st.mapCol=load("mapCol","classic"); st.mapScale=load("mapScale","day"); st.speedOn=load("speedOn","0")==="1"; st.smileOn=load("smileOn","0")==="1"; st.clockVar=load("clockVar","0")==="1";
-if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface","bets","compass","focus"].includes(st.tab)) st.tab="flow";
+if(!["flow","orbs","strikes","skew","plan","map","vol","premium","help","density","vix","exposure","ledger","voleod","straddle","constel","risk","tenor","levels","surface","bets","compass","fuse","focus"].includes(st.tab)) st.tab="flow";
 st.mapRight=load("mapRight","charm");
 st.mapBook=load("mapBook","all"); st.mapBookR=load("mapBookR",""); st.gDet=load("gDet","0")==="1"; st.mapZone=load("mapZone","0")==="1"; st.mapFlipLine=load("mapFlipLine","0")==="1"; st.mapDataCheck=load("mapDataCheck","0")==="1"; st.mapClosePin=load("mapClosePin","0")==="1"; st.mapHedge=load("mapHedge","0")==="1"; st.vol1=load("vol1","0"); st.readOpen=load("readOpen","0")==="1"; st.ruleRead=load("ruleRead","0")==="1";   // 0dte | week | all — Map tab book switch
 st.weekSrc=load("weekSrc","convex");
@@ -3694,7 +3697,7 @@ function render(){
   document.getElementById("maxBtn").textContent=st.max?"Show panels":"Expand";
   document.querySelectorAll("#pageTabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===st.tab)); navSync();
   document.getElementById("tabFlow").hidden=st.tab!=="flow"; document.getElementById("tabStrikes").hidden=st.tab!=="strikes"; document.getElementById("tabSkew").hidden=st.tab!=="skew"; document.getElementById("tabPlan").hidden=st.tab!=="plan"; document.getElementById("tabMap").hidden=st.tab!=="map"; document.getElementById("tabVol").hidden=st.tab!=="vol"; document.getElementById("tabPremium").hidden=st.tab!=="premium"; document.getElementById("tabHelp").hidden=st.tab!=="help"; document.getElementById("tabVix").hidden=st.tab!=="vix";
-    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabCompass").hidden=st.tab!=="compass"; document.getElementById("tabFocus").hidden=st.tab!=="focus"; if(st.tab==="compass"){ const _cf=document.getElementById("compassFrame"); if(!_cf.getAttribute("src")) _cf.setAttribute("src","compass.html"); } document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); document.getElementById("tabBets").hidden=st.tab!=="bets"; if(st.tab!=="bets"&&typeof BT!=="undefined"&&BT) btTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
+    document.getElementById("tabExposure").hidden=st.tab!=="exposure"; document.getElementById("tabDensity").hidden=st.tab!=="density"; document.getElementById("tabLedger").hidden=st.tab!=="ledger"; document.getElementById("tabVolEod").hidden=st.tab!=="voleod"; document.getElementById("tabStraddle").hidden=st.tab!=="straddle"; document.getElementById("tabConstel").hidden=st.tab!=="constel"; document.getElementById("tabRisk").hidden=st.tab!=="risk"; document.getElementById("tabCompass").hidden=st.tab!=="compass"; document.getElementById("tabFocus").hidden=st.tab!=="focus"; if(st.tab==="compass"){ const _cf=document.getElementById("compassFrame"); if(!_cf.getAttribute("src")) _cf.setAttribute("src","compass.html"); } document.getElementById("tabFuse").hidden=st.tab!=="fuse"; if(st.tab==="fuse"){ const _ff=document.getElementById("fuseFrame"); if(!_ff.getAttribute("src")) _ff.setAttribute("src","fuse.html"); } document.getElementById("tabTenor").hidden=st.tab!=="tenor"; document.getElementById("tabLevels").hidden=st.tab!=="levels"; document.getElementById("tabOrbs").hidden=st.tab!=="orbs"; document.getElementById("tabSurface").hidden=st.tab!=="surface"; if(st.tab!=="surface"&&typeof SF!=="undefined"&&SF) sfTimer(); document.getElementById("tabBets").hidden=st.tab!=="bets"; if(st.tab!=="bets"&&typeof BT!=="undefined"&&BT) btTimer(); if(st.tab!=="orbs"&&typeof OR!=="undefined"&&OR){ orStopPlay(); orTimer(); orHideTip(); } if(st.tab!=="levels"){ const _lt=document.getElementById("lvTip"); if(_lt) _lt.hidden=true; }
   const db=document.getElementById("docBtn"); db.setAttribute("aria-pressed",st.docOn); db.hidden=!docObj();
   const sb=document.getElementById("amSrcBtn"); sb.hidden=!(realDoc()||ownDoc()); sb.textContent="Src: "+({doc:"Report",ours:"Ours",both:"Both"}[st.amSrc]||"Report")+(amFallback()?" → Ours":"");
   sb.style.color=amFallback()||st.amSrc!=="doc"?OWN_COL:"";
@@ -4652,7 +4655,7 @@ function renderYday(){
 }
 /* ---- left page panel (2026-11-12). Page switching, keys and saved settings are unchanged: the tab buttons keep
    data-tab inside #pageTabs, so the existing click handler and render() still drive them. */
-function navGroups(){ return {map:["map","focus","orbs","surface","density","levels"],flow:["flow","vol","premium","bets","constel","ledger"],pos:["strikes","exposure","tenor"],vol:["vix","skew","straddle","voleod","risk","compass"],plan:["plan","help"]}; }
+function navGroups(){ return {map:["map","focus","orbs","surface","density","levels"],flow:["flow","vol","premium","bets","constel","ledger"],pos:["strikes","exposure","tenor"],vol:["vix","skew","straddle","voleod","risk","compass","fuse"],plan:["plan","help"]}; }
 function navGroupOf(t){ const G=navGroups(); for(const g in G) if(G[g].includes(t)) return g; return "flow"; }
 function navApply(){ const pin=load("nav","strip")==="pin"&&!document.body.classList.contains("phone"); document.body.classList.toggle("navpin",pin); const b=document.getElementById("navPin"); if(b) b.setAttribute("aria-pressed",pin); }
 function navOpen(on,g){ document.body.classList.toggle("navopen",!!on); const sh=document.getElementById("navShade"); if(sh) sh.hidden=!on;

@@ -78,3 +78,19 @@ def test_yfinance_price_source_is_gone():
     assert not hasattr(prices, "YFinancePriceSource")
     assert not hasattr(prices, "fetch_yf_index_close")
     assert not hasattr(fmp_prices, "FmpFirstPriceSource")
+
+
+def test_cboe_daily_csv_first_when_as_of_given(monkeypatch):
+    """2026-11-22: with as_of the official CSV close wins; no CSV row -> the old quote/FMP path."""
+    from datetime import date
+
+    import trading_intel.clients.cboe as cboe
+
+    asked = []
+    monkeypatch.setattr(prices, "fetch_fmp_index_close", lambda sym: asked.append(sym) or 99.0)
+    monkeypatch.setattr(cboe.CboeClient, "quote", lambda self, sym: None)
+    monkeypatch.setattr(cboe.CboeClient, "daily_close", lambda self, name, d: 36.05 if name == "COR1M" else None)
+    assert prices.fetch_cor1m(as_of=date(2026, 11, 20)) == 36.05 and asked == []
+    assert prices.fetch_cor90d(as_of=date(2026, 11, 20)) == 99.0 and asked == ["^COR90D"]
+    monkeypatch.setattr(cboe.CboeClient, "daily_close", lambda self, name, d: 500.0)
+    assert prices.fetch_cor10d(as_of=date(2026, 11, 20)) == 99.0  # out of range -> fallback
