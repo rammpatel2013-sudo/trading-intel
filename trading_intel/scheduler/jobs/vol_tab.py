@@ -225,8 +225,9 @@ def _next_session_gap(d: date) -> int:
 
 
 def color_panel(session: Session) -> dict:
+    # 2026-11-22: only the convex books (the cvx_full bank shares the table from 11/23)
     ts = session.execute(
-        text("SELECT max(ts) FROM oi_chain_eod WHERE symbol = :s"), {"s": SYMBOL}
+        text("SELECT max(ts) FROM oi_chain_eod WHERE symbol = :s AND source LIKE 'convex%'"), {"s": SYMBOL}
     ).scalar()
     out: dict = {
         "series": vt.gex_change_series(
@@ -239,23 +240,43 @@ def color_panel(session: Session) -> dict:
     if ts is None:
         return out
     as_of = ts.date() if hasattr(ts, "date") else ts
-    spot = session.execute(
-        text(
-            "SELECT spot FROM oi_chain_daily WHERE symbol = :s AND spot IS NOT NULL ORDER BY ts DESC LIMIT 1"
-        ),
-        {"s": SYMBOL},
-    ).scalar()
+    # 2026-11-22: the spot that BELONGS to this book (book_spot: AM book -> prior close, EOD book -> that day's
+    # last spot), not the newest oi_chain_daily spot; own IVs on a morning book (clean_iv.book_fix).
+    spot = None
+    try:
+        from trading_intel.market.book_spot import book_spot
+
+        bs = book_spot(session, SYMBOL, ts)
+        spot = bs["spot"] if bs else None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("vol_tab.book_spot_failed", error=str(exc)[:120])
+    if not spot:
+        spot = session.execute(
+            text(
+                "SELECT spot FROM oi_chain_daily WHERE symbol = :s AND spot IS NOT NULL ORDER BY ts DESC LIMIT 1"
+            ),
+            {"s": SYMBOL},
+        ).scalar()
     if not spot:
         return out
     chain = session.execute(
         text(
             "SELECT expiry, strike, cp, oi, iv FROM oi_chain_eod "
-            "WHERE symbol = :s AND ts = :t AND expiry >= :d AND oi > 0 AND iv > 0"
+            "WHERE symbol = :s AND ts = :t AND expiry >= :d AND oi > 0 AND iv > 0 AND source LIKE 'convex%'"
         ),
         {"s": SYMBOL, "t": ts, "d": live_expiry_floor(as_of)},
     ).all()
+    fix = None
+    try:
+        from trading_intel.market.clean_iv import book_fix
+
+        fix = book_fix(session, SYMBOL, ts)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("vol_tab.clean_iv_failed", error=str(exc)[:120])
+    out["iv_source"] = "own IVs from the 08:35 quote mids" if fix is not None else "vendor"
     out["now"] = vt.color_from_chain(
-        [(r[0], float(r[1]), r[2], r[3], _f(r[4])) for r in chain],
+        [(r[0], float(r[1]), r[2], r[3], _f(fix.iv(r[0], float(r[1]), _f(r[4])) if fix is not None else r[4]))
+         for r in chain],
         float(spot),
         as_of,
         step_days=_next_session_gap(as_of),

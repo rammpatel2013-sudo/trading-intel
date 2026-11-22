@@ -14,6 +14,7 @@ rows carry ``source='convex_am_set'`` (tagged from the contract root since
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pandas as pd
@@ -97,8 +98,22 @@ def build_opex_split(session: Session, symbol: str = "SPX", *, today: date | Non
         return None
     rows = session.execute(
         select(OiChainEod.strike, OiChainEod.cp, OiChainEod.iv, OiChainEod.oi, OiChainEod.source)
-        .where(OiChainEod.symbol == sym, OiChainEod.ts == ts, OiChainEod.expiry == today, OiChainEod.iv.isnot(None))
+        .where(OiChainEod.symbol == sym, OiChainEod.ts == ts, OiChainEod.expiry == today, OiChainEod.iv.isnot(None),
+               OiChainEod.source.like("convex%"))
     ).all()
+    # 2026-11-22: the 08:35 vendor IV is broken on some expiries (11/13 fake 7,860 wall) -> our own IVs from the
+    # quote mids (clean_iv.book_fix, same as get_walls / get_profile). EOD books / no quotes -> vendor IV unchanged.
+    iv_source = "vendor"
+    try:
+        from trading_intel.market.clean_iv import book_fix
+        fix = book_fix(session, sym, ts)
+    except Exception as exc:  # noqa: BLE001 - never lose the split over the IV clean-up
+        log.warning("opex_split.clean_iv_failed", err=str(exc)[:120])
+        fix = None
+    if fix is not None:
+        rows = [SimpleNamespace(strike=r.strike, cp=r.cp, oi=r.oi, source=r.source,
+                                iv=fix.iv(today, r.strike, r.iv)) for r in rows]
+        iv_source = "own IVs from the 08:35 quote mids"
     am = [r for r in rows if r.source == AM_SOURCE]
     pm = [r for r in rows if r.source != AM_SOURCE]
     if not am or not pm:
@@ -132,6 +147,7 @@ def build_opex_split(session: Session, symbol: str = "SPX", *, today: date | Non
         "now_flip": now_p["gamma"].get("flip"), "post_flip": post_p["gamma"].get("flip"),
         "now_features": features(grid, now_v, float(spot)),
         "post_features": features(grid, post_v, float(spot)),
+        "iv_source": iv_source,
         "am_contracts": len(am), "pm_contracts": len(pm), "am_oi": am_oi, "pm_oi": pm_oi,
         "read": (
             "Monthly OpEx: the AM-settled legs settle on the opening prints, so their dealer hedge is redundant "

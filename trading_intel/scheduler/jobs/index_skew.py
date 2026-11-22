@@ -23,7 +23,7 @@ Manual run:
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
@@ -54,6 +54,7 @@ from trading_intel.memory.models import (
     QuoteDaily,
     VixData,
     VixOptionsChain,
+    VolSurfaceCM,
 )
 from trading_intel.timeutils import eastern_now, is_trading_session
 from trading_intel.vol.nations_dex import compute_dex_triplet
@@ -300,6 +301,56 @@ def _spx_rr_30d(session: Session, *, as_of: date) -> float | None:
     return risk_reversal(surface, delta=25.0, horizon_dte=30)
 
 
+# 2026-11-22: SPX/SPY are excluded from the per-strike chain (CHAIN_EXCLUDE_ROOTS), so the
+# delta-surface read above found no chain and spx_rr_25d_30d stayed NULL. Fallback = the
+# constant-maturity surface (vol_surface_cm, 30d rung, 25 delta put minus call) that the
+# 17:xx collector already banks. Latest CM row up to 4 calendar days old is accepted
+# (covers a weekend and the order of the two 17:xx jobs).
+CM_RR_MAX_AGE_DAYS = 4
+
+
+def _cm_rr_for(session: Session, day: date, *, exact: bool = False) -> float | None:
+    """SPX 25-delta risk reversal (put IV - call IV, decimal) at the 30d CM rung for ``day``."""
+    rows = session.execute(
+        select(VolSurfaceCM.ts, VolSurfaceCM.side, VolSurfaceCM.iv).where(
+            VolSurfaceCM.symbol == "SPX",
+            VolSurfaceCM.dte == 30,
+            VolSurfaceCM.delta == 25.0,
+            VolSurfaceCM.ts <= day,
+            VolSurfaceCM.ts >= day - timedelta(days=0 if exact else CM_RR_MAX_AGE_DAYS),
+        )
+    ).all()
+    if not rows:
+        return None
+    latest = max(r[0] for r in rows)
+    wings = {r[1]: r[2] for r in rows if r[0] == latest}
+    put, call = wings.get("put"), wings.get("call")
+    if put is None or call is None:
+        return None
+    rr = float(put) - float(call)
+    return rr if np.isfinite(rr) else None
+
+
+def backfill_rr_from_cm(session: Session) -> int:
+    """Fill NULL ``spx_rr_25d_30d`` on past rows from vol_surface_cm (same day only), then
+    recompute ``spx_rr_pctile_252d`` for every row from the rows before it. Returns rows filled."""
+    rows = session.execute(select(IndexSkewDaily).order_by(IndexSkewDaily.date)).scalars().all()
+    filled = 0
+    for r in rows:
+        if r.spx_rr_25d_30d is None:
+            rr = _cm_rr_for(session, r.date, exact=True)
+            if rr is not None:
+                r.spx_rr_25d_30d = rr
+                filled += 1
+    hist: list[float] = []
+    for r in rows:
+        if r.spx_rr_25d_30d is not None:
+            r.spx_rr_pctile_252d = skew_percentile(hist[-252:], r.spx_rr_25d_30d)
+            hist.append(float(r.spx_rr_25d_30d))
+    session.flush()
+    return filled
+
+
 def build_row(
     session: Session,
     cboe: CboeClient,
@@ -340,6 +391,8 @@ def build_row(
     spx_rr = (
         risk_reversal(surface, delta=25.0, horizon_dte=30) if surface is not None else None
     )
+    if spx_rr is None:
+        spx_rr = _cm_rr_for(session, as_of)
     calldex_p, putdex_p, riskdex_p = (
         compute_dex_triplet(surface) if surface is not None else (None, None, None)
     )
@@ -542,6 +595,15 @@ def main() -> None:
         ]
     )
     session_factory = make_session_factory(settings)
+    import sys
+
+    if "--backfill-rr" in sys.argv[1:]:
+        # One-shot (2026-11-22): fill the NULL SPX 25d RR history from vol_surface_cm + percentiles.
+        with session_factory() as session:
+            n = backfill_rr_from_cm(session)
+            session.commit()
+        structlog.get_logger().info("index_skew.backfill_rr.done", filled=n)
+        return
     cboe = CboeClient()
     with session_factory() as session:
         run(session, cboe, settings=settings)

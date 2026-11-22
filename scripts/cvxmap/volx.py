@@ -82,7 +82,11 @@ STK = ("VIX", "DSPX", "VIXEQ")
 XV = (("VXN", "Nasdaq 100", "Equity"), ("RVX", "Russell 2000", "Equity"),
       ("VXD", "Dow 30", "Equity"), ("VIXEQ", "S&P single stocks (avg)", "Equity"),
       ("SKEW", "S&P crash-tail price", "Equity"),
-      ("VXTLT", "Treasury bonds (TLT)", "Rates"), ("OVX", "Crude oil", "Commodities"),
+      ("VXTLT", "Treasury bonds (TLT)", "Rates"),
+      # 2026-11-22: MOVE (ICE BofA Treasury option vol) - not a Cboe index, so the Cboe calls miss and the
+      # CVForge/FMP fallback (idxquote, ^MOVE) fills its quote + history.
+      ("MOVE", "Treasury yields (MOVE)", "Rates"),
+      ("OVX", "Crude oil", "Commodities"),
       ("GVZ", "Gold", "Commodities"), ("VXSLV", "Silver", "Commodities"),
       ("VXGDX", "Gold miners", "Commodities"), ("VXEEM", "Emerging markets", "World"),
       ("VXEWZ", "Brazil", "World"), ("VXAZN", "Amazon", "Single stock"))

@@ -34,7 +34,27 @@ def _day(ts: Any) -> date:
     return ts.date() if isinstance(ts, datetime) else ts
 
 
-def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[float | None]]]:
+def _fixes(session: Session, sym: str, stamps: list[datetime]) -> dict[datetime, Any]:
+    """2026-11-22: own IVs for every MORNING (08:35) book in the window (clean_iv.book_fix; None for EOD books).
+    The 08:35 vendor IV is broken on some expiries (11/13: a 0.23% IV made a fake 7,860 call wall)."""
+    out: dict[datetime, Any] = {}
+    try:
+        from trading_intel.market.clean_iv import book_fix
+    except Exception:  # noqa: BLE001
+        return out
+    for t in stamps:
+        try:
+            f = book_fix(session, sym, t)
+        except Exception as exc:  # noqa: BLE001 - never lose the wall read over the IV clean-up
+            log.warning("wall_conviction.clean_iv_failed", ts=str(t), err=str(exc)[:120])
+            f = None
+        if f is not None:
+            out[t] = f
+    return out
+
+
+def _walls(session: Session, sym: str,
+           fixes: dict[datetime, Any] | None = None) -> tuple[list[datetime], dict[str, list[float | None]]]:
     """Per-EOD-snapshot call/put wall (max summed gxoi strike, <=60 DTE)."""
     ts_rows = session.execute(
         select(OiChainEod.ts).where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"))
@@ -46,16 +66,27 @@ def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[f
     walls: dict[str, list[float | None]] = {"call": [], "put": []}
     if not stamps:
         return [], walls
+    if fixes is None:
+        fixes = {}
+    if not fixes:
+        fixes.update(_fixes(session, sym, stamps))   # filled in place so the caller reuses them
     rows = session.execute(
-        select(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike, func.sum(OiChainEod.gxoi))
+        select(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike, OiChainEod.expiry,
+               func.sum(OiChainEod.gxoi), func.sum(OiChainEod.oi))
         .where(OiChainEod.symbol == sym, OiChainEod.source.like("convex%"),
                OiChainEod.ts.in_(stamps), OiChainEod.dte.between(_DTE_MIN, _DTE_MAX))
-        .group_by(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike)
+        .group_by(OiChainEod.ts, OiChainEod.cp, OiChainEod.strike, OiChainEod.expiry)
     ).all()
+    summed: dict[tuple, float] = {}
+    for ts, cp, k, exp, g, oi in rows:
+        f = fixes.get(ts)
+        if f is not None:
+            g = f.gxoi(exp, k, cp, oi, g)
+        summed[(ts, cp, k)] = summed.get((ts, cp, k), 0.0) + (g or 0.0)
     best: dict[tuple, tuple[float, float]] = {}
-    for ts, cp, k, g in rows:
+    for (ts, cp, k), g in summed.items():
         side = "call" if str(cp).upper().startswith("C") else "put"
-        g = abs(g or 0.0)
+        g = abs(g)
         if g > best.get((ts, side), (-1.0, 0.0))[0]:
             best[(ts, side)] = (g, k)
     for ts in stamps:
@@ -65,7 +96,7 @@ def _walls(session: Session, sym: str) -> tuple[list[datetime], dict[str, list[f
 
 
 def _fixed_strike(session: Session, sym: str, strike: float, cp: str,
-                  stamps: list[datetime]) -> dict[str, Any]:
+                  stamps: list[datetime], fixes: dict[datetime, Any] | None = None) -> dict[str, Any]:
     """IV at ONE (strike, expiry) over time + today's liquidity at the wall."""
     rows = session.execute(
         select(OiChainEod.ts, OiChainEod.expiry, OiChainEod.iv, OiChainEod.oi, OiChainEod.volume)
@@ -78,7 +109,8 @@ def _fixed_strike(session: Session, sym: str, strike: float, cp: str,
     last = max(r[0] for r in rows)
     today = [r for r in rows if r[0] == last]
     track = max(today, key=lambda r: r[3] or 0)[1]
-    by_ts = {r[0]: r[2] for r in rows if r[1] == track}
+    fixes = fixes or {}
+    by_ts = {r[0]: (fixes[r[0]].iv(r[1], strike, r[2]) if r[0] in fixes else r[2]) for r in rows if r[1] == track}
     series = [(_day(t), by_ts.get(t)) for t in stamps if t in by_ts]
     return {
         "expiry": track,
@@ -122,7 +154,8 @@ def net_gex_series(session: Session, sym: str, *, days: int = 180,
 def build_wall_conviction(session: Session, symbol: str, *, today: date | None = None) -> dict[str, Any]:
     sym = symbol.strip().upper()
     today = today or eastern_today()
-    stamps, walls = _walls(session, sym)
+    fixes: dict[datetime, Any] = {}
+    stamps, walls = _walls(session, sym, fixes)
     spot_row = session.execute(
         select(GreeksSnapshot.spot).where(GreeksSnapshot.symbol == sym, GreeksSnapshot.source == "convex",
                                          GreeksSnapshot.spot.isnot(None))
@@ -133,11 +166,13 @@ def build_wall_conviction(session: Session, symbol: str, *, today: date | None =
     ).scalars().all()
     e_days = wc.earnings_days(today, list(ev))
     out: dict[str, Any] = {"symbol": sym, "spot": spot_row, "earnings_in_days": e_days,
-                           "as_of": _day(stamps[-1]) if stamps else None, "walls": {}}
+                           "as_of": _day(stamps[-1]) if stamps else None, "walls": {},
+                           "iv_source": ("own IVs from the 08:35 quote mids on %d of %d books" % (len(fixes), len(stamps))
+                                         if fixes else "vendor")}
     for side, cp in (("call", "C"), ("put", "P")):
         hist = walls.get(side) or []
         strike = next((w for w in reversed(hist) if w is not None), None)
-        fs = _fixed_strike(session, sym, strike, cp, stamps) if strike is not None else {
+        fs = _fixed_strike(session, sym, strike, cp, stamps, fixes) if strike is not None else {
             "expiry": None, "series": [], "oi": None, "volume": None}
         rank = wc.oi_rank(fs["oi"], _chain_oi(session, sym, stamps[-1], cp)) if stamps and strike else None
         read = wc.read_wall(side, spot=spot_row, wall_history=hist,

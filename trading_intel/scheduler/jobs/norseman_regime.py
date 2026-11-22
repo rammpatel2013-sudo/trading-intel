@@ -14,6 +14,7 @@ Manual run:
 
 from __future__ import annotations
 
+import os
 import sys
 import uuid
 
@@ -55,7 +56,10 @@ def run(session: Session, *, settings: Settings | None = None, dry_run: bool = F
         return len(events)
     st, new = strategy.emit_signals(session)
     session.commit()
-    if new:
+    # 2026-11-22 (Mithil: "no telegram for now" — the message looked bad and the data was broken):
+    # events are still banked + served by the MCP tool; Telegram only when NORSEMAN_TELEGRAM=1.
+    push = os.environ.get("NORSEMAN_TELEGRAM", "0") == "1"
+    if new and push:
         from trading_intel.clients.telegram import TelegramClient
 
         tg = TelegramClient(settings)

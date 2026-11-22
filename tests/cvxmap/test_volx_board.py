@@ -204,3 +204,12 @@ def test_show_tells_one_line(tmp_path, capsys):
     (tmp_path / "volx.json").write_text(json.dumps({"board": {"tells": {"err": "vol_tells not importable"}}}))
     assert X.main(["--out", str(tmp_path), "--show-tells"]) == 1
     assert X.main(["--out", str(tmp_path / "none"), "--show-tells"]) == 1
+
+
+def test_move_row_on_board():  # 2026-11-22: MOVE (Treasury option vol) added to the Rates group
+    vix = [20.0] * 300
+    h = _hist(vix, extra={"MOVE": [100.0 + 0.1 * i for i in range(300)]})
+    b = X.board(h, {"VIX": {"v": 20.0, "t": "2026-11-13T15:00:00"}}, TODAY)
+    row = next(r for r in b["rows"] if r["s"] == "MOVE")
+    assert row["grp"] == "Rates" and row["src"] == "close" and row["pct"] >= 99
+    assert "MOVE" in X.B_IDX and "MOVE" in X.XV_SYMS

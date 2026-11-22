@@ -145,6 +145,31 @@ def author_levels(session: Session) -> dict[str, Any]:
     return out
 
 
+def rail_window_start(episodes: list, high_date: date, first_date: date) -> date:
+    """Start of the breadth-rail window: the last line test BEFORE the price high (else the first bar)."""
+    before_high = [e for e in episodes if e.anchor < high_date]
+    return before_high[-1].anchor if before_high else first_date
+
+
+def sane_author_levels(levels: dict[str, Any], spx_ref: float) -> dict[str, Any]:
+    """Drop author levels that cannot be SPX (2026-11-22: the letter parse banked 3,000 / 3,150 / 3,200
+    against SPX ~7,000 and fired a false TARGET). Kept only within 0.6x-1.4x of the SPX high."""
+    out: dict[str, Any] = {}
+    bad: list[str] = []
+    for k, v in levels.items():
+        if k == "as_of" or not isinstance(v, (int, float)):
+            out[k] = v
+            continue
+        if k == "expected_move" or 0.6 * spx_ref <= float(v) <= 1.4 * spx_ref:
+            out[k] = v
+        else:
+            bad.append(k)
+    if bad:
+        out["dropped"] = sorted(bad)
+        log.warning("norseman.author_levels_off_scale", dropped=sorted(bad), spx_ref=round(spx_ref, 2))
+    return out
+
+
 # ── the read ─────────────────────────────────────────────────────────────
 
 def read_state(session: Session, *, as_of: date | None = None) -> NorsemanState | None:
@@ -171,7 +196,9 @@ def read_state(session: Session, *, as_of: date | None = None) -> NorsemanState 
     viols = nm.violations(bars, since=start) if start else []
     nxt = nm.project_session_date(today.d, 1, is_trading_session)
 
-    since = last_test.anchor if last_test else dates[0]
+    # 2026-11-22 fix: the rails must look back from the PRICE HIGH. Using the latest test as the start
+    # broke on 11/20: the test was that same day, so every rail read one row (peak = today, "no divergence").
+    since = rail_window_start(episodes, ath_bar.d, dates[0])
     rails = [
         nm.rail_read("A-D line (S&P 500)", _ad_line(session, as_of=as_of), since=since,
                      price_high_date=ath_bar.d, session_dates=dates),
@@ -184,7 +211,7 @@ def read_state(session: Session, *, as_of: date | None = None) -> NorsemanState 
     if len(sml) >= 5:  # his FIRST rail to roll over — only once enough history is banked
         rails.append(nm.rail_read("A-D line (S&P 600 small caps)", sml, since=since,
                                   price_high_date=ath_bar.d, session_dates=dates))
-    author = author_levels(session)
+    author = sane_author_levels(author_levels(session), ath_bar.high)
     ours_at_author = None
     if author.get("as_of"):
         prior = [b for b in bars if b.d <= author["as_of"]]
@@ -262,7 +289,7 @@ def detect_events(st: NorsemanState) -> list[dict[str, Any]]:
                        "text": f"SPX traded {_f(st.spx_high)} through the author's {label} "
                                f"{_f(float(lvl))}. "
                                + ("Stop and grade: does breadth confirm this high?"
-                                  if name == "assess_zone" else "Next: 8,125 ASSESS zone.")})
+                                  if name == "assess_zone" else "Next: the author's ASSESS zone.")})
 
     div = [r for r in st.dials.diverging if r.name.split(" ")[0] in CORE_RAILS]
     if st.ath_date == st.as_of and div:
@@ -303,26 +330,39 @@ def _small_caps_note(st: NorsemanState) -> str:
 
 
 def weekly_grade(st: NorsemanState) -> str:
-    """The three weekend questions, graded on our data (Telegram HTML)."""
-    q1 = ("OPEN" if st.clock_open else "NOT YET") + (
-        f" — session {st.session}/{nm.CLOCK_OPEN_SESSION}"
-        f"{'' if st.clock_open else f', opens {_md(st.clock_open_date)}'}"
-        if st.session is not None else "")
+    """The three weekend questions, graded on our data — plain words, one fact per line (2026-11-22 rewrite)."""
+    side = "above" if st.dist_to_line >= 0 else "below"
+    lines = [f"<b>Norseman weekly check — {st.as_of:%a} {_md(st.as_of)}</b>",
+             f"SPX {_f(st.spx_close, 0)} · top {_f(st.ath, 0)} on {_md(st.ath_date)}",
+             f"Bull/Bear line {_f(st.line, 0)} — SPX is {abs(st.dist_to_line):.1%} {side} it", ""]
+    if st.tapped_today and st.last_test:
+        q1 = f"YES — SPX touched the line this week ({_md(st.last_test.anchor)}). Clock reset."
+    elif st.session is not None:
+        q1 = (f"Clock open (session {st.session})" if st.clock_open else
+              f"Not yet — session {st.session} of {nm.CLOCK_OPEN_SESSION}, opens {_md(st.clock_open_date)}")
+    else:
+        q1 = "No test yet this bull"
+    lines.append(f"1) Line test? {q1}")
     n = len(st.violations)
-    q2 = ("NO" if st.spx_close >= st.line else "WEEKLY CLOSE BELOW") + (
-        f" — 10% closes this bull: {n}")
+    q2 = (f"YES — weekly close BELOW the line (#{n} this bull; a 2nd one ends the bull)"
+          if st.spx_close < st.line else f"No — weekly close above the line ({n} so far this bull)")
+    lines.append(f"2) Line broken? {q2}")
     div = st.dials.diverging
-    q3 = ("DIVERGING: " + ", ".join(f"{r.name} (gap {r.gap_sessions})" for r in div)
-          if div else "NO DIVERGENCE — rails confirmed the last high")
-    rails = "\n".join(
-        f"  · {r.name}: peak {_md(r.peak_date)} {_f(r.peak)}, now {_f(r.last)}"
-        for r in st.dials.rails if r.peak_date)
-    tg = ", ".join(f"{k} {_f(float(st.author[k]))}" for k in TARGET_NAMES if st.author.get(k))
-    return (f"<b>NMT weekly grade — {st.as_of:%a} {_md(st.as_of)}</b>\n"
-            f"SPX {_f(st.spx_close)} · ATH {_f(st.ath)} ({_md(st.ath_date)})\n"
-            f"B/BL {_f(st.line)} · {st.dist_to_line:.1%} above\n"
-            f"1) Test? {q1}\n2) Violate? {q2}\n3) Dials? {q3}\n{rails}\n"
-            + (f"Author targets: {tg} (letter {st.author.get('as_of')})" if tg else ""))
+    if div:
+        lines.append("3) Breadth warning? YES — " + ", ".join(
+            f"{r.name} peaked {_md(r.peak_date)}, {r.gap_sessions} sessions before SPX" for r in div))
+    else:
+        lines.append("3) Breadth warning? No — breadth made its high with SPX")
+    for r in st.dials.rails:
+        if r.peak_date and r.last is not None and r.peak:
+            off = f" ({r.pct_off_peak:+.1%} from peak)" if r.pct_off_peak is not None else ""
+            lines.append(f"   · {r.name}: peak {_md(r.peak_date)}{off}")
+    tg = ", ".join(f"{k.replace('_', ' ')} {_f(float(st.author[k]), 0)}" for k in TARGET_NAMES if st.author.get(k))
+    if tg:
+        lines.append(f"Author: {tg} (letter {st.author.get('as_of')})")
+    if st.author.get("dropped"):
+        lines.append("Author levels skipped — they don't look like SPX levels (letter parse problem)")
+    return "\n".join(lines)
 
 
 # ── persistence ──────────────────────────────────────────────────────────

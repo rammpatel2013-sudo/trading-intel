@@ -289,6 +289,26 @@ def upsert(hist: list[dict], row: dict) -> list[dict]:
 
 
 # ---------------------------------------------------------------- DB side
+def clean_rows(db, ts: datetime, rows: dict) -> tuple[dict, str]:
+    """Swap the vendor IV for our own (clean_iv) on a morning book; EOD/no-quote books keep vendor IV.
+    Returns (rows, iv_source). Never mutates the cached rows."""
+    s = getattr(db, "s", None)
+    if s is None:
+        return rows, "vendor"
+    try:
+        from trading_intel.market.clean_iv import book_fix
+        fix = book_fix(s, "SPX", ts)
+    except Exception:  # noqa: BLE001 - the profile must still draw on vendor IV
+        fix = None
+    if fix is None:
+        return rows, "vendor"
+    out = {}
+    for k, v in rows.items():
+        iv = fix.iv(k[0], k[1], v["iv"])
+        out[k] = {**v, "iv": float(iv) if iv and iv > 0 else v["iv"]}
+    return out, f"own ({fix.n_used} swapped)"
+
+
 def newest_book(db, now: datetime) -> tuple[datetime, str] | None:
     c = [(ts, k) for ts, k in db.books() if ts <= now]
     return c[-1] if c else None
@@ -313,7 +333,7 @@ def backfill(db, hist: list[dict], days: int = 90) -> list[dict]:
         spot = db.spot(datetime.combine(d, time(9, 35))) or db.spot(ts)
         if not spot:
             continue
-        rows = db.rows(ts, kind)
+        rows, _ = clean_rows(db, ts, db.rows(ts, kind))
         g = np.array([spot])
         L = profile_lines(rows, spot, ref, g)
         hist = upsert(hist, {"date": d.isoformat(), "spot": round(spot, 2), "full": round(float(L["full"][0]), 4),
@@ -330,7 +350,7 @@ def build(db, now: datetime) -> dict[str, Any]:
     if bk is None:
         return {"ok": False, "reason": "no stored SPX book"}
     ts, kind = bk
-    rows = db.rows(ts, kind)
+    rows, iv_source = clean_rows(db, ts, db.rows(ts, kind))
     spot = db.spot(now)
     if not spot:
         return {"ok": False, "reason": "no SPX spot"}
@@ -357,7 +377,8 @@ def build(db, now: datetime) -> dict[str, Any]:
         "ok": True, "v": 1, "sym": "SPX", "written": f"{now:%Y-%m-%d %H:%M}",
         "ref": f"{ref:%Y-%m-%d %H:%M}", "session": ref.date().isoformat(),
         "book": {"ts": f"{ts:%Y-%m-%d %H:%M}", "kind": kind, "oi_note": "open interest as of the prior close",
-                 "contracts": len(rows), "expiring_today": n0},
+                 "contracts": len(rows), "expiring_today": n0,
+                 "iv_source": iv_source},
         "spot": round(spot, 2), "grid": {"lo": float(grid[0]), "step": STEP, "n": len(grid)},
         "full": [round(float(x), 4) for x in L["full"]], "ex0": [round(float(x), 4) for x in L["ex0"]],
         "at_spot": {k: round(v, 4) for k, v in at.items()}, "pct": pct,

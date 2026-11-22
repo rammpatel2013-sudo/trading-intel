@@ -32,7 +32,20 @@ def _kinds(st: s.NorsemanState) -> list[str]:
 def test_issue_70_state_is_only_the_weekly_grade() -> None:
     assert _kinds(_state()) == ["WEEKLY_GRADE"]
     grade = s.weekly_grade(_state())
-    assert "7,035.03" in grade and "124/128" in grade and "opens 10/1" in grade
+    assert "7,035" in grade and "session 124 of 128" in grade and "opens 10/1" in grade
+    assert "10.1% above" in grade
+
+
+def test_grade_says_below_when_below() -> None:  # 2026-11-22: used to print "-2.1% above"
+    g = s.weekly_grade(_state(spx_close=6910.39, dist_to_line=6910.39 / 7060.07 - 1, line=7060.07))
+    assert "2.1% below" in g and "above it" not in g
+
+
+def test_off_scale_author_levels_dropped() -> None:  # 2026-11-22: 3,000/3,150 banked vs SPX ~7,000
+    out = s.sane_author_levels({"target": 3150.0, "key_support": 3000.0, "expected_move": 10.0,
+                                "assess_zone": 8125.0, "as_of": date(2026, 11, 21)}, 7844.52)
+    assert "target" not in out and out["assess_zone"] == 8125.0 and out["dropped"] == ["key_support", "target"]
+    assert out["expected_move"] == 10.0
 
 
 def test_clock_open_fires() -> None:
@@ -68,3 +81,10 @@ def test_assess_needs_core_rail_not_just_small_caps() -> None:
 
 def test_line_mismatch_flag() -> None:
     assert "LINE_MISMATCH" in _kinds(_state(author_line_ours=6987.06, week_close=False))
+
+
+def test_rail_window_ignores_tests_after_the_high() -> None:  # 2026-11-22: 11/20 test made every rail 1 row
+    eps = [nm.TestEpisode(date(2026, 3, 27), date(2026, 3, 30), 6316.9, 6302.0),
+           nm.TestEpisode(date(2026, 11, 20), date(2026, 11, 20), 6882.7, 7060.1)]
+    assert s.rail_window_start(eps, date(2026, 10, 6), date(2024, 1, 2)) == date(2026, 3, 30)
+    assert s.rail_window_start([], date(2026, 10, 6), date(2024, 1, 2)) == date(2024, 1, 2)
