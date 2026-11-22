@@ -240,3 +240,76 @@ def test_strike_book_every_30_minutes_plus_live():
     p = vd.payload()
     assert [b["t"] for b in p["books"]] == ["09:31", "10:00", "10:17"] and p["books"][-1]["live"] == 1
     assert "live" not in p["books"][1]
+
+
+# ---------------------------------------------------------------- 2026-11-21 C4: volume by VIX level, zones, naked POCs
+def test_volume_by_level_is_new_volume_at_the_front_forward_level():
+    vd = V.VixDay("20261106")
+    t0 = datetime.datetime(2026, 11, 6, 9, 30)
+    r1 = make_vix_rec(t0.isoformat(), vix=17.2)
+    vd.feed(L.decode(r1)["VIX"], t0)
+    first = dict(vd.vp)
+    tot1 = sum(v[0] for v in first.values())
+    ex = V.expiries(L.decode(r1)["VIX"], t0)
+    want = sum((r[3] or 0) + (r[4] or 0) for e in ex for r in e["rows"])
+    assert tot1 == pytest.approx(want)                   # first minute = the whole day's volume so far
+    # same counters a minute later -> nothing new
+    t1 = t0 + datetime.timedelta(minutes=1)
+    vd.feed(L.decode(make_vix_rec(t1.isoformat(), vix=17.2))["VIX"], t1)
+    assert sum(v[0] for v in vd.vp.values()) == pytest.approx(tot1)
+    # strike 25 of the front expiry sits at y = 25 - (front forward - VIX)
+    basis = ex[0]["F"] - 17.2
+    assert V.vp_bin(25 - basis) in first
+    p = vd.payload()
+    assert p["vp"]["bin"] == 0.05 and len(p["vp"]["lv"]) == len(p["vp"]["n"]) and p["rng"] == [17.2, 17.2]
+    assert p["poc"] in p["vp"]["lv"] and "zones" in p
+
+
+def test_vp_add_and_poc():
+    vp = {}
+    V.vp_add(vp, 19.12, 100, 60, 40)
+    V.vp_add(vp, 19.14, 50, 10, 40)            # same 0.05 bin (19.10 / 19.15 -> 19.1 and 19.15)
+    V.vp_add(vp, 22.0, 0)                      # zero volume ignored
+    pl = V.vp_payload(vp)
+    assert pl["lv"] == [19.1, 19.15] and pl["n"] == [100, 50]
+    assert V.vp_poc(pl) == 19.1
+
+
+def _day(day, pts, rng):
+    lv = sorted(pts)
+    return {"day": day, "vp": {"lv": lv, "n": [pts[y][0] for y in lv], "b": [pts[y][1] for y in lv],
+                               "s": [pts[y][2] for y in lv]}, "rng": rng}
+
+
+def test_zones_grow_label_and_gap():
+    d1 = _day("2026-11-03", {19.1: (500, 400, 100), 19.15: (400, 300, 100), 19.2: (300, 200, 100), 19.25: (100, 50, 50),
+                              19.35: (450, 10, 400), 22.6: (200, 20, 150)}, [18.5, 20.0])
+    z = V.zones([d1])
+    top = z["zones"][0]
+    assert top["poc"] == 19.1 and top["kind"] == "Demand" and top["n"] == 1200       # 19.10-19.20 (19.25 < 50% of 500)
+    assert (top["lo"], top["hi"]) == (19.075, 19.225)
+    assert all(not (19.1 - 0.3 <= q["poc"] <= 19.2 + 0.3) for q in z["zones"][1:])      # 19.35 too close -> skipped
+    assert any(q["poc"] == 22.6 and q["kind"] == "Supply" for q in z["zones"])
+    assert z["poc"] == 19.1 and z["days"] == 1
+
+
+def test_naked_pocs_untouched_by_later_ranges():
+    a = _day("2026-11-02", {23.75: (900, 500, 400), 20.0: (10, 5, 5)}, [20.0, 24.0])
+    b = _day("2026-11-03", {19.2: (800, 400, 400)}, [19.0, 21.0])      # range 19-21 does not reach 23.75
+    c = _day("2026-11-04", {18.3: (700, 300, 400)}, [18.0, 19.5])      # touches 19.2 -> not naked
+    z = V.zones([a, b, c])
+    naked = [(n["day"], n["y"]) for n in z["naked"]]
+    assert naked == [("2026-11-04", 18.3), ("2026-11-02", 23.75)]     # newest first; 11-03's 19.2 was touched on 11-04
+
+
+def test_zones_from_dir_reads_earlier_days_only(tmp_path):
+    import json
+    for ymd, pts in (("20261102", {20.0: (100, 60, 40)}), ("20261103", {21.0: (300, 100, 200)}),
+                     ("20261104", {30.0: (999, 999, 0)})):
+        d = _day(f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}", pts, [19.0, 22.0])
+        (tmp_path / f"vixmap_{ymd}.json").write_text(json.dumps({"day": d["day"], "vp": d["vp"], "rng": d["rng"]}))
+    (tmp_path / "vixmap_20261101.json").write_text(json.dumps({"day": "2026-11-01", "cols": []}))   # no vp -> skipped
+    z = V.zones_from_dir(str(tmp_path), "20261104")
+    assert z["days"] == 2 and z["from"] == "2026-11-02" and z["to"] == "2026-11-03"
+    assert [q["poc"] for q in z["zones"]] == [21.0, 20.0]
+    assert V.zones_from_dir(str(tmp_path / "missing"), "20261104")["zones"] == []
