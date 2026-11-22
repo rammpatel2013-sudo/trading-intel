@@ -44,7 +44,7 @@ UA = {"User-Agent": "Mozilla/5.0 (trading-intel fuse_tab)"}
 START = "2014-06-19"          # VIXEQ's first day = the study start
 SERIES_DAYS = 1260            # ~5 years of daily rows in the json (6M / 1Y / 3Y / 5Y windows)
 CBOE_CSV = "https://cdn.cboe.com/api/global/us_indices/daily_prices/{name}_History.csv"
-CBOE = ["COR1M", "COR3M", "COR10D", "COR90D", "VIXEQ", "VIX", "VIX9D", "VIX3M", "VVIX", "SPX", "SKEW", "VXN"]
+CBOE = ["COR1M", "COR3M", "COR10D", "COR90D", "VIXEQ", "VIX", "VIX9D", "VIX3M", "VVIX", "SPX", "SKEW", "VXN", "DSPX"]
 FMP_SYM = {"SPX": "^GSPC"}    # every other index = "^" + name
 NEED = ["VIX", "VIXEQ", "COR1M", "COR3M", "COR90D", "COR10D", "VIX9D", "VIX3M", "VVIX", "SPX"]
 
@@ -187,7 +187,7 @@ def align(S: dict) -> tuple[list, dict]:
     """Dates where every NEED series has a close (from START), MOVE / HY / SKEW / VXN forward-filled."""
     dates = sorted(d for d in set.intersection(*[set(S[k]) for k in NEED]) if d >= START)
     X = {k: [S[k][d] for d in dates] for k in NEED}
-    for k in ("MOVE", "HY", "SKEW", "VXN"):
+    for k in ("MOVE", "HY", "SKEW", "VXN", "DSPX"):
         src, out = S.get(k) or {}, []
         first = min(src) if src else None
         before = [d for d in src if dates and d < dates[0]]
@@ -433,6 +433,11 @@ def run(out: Path | None = None, page: bool = True) -> dict:
     except Exception as e:  # noqa: BLE001
         print(f"zone_cards failed: {e!r}")
         o["zones"] = {"error": repr(e)[:200]}
+    try:  # 2026-11-22: merged Risk page (risk_page.py) - rebuilt here too so it never waits for risk_tab
+        import risk_page
+        risk_page.write(out.parent)
+    except Exception as e:  # noqa: BLE001
+        print(f"risk_page failed: {e!r}")
     if page and PAGE_SRC.exists():
         shutil.copyfile(PAGE_SRC, out.parent / "fuse.html")
     return o

@@ -69,7 +69,7 @@ def test_record_labels():
 
 def test_build_and_page(tmp_path):
     ds, X = _panel()
-    o = zc.write(ds, X, tmp_path)
+    o = zc.write(ds, X, tmp_path, extra={})
     ids = {c["id"] for c in o["cards"]}
     assert {"VIX", "COR1M", "EQ_RATIO", "IVRV", "MOVE", "SKEW", "VXN", "VXN_VIX"} <= ids
     want = [g[1] for g in zc.GAUGES if g[1] in ids]
@@ -83,3 +83,13 @@ def test_build_and_page(tmp_path):
     for c in o["cards"]:
         lead, second, hist = zh.words(c)
         assert lead and second and hist
+
+
+def test_extra_series_merge_and_year_view(tmp_path):
+    ds, X = _panel()
+    ext = {"DIX": {d: 40.0 + (i % 7) for i, d in enumerate(ds[50:])}}
+    o = zc.write(ds, X, tmp_path, extra=ext)
+    dix = next(c for c in o["cards"] if c["id"] == "DIX")
+    assert dix["group"] == "pos" and dix["year"]["rank"] is not None and len(dix["year"]["vals"]) <= zc.LONGV
+    m = zc.merge_extra(ds, X, ext)
+    assert m["DIX"][49] is None and m["DIX"][50] == 40.0

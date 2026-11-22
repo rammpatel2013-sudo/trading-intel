@@ -207,5 +207,5 @@ def page(o: dict, fuse: dict | None = None) -> str:
             f'<!-- zones.html - written by scripts/zone_cards.py ({esc(o["built"])}); display only (rule 4). -->'
             f'<style>{CSS}</style></head><body><header><h1>Zone cards</h1>'
             f'<span class="asof">closes to {esc(o["asof"])} · history from {esc(o["start"][:4])}</span>'
-            f'<a class="back" href="fuse.html">← Fuse score</a></header>{fuse_strip(fuse)}<p class="how">{how}</p>'
+            f'<a class="back" href="risk.html">← Risk page</a></header>{fuse_strip(fuse)}<p class="how">{how}</p>'
             f'{cards}{JS}</body></html>')

@@ -706,6 +706,11 @@ def run(use_db: bool = True, out: Path | None = None, use_ai: bool = True) -> di
     tmp = out.with_suffix(".tmp")
     tmp.write_text(json.dumps(obj, separators=(",", ":"), allow_nan=False, default=str))
     tmp.replace(out)
+    try:  # 2026-11-22: the merged Risk page (risk_page.py) reads this file + fusetab/zonecards; never stops this job
+        import risk_page
+        risk_page.write(out.parent)
+    except Exception as e:  # noqa: BLE001
+        print(f"risk_page failed: {e!r}")
     return obj
 
 
