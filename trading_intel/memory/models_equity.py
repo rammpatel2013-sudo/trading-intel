@@ -18,14 +18,16 @@ external_nhnl          NYSE / Nasdaq new highs - new lows from thetrading.tools 
 equity_gate_daily      the "safe to buy stocks?" gate (green / amber / red) and its inputs
 equity_candidates      daily candidate list (leaders, coiled springs, breakouts)
 equity_call_iv         90-180 DTE call IV per shortlisted name (the coiled-spring "call bid" check)
+equity_stages          stage per member per day (2026-11-22, Candle Stage rules + weekly stage / Mansfield RS; 0074)
+equity_convex_picks    daily convexity lists (cheap up / cheap down / rich premium / avoid; 0074)
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, Boolean, Date, Float, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Boolean, Date, DateTime, Float, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from trading_intel.memory.models import Base
@@ -218,3 +220,56 @@ EQUITY_TABLES = (
     EquityCandidate,
     EquityCallIv,
 )
+
+
+class EquityStage(Base):
+    """Stage per index member per day (2026-11-22): the Candle Stage rules in ``equity/stages.py``.
+
+    ``code`` = 1A/1B/2A/2B/2C/2D/3A/3B/4A/4B/4C/NA, ``stage`` = its number (1-4; 0 undefined), ``xatr`` = distance
+    from the 50-day in ATR-percent units. Written by ``scheduler/jobs/stage_breadth.py`` (derived, rebuildable from
+    equity_bars). Descriptor only (rule 4).
+    """
+
+    __tablename__ = "equity_stages"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(16), primary_key=True)
+    code: Mapped[str] = mapped_column(String(2))
+    stage: Mapped[int] = mapped_column(Integer)
+    xatr: Mapped[float | None] = mapped_column(Float)
+    wstage: Mapped[int | None] = mapped_column(Integer)      # weekly 30-week stage (equity/stage_groups.py)
+    mrs: Mapped[float | None] = mapped_column(Float)         # Mansfield relative strength vs SPY, %
+
+
+class EquityConvexPick(Base):
+    """Daily convexity lists (2026-11-22, scheduler/jobs/convexity.py): one row per listed name per day.
+
+    ``bucket`` = cheap_up (calls cheap on a rising stock) / cheap_down (puts cheap on a falling stock) /
+    rich_sell (premium rich on a strong stock) / avoid (options underprice the moves on a falling stock).
+    Inputs copied from compass_daily + equity_stages so the list can be re-scored later against equity_bars
+    (paper track). ``move20`` = the 20-session move implied by IV30 (decimal). Descriptor only (rule 4).
+    """
+
+    __tablename__ = "equity_convex_picks"
+
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(16), primary_key=True)
+    bucket: Mapped[str] = mapped_column(String(12))
+    rank: Mapped[int | None] = mapped_column(Integer)
+    score: Mapped[float | None] = mapped_column(Float)
+    spot: Mapped[float | None] = mapped_column(Float)
+    iv30: Mapped[float | None] = mapped_column(Float)
+    iv_rank: Mapped[float | None] = mapped_column(Float)
+    hv10: Mapped[float | None] = mapped_column(Float)
+    carry: Mapped[float | None] = mapped_column(Float)
+    ts_30_90: Mapped[float | None] = mapped_column(Float)
+    skew25: Mapped[float | None] = mapped_column(Float)
+    skew_rank: Mapped[float | None] = mapped_column(Float)
+    code: Mapped[str | None] = mapped_column(String(2))
+    wstage: Mapped[int | None] = mapped_column(Integer)
+    mrs: Mapped[float | None] = mapped_column(Float)
+    move20: Mapped[float | None] = mapped_column(Float)
+    computed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+EQUITY_TABLES = (*EQUITY_TABLES, EquityStage, EquityConvexPick)

@@ -8,7 +8,7 @@ One page instead of three (Mithil 2026-11-22: Risk tab + Fuse tab + zone cards m
           means, and what usually came next (same event as the score: a 3%+ drop within 5 sessions)
   bottom  combinations of gauges that are on now, links to the full Fuse detail and the zone (z-score) view, method
 Reads only the evening files already written next to it: risktab.json (risk_tab.py), fusetab.json + zonecards.json
-(fuse_tab.py / zone_cards.py). Static HTML, every number and chart written in at build time; a few lines of script
+(fuse_tab.py / zone_cards.py), stagetab.json (stage_breadth job), convexity.json (convexity job). Static HTML, every number and chart written in at build time; a few lines of script
 only make a card big on click. Rebuilt at the end of BOTH risk_tab.py and fuse_tab.py, so it never waits for the
 other. Descriptor only (CLAUDE.md rule 4). No LLM, no Convex, no network.
 
@@ -50,8 +50,18 @@ CARDS = [
     ("fear", "r:vix_floor_up", "Is fear's floor rising?", "VIX low vs 3 months ago", "When even the calm days have a higher VIX than before, fear is not fully leaving.", 1, 1),
     ("fear", "r:vvix", "Fear of a fear spike", "VVIX", "What traders pay for a sudden VIX jump. High = they want crash insurance on fear itself.", 1, 0),
     ("fear", "z:VV_RATIO", "Crash insurance vs today's fear", "VVIX ÷ VIX", "High while VIX is low = traders buying protection quietly before anything happens.", 1, 2),
+    ("fear", "x:tdex", "Tail insurance: fear level or extra demand?", "Nations TailDex vs VIX, since 2013",
+     "TailDex is what far-out S&P puts cost. Divided by VIX it shows whether people pay extra for crash protection, "
+     "and where the S&P 500 sits says whether it was bought before the drop or in the flush.", 0, 0),
     ("tech", "z:VXN", "Tech fear gauge", "VXN", "What traders pay to protect the Nasdaq-100 for the next month.", 1, 1),
     ("tech", "z:VXN_VIX", "Tech fear vs S&P fear", "VXN ÷ VIX", "High = tech is priced riskier than the wider market, more than usual.", 1, 2),
+    ("together", "x:width", "Is this fear broad or narrow?", "implied correlation vs VIX, since 2006",
+     "Each grey dot is one day since 2006: how scared the index was (VIX, across) and how much stocks were priced to "
+     "move together (up). Black dots = past first days with VIX 30+. Red = now. The blue box is normal for today's VIX.",
+     0, 0),
+    ("together", "x:where", "Where the stress is, and where it is not", "sectors and industry groups",
+     "When the fear is narrow, this shows which parts of the market are taking the hit and which are holding up.",
+     0, 0),
     ("together", "r:cor1m", "Do stocks move together? (next month)", "COR1M", "High = options price stocks moving as one, so stress in a few spreads to all.", 1, 1),
     ("together", "r:cor1m_chg20", "Is that rising fast?", "COR1M 20-day change", "A sharp rise means stocks are suddenly being priced to move together.", 1, 1),
     ("together", "z:COR3M", "Do stocks move together? (3 months)", "COR3M", "The same, three months out. When the 1-month is above this, the stress is now.", 1, 1),
@@ -63,6 +73,34 @@ CARDS = [
     ("dealers", "r:our_spx_gamma", "Our S&P 500 dealer gamma", "our map", "Our own measure of the dealer cushion, and whether the S&P 500 is above or below the line where it flips.", 0, 0),
     ("dealers", "r:our_mag7_neg", "Big tech names without a cushion", "Mag7 negative gamma", "How many of the 7 biggest tech stocks have dealers on the wrong side (moves can run).", 0, 0),
     ("dealers", "r:kurt_bear", "4-part warning checklist", "Kurt Altrichter", "Dealer cushion low, big funds selling, swings growing, under 40% of stocks in an uptrend. More parts on = more risk.", 0, 0),
+    ("breadth", "x:mix", "Where stocks are in their cycle", "stage mix, S&P 1500",
+     "Every stock is put in one of four stages each night: 1 basing (flat), 2 rising, 3 topping, 4 falling. "
+     "Healthy markets have lots of green (Stage 2). Lots of red (Stage 4) = most stocks are falling.", 0, 0),
+    ("breadth", "s:STAGE2", "Stocks in a rising stage", "% in Stage 2",
+     "Share of stocks in Stage 2: price above rising short, medium and 50-day averages. Low = few stocks are "
+     "actually going up.", -1, 1),
+    ("breadth", "s:STAGE4", "Stocks in a falling stage", "% in Stage 4",
+     "Share of stocks in Stage 4: price under falling averages. High = the selling is wide.", 1, 1),
+    ("breadth", "s:NET5", "Stocks turning up minus turning down", "entered Stage 2 − Stage 4, 5 days",
+     "Over the last week, how many stocks moved into a rising stage minus how many moved into a falling stage "
+     "(as % of all). Negative = more breaking down than breaking out.", -1, 1),
+    ("breadth", "s:WOE", "Stocks above their 50, 150 and 200-day averages", "weight of evidence",
+     "The three shares averaged into one line (the \"weight of evidence\" used by stage analysts). Under 40 = most "
+     "stocks are below their trends.", -1, 1),
+    ("breadth", "s:EXT", "Stocks stretched far above trend", "Stage 2C / 2D",
+     "Share of stocks so far above their 50-day average that they usually need a rest. High = overheated.", 1, 1),
+    ("breadth", "x:moves", "Today's breakouts and breakdowns", "new Stage 2 / Stage 4",
+     "Biggest stocks that broke out into a rising stage today, and those that broke down into a falling stage.", 0, 0),
+    ("breadth", "x:wmix", "The long-term picture (weekly)", "30-week stage mix",
+     "The same four stages on weekly charts with a 30-week average, the classic slow version. It changes much less "
+     "often than the daily picture, so a shift here matters more.", 0, 0),
+    ("breadth", "s:WS2", "Stocks in a long-term uptrend", "% in weekly Stage 2",
+     "Share of stocks above a rising 30-week average. Low = few stocks are in real, lasting uptrends.", -1, 1),
+    ("breadth", "s:WS4", "Stocks in a long-term downtrend", "% in weekly Stage 4",
+     "Share of stocks below a falling 30-week average. High = lasting damage, not just a dip.", 1, 1),
+    ("breadth", "x:wmoves", "New long-term uptrends and downtrends", "weekly Stage 2 / Stage 4 this week",
+     "Stocks that started a long-term uptrend this week while beating the S&P 500, and stocks that started a "
+     "long-term downtrend.", 0, 0),
     ("breadth", "r:pct200_low", "Stocks in a long uptrend", "% above 200-day", "Share of S&P 500 stocks above their 200-day average. Under 40% = most stocks are in downtrends.", 1, 0),
     ("breadth", "r:pct50_low", "Stocks in a medium uptrend", "% above 50-day", "Share above the 50-day average.", 1, 0),
     ("breadth", "r:pct20_low", "Stocks in a short uptrend", "% above 20-day", "Share above the 20-day average. Falls first when selling spreads.", 1, 0),
@@ -83,6 +121,22 @@ CARDS = [
     ("credit", "r:move_chg20", "Is bond fear rising fast?", "MOVE 20-day change", "A jump in bond fear often spills into stocks.", 1, 0),
     ("credit", "z:SKEW", "Price of crash insurance", "Cboe SKEW", "How expensive far-out crash protection is. High = someone is paying up for a disaster hedge.", 1, 0),
     ("credit", "r:gld_lead20", "Gold beating stocks", "GLD ÷ S&P 500, 20 days", "Gold doing better than stocks = money hiding.", 1, 2),
+    ("appetite", "x:rot", "Which sectors are leading", "sector rotation vs SPY",
+     "Each dot is a sector fund compared with the S&P 500. Right = stronger than the market, top = getting "
+     "stronger. Sectors usually turn clockwise: Improving, Leading, Weakening, Lagging. The tail is the last 5 weeks.",
+     0, 0),
+    ("appetite", "x:secstage", "Sectors by stage", "share of each sector's stocks in each stage",
+     "Green = share of the sector's stocks in a rising stage, red = falling. The % is the green share; the arrow "
+     "shows how many points it moved in the last month.", 0, 0),
+    ("appetite", "s:INDPOS", "Industry groups with more rising than falling stocks", "% of groups",
+     "Of all industry groups with 4+ stocks (banks, chips, restaurants...), how many have more stocks rising than "
+     "falling. Low = weakness is spread across most of the market, not just a few corners.", -1, 1),
+    ("appetite", "x:industry", "Industry groups: strongest and weakest", "share of each group rising / falling",
+     "Where money is flowing inside the sectors. Green = share of the group's stocks rising, red = falling.", 0, 0),
+    ("appetite", "x:convex", "Where options look mispriced", "convexity lists, S&P 1500",
+     "Stocks whose options look cheap or rich against their own trend: cheap calls on rising stocks, cheap puts on "
+     "falling ones, rich premium on strong ones, and falling stocks where options underprice the moves. Full lists, "
+     "the cross-asset ETF vol board and the track record are on the Convexity page.", 0, 0),
     ("appetite", "r:hb_lb_lag20", "Risky stocks vs calm stocks", "SPHB ÷ SPLV, 20 days", "Risky stocks falling behind = investors pulling back from risk.", 1, 2),
     ("appetite", "r:xly_xlp_lag20", "Wants vs needs", "XLY ÷ XLP, 20 days", "Discretionary (wants) falling behind staples (needs) = caution.", 1, 2),
     ("appetite", "r:spx_below_ma50", "S&P 500 vs its 50-day trend", "% from 50-day", "How far the index is from its 50-day average.", 1, 2),
@@ -97,13 +151,13 @@ PHASE = {
 }
 
 
-def load(data_dir: Path) -> tuple[dict, dict, dict]:
+def load(data_dir: Path) -> tuple[dict, dict, dict, dict]:
     def rd(name):
         try:
             return json.loads((data_dir / name).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
-    return rd("risktab.json"), rd("fusetab.json"), rd("zonecards.json")
+    return rd("risktab.json"), rd("fusetab.json"), rd("zonecards.json"), rd("stagetab.json")
 
 
 def _f(v):
@@ -163,10 +217,15 @@ def from_zone(z: dict, stress: int) -> dict:
             "base": y.get("base5"), "n_on": rec.get("n"), "fast": abs(z.get("z") or 0) >= 2, "z": z.get("z")}
 
 
-def build(risk: dict, fuse: dict, zones: dict) -> dict:
+NEEDS = {"where": "sectors", "wmix": "weekly", "wmoves": "weekly", "industry": "industries", "rot": "rotation", "secstage": "sectors"}
+
+
+def build(risk: dict, fuse: dict, zones: dict, stage: dict | None = None, convex: dict | None = None) -> dict:
     base5 = 0.09
     tiles = {t["id"]: t for t in risk.get("tiles") or []}
     zc = {c["id"]: c for c in zones.get("cards") or []}
+    stage = stage or {}
+    sc = {c["id"]: c for c in stage.get("cards") or []}
     tdates = risk.get("tile_dates") or []
     cards = []
     for grp, src, title, short, means, stress, dec in CARDS:
@@ -175,13 +234,30 @@ def build(risk: dict, fuse: dict, zones: dict) -> dict:
             c = from_tile(tiles[key], tdates, base5)
         elif kind == "z" and key in zc:
             c = from_zone(zc[key], stress)
+        elif kind == "s" and key in sc:
+            c = from_zone(sc[key], stress)
+            c["role"] = "stage"
+        elif kind == "x" and key == "tdex":
+            if not (fuse.get("tdex") or {}).get("tdex"):
+                continue
+            c = {"value": None, "rank": None, "role": "special", "tdex": fuse["tdex"], "stage": stage}
+        elif kind == "x" and key == "width":
+            if not (fuse.get("width") or {}).get("vix"):
+                continue
+            c = {"value": None, "rank": None, "role": "special", "width": fuse["width"], "stage": stage}
+        elif kind == "x" and key == "convex":
+            if not (convex or {}).get("picks"):
+                continue
+            c = {"value": None, "rank": None, "role": "special", "convex": convex, "stage": stage}
+        elif kind == "x" and stage.get("asof") and stage.get(NEEDS.get(key, "asof")):
+            c = {"value": None, "rank": None, "role": "special", "stage": stage}
         else:
             continue
-        if c.get("value") is None and key not in ("kurt_bear",):
+        if c.get("value") is None and key not in ("kurt_bear",) and kind != "x":
             continue
         c.update({"id": key, "group": grp, "title": title, "short": short, "means": means, "dec": dec, "src": kind})
         cards.append(c)
-    return {"asof_risk": risk.get("asof"), "asof_fuse": fuse.get("asof") or zones.get("asof"), "score": risk.get("score"),
+    return {"asof_stage": stage.get("asof"), "asof_risk": risk.get("asof"), "asof_fuse": fuse.get("asof") or zones.get("asof"), "score": risk.get("score"),
             "flags": risk.get("flags"), "hist": risk.get("hist") or [], "fuse": fuse if fuse.get("phase") else None,
             "combos": ((risk.get("volmon") or {}).get("combos") or []), "groups": GROUPS, "cards": cards,
             "method": risk.get("method") or {}, "built": datetime.now().isoformat(timespec="seconds")}
@@ -191,8 +267,12 @@ def write(data_dir: Path = DATA_DIR) -> dict:
     """Build risk.html in data_dir from the evening files there. Atomic writes."""
     from risk_page_html import page  # same folder (scripts/)
 
-    risk, fuse, zones = load(data_dir)
-    o = build(risk, fuse, zones)
+    risk, fuse, zones, stage = load(data_dir)
+    try:
+        convex = json.loads((data_dir / "convexity.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        convex = {}
+    o = build(risk, fuse, zones, stage, convex)
     tmp = data_dir / "risk.html.tmp"
     tmp.write_text(page(o), encoding="utf-8", newline="\n")
     tmp.replace(data_dir / "risk.html")

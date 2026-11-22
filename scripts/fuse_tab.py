@@ -419,6 +419,17 @@ def run(out: Path | None = None, page: bool = True) -> dict:
     dates, X = align(S)
     o = compute(dates, X)
     o["years"] = updown_years(S["SPX"])
+    try:  # 2026-11-22: "is this fear broad or narrow?" (scripts/fear_width.py) for the Risk page; never stops the tab
+        import fear_width
+        o["width"] = fear_width.build(S["VIX"], S["COR1M"], S["SPX"])
+    except Exception as e:  # noqa: BLE001
+        print(f"fear_width failed: {e!r}")
+    try:  # 2026-11-22: Nations TailDex read (scripts/tdex_read.py) for the Risk page "fear" group; never stops the tab
+        import tdex_read
+        o["tdex"] = tdex_read.build(tdex_read.fetch(), S["VIX"], S["SPX"], S.get("VIX9D"), S.get("VIX3M"))
+        src["TDEX"] = "yahoo" if o["tdex"] else "missing"
+    except Exception as e:  # noqa: BLE001
+        print(f"tdex_read failed: {e!r}")
     o["sources"] = src
     o["built"] = datetime.now().isoformat(timespec="seconds")
     out = out or DATA_DIR / "fusetab.json"

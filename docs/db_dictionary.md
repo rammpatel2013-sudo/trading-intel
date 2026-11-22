@@ -145,6 +145,8 @@ aware UTC instant. `themes.scope` is VARCHAR in the DB, Enum in the ORM.
 | `equity_stock_factors` | symbol per day: exposures | date+symbol | `date` | equity_daily | own | derived |
 | `equity_gate_daily` | one day: market gate | date | `date` | equity_daily | own | derived |
 | `equity_candidates` | symbol × list per day | date+symbol+list_name | `date` | equity_daily | own | derived |
+| `equity_stages` | member per day: stage (1A–4C, Candle Stage rules) + stage number + xATR + weekly 30-week stage + Mansfield RS | date+symbol | `date` | stage_breadth (in the 18:00 breadth task) | from equity_bars | derived (rebuildable) |
+| `equity_convex_picks` | the daily convexity lists (cheap_up / cheap_down / rich_sell / avoid) with their inputs, for the paper track | date+symbol | `date` | convexity (TI compass task, after compass) | from compass_daily + equity_stages + earnings_events | derived (rebuildable while compass_daily is kept) |
 | `fundamentals_snapshots` | symbol per week: ratios + z-scores | symbol+ts | `ts` date | factor_scores | FMP via CVForge | raw + derived |
 | `sentiment_snapshots` | symbol per week: 13F, ratings, targets | symbol+ts | `ts` date | sentiment | FMP via CVForge | raw |
 | `estimate_snapshots` | symbol per week: next EPS/revenue est. | symbol+ts | `ts` date | estimate_snapshots | FMP via CVForge | raw |

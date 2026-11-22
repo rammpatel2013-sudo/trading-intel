@@ -75,3 +75,33 @@ def test_record_words():
     c = {"id": "x", "rate": 0.27, "base": 0.09, "hi_bad": True, "src": "r", "role": "context"}
     assert "useful warning" in rh.record(c) and "27 times in 100" in rh.record(c)
     assert "not much of a warning" in rh.record({**c, "rate": 0.1})
+
+
+def test_stage_cards_render(tmp_path):
+    st = {"asof": "2026-11-20", "n_members": 3, "counts": {"breakouts": 1, "breakdowns": 0},
+          "mix": {"dates": [f"2026-{m:02d}-{d:02d}" for m in range(1, 12) for d in range(1, 26)][:200],
+                  "s1": [10.0] * 200, "s2": [40.0] * 200, "s3": [30.0] * 200, "s4": [20.0] * 200},
+          "cards": [{"id": "STAGE2", "value": 40.0, "z": 0.1, "dates3y": ["2026-01-01"] * 50,
+                     "year": {"rank": 0.2, "q10": 20, "q25": 30, "q75": 50, "q90": 60, "base5": 0.06,
+                              "rec": {"top": {"n": 40, "rate": 0.05}, "bottom": {"n": 40, "rate": 0.12}},
+                              "vals": [40.0] * 50, "v2wk": 38.0}}],
+          "breakouts": [{"symbol": "AAA", "sector": "Technology", "ret20": 4.2}], "breakdowns": [],
+          "sectors": [{"etf": "XLK", "name": "Technology", "n": 3, "s1": 10, "s2": 40, "s3": 30, "s4": 20, "s2_20d_ago": 30}],
+          "rotation": [{"symbol": "XLK", "name": "Technology", "ratio": 101.2, "mom": 100.4, "quadrant": "Leading",
+                        "tail": [["2026-11-13", 100.5, 99.8], ["2026-11-20", 101.2, 100.4]], "vs_spy20": 2.1}],
+          "weekly": {"asof_week": "2026-11-20", "mix": {"dates": [f"2026-{m:02d}-{d:02d}" for m in range(1, 12) for d in (6, 13, 20, 27)],
+                                                       "s1": [20.0] * 44, "s2": [30.0] * 44, "s3": [25.0] * 44, "s4": [25.0] * 44},
+                     "new2": [{"symbol": "BBB", "sector": "Health", "rs": 3.1}], "new4": [],
+                     "counts": {"new2": 2, "new2_strong": 1, "new4": 0}},
+          "industries": [{"name": "Semiconductors", "sector": "Technology", "n": 19, "s2": 0.0, "s4": 84.2, "net": -84.2,
+                          "net_20d_ago": -42.1}]}
+    for name, obj in (("risktab.json", _risk()), ("zonecards.json", _zones()), ("stagetab.json", st)):
+        (tmp_path / name).write_text(json.dumps(obj), encoding="utf-8")
+    rp.write(tmp_path)
+    page = (tmp_path / "risk.html").read_text(encoding="utf-8")
+    for want in ("Where stocks are in their cycle", "Stocks in a rising stage", "Which sectors are leading",
+                 "Sectors by stage", "Broke out into a rising stage: 1 stocks", "The long-term picture (weekly)",
+                 "Started a long-term uptrend and beating the market: 1 stocks", "Industry groups: strongest and weakest",
+                 "Semiconductors"):
+        assert want in page
+    assert page.count("<script") == 1

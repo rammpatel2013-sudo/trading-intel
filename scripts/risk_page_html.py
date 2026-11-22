@@ -61,6 +61,8 @@ svg.lg{display:none} .card.big svg.sm{display:none} .card.big svg.lg{display:blo
 .combo{border-left:6px solid;padding-left:12px}
 details{margin:12px 16px;background:#fff;border:1px solid #DDE0E5;border-radius:8px;padding:12px 16px}
 summary{cursor:pointer;font-size:18px;font-weight:600}
+.card details.hist{margin:10px 0 0;padding:6px 0 0;border:0;border-top:1px solid #E5E7EB;border-radius:0;background:none}
+.card details.hist summary{font-size:16px;color:#111418} .card details.hist tr.more{display:table-row}
 .foot{margin:18px 16px 40px;font-size:15px;color:#2E3238}
 """
 
@@ -68,7 +70,7 @@ JS = """<script>
 document.querySelectorAll(".card").forEach(function(c){c.tabIndex=0;c.title="Click to make it big";
  function t(){var on=!c.classList.contains("big");document.querySelectorAll(".card.big").forEach(function(x){x.classList.remove("big")});
   if(on){c.classList.add("big");c.title="Click to make it small";c.scrollIntoView({block:"start",behavior:"smooth"})}else{c.title="Click to make it big"}}
- c.addEventListener("click",function(e){if(e.target.closest("a"))return;t()});c.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();t()}})});
+ c.addEventListener("click",function(e){if(e.target.closest("a,summary"))return;t()});c.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();t()}})});
 document.addEventListener("keydown",function(e){if(e.key==="Escape")document.querySelectorAll(".card.big").forEach(function(x){x.classList.remove("big")})});
 </script>"""
 
@@ -93,10 +95,11 @@ def status(c: dict) -> tuple[str, str, str]:
     if c.get("two"):
         return ("Unusual for this year", "#fff", RED) if r >= 0.9 else ("Unusual", "#5A3600", "#F6D9A8") if r >= 0.75 \
             else ("Normal", "#2E3238", "#E8EAED")
+    low_bad = c.get("hi_bad") is False      # the warning side is LOW readings: say "low", not "high"
     if r >= 0.9:
-        return "Very high for this year", "#fff", RED
+        return ("Very low for this year" if low_bad else "Very high for this year"), "#fff", RED
     if r >= 0.75:
-        return "High", "#5A3600", "#F6D9A8"
+        return ("Low" if low_bad else "High"), "#5A3600", "#F6D9A8"
     if r >= 0.25:
         return "Normal", "#2E3238", "#E8EAED"
     return "Calm", "#1E5A36", "#D3EDDC"
@@ -175,18 +178,29 @@ def record(c: dict) -> str:
         return f"<b>Too new to judge.</b> Our own gamma history starts in May 2026. {esc(c.get('verdict', ''))}."
     if c.get("role") == "short":
         return "<b>Only about 3 years of data,</b> so we cannot say yet how good a warning it is."
+    if c.get("role") == "stage" and c.get("rate") is None:
+        return "<b>Our stock history starts in 2023,</b> so there are not yet enough extreme days to say what came next."
     rate, base = c.get("rate"), c.get("base") or 0.09
     if rate is None:
         return "<b>Not enough past readings this extreme</b> to say what usually came next."
     side = "most stressed" if c.get("hi_bad", True) or c.get("src") == "r" else "lowest"
     ratio = rate / base if base else 0
     how = "a useful warning" if ratio >= 2 else "a mild warning" if ratio >= 1.4 else "not much of a warning on its own"
-    lead = "One of the three readings in the main score. " if c.get("role") == "score" else ""
+    lead = ("One of the three readings in the main score. " if c.get("role") == "score"
+            else "Since 2023 only (our stock history), so a rough guide. " if c.get("role") == "stage" else "")
     return (f"{lead}<b>When this was in the {side} 10% of its year,</b> the S&amp;P 500 fell 3% or more within a week "
             f"about {round(100 * rate)} times in 100. Normal is about {round(100 * base)}. So it has been {how}.")
 
 
 def card_html(c: dict) -> str:
+    if c.get("src") == "x":
+        from risk_page_stage import special_body  # same folder (scripts/)
+
+        body = special_body(c)
+        if not body:
+            return ""
+        return (f'<section class="card"><div class="hd"><div style="flex:1"><h4>{esc(c["title"])}</h4>'
+                f'<div class="short">{esc(c["short"])}</div></div></div>{body}<p class="means">{esc(c["means"])}</p></section>')
     word, fg, bg = status(c)
     pill = f'<span class="pill" style="color:{fg};background:{bg}">{word}</span>' if word else ""
     unit = esc(c.get("unit") or "")
@@ -340,6 +354,14 @@ def combos(o: dict) -> str:
                + "".join(one(c) for c in off) + "</main></details>" if off else ""))
 
 
+def _stage_css() -> str:
+    from risk_page_stage import STAGE_CSS  # same folder (scripts/)
+    from risk_page_convex import CONVEX_CSS
+    from risk_page_width import WIDTH_CSS
+
+    return STAGE_CSS + WIDTH_CSS + CONVEX_CSS
+
+
 def page(o: dict) -> str:
     secs = []
     for gid, q, about in o.get("groups") or []:
@@ -347,7 +369,7 @@ def page(o: dict) -> str:
         if not cs:
             continue
         hot = sum(1 for c in cs if (c.get("rank") or 0) >= 0.9)
-        cnt = f"{hot} of {len(cs)} very high for their year" if hot else "none very high"
+        cnt = f"{hot} of {len(cs)} at a 1-year extreme" if hot else "none at a 1-year extreme"
         secs.append(f'<div class="grp"><h3>{esc(q)}<span class="cnt{"" if hot else " ok"}">{cnt}</span></h3><p>{esc(about)}</p></div>'
                     f'<main>{"".join(card_html(c) for c in cs)}</main>')
     asof = o.get("asof_risk") or o.get("asof_fuse") or ""
@@ -357,11 +379,12 @@ def page(o: dict) -> str:
              "Nothing here is a buy or sell signal.")
     return (f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>Risk</title><!-- risk.html - written by scripts/risk_page.py ({esc(o.get("built"))}); display only (rule 4). -->'
-            f'<style>{CSS}</style></head><body><header><h1>Risk</h1><span class="asof">closing data of {esc(asof)}</span>'
-            f'<span class="links"><a href="fuse.html">Correlation fuse detail</a><a href="zones.html">Speed view (z-scores)</a></span></header>'
+            f'<style>{CSS}{_stage_css()}</style></head><body><header><h1>Risk</h1><span class="asof">closing data of {esc(asof)}</span>'
+            f'<span class="links"><a href="fuse.html">Correlation fuse detail</a><a href="zones.html">Speed view (z-scores)</a><a href="convexity.html">Convexity</a></span></header>'
             f'<p class="intro">{intro}</p>{flags(o)}<div class="top">{verdict(o)}{fuse_box(o)}</div>'
             f'{"".join(secs)}{combos(o)}'
             f'<p class="foot">How it was built: the drop chance is a model of three readings (fear level, fear now vs 3 months, '
             f'Chicago Fed financial stress), trained and tested on 2010&ndash;2026 data, each half checked on years it never saw. '
             f'Every card&rsquo;s &ldquo;what usually came next&rdquo; counts the same event: the S&amp;P 500 closing 3% or more below the day&rsquo;s close '
             f'at some point in the next 5 trading days. Built {esc(o.get("built"))}.</p>{JS}</body></html>')
+
