@@ -70,6 +70,26 @@ def _term_structure(cboe: CboeClient) -> dict[str, float | None]:
 _CREDIT_BACKFILL_OBS = 10
 
 
+#: vix_data column -> Cboe history file name (``<name>_History.csv``).
+_HISTORY_NAMES = {"VIX": "VIX", "VVIX": "VVIX", "VIX9D": "VIX9D", "VIX3M": "VIX3M", "VIX6M": "VIX6M"}
+
+
+def _history_close(cboe: CboeClient, name: str, as_of: date) -> float | None:
+    """Close for ``as_of`` from Cboe's daily history file; ``None`` when the file or the date is
+    missing. 2026-11-21: on 11/20 the live quote feed returned nothing for all five (VIX 27 -> 40
+    day filed empty) - the history file is the second source, and the only one for a past date."""
+    getter = getattr(cboe, "index_history", None)
+    if getter is None:
+        return None
+    try:
+        for d, v in getter(name) or []:
+            if d == as_of:
+                return float(v)
+    except Exception as exc:  # a broken history file must not kill the snapshot
+        log.warning("vix_snapshot.history_failed", name=name, error=str(exc)[:120])
+    return None
+
+
 def _dated(series: pd.Series | None) -> dict[date, float]:
     """``{observation date: value}`` for a FRED series; ``{}`` when it carries no dates.
 
@@ -151,6 +171,7 @@ def run(
     *,
     as_of: date | None = None,
     move_close: Callable[[date], float | None] | None = None,
+    live: bool = True,
 ) -> None:
     """Fetch today's macro vol snapshot and upsert it into ``vix_data``.
 
@@ -168,8 +189,21 @@ def run(
     # First: a failed rv20 read rolls the session back, which would undo the credit
     # back-fill below if it ran later.
     rv20 = _latest_realized_vol(session)
-    vvix = cboe.vvix()
-    term = _term_structure(cboe)
+    # live=False (``--as-of`` re-run of a past day): the live quotes belong to today, so only the
+    # history files are read.
+    vvix = cboe.vvix() if live else None
+    term = dict(_term_structure(cboe)) if live else {}
+    missing = [k for k in _HISTORY_NAMES if (vvix if k == "VVIX" else term.get(k)) is None]
+    for k in missing:
+        v = _history_close(cboe, _HISTORY_NAMES[k], as_of)
+        if k == "VVIX":
+            vvix = v
+        else:
+            term[k] = v
+    if missing:
+        log.warning("vix_snapshot.quote_gaps_filled_from_history", date=as_of.isoformat(),
+                    live=live, missing=missing,
+                    still_missing=[k for k in missing if (vvix if k == "VVIX" else term.get(k)) is None])
     vix = term.get("VIX")
     if vix is None:
         vix = _fred_same_day_vix(fred, as_of)
@@ -258,8 +292,14 @@ def main() -> None:
             return None
     except Exception as exc:  # no CVForge key on this box: MOVE stays empty, as before
         log.warning("vix_snapshot.move_client_unavailable", error=str(exc)[:120])
+    import argparse
+
+    ap = argparse.ArgumentParser(description="VIX / VVIX / term / credit snapshot")
+    ap.add_argument("--as-of", help="YYYY-MM-DD: re-file a past session from the history files")
+    args = ap.parse_args()
+    as_of = date.fromisoformat(args.as_of) if args.as_of else None
     with session_factory() as session:
-        run(session, fred, cboe, move_close=move_close)
+        run(session, fred, cboe, as_of=as_of, move_close=move_close, live=as_of is None)
 
 
 if __name__ == "__main__":

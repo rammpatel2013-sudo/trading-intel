@@ -51,7 +51,89 @@ def _row(p: TasPrint) -> dict[str, Any]:
         "delta": p.delta,
         "iv": p.iv,
         "spot": p.spot,
+        "price": p.price,
     }
+
+
+
+#: rows read before merging; the merged list is cut to ``limit`` afterwards.
+_FETCH = 3000
+#: legs of one structure must trade within this size ratio (else they are separate trades).
+_SIZE_MATCH = 0.75
+
+
+def _fin(p: TasPrint) -> bool:
+    """Financing recomputed with the current rule (stored tags before 2026-11-21 used |delta| >= 0.85)."""
+    from trading_intel.scheduler.jobs.tas_capture_job import _is_financing
+
+    dte = (p.expiry - p.trade_date).days if (p.expiry and p.trade_date) else None
+    return _is_financing(p.cp, p.delta, dte)
+
+
+def _blocks(rows: list[TasPrint]) -> list[dict[str, Any]]:
+    """Merge prints of the SAME contract in the SAME second at the same price into one block.
+
+    2026-11-21: the 11/17 13,113-lot Nov 20 7,500P sale printed as 8 pieces (5,200 / 1,300 / ...)
+    across 4 leg groups - each piece alone looked small or got glued to an unrelated leg.
+    """
+    out: dict[tuple, dict[str, Any]] = {}
+    for p in rows:
+        sec = p.ts.replace(microsecond=0) if p.ts else None
+        key = (p.symbol, sec, round(p.price or 0.0, 2))
+        b = out.get(key)
+        if b is None:
+            b = _row(p) | {"prints": 0, "size": 0, "notional": 0.0, "leg_groups": set()}
+            b["is_financing"] = _fin(p)
+            out[key] = b
+        b["prints"] += 1
+        b["size"] += p.size or 0
+        b["notional"] += p.notional or 0.0
+        if p.leg_group:
+            b["leg_groups"].add(p.leg_group)
+    return list(out.values())
+
+
+def _structures(blocks: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Blocks sharing a stored leg_group form one structure if their sizes match; else outrights."""
+    parent = list(range(len(blocks)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    owner: dict[str, int] = {}
+    for i, b in enumerate(blocks):
+        for lg in b["leg_groups"]:
+            if lg in owner:
+                parent[find(i)] = find(owner[lg])
+            else:
+                owner[lg] = i
+    comps: dict[int, list[dict[str, Any]]] = {}
+    for i, b in enumerate(blocks):
+        comps.setdefault(find(i), []).append(b)
+
+    structures: list[dict[str, Any]] = []
+    outrights: list[dict[str, Any]] = []
+    for legs in comps.values():
+        sizes = [l["size"] for l in legs]
+        if len(legs) < 2 or min(sizes) < _SIZE_MATCH * max(sizes):
+            outrights.extend(legs)
+            continue
+        legs_sorted = sorted(legs, key=lambda x: (x["expiry"] or "", x["strike"] or 0.0))
+        cps = {(l["expiry"], l["strike"], l["cp"]) for l in legs}
+        box = any((e, k, "C") in cps and (e, k, "P") in cps for e, k, _ in cps)
+        structures.append({
+            "leg_group": sorted({g for l in legs for g in l["leg_groups"]})[0],
+            "premium": round(sum(l["notional"] for l in legs), 2),
+            "n_legs": len(legs),
+            "expiries": sorted({l["expiry"] for l in legs if l["expiry"]}),
+            "strikes": sorted({l["strike"] for l in legs if l["strike"] is not None}),
+            "financing": box or all(l["is_financing"] for l in legs),
+            "legs": legs_sorted,
+        })
+    return structures, outrights
 
 
 def get_index_bigtrades(
@@ -65,6 +147,8 @@ def get_index_bigtrades(
     Returns ``{as_of, source, n, structures:[{leg_group, legs:[...], premium}],
     outrights:[...]}``. ``found=False`` when the collector hasn't stored index
     prints yet (needs the ``tas_capture`` un-exclude live + migration 0041).
+    Same-second prints of one contract are merged first; financing (box / synthetic / deep-ITM
+    long-dated) structures and outrights are listed AFTER real flow, so they can't crowd it out.
     """
     if trade_date:
         day: date | None = date.fromisoformat(trade_date)
@@ -79,37 +163,23 @@ def get_index_bigtrades(
         select(TasPrint)
         .where(TasPrint.source == _SOURCE, TasPrint.trade_date == day)
         .order_by(TasPrint.notional.desc())
-        .limit(limit)
+        .limit(max(_FETCH, limit))
     ).scalars().all()
     if not rows:
         return {"found": False, "as_of": day.isoformat(), "source": _SOURCE}
 
-    # group by leg_group (a real structure); NULL/empty = standalone outright
-    groups: dict[str, list[TasPrint]] = {}
-    outrights: list[dict[str, Any]] = []
-    for p in rows:
-        if p.leg_group:
-            groups.setdefault(p.leg_group, []).append(p)
-        else:
-            outrights.append(_row(p))
-
-    structures: list[dict[str, Any]] = []
-    for lg, legs in groups.items():
-        if len(legs) < 2:  # a singleton that happened to carry a group id → treat as outright
-            outrights.append(_row(legs[0]))
-            continue
-        legs_sorted = sorted(legs, key=lambda x: (x.expiry or date.min, x.strike or 0.0))
-        structures.append({
-            "leg_group": lg,
-            "premium": round(sum(l.notional or 0.0 for l in legs), 2),
-            "n_legs": len(legs),
-            "expiries": sorted({l.expiry.isoformat() for l in legs if l.expiry}),
-            "strikes": sorted({l.strike for l in legs if l.strike is not None}),
-            "financing": any(l.is_financing for l in legs),
-            "legs": [_row(l) for l in legs_sorted],
-        })
-    structures.sort(key=lambda s: s["premium"], reverse=True)
-    outrights.sort(key=lambda o: o.get("notional") or 0.0, reverse=True)
+    structures, outrights = _structures(_blocks(rows))
+    for x in structures:
+        for l in x["legs"]:
+            l["leg_groups"] = sorted(l["leg_groups"])
+    for o in outrights:
+        o["leg_groups"] = sorted(o["leg_groups"])
+    # real flow first, financing after; each by premium
+    structures.sort(key=lambda s: (s["financing"], -s["premium"]))
+    outrights.sort(key=lambda o: (bool(o["is_financing"]), -(o.get("notional") or 0.0)))
+    n_items = max(1, limit)
+    structures = structures[:n_items]
+    outrights = outrights[:n_items]
 
     return {
         "found": True,
@@ -120,5 +190,7 @@ def get_index_bigtrades(
         "n_outrights": len(outrights),
         "structures": structures,
         "outrights": outrights,
-        "note": "side is per-leg aggressor, NOT trade direction; read leg_group structures.",
+        "note": ("side is per-leg aggressor, NOT trade direction; read leg_group structures. "
+                 "Same-second prints of one contract are merged (prints = pieces); "
+                 "financing items listed after real flow."),
     }

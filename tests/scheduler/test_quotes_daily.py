@@ -119,3 +119,30 @@ def test_default_symbols_include_regime_refs_once() -> None:
         WATCHLIST="SPY", REGIME_REF_SYMBOLS="SPY,RSP",
     )
     assert s.regime_ref_symbols == ["SPY", "RSP"]
+
+
+class _LateCloseSource(FakePriceSource):
+    """Same history; every close raised by ``bump`` (the vendor's bar after the official close)."""
+
+    def __init__(self, bump: float) -> None:
+        super().__init__(n=40)
+        self._bump = bump
+
+    def daily_history(self, symbol: str, *, period: str = "5y") -> pd.DataFrame:
+        df = super().daily_history(symbol, period=period)
+        df["close"] = df["close"] + self._bump
+        return df
+
+
+def test_newest_bars_are_corrected_older_bars_kept(session: Session):
+    """2026-11-21: SPX 11/20 was filed 6,901.86 (bar taken before the official 6,910.79) and locked."""
+    s = _settings()
+    quotes_daily.run(session, FakePriceSource(n=40), settings=s, period="max")
+    first = [r.close for r in session.execute(select(EquityBar).order_by(EquityBar.date)).scalars()]
+    quotes_daily.run(session, _LateCloseSource(9.0), settings=s, period="max")
+    session.expire_all()
+    after = [r.close for r in session.execute(select(EquityBar).order_by(EquityBar.date)).scalars()]
+    k = quotes_daily.REFRESH_DAYS
+    assert len(after) == 40
+    assert after[:-k] == first[:-k]                                   # settled bars untouched
+    assert after[-k:] == pytest.approx([c + 9.0 for c in first[-k:]])  # newest bars rewritten

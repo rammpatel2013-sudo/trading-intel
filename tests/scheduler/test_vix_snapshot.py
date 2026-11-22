@@ -179,3 +179,36 @@ def test_move_close_is_filed_and_failure_is_harmless(session: Session):
 
     vix_snapshot.run(session, _fred(), FakeCboe(95.0, {"VIX": 15.0}), as_of=TUE, move_close=boom)
     assert session.get(VixData, TUE).move is None
+
+
+class HistCboe(FakeCboe):
+    """Live feed empty (11/20 failure mode); history files carry the day."""
+
+    def __init__(self, hist):
+        super().__init__(None, {})
+        self._hist = hist
+
+    def index_history(self, name):
+        return self._hist.get(name, [])
+
+
+def test_empty_live_feed_is_filled_from_history_files(session: Session):
+    hist = {"VIX": [(THU, 18.0), (FRI, 40.0)], "VVIX": [(FRI, 150.0)], "VIX9D": [(FRI, 45.0)],
+            "VIX3M": [(FRI, 30.0)], "VIX6M": [(FRI, 28.0)]}
+    vix_snapshot.run(session, _fred(), HistCboe(hist), as_of=FRI)
+    row = session.get(VixData, FRI)
+    assert (row.vix, row.vvix, row.vix9d, row.vix3m, row.vix6m) == (40.0, 150.0, 45.0, 30.0, 28.0)
+
+
+def test_past_day_rerun_ignores_live_quotes(session: Session):
+    class Both(HistCboe):
+        def vvix(self):
+            return 999.0  # today's live value - must not be filed under a past day
+
+        def term_structure(self):
+            return {"VIX": 99.0}
+
+    vix_snapshot.run(session, _fred(), Both({"VIX": [(FRI, 40.0)], "VVIX": [(FRI, 150.0)]}),
+                     as_of=FRI, live=False)
+    row = session.get(VixData, FRI)
+    assert row.vix == pytest.approx(40.0) and row.vvix == pytest.approx(150.0)

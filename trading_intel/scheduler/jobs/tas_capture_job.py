@@ -147,11 +147,16 @@ def _is_financing(cp: str | None, delta: float | None, dte: int | None) -> bool:
     the surviving put leg looking like genuine one-sided put flow -- i.e. it read as
     bearish accumulation when it is pure interest-rate financing. Delta is signed, so
     the |delta| test is symmetric across cp.
+
+    2026-11-21: a SHORT-dated |delta| 0.85-0.97 option is real flow, not financing - the
+    13,113 Nov 20 7,500P sold 11/17 at $167.80 (~$220M, delta -0.87, 3 days left) was tagged
+    financing and dropped from the big-trades read. Financing now = |delta| >= 0.97 (box /
+    synthetic legs, any expiry), >= 0.85 with >= 30 days, or >= 0.70 with >= 365 days.
     """
     if cp not in ("C", "P") or delta is None or dte is None:
         return False
     ad = abs(delta)
-    return ad >= 0.85 or (ad >= 0.70 and dte >= 365)
+    return ad >= 0.97 or (ad >= 0.85 and dte >= 30) or (ad >= 0.70 and dte >= 365)
 
 
 def _row_record(

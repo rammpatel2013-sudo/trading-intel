@@ -2,9 +2,9 @@
 
 Pulls daily OHLCV for every watchlist symbol from a ``PriceDataSource``
 (FMP via CVForge since the 2026-11-14 Yahoo exit), computes annualized realized vol (rv20/rv60), and upserts
-one ``quotes_daily`` row per (symbol, date). Idempotent: ``INSERT ... ON CONFLICT
-(symbol, date) DO NOTHING`` (CLAUDE.md rule 5), so a re-run — or the daily job
-overlapping the backfill — never duplicates or rewrites a settled bar.
+one ``quotes_daily`` row per (symbol, date). Idempotent (CLAUDE.md rule 5): ``ON CONFLICT
+(symbol, date) DO NOTHING`` for settled bars, so a re-run never duplicates or rewrites them;
+the newest ``REFRESH_DAYS`` bars are UPDATEd (vendor bars pulled before the official close).
 
 Used two ways:
 
@@ -38,6 +38,8 @@ from trading_intel.watchlist import effective_symbols
 log = structlog.get_logger(__name__)
 
 _UQ_COLS = ["symbol", "date"]
+#: newest bars rewritten on every run (vendor bar taken before the official close gets corrected).
+REFRESH_DAYS = 3
 _PRICE_COLS = ("open", "high", "low", "close")
 
 
@@ -140,15 +142,28 @@ def run(
             continue
 
         # 2026-11-19 (DB wave A2 step 7b): equity_bars owns daily bars; quotes_daily is a VIEW over it (alembic
-        # 0065: rv20 / rv60 computed in the view). Never overwrite equity_bars rows.
+        # 0065: rv20 / rv60 computed in the view). Settled bars are never overwritten.
+        # 2026-11-21: EXCEPT the newest REFRESH_DAYS bars - the 16:xx run gets the vendor's bar before the
+        # official close (SPX 11/20 filed 6,901.86 vs 6,910.79; 11/19 7,177.14 vs 7,175.89) and
+        # do-nothing locked it in. The next run now rewrites those recent bars.
         eq = [
             {k: r[k] for k in ("date", "open", "high", "low", "close", "volume")} | {"symbol": normalize_symbol(symbol)}
             for r in records
             if r.get("close") is not None
         ]
         if eq:
+            eq.sort(key=lambda r: r["date"])
+            old_rows, recent = eq[:-REFRESH_DAYS], eq[-REFRESH_DAYS:]
+            if old_rows:
+                session.execute(
+                    pg_insert(EquityBar).values(old_rows).on_conflict_do_nothing(index_elements=["symbol", "date"])
+                )
+            ins = pg_insert(EquityBar).values(recent)
             session.execute(
-                pg_insert(EquityBar).values(eq).on_conflict_do_nothing(index_elements=["symbol", "date"])
+                ins.on_conflict_do_update(
+                    index_elements=["symbol", "date"],
+                    set_={c: ins.excluded[c] for c in ("open", "high", "low", "close", "volume")},
+                )
             )
         rows_written += len(records)
         bound.debug("quotes_daily.symbol", symbol=symbol, rows=len(records))
